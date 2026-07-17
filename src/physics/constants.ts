@@ -9,6 +9,9 @@ export const R_EARTH = 6371.0;
 /** Moon mean radius (km) */
 export const R_MOON = 1737.4;
 
+/** Sun mean radius (km) */
+export const R_SUN = 695_700;
+
 /** Earth gravitational parameter (km³/s²) */
 export const MU_EARTH = 398600.4418;
 

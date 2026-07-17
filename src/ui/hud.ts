@@ -73,6 +73,9 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
     } else if (e.key === "4") {
       handlers.onCamera("moon");
       setActiveCamera("moon");
+    } else if (e.key === "5") {
+      handlers.onCamera("solar");
+      setActiveCamera("solar");
     }
   });
 

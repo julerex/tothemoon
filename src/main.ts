@@ -47,9 +47,9 @@ renderer.toneMappingExposure = 1.05;
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
 
-const { scene, sun } = createScene();
+const { scene, sunLight } = createScene();
 const bodies = createBodies();
-scene.add(bodies.earthGroup, bodies.moonGroup);
+scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
 const trailPts = cache.trailPoints(1500);
 scene.add(createTrailFromPoints(trailPts));
@@ -111,13 +111,13 @@ function applyMissionState(u: number): void {
 
   // Sun light from ephemeris (direction only — avoid AU-scale light positions)
   const b = bodyPositions(frame.t);
-  sun.position.set(
+  sunLight.position.set(
     b.sun.x - b.earth.x,
     b.sun.y - b.earth.y,
     b.sun.z - b.earth.z,
   );
-  sun.target.position.set(0, 0, 0);
-  sun.target.updateMatrixWorld();
+  sunLight.target.position.set(0, 0, 0);
+  sunLight.target.updateMatrixWorld();
 
   const mode = director.getMode();
   updateLocatorVisibility(locator, camera, craftPos, {

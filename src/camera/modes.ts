@@ -1,9 +1,15 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { A_EM, R_EARTH, R_MOON } from "../physics/constants";
+import { A_EM, AU, R_EARTH, R_MOON } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 
-export type CameraMode = "free" | "earth" | "chase" | "moon";
+export type CameraMode = "free" | "earth" | "chase" | "moon" | "solar";
+
+const FAR_CISLUNAR = AU * 2.5;
+/** Far enough for a north-pole view that frames Sun + Earth (~1 AU span). */
+const FAR_SOLAR = AU * 4;
+/** Height above the ecliptic so both Sun and Earth sit in a 50° FOV with margin. */
+const SOLAR_VIEW_HEIGHT = AU * 1.35;
 
 export class CameraDirector {
   readonly controls: OrbitControls;
@@ -25,7 +31,7 @@ export class CameraDirector {
     // System overview: EM barycenter region
     this.camera.position.set(-A_EM * 0.15, A_EM * 0.55, A_EM * 1.1);
     this.camera.near = 0.1;
-    this.camera.far = A_EM * 20;
+    this.camera.far = FAR_CISLUNAR;
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
@@ -40,10 +46,13 @@ export class CameraDirector {
 
     if (mode === "chase") {
       this.camera.near = 0.001;
-      this.camera.far = A_EM * 5;
+      this.camera.far = FAR_CISLUNAR;
+    } else if (mode === "solar") {
+      this.camera.near = AU * 0.01;
+      this.camera.far = FAR_SOLAR;
     } else {
       this.camera.near = 1;
-      this.camera.far = A_EM * 20;
+      this.camera.far = FAR_CISLUNAR;
     }
     this.camera.updateProjectionMatrix();
   }
@@ -99,6 +108,17 @@ export class CameraDirector {
           b.moon.y + pull * 0.35,
           b.moon.z + pull * 0.5,
         );
+        break;
+      }
+
+      case "solar": {
+        // Top-down Sun–Earth system: look from ecliptic north (+Z) at the
+        // Sun–Earth midpoint so both bodies sit in frame.
+        const midX = (b.sun.x + b.earth.x) * 0.5;
+        const midY = (b.sun.y + b.earth.y) * 0.5;
+        const midZ = (b.sun.z + b.earth.z) * 0.5;
+        this.desiredTarget.set(midX, midY, midZ);
+        this.desiredPos.set(midX, midY, midZ + SOLAR_VIEW_HEIGHT);
         break;
       }
     }

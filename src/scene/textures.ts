@@ -74,6 +74,25 @@ export function makeMoonTexture(size = 512): HTMLCanvasElement {
   return canvas;
 }
 
+/** Soft radial disc for sun corona / lens-flare shine (additive sprites). */
+export function makeSunGlowTexture(size = 256): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const c = size * 0.5;
+  const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+  g.addColorStop(0, "rgba(255, 255, 250, 1)");
+  g.addColorStop(0.08, "rgba(255, 244, 180, 0.95)");
+  g.addColorStop(0.22, "rgba(255, 200, 80, 0.55)");
+  g.addColorStop(0.45, "rgba(255, 140, 40, 0.18)");
+  g.addColorStop(0.7, "rgba(255, 100, 20, 0.05)");
+  g.addColorStop(1, "rgba(255, 80, 0, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return canvas;
+}
+
 export function makeStarTexture(size = 1024): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = size;
