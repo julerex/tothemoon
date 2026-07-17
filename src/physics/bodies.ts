@@ -30,8 +30,12 @@ const _moonVel = v3();
 /** Moon true anomaly offset at t=0 (rad). Tuned by mission search. */
 let moonPhase0 = 0;
 
-/** Sun ecliptic longitude offset at t=0 (rad). */
-const sunPhase0 = Math.PI; // opposite Moon side for nice lighting
+/**
+ * Sun inertial angle offset at t=0 (rad).
+ * Set from July 2027 epoch so landing geometry is a waning gibbous
+ * (see epoch.ts); default π is a placeholder until the trajectory loads.
+ */
+let sunPhase0 = Math.PI;
 
 export function setMoonPhase0(phase: number): void {
   moonPhase0 = phase;
@@ -39,6 +43,14 @@ export function setMoonPhase0(phase: number): void {
 
 export function getMoonPhase0(): number {
   return moonPhase0;
+}
+
+export function setSunPhase0(phase: number): void {
+  sunPhase0 = phase;
+}
+
+export function getSunPhase0(): number {
+  return sunPhase0;
 }
 
 export function bodyPositions(t: number, out?: BodyState): BodyState {

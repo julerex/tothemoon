@@ -1,8 +1,13 @@
 import * as THREE from "three";
 import { MissionClock } from "./mission/clock";
 import { TrajectoryCache } from "./physics/trajectoryCache";
-import { bodyPositions, setMoonPhase0 } from "./physics/bodies";
+import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./physics/bodies";
 import { R_MOON } from "./physics/constants";
+import {
+  daysPastFullAtLanding,
+  formatMissionDateUtc,
+  sunPhase0ForLanding,
+} from "./physics/epoch";
 import { createScene } from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
@@ -32,6 +37,12 @@ const cache = recompute
   ? TrajectoryCache.compute()
   : TrajectoryCache.loadPrecomputed();
 setMoonPhase0(cache.moonPhase0);
+// Align Sun so landing (t = duration) matches 2027-07-20 waning gibbous geometry
+const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
+setSunPhase0(sun0);
+console.info(
+  `[tothemoon] Epoch landing 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · sunPhase0=${sun0.toFixed(4)}`,
+);
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -141,6 +152,7 @@ function applyMissionState(u: number): void {
     altitude,
     speed: frame.speed,
     playing: clock.playing,
+    dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
   });
 
   // Auto-pause on landing at end

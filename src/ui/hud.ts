@@ -16,6 +16,7 @@ export type Telemetry = {
   altitude: number;
   speed: number;
   playing: boolean;
+  dateUtc: string;
 };
 
 export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
@@ -26,6 +27,7 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
   const scrub = el<HTMLInputElement>("#scrub");
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
+  const dateEl = document.querySelector<HTMLElement>("#date");
   const distEl = el<HTMLElement>("#distance");
   const progEl = el<HTMLElement>("#progress");
   const altEl = el<HTMLElement>("#tel-altitude");
@@ -91,6 +93,7 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
     const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
     phaseEl.textContent = tel.phase;
     timeEl.textContent = formatMissionTime(tel.t);
+    if (dateEl) dateEl.textContent = tel.dateUtc;
     distEl.textContent = formatDistance(tel.distanceToMoon);
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
