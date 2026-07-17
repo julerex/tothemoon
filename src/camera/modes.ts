@@ -1,0 +1,110 @@
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { A_EM, R_EARTH, R_MOON } from "../physics/constants";
+import { bodyPositions } from "../physics/bodies";
+
+export type CameraMode = "free" | "earth" | "chase" | "moon";
+
+export class CameraDirector {
+  readonly controls: OrbitControls;
+  private mode: CameraMode = "free";
+  private readonly desiredPos = new THREE.Vector3();
+  private readonly desiredTarget = new THREE.Vector3();
+  private readonly tmp = new THREE.Vector3();
+
+  constructor(
+    private readonly camera: THREE.PerspectiveCamera,
+    domElement: HTMLElement,
+  ) {
+    this.controls = new OrbitControls(camera, domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.06;
+    this.controls.minDistance = R_EARTH * 1.5;
+    this.controls.maxDistance = A_EM * 3;
+    this.controls.target.set(0, 0, 0);
+    // System overview: EM barycenter region
+    this.camera.position.set(-A_EM * 0.15, A_EM * 0.55, A_EM * 1.1);
+    this.camera.near = 0.1;
+    this.camera.far = A_EM * 20;
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+  }
+
+  getMode(): CameraMode {
+    return this.mode;
+  }
+
+  setMode(mode: CameraMode): void {
+    this.mode = mode;
+    this.controls.enabled = mode === "free";
+
+    if (mode === "chase") {
+      this.camera.near = 0.001;
+      this.camera.far = A_EM * 5;
+    } else {
+      this.camera.near = 1;
+      this.camera.far = A_EM * 20;
+    }
+    this.camera.updateProjectionMatrix();
+  }
+
+  update(
+    dt: number,
+    simTime: number,
+    craftPos: THREE.Vector3,
+    craftVel: THREE.Vector3,
+  ): void {
+    const lerp = 1 - Math.exp(-3.5 * dt);
+    const b = bodyPositions(simTime);
+
+    switch (this.mode) {
+      case "free":
+        this.controls.update();
+        return;
+
+      case "earth": {
+        this.desiredTarget.set(b.earth.x, b.earth.y, b.earth.z);
+        const t = performance.now() * 0.00004;
+        const R = R_EARTH * 4.5;
+        this.desiredPos.set(
+          b.earth.x + R * Math.cos(t),
+          b.earth.y + R_EARTH * 1.8,
+          b.earth.z + R * Math.sin(t),
+        );
+        break;
+      }
+
+      case "chase": {
+        const speed = craftVel.length() || 1;
+        this.tmp.copy(craftVel).normalize();
+        // Offset behind and above — scale with a floor so tiny craft is framed
+        const back = THREE.MathUtils.clamp(speed * 0.4, 0.08, 8);
+        const up = THREE.MathUtils.clamp(back * 0.35, 0.03, 3);
+        this.desiredPos.copy(craftPos).addScaledVector(this.tmp, -back);
+        this.desiredPos.y += up;
+        this.desiredTarget.copy(craftPos).addScaledVector(this.tmp, back * 0.5);
+        break;
+      }
+
+      case "moon": {
+        this.desiredTarget.set(b.moon.x, b.moon.y, b.moon.z);
+        const distCraft = craftPos.distanceTo(this.desiredTarget);
+        const pull = THREE.MathUtils.clamp(
+          distCraft * 0.4 + R_MOON * 3,
+          R_MOON * 3,
+          A_EM * 0.6,
+        );
+        this.desiredPos.set(
+          b.moon.x - pull * 0.7,
+          b.moon.y + pull * 0.35,
+          b.moon.z + pull * 0.5,
+        );
+        break;
+      }
+    }
+
+    this.camera.position.lerp(this.desiredPos, lerp);
+    this.controls.target.lerp(this.desiredTarget, lerp);
+    this.camera.lookAt(this.controls.target);
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Interactive Three.js mission theater: spacecraft flying from Earth to the Moon"
+    />
+    <title>tothemoon — Earth → Moon</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="c"></canvas>
+
+      <div id="hud" aria-label="Mission controls">
+        <header class="hud-header">
+          <h1>Earth → Moon</h1>
+          <p class="subtitle">4-body mission theater · true scale</p>
+        </header>
+
+        <section class="panel transport" aria-label="Playback">
+          <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
+            Play
+          </button>
+          <label class="speed">
+            Speed
+            <select id="speed" aria-label="Playback speed">
+              <option value="1">1×</option>
+              <option value="10">10×</option>
+              <option value="50">50×</option>
+              <option value="100" selected>100×</option>
+              <option value="500">500×</option>
+              <option value="2000">2000×</option>
+            </select>
+          </label>
+          <label class="scrubber">
+            Mission
+            <input
+              type="range"
+              id="scrub"
+              min="0"
+              max="1000"
+              value="0"
+              step="1"
+              aria-label="Mission progress"
+            />
+          </label>
+        </section>
+
+        <section class="panel cameras" aria-label="Camera">
+          <button type="button" data-camera="free" class="active">Free</button>
+          <button type="button" data-camera="earth">Earth</button>
+          <button type="button" data-camera="chase">Ship</button>
+          <button type="button" data-camera="moon">Moon</button>
+        </section>
+
+        <section class="panel telemetry" aria-live="polite">
+          <div><span class="label">Phase</span> <span id="phase">—</span></div>
+          <div><span class="label">Time</span> <span id="time">0h 00m</span></div>
+          <div><span class="label">To Moon</span> <span id="distance">—</span></div>
+          <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
+          <div><span class="label">Speed</span> <span id="tel-speed">—</span></div>
+          <div><span class="label">Progress</span> <span id="progress">0%</span></div>
+        </section>
+
+        <p class="hint">
+          Space play/pause · 1–4 cameras · drag free orbit · scroll zoom · red marker = craft
+        </p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

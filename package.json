@@ -1,0 +1,22 @@
+{
+  "name": "tothemoon",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive Three.js Earth→Moon spacecraft mission theater",
+  "scripts": {
+    "precompute": "tsx scripts/precompute-trajectory.ts",
+    "dev": "vite",
+    "build": "npm run precompute && tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.178.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.178.0",
+    "tsx": "^4.20.3",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
