@@ -136,13 +136,15 @@ function applyMissionState(u: number): void {
     craftLenKm: 0.04,
   });
 
-  // Altitude relative to nearest body of interest
+  // Altitude: Earth during launch/LEO/TLI/coast (far from Moon); else Moon
+  const nearEarth =
+    frame.phase === "launch" ||
+    frame.phase === "ascent" ||
+    frame.phase === "leo" ||
+    frame.phase === "tli" ||
+    frame.phase === "coast";
   const altitude =
-    frame.phase === "leo" || frame.phase === "tli" || frame.phase === "coast"
-      ? frame.distMoon > 100_000
-        ? frame.altEarth
-        : frame.altMoon
-      : frame.altMoon;
+    nearEarth && frame.distMoon > 100_000 ? frame.altEarth : frame.altMoon;
 
   hud.update({
     phase: frame.phaseLabel,

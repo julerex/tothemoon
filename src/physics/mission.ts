@@ -5,6 +5,7 @@ import {
   DT_COAST,
   DT_NEAR,
   LANDING_ACCEL,
+  LEO_COAST_S,
   LEO_RADIUS,
   MU_EARTH,
   MU_MOON,
@@ -12,12 +13,12 @@ import {
   R_MOON,
   TOUCHDOWN_SPEED,
 } from "./constants";
+import { flyAscent, type AscentResult } from "./ascent";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
 import { sunPhase0ForLanding } from "./epoch";
 import {
   altitudeEarth,
   altitudeMoon,
-  applyDeltaV,
   distanceToMoon,
   getBodies,
   rk4Step,
@@ -38,6 +39,8 @@ import {
 } from "./vec3";
 
 export type PhaseId =
+  | "launch"
+  | "ascent"
   | "leo"
   | "tli"
   | "coast"
@@ -65,6 +68,8 @@ export type MissionResult = {
 };
 
 const PHASE_LABELS: Record<PhaseId, string> = {
+  launch: "Liftoff · Starbase",
+  ascent: "Ascent to LEO",
   leo: "LEO",
   tli: "Trans-lunar injection",
   coast: "Trans-lunar coast",
@@ -78,18 +83,122 @@ export function phaseLabel(id: PhaseId): string {
   return PHASE_LABELS[id];
 }
 
-function leoState(t: number, anomaly = 0): CraftState {
-  const b = bodyPositions(t);
-  const c = Math.cos(anomaly);
-  const s = Math.sin(anomaly);
-  const rRel = v3(LEO_RADIUS * c, LEO_RADIUS * s, 0);
-  const vOrb = Math.sqrt(MU_EARTH / LEO_RADIUS);
-  const vRel = v3(-vOrb * s, vOrb * c, 0);
+/** Cached Starbase → LEO under the current Moon/Sun ephemeris. */
+let _ascentCache: AscentResult | null = null;
+let _ascentPhaseKey = NaN;
+
+function getAscent(): AscentResult {
+  // Recompute if ephemeris changed (Moon phase moves the barycentric Earth)
+  const key = 0; // filled by ensureAscent(phaseKey)
+  void key;
+  if (!_ascentCache) {
+    _ascentCache = flyAscent();
+    console.info(
+      `[tothemoon] Ascent ${_ascentCache.ok ? "OK" : "FAIL"}: ${_ascentCache.message} · ` +
+        `t=${(_ascentCache.state.t / 60).toFixed(1)} min · alt=${_ascentCache.insertionAlt.toFixed(1)} km · ` +
+        `v=${_ascentCache.insertionSpeed.toFixed(3)} km/s · samples=${_ascentCache.samples.length}`,
+    );
+  }
+  return _ascentCache;
+}
+
+/** Force a fresh ascent under the currently set moon/sun phases. */
+function resetAscentCache(): void {
+  _ascentCache = null;
+  _ascentPhaseKey = NaN;
+}
+
+function ensureAscent(moonPhase0: number): AscentResult {
+  if (_ascentCache && _ascentPhaseKey === moonPhase0) return _ascentCache;
+  _ascentCache = null;
+  _ascentPhaseKey = moonPhase0;
+  return getAscent();
+}
+
+function cloneState(s: CraftState): CraftState {
+  return { t: s.t, pos: clone(s.pos), vel: clone(s.vel) };
+}
+
+/** Earth-relative LEO state at TLI epoch (survives Moon-phase ephemeris changes). */
+type LeoRel = { t: number; relPos: V3; relVel: V3 };
+
+function captureLeoRel(state: CraftState): LeoRel {
+  const b = getBodies(state.t);
   return {
-    t,
-    pos: v3(b.earth.x + rRel.x, b.earth.y + rRel.y, b.earth.z + rRel.z),
-    vel: v3(b.earthVel.x + vRel.x, b.earthVel.y + vRel.y, b.earthVel.z + vRel.z),
+    t: state.t,
+    relPos: {
+      x: state.pos.x - b.earth.x,
+      y: state.pos.y - b.earth.y,
+      z: state.pos.z - b.earth.z,
+    },
+    relVel: {
+      x: state.vel.x - b.earthVel.x,
+      y: state.vel.y - b.earthVel.y,
+      z: state.vel.z - b.earthVel.z,
+    },
   };
+}
+
+function restoreLeoRel(rel: LeoRel): CraftState {
+  const b = getBodies(rel.t);
+  return {
+    t: rel.t,
+    pos: {
+      x: b.earth.x + rel.relPos.x,
+      y: b.earth.y + rel.relPos.y,
+      z: b.earth.z + rel.relPos.z,
+    },
+    vel: {
+      x: b.earthVel.x + rel.relVel.x,
+      y: b.earthVel.y + rel.relVel.y,
+      z: b.earthVel.z + rel.relVel.z,
+    },
+  };
+}
+
+/** Chosen LEO coast before TLI (s); set by runMission search. */
+let _leoCoastS = LEO_COAST_S;
+
+/** Ascent + LEO coast under current ephemeris → Earth-relative TLI state. */
+function computeLeoRel(coastS: number = _leoCoastS): LeoRel {
+  const ascent = getAscent();
+  const state = cloneState(ascent.state);
+  const tliEpoch = state.t + coastS;
+  while (state.t < tliEpoch) {
+    const dt = Math.min(DT_COAST, tliEpoch - state.t);
+    rk4Step(state, dt);
+  }
+  return captureLeoRel(state);
+}
+
+/** Append ascent samples, then coast LEO until TLI epoch; returns post-coast state. */
+function appendAscentAndLeoCoast(
+  samples: Sample[],
+  lastT: { t: number },
+  coastS: number = _leoCoastS,
+): CraftState {
+  const ascent = getAscent();
+  for (const s of ascent.samples) {
+    samples.push({
+      t: s.t,
+      pos: clone(s.pos),
+      vel: clone(s.vel),
+      phase: s.phase,
+      burning: s.burning,
+    });
+    lastT.t = s.t;
+  }
+  const state = cloneState(ascent.state);
+  const tliEpoch = state.t + coastS;
+  while (state.t < tliEpoch) {
+    const dt = Math.min(DT_COAST, tliEpoch - state.t);
+    rk4Step(state, dt);
+    if (state.t - lastT.t >= 30) {
+      pushSample(samples, state, "leo", false, false, 30, lastT);
+    }
+  }
+  pushSample(samples, state, "leo", false, true, 0, lastT);
+  return state;
 }
 
 /**
@@ -211,13 +320,13 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
   let maxA: number;
 
   if (phase === "approach") {
-    // Apollo free-return arrival: higher v∞ than Hohmann. Kill horizontal
-    // rate hard near SOI, then settle onto a steep close-in.
-    const closeIn = alt > 25_000 ? 0.8 : alt > 8_000 ? 0.35 : 0.16;
+    // Far-field capture from inclined-LEO intercepts (~10–50 Mm): close in
+    // aggressively so approach is hours, not a full day.
+    const closeIn = alt > 30_000 ? 2.2 : alt > 12_000 ? 1.1 : alt > 4_000 ? 0.45 : 0.16;
     targetVRad = -closeIn;
-    gain = 0.75;
-    hGain = 1.0;
-    maxA = LANDING_ACCEL * (alt > 20_000 ? 2.4 : 1.5);
+    gain = 0.9;
+    hGain = 1.25;
+    maxA = LANDING_ACCEL * (alt > 20_000 ? 4.0 : alt > 8_000 ? 2.6 : 1.6);
   } else if (phase === "braking") {
     targetVRad = -0.14 - 0.45 * Math.min(1, alt / 4000);
     gain = 0.65;
@@ -255,15 +364,50 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
   return _thrust;
 }
 
+/**
+ * Impulsive TLI from (possibly inclined) Starbase LEO toward the Moon.
+ *
+ * Sets Earth-relative velocity to transfer-periapsis speed (v_circ + tliDv) in the
+ * plane containing the craft and the predicted Moon at TOA. That both raises
+ * energy and does the plane change a pure-prograde burn from i≈26° cannot.
+ */
 function applyTli(state: CraftState, tliDv: number): void {
   const b0 = getBodies(state.t);
   sub(_relP, state.pos, b0.earth);
-  normalize(_radial, _relP);
-  cross(_tangent, _up, _radial);
-  normalize(_tangent, _tangent);
   sub(_relV, state.vel, b0.earthVel);
-  if (dot(_tangent, _relV) < 0) scale(_tangent, _tangent, -1);
-  applyDeltaV(state.vel, scale(_tmp, _tangent, tliDv));
+  const r = len(_relP);
+  normalize(_radial, _relP);
+
+  // Predicted Earth→Moon at coast TOA
+  const T = transferTimeEst();
+  const b1 = bodyPositions(state.t + T);
+  set(
+    _tmp,
+    b1.moon.x - b1.earth.x,
+    b1.moon.y - b1.earth.y,
+    b1.moon.z - b1.earth.z,
+  );
+
+  // Transfer-plane normal n ∝ r × r_moon; periapsis prograde = n × r̂
+  cross(_tangent, _relP, _tmp); // n raw
+  if (len(_tangent) < 1e-6) {
+    if (len(_relV) > 1e-9) normalize(_tangent, _relV);
+    else {
+      cross(_tangent, _up, _radial);
+      normalize(_tangent, _tangent);
+    }
+  } else {
+    cross(_tmp, _tangent, _radial); // n × r̂
+    normalize(_tangent, _tmp);
+    if (dot(_tangent, _relV) < 0) scale(_tangent, _tangent, -1);
+  }
+
+  // Periapsis speed on a transfer with Δv ≈ tliDv above circular
+  const vCirc = Math.sqrt(MU_EARTH / r);
+  const vPeri = vCirc + tliDv;
+  state.vel.x = b0.earthVel.x + _tangent.x * vPeri;
+  state.vel.y = b0.earthVel.y + _tangent.y * vPeri;
+  state.vel.z = b0.earthVel.z + _tangent.z * vPeri;
 }
 
 /**
@@ -272,14 +416,22 @@ function applyTli(state: CraftState, tliDv: number): void {
  */
 type ProbeResult = { minAlt: number; periluneT: number };
 
+/** Template LEO (Earth-relative) for probes — set in runMission after a reference ascent. */
+let _leoRelTemplate: LeoRel | null = null;
+
 function probePerilune(tliDv: number): ProbeResult {
-  const state = leoState(0, 0);
+  if (!_leoRelTemplate) {
+    return { minAlt: Infinity, periluneT: 0 };
+  }
+  // Reattach LEO to current Earth (Moon phase may have changed barycentric frame)
+  const state = restoreLeoRel(_leoRelTemplate);
+  const tTli = state.t;
   applyTli(state, tliDv);
   const T = transferTimeEst();
   // Free-return: allow coast past lunar encounter (and a bit of the return arc)
-  const maxT = T * 1.7 + 60_000;
+  const maxT = tTli + T * 1.7 + 60_000;
   let minAlt = Infinity;
-  let periluneT = 0;
+  let periluneT = tTli;
   let dt = 120;
   while (state.t < maxT) {
     rk4Step(state, dt);
@@ -289,17 +441,18 @@ function probePerilune(tliDv: number): ProbeResult {
       minAlt = altM;
       periluneT = state.t;
     }
+    const coastT = state.t - tTli;
     // Earth impact before lunar encounter → miss
-    if (altE < 0 && state.t < T * 0.65) {
+    if (altE < 0 && coastT < T * 0.65) {
       return { minAlt: Infinity, periluneT: 0 };
     }
     if (altE < 0) break;
     // Passed closest approach to Moon and climbing away (free-return outbound)
     if (
+      coastT > T * 0.5 &&
       state.t > periluneT + 3_000 &&
       altM > minAlt + 20_000 &&
-      minAlt < 250_000 &&
-      state.t > T * 0.5
+      minAlt < 250_000
     ) {
       break;
     }
@@ -308,7 +461,8 @@ function probePerilune(tliDv: number): ProbeResult {
     else if (dMoon < 200_000) dt = 60;
     else dt = 120;
   }
-  return { minAlt, periluneT };
+  // Return perilune time measured from TLI for transfer scoring
+  return { minAlt, periluneT: periluneT - tTli };
 }
 
 /** Apply July-2027-consistent ephemeris for a candidate moon phase. */
@@ -367,31 +521,44 @@ function finishLanding(
 }
 
 /**
- * Full fidelity flight: ballistic free-return coast, then guided landing near perilune.
- * `toa` is expected time of lunar perilune (from the ballistic probe).
+ * Full fidelity flight: Starbase ascent → LEO → TLI → free-return → landing.
+ * `toa` is expected coast time from TLI to lunar perilune (ballistic probe).
  */
 function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionResult {
   // moon/sun phases set by caller (setEpochPhases)
   void moonPhase0;
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
-  const state = leoState(0, 0);
-  pushSample(samples, state, "leo", false, true, 0, lastT);
 
+  if (!getAscent().ok) {
+    return {
+      samples,
+      durationS: 0,
+      moonPhase0,
+      tliDv,
+      minMoonAlt: Infinity,
+      ok: false,
+      message: "Ascent failed",
+    };
+  }
+
+  const state = appendAscentAndLeoCoast(samples, lastT);
+  const tTli = state.t;
   applyTli(state, tliDv);
   pushSample(samples, state, "tli", true, true, 0, lastT);
 
   let phase: PhaseId = "coast";
   let minMoonAlt = Infinity;
-  const T = toa && toa > 0 ? toa : transferTimeEst();
-  // Free-return coast to perilune; margin for braking + powered descent
-  const maxT = T * 1.25 + 40_000;
+  const Tcoast = toa && toa > 0 ? toa : transferTimeEst();
+  // Absolute perilune estimate; margin for braking + powered descent
+  const maxT = tTli + Tcoast * 1.25 + 40_000;
 
   while (state.t < maxT) {
     const dMoon = distanceToMoon(state.t, state.pos);
     const altM = altitudeMoon(state.t, state.pos);
     const altE = altitudeEarth(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
+    const coastT = state.t - tTli;
 
     if (altE < 80) {
       // Skip atmosphere; only fail on deep impact
@@ -408,12 +575,12 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       }
     }
 
-    // Stay ballistic on the free-return until near perilune, then capture.
-    // Tight gate so we don't steal the inbound leg 10k–20k km out.
-    const CAPTURE_RANGE = 6_000;
+    // Capture once near the Moon. Wider gate than pure free-return: Starbase
+    // inclined LEO rarely threads a <200 km perilune ballistically.
+    const CAPTURE_RANGE = 55_000;
     if (
       phase === "coast" &&
-      state.t > T * 0.85 &&
+      coastT > Tcoast * 0.45 &&
       dMoon < CAPTURE_RANGE
     ) {
       phase = "approach";
@@ -435,7 +602,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       phase === "approach" || phase === "braking" || phase === "descent";
 
     // Past perilune on free-return outbound with no capture → miss
-    if (phase === "coast" && state.t > T * 1.2 && dMoon > 80_000) {
+    if (phase === "coast" && coastT > Tcoast * 1.2 && dMoon > 80_000) {
       return {
         samples,
         durationS: state.t,
@@ -502,7 +669,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   };
 }
 
-function downsample(result: MissionResult, maxPoints = 2200): MissionResult {
+function downsample(result: MissionResult, maxPoints = 2800): MissionResult {
   const s = result.samples;
   if (s.length <= maxPoints) return result;
   const out: Sample[] = [];
@@ -513,6 +680,8 @@ function downsample(result: MissionResult, maxPoints = 2200): MissionResult {
     if (
       i >= next ||
       sample.burning ||
+      sample.phase === "launch" ||
+      sample.phase === "ascent" ||
       sample.phase === "tli" ||
       sample.phase === "landed" ||
       i === 0 ||
@@ -526,23 +695,46 @@ function downsample(result: MissionResult, maxPoints = 2200): MissionResult {
 }
 
 /**
- * Apollo free-return style LEO→Moon mission.
+ * Starbase (TX) → LEO → Apollo free-return → lunar landing.
  *
- * Strategy: size a 2-body TLI for ~3 day coast to lunar distance (apogee well
- * past the Moon), then search Moon phase under a July-2027-consistent Sun for
- * a free-return intercept. Nudge Δv slightly if 3/4-body gravity erodes the
- * ballistic pass. Prefer a tight perilune (Apollo free-return ~100–200 km
- * class) over min-energy Δv.
+ * Ascent is integrated once (due-east from ~26° N), then TLI Δv / Moon phase
+ * are searched for a free-return intercept under July-2027 Sun geometry.
  */
 export function runMission(): MissionResult {
   const xfer = apolloTransfer();
   const baseDv = xfer.tliDv;
   const T = xfer.tof;
-  // Encounter true anomaly f_enc < π (before apogee); Moon lead = f − N·T.
-  const guess = xfer.fEnc - N_MOON * T;
+
+  // Reference ascent under a neutral ephemeris to get Earth-relative LEO / TLI time
+  resetAscentCache();
+  setEpochPhases(0, T);
+  const ascent0 = ensureAscent(0);
+  if (!ascent0.ok) {
+    return {
+      samples: ascent0.samples.map((s) => ({
+        t: s.t,
+        pos: clone(s.pos),
+        vel: clone(s.vel),
+        phase: s.phase,
+        burning: s.burning,
+      })),
+      durationS: ascent0.state.t,
+      moonPhase0: 0,
+      tliDv: 0,
+      minMoonAlt: Infinity,
+      ok: false,
+      message: ascent0.message,
+    };
+  }
+  _leoRelTemplate = computeLeoRel();
+  const tTli0 = _leoRelTemplate.t;
+
+  // Encounter true anomaly f_enc < π; Moon lead from TLI epoch
+  const guess = xfer.fEnc - N_MOON * (T + tTli0);
 
   const phaseOffsets: number[] = [];
-  for (let i = -55; i <= 55; i++) phaseOffsets.push(i * 0.032);
+  // Wider search — inclined LEO from Starbase is less coplanar with the Moon
+  for (let i = -90; i <= 90; i++) phaseOffsets.push(i * 0.035);
 
   // Stay near Apollo design energy; ladder covers 4-body intercept solutions.
   const dvScales = [
@@ -551,116 +743,118 @@ export function runMission(): MissionResult {
   ];
 
   /**
-   * Apollo free-return: perilune ~100–200 km (figure-8 capable), coast ~3 days
-   * (faster than min-energy ~5 d). Prefer a real free-return pass over a
-   * distant early flyby.
+   * From inclined Starbase LEO, a pure free-return <200 km perilune is rare.
+   * Accept a moderate flyby that guidance can capture (CAPTURE_RANGE ~55 Mm).
    */
-  const INTERCEPT_ALT = 8_000;
-  const IDEAL_PERILUNE = 200;
-  /** Soft TOA target: Apollo was ~3 d; accept ~2.5–4.5 d free-returns. */
+  const INTERCEPT_ALT = 55_000;
+  const IDEAL_PERILUNE = 8_000;
   const IDEAL_TOA = T;
-  const TOA_MIN = 2.5 * 86_400;
-  const TOA_MAX = 4.5 * 86_400;
+  const TOA_MIN = 1.5 * 86_400;
+  const TOA_MAX = 5.5 * 86_400;
 
-  /** Score: lower is better. Tight free-return perilune dominates. */
   function periluneScore(alt: number, periluneT: number): number {
-    if (!Number.isFinite(alt) || alt > 300_000) return 1e12;
-    if (periluneT < TOA_MIN * 0.85 || periluneT > TOA_MAX * 1.15) {
-      return 1e12;
-    }
+    if (!Number.isFinite(alt) || alt > 350_000) return 1e12;
     const altTerm =
       alt < 0
-        ? 30_000 - alt // impact trajectories: usable but not free-return
-        : Math.abs(alt - IDEAL_PERILUNE) * 4 +
-          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 8 : 0);
+        ? 40_000 - alt
+        : Math.abs(alt - IDEAL_PERILUNE) +
+          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 4 : 0);
     const dtH = (periluneT - IDEAL_TOA) / 3600;
-    // Mild time preference — free-return shape beats exact 72 h
-    const timeTerm = dtH * dtH * 80;
-    // Soft gate outside the Apollo coast window
+    const timeTerm = dtH * dtH * 40;
     const windowPen =
       periluneT < TOA_MIN
-        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 200
+        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 100
         : periluneT > TOA_MAX
-          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 200
+          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 100
           : 0;
     return altTerm + timeTerm + windowPen;
   }
+
+  // LEO coast candidates (min) — departure true anomaly matters a lot
+  const coastOptions = [10, 15, 20, 30, 45].map((m) => m * 60);
 
   let bestPhase = guess;
   let bestDv = baseDv;
   let bestAlt = Infinity;
   let bestPeriluneT = T;
   let bestScore = Infinity;
+  let bestCoast = LEO_COAST_S;
   let found = false;
 
-  for (const dS of dvScales) {
-    const dv = baseDv * dS;
-    let localBestPhase = guess;
-    let localBestAlt = Infinity;
-    let localBestT = T;
-    let localBestScore = Infinity;
+  for (const coastS of coastOptions) {
+    _leoCoastS = coastS;
+    // Rebuild LEO template at this coast under reference ephemeris
+    setEpochPhases(0, T);
+    resetAscentCache();
+    ensureAscent(0);
+    _leoRelTemplate = computeLeoRel(coastS);
 
-    for (const off of phaseOffsets) {
-      const ph = guess + off;
-      setEpochPhases(ph, T);
-      const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT);
-      if (sc < localBestScore) {
-        localBestScore = sc;
-        localBestAlt = pr.minAlt;
-        localBestT = pr.periluneT;
-        localBestPhase = ph;
+    for (const dS of dvScales) {
+      const dv = baseDv * dS;
+      let localBestPhase = guess;
+      let localBestAlt = Infinity;
+      let localBestT = T;
+      let localBestScore = Infinity;
+
+      for (const off of phaseOffsets) {
+        const ph = guess + off;
+        setEpochPhases(ph, T);
+        const pr = probePerilune(dv);
+        const sc = periluneScore(pr.minAlt, pr.periluneT);
+        if (sc < localBestScore) {
+          localBestScore = sc;
+          localBestAlt = pr.minAlt;
+          localBestT = pr.periluneT;
+          localBestPhase = ph;
+        }
+      }
+
+      for (const off of [-0.03, -0.015, 0.015, 0.03]) {
+        const ph = localBestPhase + off;
+        setEpochPhases(ph, T);
+        const pr = probePerilune(dv);
+        const sc = periluneScore(pr.minAlt, pr.periluneT);
+        if (sc < localBestScore) {
+          localBestScore = sc;
+          localBestAlt = pr.minAlt;
+          localBestT = pr.periluneT;
+          localBestPhase = ph;
+        }
+      }
+
+      if (localBestScore < bestScore) {
+        bestScore = localBestScore;
+        bestAlt = localBestAlt;
+        bestPeriluneT = localBestT;
+        bestPhase = localBestPhase;
+        bestDv = dv;
+        bestCoast = coastS;
+      }
+
+      if (localBestAlt > 0 && localBestAlt < INTERCEPT_ALT) {
+        found = true;
+        if (localBestAlt < IDEAL_PERILUNE * 2) break;
       }
     }
-
-    // Fine phase around local best
-    for (const off of [
-      -0.04, -0.025, -0.015, -0.008, -0.004, 0.004, 0.008, 0.015, 0.025, 0.04,
-    ]) {
-      const ph = localBestPhase + off;
-      setEpochPhases(ph, T);
-      const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT);
-      if (sc < localBestScore) {
-        localBestScore = sc;
-        localBestAlt = pr.minAlt;
-        localBestT = pr.periluneT;
-        localBestPhase = ph;
-      }
-    }
-
-    if (localBestScore < bestScore) {
-      bestScore = localBestScore;
-      bestAlt = localBestAlt;
-      bestPeriluneT = localBestT;
-      bestPhase = localBestPhase;
-      bestDv = dv;
-    }
-
-    // Good free-return: tight perilune inside Apollo coast window
-    if (
-      localBestAlt > 50 &&
-      localBestAlt < INTERCEPT_ALT &&
-      localBestT >= TOA_MIN &&
-      localBestT <= TOA_MAX
-    ) {
-      found = true;
-      if (Math.abs(localBestAlt - IDEAL_PERILUNE) < 400) break;
-    }
+    if (found && bestAlt < IDEAL_PERILUNE * 2) break;
   }
 
+  _leoCoastS = bestCoast;
+
   console.info(
-    `[tothemoon] Apollo free-return probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
-      `phase=${bestPhase.toFixed(3)} dv=${bestDv.toFixed(4)} (design=${baseDv.toFixed(4)}, ×${(bestDv / baseDv).toFixed(3)}) ` +
-      `· T_des≈${(T / 3600).toFixed(1)}h · ra≈${(xfer.ra / A_EM).toFixed(2)}×A_EM · ` +
-      `${found ? "intercept" : "best-effort"}`,
+    `[tothemoon] Starbase→Moon probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
+      `phase=${bestPhase.toFixed(3)} dv=${bestDv.toFixed(4)} coast=${(bestCoast / 60).toFixed(0)}min ` +
+      `· T_des≈${(T / 3600).toFixed(1)}h · ${found ? "intercept" : "best-effort"}`,
   );
 
-  // Size guidance gates around actual perilune. Keep the same Sun phase used
-  // during the probe search (setEpochPhases(_, T)) so 4-body dynamics match.
+  // Full flight under the winning ephemeris (ascent recomputed so pad tracks Earth)
   const toa =
     Number.isFinite(bestPeriluneT) && bestPeriluneT > 0 ? bestPeriluneT : T;
   setEpochPhases(bestPhase, T);
+  resetAscentCache();
+  ensureAscent(bestPhase);
+  _leoRelTemplate = computeLeoRel(bestCoast);
+
   const flown = flyMission(bestPhase, bestDv, toa);
   setEpochPhases(bestPhase, flown.durationS);
 
@@ -676,6 +870,8 @@ export function runMission(): MissionResult {
     `[tothemoon] Primary flight: ${flown.message}; retrying with early guidance`,
   );
   setEpochPhases(bestPhase, T);
+  resetAscentCache();
+  ensureAscent(bestPhase);
   const retry = flyMissionEarlyGuidance(bestPhase, bestDv, toa);
   setEpochPhases(bestPhase, retry.durationS);
   return downsample(retry);
@@ -691,20 +887,21 @@ function flyMissionEarlyGuidance(
   void moonPhase0;
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
-  const state = leoState(0, 0);
-  pushSample(samples, state, "leo", false, true, 0, lastT);
+  const state = appendAscentAndLeoCoast(samples, lastT);
+  const tTli = state.t;
   applyTli(state, tliDv);
   pushSample(samples, state, "tli", true, true, 0, lastT);
 
   let phase: PhaseId = "coast";
   let minMoonAlt = Infinity;
-  const T = toa && toa > 0 ? toa : transferTimeEst();
-  const maxT = T * 1.35 + 50_000;
+  const Tcoast = toa && toa > 0 ? toa : transferTimeEst();
+  const maxT = tTli + Tcoast * 1.35 + 50_000;
 
   while (state.t < maxT) {
     const dMoon = distanceToMoon(state.t, state.pos);
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
+    const coastT = state.t - tTli;
 
     if (altitudeEarth(state.t, state.pos) < 0 && minMoonAlt > 50_000) {
       return {
@@ -718,7 +915,7 @@ function flyMissionEarlyGuidance(
       };
     }
 
-    if (phase === "coast" && state.t > T * 0.8 && dMoon < 10_000) {
+    if (phase === "coast" && coastT > Tcoast * 0.45 && dMoon < 60_000) {
       phase = "approach";
     }
     if (phase === "approach" && altM < 5000) phase = "braking";

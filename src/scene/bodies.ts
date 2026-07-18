@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import {
   EARTH_OBLIQUITY,
-  EARTH_SIDEREAL_DAY_S,
   MOON_OBLIQUITY,
   R_EARTH,
   R_MOON,
   R_SUN,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import { EARTH_SPIN0, EARTH_SPIN_RATE } from "../physics/earthFrame";
 import {
   makeEarthCloudTexture,
   makeEarthRoughnessMap,
@@ -28,9 +28,6 @@ export type Bodies = {
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
 };
-
-/** Sidereal spin rate (rad/s). */
-const EARTH_SPIN_RATE = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
 
 /** Lunar north in the ecliptic frame (small tilt from +Z). */
 const _moonNorth = new THREE.Vector3(
@@ -307,8 +304,9 @@ export function updateBodies(t: number, bodies: Bodies): void {
   bodies.moonGroup.position.set(b.moon.x, b.moon.y, b.moon.z);
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 
-  // Mission-time sidereal rotation about the tilted polar axis (local Y)
-  const spin = t * EARTH_SPIN_RATE;
+  // Mission-time sidereal rotation about the tilted polar axis (local Y).
+  // Same phase as physics/earthFrame (Starbase pad alignment).
+  const spin = EARTH_SPIN0 + t * EARTH_SPIN_RATE;
   bodies.earth.rotation.y = spin;
   // Clouds drift a little faster than the ground
   bodies.earthClouds.rotation.y = spin * 1.03 + 0.35;

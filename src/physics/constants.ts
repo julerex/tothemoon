@@ -98,6 +98,28 @@ export const LEO_ALTITUDE = 200;
 /** LEO radius from Earth center (km) */
 export const LEO_RADIUS = R_EARTH + LEO_ALTITUDE;
 
+/**
+ * SpaceX Starbase / Boca Chica, Texas (geodetic, WGS84-ish).
+ * Due-east launch → parking inclination ≈ site latitude.
+ */
+export const STARBASE_LAT = (25.997 * Math.PI) / 180;
+export const STARBASE_LON = (-97.156 * Math.PI) / 180; // °W negative
+
+/** Pad altitude above mean radius (km) */
+export const STARBASE_ALT = 0.01;
+
+/**
+ * Peak ascent acceleration (km/s²) — theater value ~2.5 g continuous
+ * (real staged vehicles vary; this yields ~8–12 min to LEO).
+ */
+export const ASCENT_ACCEL = 0.028; // ~2.8 g peak theater
+
+/**
+ * Default LEO coast after insertion before TLI (s).
+ * runMission may pick a nearby value for a better lunar intercept.
+ */
+export const LEO_COAST_S = 15 * 60;
+
 /** Max continuous thrust acceleration during landing (km/s²) — ~1.2 g for theater */
 export const LANDING_ACCEL = 0.012;
 
