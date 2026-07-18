@@ -10,10 +10,12 @@
  *   (≈97% illuminated; TheSkyLive ~96.9% on 2027-07-20).
  * - Apparent solar ecliptic longitude ≈ 117.6° (USNO low-precision formula).
  *
- * The circular ephemeris matches elongation (phase angle), not full JPL DE.
+ * Matches ecliptic elongation (phase angle) under the Keplerian lunar orbit,
+ * not a full JPL DE ephemeris.
  */
 
-import { N_EARTH_SUN, N_MOON } from "./constants";
+import { N_EARTH_SUN } from "./constants";
+import { moonEclipticLongitude } from "./bodies";
 
 /** Touchdown epoch (UTC). */
 export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
@@ -56,19 +58,20 @@ export function sunEclipticLongitudeAtLanding(): number {
 
 /**
  * Sun inertial angle offset at mission t = 0 so that at `landingT`
- * Earth→Moon is π + δ ahead of Earth→Sun (waning gibbous, July 2027).
+ * the ecliptic elongation is a waning gibbous (July 2027).
  *
- * Model angles (see bodyPositions):
- *   θ_m = moonPhase0 + N_MOON · t
- *   θ_s = sunPhase0  + N_EARTH_SUN · t
- * Want θ_m − θ_s = π + δ at t = landingT.
+ * Uses the Moon’s ecliptic longitude (atan2 of Earth→Moon XY) from the
+ * Keplerian orbit; Sun stays on the ecliptic:
+ *   λ_m − θ_s = π + δ  at t = landingT
+ *   θ_s = sunPhase0 + N_EARTH_SUN · landingT
  */
 export function sunPhase0ForLanding(
   moonPhase0: number,
   landingT: number,
 ): number {
   const δ = moonElongationPastFullRad();
-  return moonPhase0 + (N_MOON - N_EARTH_SUN) * landingT - Math.PI - δ;
+  const λm = moonEclipticLongitude(landingT, moonPhase0);
+  return λm - Math.PI - δ - N_EARTH_SUN * landingT;
 }
 
 /** UTC ms for a mission clock time, with t = durationS at landing. */

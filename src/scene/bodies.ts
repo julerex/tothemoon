@@ -1,67 +1,211 @@
 import * as THREE from "three";
-import { R_EARTH, R_MOON, R_SUN } from "../physics/constants";
+import {
+  EARTH_OBLIQUITY,
+  EARTH_SIDEREAL_DAY_S,
+  MOON_OBLIQUITY,
+  R_EARTH,
+  R_MOON,
+  R_SUN,
+} from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
-import { makeEarthTexture, makeMoonTexture, makeSunGlowTexture } from "./textures";
+import {
+  makeEarthCloudTexture,
+  makeEarthRoughnessMap,
+  makeEarthTexture,
+  makeMoonRoughnessMap,
+  makeMoonTexture,
+  makeSunGlowTexture,
+} from "./textures";
 
 export type Bodies = {
   earth: THREE.Mesh;
+  earthClouds: THREE.Mesh;
   moon: THREE.Mesh;
+  /** Orientation node: axial tilt + tidal lock (child of moonGroup). */
+  moonAxis: THREE.Group;
   sun: THREE.Mesh;
   earthGroup: THREE.Group;
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
 };
 
+/** Sidereal spin rate (rad/s). */
+const EARTH_SPIN_RATE = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
+
+/** Lunar north in the ecliptic frame (small tilt from +Z). */
+const _moonNorth = new THREE.Vector3(
+  Math.sin(MOON_OBLIQUITY),
+  0,
+  Math.cos(MOON_OBLIQUITY),
+).normalize();
+
+const _moonX = new THREE.Vector3();
+const _moonY = new THREE.Vector3();
+const _moonZ = new THREE.Vector3();
+const _moonMat = new THREE.Matrix4();
+
+/**
+ * Earth orientation vs the orbital plane.
+ *
+ * Theater frame: Sun–Earth–Moon orbits in XY; ecliptic north = +Z.
+ * SphereGeometry poles are on ±Y, so we map mesh +Y (texture north) onto
+ * the real north-pole direction: tilted EARTH_OBLIQUITY from +Z toward +X
+ * (June-solstice sense — north pole leans sunward at northern summer).
+ */
+function createEarthAxisGroup(): THREE.Group {
+  const axis = new THREE.Group();
+  // North pole in inertial/ecliptic frame
+  const north = new THREE.Vector3(
+    Math.sin(EARTH_OBLIQUITY),
+    0,
+    Math.cos(EARTH_OBLIQUITY),
+  ).normalize();
+  // Mesh local +Y → inertial north
+  axis.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), north);
+  return axis;
+}
+
+/**
+ * Tidally lock the Moon: texture lon 0° (mesh +X) faces Earth; mesh +Y aligns
+ * with lunar north (MOON_OBLIQUITY from ecliptic +Z).
+ */
+function orientMoonAxis(
+  axis: THREE.Group,
+  moonPos: { x: number; y: number; z: number },
+  earthPos: { x: number; y: number; z: number },
+): void {
+  // Local +X = near-side center → Earth
+  _moonX
+    .set(earthPos.x - moonPos.x, earthPos.y - moonPos.y, earthPos.z - moonPos.z)
+    .normalize();
+  // Local +Y = lunar north projected orthogonal to Earth direction
+  _moonY.copy(_moonNorth).addScaledVector(_moonX, -_moonNorth.dot(_moonX));
+  if (_moonY.lengthSq() < 1e-12) {
+    _moonY.set(0, 0, 1);
+  } else {
+    _moonY.normalize();
+  }
+  _moonZ.crossVectors(_moonX, _moonY).normalize();
+  _moonY.crossVectors(_moonZ, _moonX).normalize();
+  _moonMat.makeBasis(_moonX, _moonY, _moonZ);
+  axis.quaternion.setFromRotationMatrix(_moonMat);
+}
+
 export function createBodies(): Bodies {
   const earthGroup = new THREE.Group();
+  const earthAxis = createEarthAxisGroup();
+  earthGroup.add(earthAxis);
 
-  const earthMap = new THREE.CanvasTexture(makeEarthTexture(768));
+  const texSize = 1536;
+  const earthCanvas = makeEarthTexture(texSize);
+  const earthMap = new THREE.CanvasTexture(earthCanvas);
   earthMap.colorSpace = THREE.SRGBColorSpace;
-  earthMap.anisotropy = 4;
+  earthMap.anisotropy = 8;
+
+  const roughMap = new THREE.CanvasTexture(makeEarthRoughnessMap(earthCanvas));
+  roughMap.anisotropy = 4;
 
   const earth = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH, 64, 48),
+    new THREE.SphereGeometry(R_EARTH, 96, 64),
     new THREE.MeshStandardMaterial({
       map: earthMap,
-      roughness: 0.85,
-      metalness: 0.05,
+      roughnessMap: roughMap,
+      roughness: 0.9,
+      metalness: 0.02,
     }),
   );
-  earthGroup.add(earth);
+  earthAxis.add(earth);
 
-  const atmo = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.02, 48, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x5aa9ff,
+  // Thin cloud deck — spins slightly faster for visual life
+  const cloudMap = new THREE.CanvasTexture(makeEarthCloudTexture(texSize));
+  cloudMap.colorSpace = THREE.SRGBColorSpace;
+  cloudMap.anisotropy = 4;
+  const earthClouds = new THREE.Mesh(
+    new THREE.SphereGeometry(R_EARTH * 1.008, 64, 48),
+    new THREE.MeshStandardMaterial({
+      map: cloudMap,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.55,
+      depthWrite: false,
+      roughness: 1,
+      metalness: 0,
+    }),
+  );
+  earthAxis.add(earthClouds);
+
+  // Soft atmospheric limb
+  const atmo = new THREE.Mesh(
+    new THREE.SphereGeometry(R_EARTH * 1.025, 64, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0x6eb6ff,
+      transparent: true,
+      opacity: 0.12,
       side: THREE.BackSide,
       depthWrite: false,
     }),
   );
-  earthGroup.add(atmo);
+  earthAxis.add(atmo);
+
+  // Faint outer halo
+  const atmoOuter = new THREE.Mesh(
+    new THREE.SphereGeometry(R_EARTH * 1.045, 48, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0x4a90d9,
+      transparent: true,
+      opacity: 0.06,
+      side: THREE.BackSide,
+      depthWrite: false,
+    }),
+  );
+  earthAxis.add(atmoOuter);
 
   const moonGroup = new THREE.Group();
-  const moonMap = new THREE.CanvasTexture(makeMoonTexture(512));
+  const moonAxis = new THREE.Group();
+  moonGroup.add(moonAxis);
+
+  const moonCanvas = makeMoonTexture(1536);
+  const moonMap = new THREE.CanvasTexture(moonCanvas);
   moonMap.colorSpace = THREE.SRGBColorSpace;
-  moonMap.anisotropy = 4;
+  moonMap.anisotropy = 8;
+
+  const moonRough = new THREE.CanvasTexture(makeMoonRoughnessMap(moonCanvas));
+  moonRough.anisotropy = 4;
 
   const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(R_MOON, 48, 36),
+    new THREE.SphereGeometry(R_MOON, 80, 56),
     new THREE.MeshStandardMaterial({
       map: moonMap,
-      roughness: 0.95,
+      roughnessMap: moonRough,
+      roughness: 0.96,
       metalness: 0.0,
     }),
   );
-  moonGroup.add(moon);
+  moonAxis.add(moon);
 
   const { sun, sunGroup } = createSun();
 
-  // Initial placement
-  updateBodies(0, { earthGroup, moonGroup, sunGroup, earth, moon, sun });
+  // Initial placement + spin / tidal lock
+  updateBodies(0, {
+    earthGroup,
+    moonGroup,
+    sunGroup,
+    earth,
+    earthClouds,
+    moon,
+    moonAxis,
+    sun,
+  });
 
-  return { earth, moon, sun, earthGroup, moonGroup, sunGroup };
+  return {
+    earth,
+    earthClouds,
+    moon,
+    moonAxis,
+    sun,
+    earthGroup,
+    moonGroup,
+    sunGroup,
+  };
 }
 
 function createSun(): { sun: THREE.Mesh; sunGroup: THREE.Group } {
@@ -162,11 +306,18 @@ export function updateBodies(t: number, bodies: Bodies): void {
   bodies.earthGroup.position.set(b.earth.x, b.earth.y, b.earth.z);
   bodies.moonGroup.position.set(b.moon.x, b.moon.y, b.moon.z);
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
+
+  // Mission-time sidereal rotation about the tilted polar axis (local Y)
+  const spin = t * EARTH_SPIN_RATE;
+  bodies.earth.rotation.y = spin;
+  // Clouds drift a little faster than the ground
+  bodies.earthClouds.rotation.y = spin * 1.03 + 0.35;
+
+  // Axial tilt + 1:1 tidal lock (near side always toward Earth)
+  orientMoonAxis(bodies.moonAxis, b.moon, b.earth);
 }
 
-/** Visual spin only (not tidally locked physics). */
+/** Visual spin for the Sun only (Earth/Moon driven by mission time). */
 export function spinBodies(bodies: Bodies, dt: number): void {
-  bodies.earth.rotation.y += dt * 7.3e-5; // ~1 rev/day
-  bodies.moon.rotation.y += dt * 2.7e-6;
-  bodies.sun.rotation.y += dt * 2.9e-6; // slow photosphere drift
+  bodies.sun.rotation.y += dt * 2.9e-6;
 }

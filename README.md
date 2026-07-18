@@ -6,10 +6,10 @@ Interactive **Three.js** mission theater: a spacecraft flying from Earth to a **
 
 ## Physics
 
-- **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km separation
+- **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
 - **Restricted 4-body** — craft integrated with RK4 under gravity of **Sun + Earth + Moon**
-- Earth & Moon on prescribed circular orbits about the Earth–Moon barycenter; Sun on a far 1 AU path (gravity + lighting)
-- Mission: LEO → impulsive TLI → ballistic coast → guided braking / powered descent → **landed**
+- Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY), with ascending node and argument of perigee fixed for the theater; Sun on a far 1 AU ecliptic path
+- Mission: LEO → impulsive TLI (**Apollo free-return** energy/geometry) → ballistic coast to a low perilune → guided braking / powered descent → **landed**
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 
 The craft mesh is near true size (tens of meters). In system views it is invisible — a **red marker** shows its location. Use the **Ship** camera to see the vehicle up close.
