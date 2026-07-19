@@ -1,10 +1,5 @@
 import * as THREE from "three";
-import {
-  A_EM,
-  AU,
-  MOON_INCLINATION,
-  MOON_NODE,
-} from "../physics/constants";
+import { A_EM, AU } from "../physics/constants";
 import { moonOrbitPathPoints } from "../physics/bodies";
 import { makeStarTexture } from "./textures";
 
@@ -24,38 +19,28 @@ function styleGrid(grid: THREE.GridHelper, opacity: number): void {
 }
 
 /**
- * Ecliptic plane grid (XY / z = 0) — Sun–Earth orbital plane in this theater.
+ * Ecliptic plane (XY) — fine grid for the cislunar theater.
  */
-function createEclipticGrid(): THREE.GridHelper {
-  const size = A_EM * 2.5;
-  const divisions = 25;
+function createEclipticGridNear(): THREE.GridHelper {
+  const size = A_EM * 3;
+  const divisions = 30;
   const grid = new THREE.GridHelper(size, divisions, 0x6e6e7a, 0x3a3a48);
-  // GridHelper is XZ by default; ecliptic is XY
   grid.rotation.x = Math.PI / 2;
-  styleGrid(grid, 0.38);
+  styleGrid(grid, 0.4);
   return grid;
 }
 
 /**
- * Lunar orbital plane grid: inclined ~5.15° to the ecliptic about the line
- * of nodes (Ω = MOON_NODE). Slightly cooler tint so it reads apart from the
- * ecliptic grid.
+ * Same ecliptic plane, coarser and much larger so it reads out toward the Sun
+ * (solar-camera scale) without drowning the cislunar view in ultra-fine lines.
  */
-function createLunarOrbitPlaneGrid(): THREE.GridHelper {
-  const size = A_EM * 2.4;
-  const divisions = 20;
-  const grid = new THREE.GridHelper(size, divisions, 0x6a8aaa, 0x3a5068);
-  // Default GridHelper: plane XZ, normal +Y. Map +Y → lunar orbit normal.
-  // Orbit normal in ecliptic: (sin i sin Ω, −sin i cos Ω, cos i)
-  const i = MOON_INCLINATION;
-  const Ω = MOON_NODE;
-  const normal = new THREE.Vector3(
-    Math.sin(i) * Math.sin(Ω),
-    -Math.sin(i) * Math.cos(Ω),
-    Math.cos(i),
-  ).normalize();
-  grid.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-  styleGrid(grid, 0.32);
+function createEclipticGridTowardSun(): THREE.GridHelper {
+  // ~0.35 AU span: Earth–Moon region is a small patch; grid reaches well sunward
+  const size = AU * 0.35;
+  const divisions = 14;
+  const grid = new THREE.GridHelper(size, divisions, 0x555566, 0x2a2a38);
+  grid.rotation.x = Math.PI / 2;
+  styleGrid(grid, 0.22);
   return grid;
 }
 
@@ -91,8 +76,9 @@ export function createScene(): SceneBundle {
   );
   scene.add(stars);
 
-  scene.add(createEclipticGrid());
-  scene.add(createLunarOrbitPlaneGrid());
+  // Ecliptic only (no lunar orbital plane grid)
+  scene.add(createEclipticGridTowardSun());
+  scene.add(createEclipticGridNear());
   scene.add(createMoonOrbitPath());
 
   scene.add(new THREE.AmbientLight(0x334466, 0.22));

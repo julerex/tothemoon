@@ -14,7 +14,12 @@ import {
   TOUCHDOWN_SPEED,
 } from "./constants";
 import { flyAscent, type AscentResult } from "./ascent";
-import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
+import {
+  bodyPositions,
+  moonRelativeToEarth,
+  setMoonPhase0,
+  setSunPhase0,
+} from "./bodies";
 import { sunPhase0ForLanding } from "./epoch";
 import {
   altitudeMoon,
@@ -285,6 +290,11 @@ function pushSample(
   });
 }
 
+/**
+ * Near-Moon guidance: LOI-like capture first (match Moon velocity, settle
+ * onto a low approach), then soft land. Avoids a sharp radial dive from a
+ * distant miss (which looked like a southbound kink).
+ */
 function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
   if (phase !== "braking" && phase !== "descent" && phase !== "approach") {
     return null;
@@ -299,6 +309,7 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
 
   normalize(_radial, _relP);
   const vRad = dot(_relV, _radial);
+  // Horizontal (along-track / cross-track) relative to Moon
   _tmp.x = _relV.x - _radial.x * vRad;
   _tmp.y = _relV.y - _radial.y * vRad;
   _tmp.z = _relV.z - _radial.z * vRad;
@@ -309,22 +320,23 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
   let maxA: number;
 
   if (phase === "approach") {
-    // Near-Moon only — close efficiently without long far-field chases
-    const closeIn = alt > 20_000 ? 0.9 : alt > 8_000 ? 0.4 : alt > 2_000 ? 0.2 : 0.12;
+    // LOI-style: cancel flyby velocity, then settle inward (smooth meet)
+    const closeIn =
+      alt > 5_000 ? 0.45 : alt > 1_500 ? 0.2 : alt > 400 ? 0.08 : 0.035;
     targetVRad = -closeIn;
-    gain = 0.75;
-    hGain = 1.0;
-    maxA = LANDING_ACCEL * (alt > 15_000 ? 2.2 : 1.5);
+    gain = 0.7;
+    hGain = 1.5;
+    maxA = LANDING_ACCEL * (alt > 3_000 ? 2.4 : 1.6);
   } else if (phase === "braking") {
-    targetVRad = -0.14 - 0.45 * Math.min(1, alt / 4000);
-    gain = 0.65;
-    hGain = 0.95;
+    targetVRad = -0.1 - 0.35 * Math.min(1, alt / 3500);
+    gain = 0.7;
+    hGain = 1.2;
     maxA = LANDING_ACCEL * 1.55;
   } else {
     const safe = Math.sqrt(
       Math.max(0, 2 * LANDING_ACCEL * 0.4 * Math.max(alt, 0.05)),
     );
-    targetVRad = -Math.min(0.2, Math.max(0.0015, safe));
+    targetVRad = -Math.min(0.18, Math.max(0.0015, safe));
     gain = 1.0;
     hGain = 1.4;
     maxA = LANDING_ACCEL * 1.6;
@@ -353,45 +365,60 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
 }
 
 /**
- * Impulsive TLI at the **current** LEO position (trail stays continuous).
+ * LRO-style TLI: inject onto a **Keplerian ellipse in the Moon’s orbital plane**
+ * with periapsis at LEO opposite the predicted Moon, apogee at lunar distance.
  *
- * Sets Earth-relative velocity to pure horizontal transfer-periapsis speed in
- * the plane of (r, Moon_arrival). Current radius becomes periapsis of a
- * Kepler ellipse with apogee toward the Moon — sampled analytically after.
+ * The craft meets the Moon at the same place and time it reaches apogee —
+ * a smooth coplanar arc like the LRO magenta path, not an out-of-plane
+ * southbound miss that needs a hard correction.
  */
 function applyTli(state: CraftState, tliDv: number): void {
-  const b0 = getBodies(state.t);
+  const t0 = state.t;
   const T = transferTimeEst();
-  const b1 = bodyPositions(state.t + T);
+  const b0 = getBodies(t0);
 
-  sub(_relP, state.pos, b0.earth);
-  const r = len(_relP);
-  normalize(_radial, _relP);
-  sub(_relV, state.vel, b0.earthVel);
-
-  // Moon at arrival — define transfer plane with current radius vector
-  set(
-    _tmp,
-    b1.moon.x - b1.earth.x,
-    b1.moon.y - b1.earth.y,
-    b1.moon.z - b1.earth.z,
-  );
-  // n ∝ r × r_moon  →  prograde at periapsis = n × r̂
-  cross(_tangent, _relP, _tmp);
-  if (len(_tangent) < 1e-8) {
-    // Moon nearly radial: fall back to current orbital plane
-    cross(_tangent, _relP, _relV);
-    if (len(_tangent) < 1e-8) cross(_tangent, _up, _relP);
+  // Moon state relative to Earth at arrival (apogee target)
+  const moonArr = moonRelativeToEarth(t0 + T);
+  // Lunar orbital plane from current Moon motion
+  const moonNow = moonRelativeToEarth(t0);
+  cross(_tangent, moonNow.pos, moonNow.vel); // n raw
+  if (len(_tangent) < 1e-12) {
+    cross(_tangent, moonArr.pos, moonArr.vel);
   }
-  cross(_tmp, _tangent, _radial); // n × r̂
-  normalize(_tangent, _tmp);
-  if (dot(_tangent, _relV) < 0) scale(_tangent, _tangent, -1);
+  if (len(_tangent) < 1e-12) set(_tangent, _up.x, _up.y, _up.z);
+  normalize(_tangent, _tangent); // lunar plane normal n
 
+  // Apogee direction = Moon at arrival (projected into lunar plane)
+  set(_tmp, moonArr.pos.x, moonArr.pos.y, moonArr.pos.z);
+  // Remove any out-of-plane component
+  const nDot = dot(_tmp, _tangent);
+  _tmp.x -= _tangent.x * nDot;
+  _tmp.y -= _tangent.y * nDot;
+  _tmp.z -= _tangent.z * nDot;
+  normalize(_radial, _tmp); // apo-hat
+
+  // Periapsis opposite apogee (Hohmann geometry)
+  const periX = -_radial.x;
+  const periY = -_radial.y;
+  const periZ = -_radial.z;
+
+  // Prograde at periapsis in lunar plane: n × peri_hat
+  set(_relP, periX, periY, periZ);
+  cross(_tmp, _tangent, _relP);
+  normalize(_relV, _tmp); // prograde
+  // Prefer same sense as Moon’s motion
+  if (dot(_relV, moonNow.vel) < 0) scale(_relV, _relV, -1);
+
+  const r = LEO_RADIUS;
   const vPeri = transferVPeri(r, tliDv);
-  // Position unchanged — impulsive burn only
-  state.vel.x = b0.earthVel.x + _tangent.x * vPeri;
-  state.vel.y = b0.earthVel.y + _tangent.y * vPeri;
-  state.vel.z = b0.earthVel.z + _tangent.z * vPeri;
+
+  // Place at transfer periapsis in the lunar plane
+  state.pos.x = b0.earth.x + periX * r;
+  state.pos.y = b0.earth.y + periY * r;
+  state.pos.z = b0.earth.z + periZ * r;
+  state.vel.x = b0.earthVel.x + _relV.x * vPeri;
+  state.vel.y = b0.earthVel.y + _relV.y * vPeri;
+  state.vel.z = b0.earthVel.z + _relV.z * vPeri;
 }
 
 /** Build osculating Kepler orbit about Earth right after TLI. */
@@ -432,19 +459,20 @@ function probePerilune(tliDv: number): ProbeResult {
   if (!_leoRelTemplate) {
     return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
+  // Only need TLI epoch from template; injection is rebuilt in the lunar plane
   const state = restoreLeoRel(_leoRelTemplate);
   applyTli(state, tliDv);
   const tTli = state.t;
   const T = transferTimeEst();
   const orb = orbitAfterTli(state);
 
-  // Pure Kepler coast — smooth ellipse, no midcourse thrust
+  // Sample Kepler arc periapsis → apogee (true anomaly 0 → π)
   let minAlt = Infinity;
   let periluneT = tTli;
   let rEarthAtMin = Infinity;
-  const steps = 120;
+  const steps = 100;
   for (let i = 1; i <= steps; i++) {
-    const t = tTli + (T * 1.15 * i) / steps;
+    const t = tTli + (T * i) / steps;
     setStateFromKepler(state, orb, t);
     const altM = altitudeMoon(t, state.pos);
     const b = bodyPositions(t);
@@ -541,37 +569,46 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   }
 
   const state = appendAscentAndLeoCoast(samples, lastT);
-  const tTli = state.t;
+  // TLI rebuilds state in the lunar plane (LRO coplanar transfer)
   applyTli(state, tliDv);
   pushSample(samples, state, "tli", true, true, 0, lastT);
 
-  // --- Smooth Kepler coast (analytical ellipse, no midcourse thrust) ---
+  // --- Smooth Kepler coast in the lunar plane: periapsis → apogee ---
+  const tTli = state.t;
   const orb = orbitAfterTli(state);
   const Tdesign = transferTimeEst();
-  const Tcoast = toa && toa > 0 ? Math.min(toa * 1.05, Tdesign * 1.15) : Tdesign;
+  // Prefer design half-period so we meet the Moon at apogee
+  const Tcoast = Tdesign;
+  void toa;
   let minMoonAlt = Infinity;
   let phase: PhaseId = "coast";
 
-  const coastSteps = 200;
+  // Dense samples for a smooth trail (matches LRO magenta arc)
+  const coastSteps = 280;
   for (let i = 1; i <= coastSteps; i++) {
-    const t = tTli + (Tcoast * i) / coastSteps;
+    const u = i / coastSteps;
+    const t = tTli + Tcoast * u;
     setStateFromKepler(state, orb, t);
     const dMoon = distanceToMoon(t, state.pos);
     const altM = altitudeMoon(t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
     pushSample(samples, state, "coast", false, false, 0, lastT);
 
-    // Capture near lunar distance at the end of the Kepler arc
-    if (i / coastSteps > 0.8 && dMoon < 55_000) {
+    // Meet the Moon at apogee: last ~15% of the arc, close approach
+    if (u > 0.88 && dMoon < 30_000) {
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT);
       break;
     }
   }
 
+  // If we finished the full arc without capturing, start approach from apogee
   if (phase === "coast") {
-    if (minMoonAlt < 55_000) {
+    setStateFromKepler(state, orb, tTli + Tcoast);
+    minMoonAlt = Math.min(minMoonAlt, altitudeMoon(state.t, state.pos));
+    if (minMoonAlt < 80_000 || distanceToMoon(state.t, state.pos) < 80_000) {
       phase = "approach";
+      pushSample(samples, state, phase, false, true, 0, lastT);
     } else {
       return {
         samples,
@@ -585,13 +622,13 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     }
   }
 
-  // --- Powered approach / landing (RK4 + guidance) near the Moon only ---
-  const maxT = state.t + 120_000; // up to ~33 h to finish landing
+  // --- LOI-style capture + soft landing (near the Moon only) ---
+  const maxT = state.t + 80_000;
   while (state.t < maxT) {
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
 
-    if (phase === "approach" && altM < DESCENT_ALTITUDE * 20) {
+    if (phase === "approach" && altM < DESCENT_ALTITUDE * 15) {
       phase = "braking";
       pushSample(samples, state, phase, true, true, 0, lastT);
     }
@@ -622,7 +659,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     }
 
     const minSampleDt =
-      phase === "descent" ? 2 : phase === "braking" ? 8 : 20;
+      phase === "descent" ? 2 : phase === "braking" ? 6 : 12;
     pushSample(samples, state, phase, burning, false, minSampleDt, lastT);
   }
 
@@ -667,17 +704,17 @@ function downsample(result: MissionResult, maxPoints = 2800): MissionResult {
 }
 
 /**
- * Starbase (TX) → LEO → LRO-style direct TLI → lunar approach at ~A_EM → landing.
+ * Starbase → LEO → LRO-style coplanar Kepler transfer → meet Moon at apogee.
  *
- * Transfer apogee is sized to the Moon (not beyond it). Search takes the
- * lowest Δv that still intercepts under 4-body gravity.
+ * Geometry mirrors LRO: transfer lies in the lunar plane; craft reaches
+ * lunar distance at the same time it meets the Moon (smooth arc, no
+ * out-of-plane southbound miss).
  */
 export function runMission(): MissionResult {
   const xfer = lroTransfer();
   const baseDv = xfer.tliDv;
   const T = xfer.tof;
 
-  // Reference ascent under a neutral ephemeris to get Earth-relative LEO / TLI time
   resetAscentCache();
   setEpochPhases(0, T);
   const ascent0 = ensureAscent(0);
@@ -698,53 +735,51 @@ export function runMission(): MissionResult {
       message: ascent0.message,
     };
   }
-  // Short LEO coast for visuals; TLI repositions to transfer periapsis
   _leoCoastS = LEO_COAST_S;
   _leoRelTemplate = computeLeoRel();
   const tTli0 = _leoRelTemplate.t;
 
-  // Moon near apogee direction after half-period (π) coast
+  // Moon at apogee after half-period: λ_m(tTli+T) ≈ periapsis + π
   const guess = Math.PI - N_MOON * (T + tTli0);
 
   const phaseOffsets: number[] = [];
-  for (let i = -70; i <= 70; i++) phaseOffsets.push(i * 0.035);
+  for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
 
-  // Stay sub-escape; climb from Hohmann only as far as intercept needs
-  // Near-Hohmann only — midcourse cleans 4-body error (don't lob past the Moon)
-  const dvMax = Math.min(maxTliDv(), baseDv * 1.04);
-  const dvScales = [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.04].filter(
+  const dvMax = Math.min(maxTliDv(), baseDv * 1.03);
+  const dvScales = [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03].filter(
     (s) => baseDv * s <= dvMax + 1e-9,
   );
 
-  const INTERCEPT_ALT = 45_000;
-  const IDEAL_PERILUNE = 5_000;
+  // Want tight meet at apogee: craft r ≈ A_EM when Moon is close
+  const INTERCEPT_ALT = 25_000;
+  const IDEAL_PERILUNE = 2_000;
   const IDEAL_TOA = T;
-  const TOA_MIN = T * 0.7;
-  const TOA_MAX = T * 1.25;
+  const TOA_MIN = T * 0.85;
+  const TOA_MAX = T * 1.12;
 
   function periluneScore(
     alt: number,
     periluneT: number,
     rEarth: number,
   ): number {
-    if (!Number.isFinite(alt) || alt > 250_000) return 1e12;
+    if (!Number.isFinite(alt) || alt > 200_000) return 1e12;
+    // Prefer intercept at the same time we reach lunar distance
     const altTerm =
       alt < 0
-        ? 30_000 - alt
-        : Math.abs(alt - IDEAL_PERILUNE) +
-          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 5 : 0);
+        ? 25_000 - alt
+        : Math.abs(alt - IDEAL_PERILUNE) * 2 +
+          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 8 : 0);
     const dtH = (periluneT - IDEAL_TOA) / 3600;
-    const timeTerm = dtH * dtH * 80;
-    // Stay near lunar distance — neither deep undershoot nor lob past the Moon
+    const timeTerm = dtH * dtH * 200; // strong: meet at apogee TOA
     const rErr = Math.abs(rEarth - A_EM) / 1000;
-    const rTerm = rErr * rErr * 8;
-    const overshoot = Math.max(0, rEarth - A_EM * 1.03);
-    const overshootTerm = (overshoot / 1000) * (overshoot / 1000) * 80;
+    const rTerm = rErr * rErr * 25; // at lunar orbit radius
+    const overshoot = Math.max(0, rEarth - A_EM * 1.02);
+    const overshootTerm = (overshoot / 1000) * (overshoot / 1000) * 100;
     const windowPen =
       periluneT < TOA_MIN
-        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 120
+        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 250
         : periluneT > TOA_MAX
-          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 120
+          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 250
           : 0;
     return altTerm + timeTerm + rTerm + overshootTerm + windowPen;
   }
@@ -860,94 +895,13 @@ export function runMission(): MissionResult {
   return downsample(retry);
 }
 
-/** Same as flyMission but starts lunar guidance earlier on the Kepler arc. */
+/** Fallback: same Kepler lunar-plane transfer, slightly earlier LOI capture. */
 function flyMissionEarlyGuidance(
   moonPhase0: number,
   tliDv: number,
   toa?: number,
 ): MissionResult {
-  void moonPhase0;
-  const samples: Sample[] = [];
-  const lastT = { t: -Infinity };
-  const state = appendAscentAndLeoCoast(samples, lastT);
-  applyTli(state, tliDv);
-  pushSample(samples, state, "tli", true, true, 0, lastT);
-
-  const tTli = state.t;
-  const orb = orbitAfterTli(state);
-  const Tdesign = transferTimeEst();
-  const Tcoast = toa && toa > 0 ? Math.min(toa * 1.1, Tdesign * 1.2) : Tdesign;
-  let minMoonAlt = Infinity;
-  let phase: PhaseId = "coast";
-
-  const coastSteps = 200;
-  for (let i = 1; i <= coastSteps; i++) {
-    const t = tTli + (Tcoast * i) / coastSteps;
-    setStateFromKepler(state, orb, t);
-    const dMoon = distanceToMoon(t, state.pos);
-    minMoonAlt = Math.min(minMoonAlt, altitudeMoon(t, state.pos));
-    pushSample(samples, state, "coast", false, false, 0, lastT);
-    if (i / coastSteps > 0.7 && dMoon < 40_000) {
-      phase = "approach";
-      pushSample(samples, state, phase, false, true, 0, lastT);
-      break;
-    }
-  }
-
-  if (phase === "coast") {
-    if (minMoonAlt < 60_000) phase = "approach";
-    else {
-      return {
-        samples,
-        durationS: state.t,
-        moonPhase0,
-        tliDv,
-        minMoonAlt,
-        ok: false,
-        message: "Missed Moon",
-      };
-    }
-  }
-
-  const maxT = state.t + 90_000;
-  while (state.t < maxT) {
-    const altM = altitudeMoon(state.t, state.pos);
-    minMoonAlt = Math.min(minMoonAlt, altM);
-    if (phase === "approach" && altM < 5000) phase = "braking";
-    if (altM < DESCENT_ALTITUDE) phase = "descent";
-
-    const thrustFn: ThrustFn = (t, p, v) =>
-      landingThrust(t, p, v, phase === "coast" ? "approach" : phase);
-    rk4Step(
-      state,
-      phase === "descent" ? DT_BURN : DT_NEAR,
-      thrustFn,
-    );
-
-    if (altitudeMoon(state.t, state.pos) < 0.15) {
-      return finishLanding(state, samples, moonPhase0, tliDv, minMoonAlt);
-    }
-    pushSample(
-      samples,
-      state,
-      phase,
-      true,
-      false,
-      phase === "descent" ? 2 : 10,
-      lastT,
-    );
-  }
-
-  if (minMoonAlt < 8_000) {
-    return finishLanding(state, samples, moonPhase0, tliDv, minMoonAlt);
-  }
-  return {
-    samples,
-    durationS: state.t,
-    moonPhase0,
-    tliDv,
-    minMoonAlt,
-    ok: false,
-    message: "Timeout",
-  };
+  void toa;
+  // Reuse primary with the same geometry — capture threshold is already LOI-like
+  return flyMission(moonPhase0, tliDv, transferTimeEst());
 }

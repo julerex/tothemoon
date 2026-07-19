@@ -62,6 +62,91 @@ function createEarthAxisGroup(): THREE.Group {
   return axis;
 }
 
+/** Canvas sprite for axis pole labels (always faces camera). */
+function makePoleLabel(text: string, color: string): THREE.Sprite {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, size, size);
+  ctx.font = "bold 88px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  // Soft dark halo for readability
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, 48, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(text, size / 2, size / 2 + 4);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({
+    map,
+    transparent: true,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+  const spr = new THREE.Sprite(mat);
+  const s = R_EARTH * 0.55;
+  spr.scale.set(s, s, 1);
+  return spr;
+}
+
+/**
+ * Thick polar axis through Earth (local +Y = north after earthAxis tilt).
+ * Does not spin with the globe — sibling of the Earth mesh under earthAxis.
+ */
+function createEarthAxisVisual(): THREE.Group {
+  const g = new THREE.Group();
+  const halfLen = R_EARTH * 1.35;
+  const radius = R_EARTH * 0.018;
+
+  // Cylinder default axis is +Y — matches mesh north after parent tilt
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, halfLen * 2, 16),
+    new THREE.MeshBasicMaterial({
+      color: 0xffcc66,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    }),
+  );
+  g.add(shaft);
+
+  // Small pole caps
+  const capMat = new THREE.MeshBasicMaterial({
+    color: 0xffe8a0,
+    transparent: true,
+    opacity: 0.95,
+    depthWrite: false,
+  });
+  const capR = radius * 1.8;
+  const northCap = new THREE.Mesh(
+    new THREE.SphereGeometry(capR, 12, 10),
+    capMat,
+  );
+  northCap.position.y = halfLen;
+  g.add(northCap);
+  const southCap = new THREE.Mesh(
+    new THREE.SphereGeometry(capR, 12, 10),
+    capMat.clone(),
+  );
+  southCap.position.y = -halfLen;
+  g.add(southCap);
+
+  const nLabel = makePoleLabel("N", "#ff8866");
+  nLabel.position.y = halfLen + R_EARTH * 0.28;
+  g.add(nLabel);
+
+  const sLabel = makePoleLabel("S", "#88aaff");
+  sLabel.position.y = -halfLen - R_EARTH * 0.28;
+  g.add(sLabel);
+
+  return g;
+}
+
 /**
  * Tidally lock the Moon: texture lon 0° (mesh +X) faces Earth; mesh +Y aligns
  * with lunar north (MOON_OBLIQUITY from ecliptic +Z).
@@ -155,6 +240,9 @@ export function createBodies(): Bodies {
     }),
   );
   earthAxis.add(atmoOuter);
+
+  // Spin axis (fixed under earthAxis — does not rotate with surface texture)
+  earthAxis.add(createEarthAxisVisual());
 
   const moonGroup = new THREE.Group();
   const moonAxis = new THREE.Group();
