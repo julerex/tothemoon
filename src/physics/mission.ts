@@ -553,7 +553,6 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   let phase: PhaseId = "coast";
 
   const coastSteps = 200;
-  let captureT = tTli + Tcoast;
   for (let i = 1; i <= coastSteps; i++) {
     const t = tTli + (Tcoast * i) / coastSteps;
     setStateFromKepler(state, orb, t);
@@ -564,7 +563,6 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
     // Capture near lunar distance at the end of the Kepler arc
     if (i / coastSteps > 0.8 && dMoon < 55_000) {
-      captureT = t;
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT);
       break;
