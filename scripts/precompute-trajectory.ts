@@ -15,6 +15,12 @@ export type PackedSample = {
   v: [number, number, number];
   phase: Sample["phase"];
   burning: boolean;
+  /** Booster fuel remaining 0–1 */
+  fb: number;
+  /** Ship fuel remaining 0–1 */
+  fs: number;
+  /** Thrust force (kN) — packed smaller than raw newtons */
+  th: number;
 };
 
 export type PackedTrajectory = {
@@ -45,6 +51,9 @@ function pack(result: MissionResult): PackedTrajectory {
       v: [round(s.vel.x, 6), round(s.vel.y, 6), round(s.vel.z, 6)],
       phase: s.phase,
       burning: s.burning,
+      fb: round(s.fuelBooster, 4),
+      fs: round(s.fuelShip, 4),
+      th: round(s.thrustN / 1000, 2), // store kN
     })),
   };
 }

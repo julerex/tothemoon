@@ -33,6 +33,17 @@ import {
 } from "./integrator";
 import { keplerRvAt, rvToKepler, type KeplerOrbit } from "./kepler";
 import {
+  applyImpulsiveShipDv,
+  burnProp,
+  coastProp,
+  createPropState,
+  fuelBoosterFrac,
+  fuelShipFrac,
+  thrustForceN,
+  type PropState,
+  type Tank,
+} from "./propellant";
+import {
   clone,
   cross,
   dot,
@@ -62,6 +73,12 @@ export type Sample = {
   vel: V3;
   phase: PhaseId;
   burning: boolean;
+  /** Booster propellant remaining (0–1) */
+  fuelBooster: number;
+  /** Ship propellant remaining (0–1) */
+  fuelShip: number;
+  /** Thrust force (N); 0 when idle */
+  thrustN: number;
 };
 
 export type MissionResult = {
@@ -267,6 +284,7 @@ function runLunarPlaneLeoCoast(
   state: CraftState,
   samples: Sample[] | null,
   lastT: { t: number } | null,
+  prop: PropState | null = null,
 ): void {
   const t0 = state.t;
   const period = 2 * Math.PI * Math.sqrt((LEO_RADIUS ** 3) / MU_EARTH);
@@ -316,7 +334,7 @@ function runLunarPlaneLeoCoast(
   // Record insertion as-is (no radius/velocity snap) so the trail does not
   // jump from the last ascent sample; circular LEO begins on the next step.
   if (samples && lastT) {
-    pushSample(samples, state, "leo", false, true, 0, lastT);
+    pushSample(samples, state, "leo", false, true, 0, lastT, prop, 0, "ship");
   }
 
   for (let i = 1; i <= steps; i++) {
@@ -337,7 +355,18 @@ function runLunarPlaneLeoCoast(
     const t = t0 + coastS * u;
     setCircularLeo(state, t, _rHat, _tmp);
     if (samples && lastT) {
-      pushSample(samples, state, "leo", false, i === steps, 0, lastT);
+      pushSample(
+        samples,
+        state,
+        "leo",
+        false,
+        i === steps,
+        0,
+        lastT,
+        prop,
+        0,
+        "ship",
+      );
     }
   }
 }
@@ -355,10 +384,18 @@ function computeLeoRel(_coastS?: number): LeoRel {
 function appendAscentAndLeoCoast(
   samples: Sample[],
   lastT: { t: number },
+  prop: PropState,
   _coastS?: number,
 ): CraftState {
   void _coastS;
   const ascent = getAscent();
+  // Continue bookkeeping from ascent propellant state
+  const ap = ascent.prop ?? createPropState(ascent.state.t);
+  prop.boosterPropKg = ap.boosterPropKg;
+  prop.shipPropKg = ap.shipPropKg;
+  prop.lastT = ap.lastT;
+  prop.staged = ap.staged;
+
   for (const s of ascent.samples) {
     samples.push({
       t: s.t,
@@ -366,12 +403,15 @@ function appendAscentAndLeoCoast(
       vel: clone(s.vel),
       phase: s.phase,
       burning: s.burning,
+      fuelBooster: s.fuelBooster,
+      fuelShip: s.fuelShip,
+      thrustN: s.thrustN,
     });
     lastT.t = s.t;
   }
   const state = cloneState(ascent.state);
   // First LEO sample is continuous with last ascent sample (same r direction)
-  runLunarPlaneLeoCoast(state, samples, lastT);
+  runLunarPlaneLeoCoast(state, samples, lastT, prop);
   return state;
 }
 
@@ -447,15 +487,44 @@ function pushSample(
   force = false,
   minDt = 0,
   lastT = { t: -Infinity },
+  prop: PropState | null = null,
+  aKmS2 = 0,
+  tank: Tank = "ship",
+  /** When false, report thrust but do not deplete propellant (soft approach). */
+  consumeFuel = true,
 ): void {
   if (!force && state.t - lastT.t < minDt) return;
   lastT.t = state.t;
+
+  let thrustN = 0;
+  let fuelBooster = 0;
+  let fuelShip = 1;
+  if (prop) {
+    // Floor tiny midcourse accel so coast reads idle on the HUD
+    const aUse = aKmS2 >= 1e-4 ? aKmS2 : 0;
+    if (aUse > 0) {
+      if (consumeFuel) {
+        thrustN = burnProp(prop, state.t, aUse, tank);
+      } else {
+        thrustN = thrustForceN(prop, aUse);
+        coastProp(prop, state.t);
+      }
+    } else {
+      coastProp(prop, state.t);
+    }
+    fuelBooster = fuelBoosterFrac(prop);
+    fuelShip = fuelShipFrac(prop);
+  }
+
   samples.push({
     t: state.t,
     pos: clone(state.pos),
     vel: clone(state.vel),
     phase,
     burning,
+    fuelBooster,
+    fuelShip,
+    thrustN,
   });
 }
 
@@ -734,6 +803,7 @@ function finishLanding(
   moonPhase0: number,
   tliDv: number,
   minMoonAlt: number,
+  prop: PropState | null = null,
 ): MissionResult {
   const b = getBodies(state.t);
   sub(_relP, state.pos, b.moon);
@@ -748,8 +818,10 @@ function finishLanding(
 
   const landT0 = state.t;
   const lastT = { t: -Infinity };
-  pushSample(samples, state, "landed", false, true, 0, lastT);
+  pushSample(samples, state, "landed", false, true, 0, lastT, prop, 0, "ship");
 
+  const fb = prop ? fuelBoosterFrac(prop) : 0;
+  const fs = prop ? fuelShipFrac(prop) : 0;
   for (let i = 1; i <= 30; i++) {
     const t = landT0 + i * 60;
     const bi = bodyPositions(t);
@@ -763,6 +835,9 @@ function finishLanding(
       vel: clone(bi.moonVel),
       phase: "landed",
       burning: false,
+      fuelBooster: fb,
+      fuelShip: fs,
+      thrustN: 0,
     });
   }
 
@@ -786,6 +861,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   void moonPhase0;
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
+  const prop = createPropState(0);
 
   if (!getAscent().ok) {
     return {
@@ -799,10 +875,22 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     };
   }
 
-  const state = appendAscentAndLeoCoast(samples, lastT);
+  const state = appendAscentAndLeoCoast(samples, lastT, prop);
   // TLI: lunar-plane Hohmann injection (initial conditions)
   applyTli(state, tliDv);
-  pushSample(samples, state, "tli", true, true, 0, lastT);
+  // Impulsive Δv as a finite ship burn for fuel + HUD thrust spike
+  const tliThrustN = applyImpulsiveShipDv(prop, state.t, tliDv, 180);
+  samples.push({
+    t: state.t,
+    pos: clone(state.pos),
+    vel: clone(state.vel),
+    phase: "tli",
+    burning: true,
+    fuelBooster: fuelBoosterFrac(prop),
+    fuelShip: fuelShipFrac(prop),
+    thrustN: tliThrustN,
+  });
+  lastT.t = state.t;
 
   // --- N-body ballistic coast; Kepler osculating orbit is reference only ---
   const tTli = state.t;
@@ -834,7 +922,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     // Meet Moon near apogee / lunar distance
     if (coastT > Tcoast * 0.85 && dMoon < 35_000) {
       phase = "approach";
-      pushSample(samples, state, phase, false, true, 0, lastT);
+      pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
       break;
     }
     if (coastT > Tcoast * 1.15 && dMoon > 100_000) {
@@ -854,23 +942,26 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       dMoon < 80_000 ? DT_NEAR : dMoon < 200_000 ? 10 : DT_COAST;
     const trackFn: ThrustFn = (tt, p, v) =>
       keplerTrackThrust(tt, p, v, keplerRef);
-    const tracking = keplerTrackThrust(state.t, state.pos, state.vel, keplerRef);
+    // Soft midcourse: dynamics use it; HUD ignores tiny accel (fuel floor)
     rk4Step(state, dt, trackFn); // restricted 4-body + soft Kepler track
     pushSample(
       samples,
       state,
       "coast",
-      tracking !== null,
+      false,
       false,
       dMoon < 100_000 ? 15 : 45,
       lastT,
+      prop,
+      0,
+      "ship",
     );
   }
 
   if (phase === "coast") {
     if (minMoonAlt < 80_000) {
       phase = "approach";
-      pushSample(samples, state, phase, false, true, 0, lastT);
+      pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
     } else {
       return {
         samples,
@@ -893,20 +984,45 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
     if (phase === "approach" && altM < DESCENT_ALTITUDE * 15) {
       phase = "braking";
-      pushSample(samples, state, phase, true, true, 0, lastT);
+      const th = landingThrust(state.t, state.pos, state.vel, phase);
+      pushSample(
+        samples,
+        state,
+        phase,
+        true,
+        true,
+        0,
+        lastT,
+        prop,
+        th ? len(th) : 0,
+        "ship",
+      );
     }
     if (
       (phase === "braking" || phase === "approach") &&
       altM < DESCENT_ALTITUDE
     ) {
       phase = "descent";
-      pushSample(samples, state, phase, true, true, 0, lastT);
+      const th = landingThrust(state.t, state.pos, state.vel, phase);
+      pushSample(
+        samples,
+        state,
+        phase,
+        true,
+        true,
+        0,
+        lastT,
+        prop,
+        th ? len(th) : 0,
+        "ship",
+      );
     }
 
     const thrustFn: ThrustFn = (t, p, v) => landingThrust(t, p, v, phase);
     const dt =
       phase === "descent" ? DT_BURN : phase === "braking" ? DT_NEAR : DT_NEAR;
-    const burning = landingThrust(state.t, state.pos, state.vel, phase) !== null;
+    const thNow = landingThrust(state.t, state.pos, state.vel, phase);
+    const burning = thNow !== null;
     rk4Step(state, dt, thrustFn);
 
     const altM2 = altitudeMoon(state.t, state.pos);
@@ -915,21 +1031,57 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     const relSpeed = len(_relV);
 
     if (altM2 < 0.1 && relSpeed < TOUCHDOWN_SPEED * 8) {
-      const done = finishLanding(state, samples, moonPhase0, tliDv, minMoonAlt);
+      const done = finishLanding(
+        state,
+        samples,
+        moonPhase0,
+        tliDv,
+        minMoonAlt,
+        prop,
+      );
       return { ...done, keplerRefMaxDevKm };
     }
     if (altM2 < 0) {
-      const done = finishLanding(state, samples, moonPhase0, tliDv, minMoonAlt);
+      const done = finishLanding(
+        state,
+        samples,
+        moonPhase0,
+        tliDv,
+        minMoonAlt,
+        prop,
+      );
       return { ...done, keplerRefMaxDevKm };
     }
 
     const minSampleDt =
       phase === "descent" ? 2 : phase === "braking" ? 6 : 12;
-    pushSample(samples, state, phase, burning, false, minSampleDt, lastT);
+    const aMag = thNow ? len(thNow) : 0;
+    // Approach guidance shows thrust but only braking/descent spend ship fuel
+    const consume = phase === "braking" || phase === "descent";
+    pushSample(
+      samples,
+      state,
+      phase,
+      burning,
+      false,
+      minSampleDt,
+      lastT,
+      prop,
+      aMag,
+      "ship",
+      consume,
+    );
   }
 
   if (minMoonAlt < 5_000) {
-    const done = finishLanding(state, samples, moonPhase0, tliDv, minMoonAlt);
+    const done = finishLanding(
+      state,
+      samples,
+      moonPhase0,
+      tliDv,
+      minMoonAlt,
+      prop,
+    );
     return { ...done, keplerRefMaxDevKm };
   }
 
@@ -1006,6 +1158,9 @@ export function runMission(): MissionResult {
         vel: clone(s.vel),
         phase: s.phase,
         burning: s.burning,
+        fuelBooster: s.fuelBooster,
+        fuelShip: s.fuelShip,
+        thrustN: s.thrustN,
       })),
       durationS: ascent0.state.t,
       moonPhase0: 0,

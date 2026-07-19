@@ -127,6 +127,34 @@ export const LEO_COAST_S = LEO_COAST_REVS * LEO_PERIOD_S;
 /** Max continuous thrust acceleration during landing (km/s²) — ~1.2 g for theater */
 export const LANDING_ACCEL = 0.012;
 
+/** Standard gravity (m/s²) — force / Isp bookkeeping */
+export const G0 = 9.80665;
+
+/**
+ * Theater stack masses (kg) — Super Heavy / Starship order-of-magnitude.
+ * Used only for HUD fuel + thrust force (F = m · a); guidance stays accel-based.
+ */
+export const BOOSTER_DRY_KG = 200_000;
+export const BOOSTER_PROP_KG = 3_400_000;
+export const SHIP_DRY_KG = 120_000;
+export const SHIP_PROP_KG = 1_200_000;
+
+/** Specific impulse (s) for mass-flow bookkeeping */
+export const ISP_BOOSTER = 330;
+export const ISP_SHIP = 380;
+
+/**
+ * Scale pure rocket-equation ṁ so booster propellant lasts ~ascent duration
+ * under continuous ASCENT_ACCEL (theater accel is higher than real average).
+ * Tuned so ~8 min full-thrust equivalent drains ~95% of booster prop.
+ */
+export const BOOSTER_MDOT_SCALE = 0.18;
+/**
+ * Ship ṁ scale for braking/descent bookkeeping (soft multi-hour burns would
+ * empty a pure rocket-equation tank). Tuned for residual at touchdown.
+ */
+export const SHIP_MDOT_SCALE = 0.06;
+
 /** Capture / approach guidance start distance from Moon center (km) */
 export const APPROACH_RANGE = 40_000;
 

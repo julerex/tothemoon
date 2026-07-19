@@ -177,6 +177,9 @@ function applyMissionState(u: number): void {
     distanceToMoon: Math.max(0, frame.distMoon - R_MOON),
     altitude,
     speed: frame.speed,
+    fuelBooster: frame.fuelBooster,
+    fuelShip: frame.fuelShip,
+    thrustN: frame.thrustN,
     playing: clock.playing,
     dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
   });

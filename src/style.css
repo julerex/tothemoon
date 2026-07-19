@@ -116,13 +116,13 @@ body {
   font-family: var(--mono);
   font-size: 0.78rem;
   line-height: 1.55;
-  min-width: 11.5rem;
+  min-width: 13rem;
 }
 
 .telemetry .label {
   color: var(--muted);
   display: inline-block;
-  min-width: 4.5rem;
+  min-width: 5.2rem;
 }
 
 .telemetry #date {

@@ -2,8 +2,8 @@
  * Powered ascent from Starbase (Boca Chica, TX) to circular LEO.
  *
  * Theater model: continuous thrust ~2.5 g, gravity turn due-east so parking
- * inclination ≈ site latitude (~26°). Not a staged mass model — enough fidelity
- * for a visible pad→orbit arc before TLI.
+ * inclination ≈ site latitude (~26°). Propellant/thrust fields are HUD
+ * bookkeeping only (guidance stays acceleration-based).
  */
 
 import {
@@ -21,6 +21,14 @@ import {
   type CraftState,
   type ThrustFn,
 } from "./integrator";
+import {
+  burnProp,
+  createPropState,
+  fuelBoosterFrac,
+  fuelShipFrac,
+  stageBooster,
+  type PropState,
+} from "./propellant";
 import {
   clone,
   dot,
@@ -41,6 +49,12 @@ export type AscentSample = {
   vel: V3;
   phase: AscentPhase;
   burning: boolean;
+  /** Booster propellant remaining (0–1) */
+  fuelBooster: number;
+  /** Ship propellant remaining (0–1) */
+  fuelShip: number;
+  /** Thrust force (N); 0 when engines idle */
+  thrustN: number;
 };
 
 export type AscentResult = {
@@ -50,7 +64,35 @@ export type AscentResult = {
   message: string;
   insertionAlt: number;
   insertionSpeed: number;
+  /** Propellant state after insert (booster staged) */
+  prop: PropState;
 };
+
+function pushAscentSample(
+  samples: AscentSample[],
+  state: CraftState,
+  phase: AscentPhase,
+  burning: boolean,
+  prop: PropState,
+  aKmS2: number,
+): void {
+  let thrustN = 0;
+  if (burning && aKmS2 > 1e-12 && phase !== "leo") {
+    thrustN = burnProp(prop, state.t, aKmS2, "booster");
+  } else {
+    prop.lastT = state.t;
+  }
+  samples.push({
+    t: state.t,
+    pos: clone(state.pos),
+    vel: clone(state.vel),
+    phase,
+    burning,
+    fuelBooster: fuelBoosterFrac(prop),
+    fuelShip: fuelShipFrac(prop),
+    thrustN,
+  });
+}
 
 const _up = v3();
 const _east = v3();
@@ -170,6 +212,7 @@ function insertionOk(t: number, pos: V3, vel: V3): boolean {
  */
 export function flyAscent(): AscentResult {
   const samples: AscentSample[] = [];
+  const prop = createPropState(0);
   const pad = starbasePadState(0);
   const state: CraftState = {
     t: 0,
@@ -181,13 +224,8 @@ export function flyAscent(): AscentResult {
   state.vel.y += pad.up.y * 0.01;
   state.vel.z += pad.up.z * 0.01;
 
-  samples.push({
-    t: 0,
-    pos: clone(state.pos),
-    vel: clone(state.vel),
-    phase: "launch",
-    burning: true,
-  });
+  const a0 = ascentThrust(0, state.pos, state.vel);
+  pushAscentSample(samples, state, "launch", true, prop, a0 ? len(a0) : ASCENT_ACCEL);
 
   let lastSampleT = 0;
   let phase: AscentPhase = "launch";
@@ -199,14 +237,8 @@ export function flyAscent(): AscentResult {
     else phase = "ascent";
 
     if (insertionOk(state.t, state.pos, state.vel)) {
-      phase = "leo";
-      samples.push({
-        t: state.t,
-        pos: clone(state.pos),
-        vel: clone(state.vel),
-        phase: "leo",
-        burning: false,
-      });
+      stageBooster(prop, state.t);
+      pushAscentSample(samples, state, "leo", false, prop, 0);
       const b = getBodies(state.t);
       sub(_relV, state.vel, b.earthVel);
       return {
@@ -216,6 +248,7 @@ export function flyAscent(): AscentResult {
         message: "LEO",
         insertionAlt: altitudeEarth(state.t, state.pos),
         insertionSpeed: len(_relV),
+        prop,
       };
     }
 
@@ -227,6 +260,7 @@ export function flyAscent(): AscentResult {
         message: "Ascent impact",
         insertionAlt: alt,
         insertionSpeed: 0,
+        prop,
       };
     }
 
@@ -239,14 +273,9 @@ export function flyAscent(): AscentResult {
     const minDt = phase === "launch" ? 0.15 : 0.35;
     if (state.t - lastSampleT >= minDt - 1e-9) {
       lastSampleT = state.t;
-      const burning = ascentThrust(state.t, state.pos, state.vel) !== null;
-      samples.push({
-        t: state.t,
-        pos: clone(state.pos),
-        vel: clone(state.vel),
-        phase,
-        burning,
-      });
+      const th = ascentThrust(state.t, state.pos, state.vel);
+      const aMag = th ? len(th) : 0;
+      pushAscentSample(samples, state, phase, th !== null, prop, aMag);
     }
   }
 
@@ -266,13 +295,8 @@ export function flyAscent(): AscentResult {
     state.vel.x = b.earthVel.x + _east.x * vCirc;
     state.vel.y = b.earthVel.y + _east.y * vCirc;
     state.vel.z = b.earthVel.z + _east.z * vCirc;
-    samples.push({
-      t: state.t,
-      pos: clone(state.pos),
-      vel: clone(state.vel),
-      phase: "leo",
-      burning: false,
-    });
+    stageBooster(prop, state.t);
+    pushAscentSample(samples, state, "leo", false, prop, 0);
     return {
       state,
       samples,
@@ -280,6 +304,7 @@ export function flyAscent(): AscentResult {
       message: "LEO (forced circularize)",
       insertionAlt: LEO_ALTITUDE,
       insertionSpeed: vCirc,
+      prop,
     };
   }
 
@@ -290,5 +315,6 @@ export function flyAscent(): AscentResult {
     message: "Ascent timeout",
     insertionAlt: alt,
     insertionSpeed: 0,
+    prop,
   };
 }

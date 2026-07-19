@@ -1,5 +1,6 @@
 import type { MissionClock } from "../mission/clock";
 import type { CameraMode } from "../camera/modes";
+import { BOOSTER_PROP_KG, SHIP_PROP_KG } from "../physics/constants";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
@@ -15,6 +16,12 @@ export type Telemetry = {
   distanceToMoon: number;
   altitude: number;
   speed: number;
+  /** Booster propellant remaining 0–1 */
+  fuelBooster: number;
+  /** Ship propellant remaining 0–1 */
+  fuelShip: number;
+  /** Thrust force (N) */
+  thrustN: number;
   playing: boolean;
   dateUtc: string;
 };
@@ -32,6 +39,9 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
   const progEl = el<HTMLElement>("#progress");
   const altEl = el<HTMLElement>("#tel-altitude");
   const spdEl = el<HTMLElement>("#tel-speed");
+  const boosterEl = el<HTMLElement>("#tel-booster");
+  const shipEl = el<HTMLElement>("#tel-ship");
+  const thrustEl = el<HTMLElement>("#tel-thrust");
   const camBtns = document.querySelectorAll<HTMLButtonElement>("[data-camera]");
 
   let scrubbing = false;
@@ -98,6 +108,9 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
     spdEl.textContent = formatSpeed(tel.speed);
+    boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
+    shipEl.textContent = formatFuel(tel.fuelShip, "ship");
+    thrustEl.textContent = formatThrust(tel.thrustN);
 
     btnPlay.textContent = tel.playing ? "Pause" : "Play";
     btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
@@ -131,6 +144,24 @@ function formatSpeed(kmPerS: number): string {
   const v = Math.max(0, kmPerS);
   if (v >= 1) return `${v.toFixed(2)} km/s`;
   return `${(v * 1000).toFixed(0)} m/s`;
+}
+
+function formatFuel(frac: number, tank: "booster" | "ship"): string {
+  const f = Math.max(0, Math.min(1, frac));
+  const cap = tank === "booster" ? BOOSTER_PROP_KG : SHIP_PROP_KG;
+  const kg = f * cap;
+  const pct = `${Math.round(f * 100)}%`;
+  if (kg >= 1_000_000) return `${pct} · ${(kg / 1_000_000).toFixed(2)} kt`;
+  if (kg >= 1000) return `${pct} · ${(kg / 1000).toFixed(0)} t`;
+  return `${pct} · ${Math.round(kg)} kg`;
+}
+
+function formatThrust(newtons: number): string {
+  const n = Math.max(0, newtons);
+  if (n < 500) return "—";
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MN`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} kN`;
+  return `${Math.round(n)} N`;
 }
 
 function el<T extends HTMLElement>(sel: string): T {

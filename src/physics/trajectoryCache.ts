@@ -21,6 +21,12 @@ export type FrameState = {
   altMoon: number;
   altEarth: number;
   distMoon: number;
+  /** Booster propellant remaining (0–1) */
+  fuelBooster: number;
+  /** Ship propellant remaining (0–1) */
+  fuelShip: number;
+  /** Thrust force (N) */
+  thrustN: number;
 };
 
 /** Build-time packed format (see scripts/precompute-trajectory.ts). */
@@ -37,6 +43,9 @@ type PackedTrajectory = {
     v: number[];
     phase: string;
     burning: boolean;
+    fb?: number;
+    fs?: number;
+    th?: number;
   }>;
 };
 
@@ -54,6 +63,9 @@ function unpack(packed: PackedTrajectory): MissionResult {
       vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
       phase: s.phase as PhaseId,
       burning: s.burning,
+      fuelBooster: s.fb ?? 0,
+      fuelShip: s.fs ?? 1,
+      thrustN: (s.th ?? 0) * 1000, // kN → N
     })),
   };
 }
@@ -112,6 +124,9 @@ export class TrajectoryCache {
         altMoon: 0,
         altEarth: 0,
         distMoon: 0,
+        fuelBooster: 0,
+        fuelShip: 1,
+        thrustN: 0,
       };
     }
 
@@ -144,7 +159,19 @@ export class TrajectoryCache {
 
     const phase = f < 0.5 ? a.phase : b.phase;
     const burning = a.burning || b.burning;
-    return this.makeFrame(t, pos, vel, phase, burning);
+    const fuelBooster = a.fuelBooster + (b.fuelBooster - a.fuelBooster) * f;
+    const fuelShip = a.fuelShip + (b.fuelShip - a.fuelShip) * f;
+    const thrustN = a.thrustN + (b.thrustN - a.thrustN) * f;
+    return this.makeFrame(
+      t,
+      pos,
+      vel,
+      phase,
+      burning,
+      fuelBooster,
+      fuelShip,
+      thrustN,
+    );
   }
 
   /** Positions for trail rendering. */
@@ -160,7 +187,16 @@ export class TrajectoryCache {
   }
 
   private frameFromSample(s: Sample): FrameState {
-    return this.makeFrame(s.t, s.pos, s.vel, s.phase, s.burning);
+    return this.makeFrame(
+      s.t,
+      s.pos,
+      s.vel,
+      s.phase,
+      s.burning,
+      s.fuelBooster,
+      s.fuelShip,
+      s.thrustN,
+    );
   }
 
   private makeFrame(
@@ -169,6 +205,9 @@ export class TrajectoryCache {
     vel: V3,
     phase: PhaseId,
     burning: boolean,
+    fuelBooster: number,
+    fuelShip: number,
+    thrustN: number,
   ): FrameState {
     const b = bodyPositions(t);
     const dxM = pos.x - b.moon.x;
@@ -190,6 +229,9 @@ export class TrajectoryCache {
       altMoon: distMoon - R_MOON,
       altEarth: distEarth - R_EARTH,
       distMoon,
+      fuelBooster,
+      fuelShip,
+      thrustN,
     };
   }
 }
