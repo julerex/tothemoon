@@ -271,8 +271,8 @@ function runLunarPlaneLeoCoast(
   const t0 = state.t;
   const period = 2 * Math.PI * Math.sqrt((LEO_RADIUS ** 3) / MU_EARTH);
   const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
-  // Fine samples so the plane-change arc is smooth (~15–20 s)
-  const steps = Math.max(120, Math.ceil(coastS / 15));
+  // Fine samples so the plane-change arc is smooth (~10 s chords ≈ 70 km)
+  const steps = Math.max(180, Math.ceil(coastS / 10));
 
   const b0 = bodyPositions(t0);
   sub(_relP, state.pos, b0.earth);
@@ -313,7 +313,13 @@ function runLunarPlaneLeoCoast(
   const targetAngle = (coastS / period) * 2 * Math.PI;
   while (angInPlane < targetAngle * 0.85) angInPlane += 2 * Math.PI;
 
-  for (let i = 0; i <= steps; i++) {
+  // Record insertion as-is (no radius/velocity snap) so the trail does not
+  // jump from the last ascent sample; circular LEO begins on the next step.
+  if (samples && lastT) {
+    pushSample(samples, state, "leo", false, true, 0, lastT);
+  }
+
+  for (let i = 1; i <= steps; i++) {
     const u = i / steps;
     // Ease plane change through the middle of the coast
     const uPlane = u * u * (3 - 2 * u); // smoothstep
@@ -331,7 +337,7 @@ function runLunarPlaneLeoCoast(
     const t = t0 + coastS * u;
     setCircularLeo(state, t, _rHat, _tmp);
     if (samples && lastT) {
-      pushSample(samples, state, "leo", false, i === 0 || i === steps, 0, lastT);
+      pushSample(samples, state, "leo", false, i === steps, 0, lastT);
     }
   }
 }
@@ -939,27 +945,40 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   };
 }
 
-function downsample(result: MissionResult, maxPoints = 2800): MissionResult {
+/**
+ * Thin long coasts for file size, but never drop near-Earth trail detail.
+ * Previous index-stride thinning skipped the first LEO samples after a dense
+ * ascent block (next was already ahead), which looked like a ~300 km teleport.
+ */
+function downsample(result: MissionResult, maxPoints = 4000): MissionResult {
   const s = result.samples;
   if (s.length <= maxPoints) return result;
   const out: Sample[] = [];
   const step = s.length / maxPoints;
   let next = 0;
+  let prevPhase: PhaseId | null = null;
   for (let i = 0; i < s.length; i++) {
     const sample = s[i]!;
-    if (
-      i >= next ||
+    const phaseChange = prevPhase !== null && sample.phase !== prevPhase;
+    // Keep full pad→LEO trail; thin only the long TLI coast / approach.
+    const priority =
       sample.burning ||
       sample.phase === "launch" ||
       sample.phase === "ascent" ||
+      sample.phase === "leo" ||
       sample.phase === "tli" ||
       sample.phase === "landed" ||
+      phaseChange ||
       i === 0 ||
-      i === s.length - 1
-    ) {
+      i === s.length - 1;
+    if (i >= next || priority) {
       out.push(sample);
-      if (i >= next) next += step;
+      // Advance the stride from this index so priority runs don't leave a hole
+      // in the following thinned phase.
+      if (i >= next) next = i + step;
+      else if (phaseChange) next = i + step;
     }
+    prevPhase = sample.phase;
   }
   return { ...result, samples: out };
 }
