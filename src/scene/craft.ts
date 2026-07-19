@@ -119,10 +119,12 @@ function createLocatorSprite(): THREE.Sprite {
   const mat = new THREE.SpriteMaterial({
     map,
     transparent: true,
+    depthTest: false, // never hide under Earth/Moon surfaces
     depthWrite: false,
     sizeAttenuation: true,
   });
   const sprite = new THREE.Sprite(mat);
+  sprite.renderOrder = 999;
   // ~800 km apparent blob at system scale so free camera can find craft
   sprite.scale.set(800, 800, 1);
   sprite.name = "locator";

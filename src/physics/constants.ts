@@ -115,10 +115,14 @@ export const STARBASE_ALT = 0.01;
 export const ASCENT_ACCEL = 0.028; // ~2.8 g peak theater
 
 /**
- * Default LEO coast after insertion before TLI (s).
- * runMission may pick a nearby value for a better lunar intercept.
+ * LEO parking coast before TLI: ~1.25 revolutions so the craft clearly
+ * loops with the Moon’s sense of motion (not a short reverse arc).
+ * Sidereal LEO period at 200 km ≈ 88.5 min.
  */
-export const LEO_COAST_S = 15 * 60;
+export const LEO_COAST_REVS = 1.25;
+export const LEO_PERIOD_S =
+  2 * Math.PI * Math.sqrt((LEO_RADIUS * LEO_RADIUS * LEO_RADIUS) / MU_EARTH);
+export const LEO_COAST_S = LEO_COAST_REVS * LEO_PERIOD_S;
 
 /** Max continuous thrust acceleration during landing (km/s²) — ~1.2 g for theater */
 export const LANDING_ACCEL = 0.012;

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { MissionClock } from "./mission/clock";
 import { TrajectoryCache } from "./physics/trajectoryCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./physics/bodies";
-import { R_MOON } from "./physics/constants";
+import { R_EARTH, R_MOON } from "./physics/constants";
 import {
   daysPastFullAtLanding,
   formatMissionDateUtc,
@@ -114,6 +114,31 @@ function applyMissionState(u: number): void {
   const frame = cache.sampleAtProgress(u);
   craftPos.set(frame.pos.x, frame.pos.y, frame.pos.z);
   craftVel.set(frame.vel.x, frame.vel.y, frame.vel.z);
+
+  const b = bodyPositions(frame.t);
+
+  // Never draw the craft under Earth's surface (ascent/LEO numerical dips)
+  const nearEarthPhase =
+    frame.phase === "launch" ||
+    frame.phase === "ascent" ||
+    frame.phase === "leo" ||
+    frame.phase === "tli";
+  if (nearEarthPhase) {
+    const dx = craftPos.x - b.earth.x;
+    const dy = craftPos.y - b.earth.y;
+    const dz = craftPos.z - b.earth.z;
+    const r = Math.hypot(dx, dy, dz);
+    const minR = R_EARTH + 50; // 50 km clearance above mean surface
+    if (r < minR && r > 1e-6) {
+      const s = minR / r;
+      craftPos.set(
+        b.earth.x + dx * s,
+        b.earth.y + dy * s,
+        b.earth.z + dz * s,
+      );
+    }
+  }
+
   craft.position.copy(craftPos);
   orientCraft(craftVel);
 
@@ -121,7 +146,6 @@ function applyMissionState(u: number): void {
   updateBodies(frame.t, bodies);
 
   // Sun light from ephemeris (direction only — avoid AU-scale light positions)
-  const b = bodyPositions(frame.t);
   sunLight.position.set(
     b.sun.x - b.earth.x,
     b.sun.y - b.earth.y,

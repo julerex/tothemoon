@@ -2,7 +2,6 @@ import {
   A_EM,
   DESCENT_ALTITUDE,
   DT_BURN,
-  DT_COAST,
   DT_NEAR,
   LANDING_ACCEL,
   LEO_COAST_S,
@@ -161,27 +160,134 @@ function restoreLeoRel(rel: LeoRel): CraftState {
   };
 }
 
-/** Chosen LEO coast before TLI (s); set by runMission search. */
+/** Chosen LEO coast duration (s). */
 let _leoCoastS = LEO_COAST_S;
 
-/** Ascent + LEO coast under current ephemeris → Earth-relative TLI state. */
-function computeLeoRel(coastS: number = _leoCoastS): LeoRel {
+/**
+ * Lunar-plane unit basis: e1, e2 with n = e1 × e2 matching Moon's orbital sense
+ * (right-hand: v_moon ∥ n × r_moon).
+ */
+function lunarPlaneBasis(
+  t: number,
+  e1: V3,
+  e2: V3,
+  n: V3,
+): void {
+  const moon = moonRelativeToEarth(t);
+  cross(n, moon.pos, moon.vel);
+  if (len(n) < 1e-12) set(n, _up.x, _up.y, _up.z);
+  normalize(n, n);
+  // e1 from Moon position projected in-plane
+  set(e1, moon.pos.x, moon.pos.y, moon.pos.z);
+  const nd = dot(e1, n);
+  e1.x -= n.x * nd;
+  e1.y -= n.y * nd;
+  e1.z -= n.z * nd;
+  if (len(e1) < 1e-8) {
+    // fallback
+    cross(e1, n, _up);
+    if (len(e1) < 1e-8) set(e1, 1, 0, 0);
+  }
+  normalize(e1, e1);
+  cross(e2, n, e1);
+  normalize(e2, e2);
+}
+
+/**
+ * Circular LEO in the lunar plane, co-rotating with the Moon
+ * (v = n × r̂ · v_circ — same sense as lunar orbit).
+ * θ = 0 along e1 (toward Moon’s current projection).
+ */
+function setLunarPlaneLeoState(state: CraftState, t: number, theta: number): void {
+  const b = bodyPositions(t);
+  lunarPlaneBasis(t, _radial, _tangent, _tmp); // e1, e2, n in _radial,_tangent,_tmp
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  // r_hat = e1 cos θ + e2 sin θ
+  const rx = _radial.x * c + _tangent.x * s;
+  const ry = _radial.y * c + _tangent.y * s;
+  const rz = _radial.z * c + _tangent.z * s;
+  // v_hat = n × r_hat = e1×e2 wait: n×(e1 c + e2 s) = e2 c - e1 s
+  // since n×e1 = e2, n×e2 = -e1 (if e2 = n×e1)
+  const vx = _tangent.x * c - _radial.x * s;
+  const vy = _tangent.y * c - _radial.y * s;
+  const vz = _tangent.z * c - _radial.z * s;
+  const vCirc = Math.sqrt(MU_EARTH / LEO_RADIUS);
+  state.t = t;
+  state.pos.x = b.earth.x + rx * LEO_RADIUS;
+  state.pos.y = b.earth.y + ry * LEO_RADIUS;
+  state.pos.z = b.earth.z + rz * LEO_RADIUS;
+  state.vel.x = b.earthVel.x + vx * vCirc;
+  state.vel.y = b.earthVel.y + vy * vCirc;
+  state.vel.z = b.earthVel.z + vz * vCirc;
+}
+
+/**
+ * After ascent: park in lunar-plane LEO going WITH the Moon, coast ~1.25 revs,
+ * ending near the transfer periapsis (opposite the Moon at TLI+TOF).
+ */
+function runLunarPlaneLeoCoast(
+  state: CraftState,
+  samples: Sample[] | null,
+  lastT: { t: number } | null,
+): void {
+  const t0 = state.t;
+  const period = 2 * Math.PI * Math.sqrt((LEO_RADIUS ** 3) / MU_EARTH);
+  const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
+  const steps = Math.max(48, Math.ceil(coastS / 45));
+
+  // Start angle: from ascent position projected into lunar plane
+  lunarPlaneBasis(t0, _radial, _tangent, _tmp);
+  const b0 = bodyPositions(t0);
+  sub(_relP, state.pos, b0.earth);
+  const x = dot(_relP, _radial);
+  const y = dot(_relP, _tangent);
+  let theta0 = Math.atan2(y, x);
+
+  // Target end angle: transfer periapsis opposite Moon at arrival
+  const T = transferTimeEst();
+  const moonArr = moonRelativeToEarth(t0 + coastS + T);
+  lunarPlaneBasis(t0 + coastS, _radial, _tangent, _tmp);
+  // peri-hat ≈ -moon_arr in plane
+  set(_relV, -moonArr.pos.x, -moonArr.pos.y, -moonArr.pos.z);
+  const px = dot(_relV, _radial);
+  const py = dot(_relV, _tangent);
+  let thetaPeri = Math.atan2(py, px);
+
+  // Advance θ0 → θPeri in the prograde sense (increasing θ, same as n×r)
+  let dTheta = thetaPeri - theta0;
+  while (dTheta < 0.4) dTheta += 2 * Math.PI; // at least ~1/4 rev visible
+  // Prefer ~1.25 revs total coast
+  const targetSpan = (coastS / period) * 2 * Math.PI;
+  if (dTheta < targetSpan * 0.7) dTheta += 2 * Math.PI;
+
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const t = t0 + coastS * u;
+    const theta = theta0 + dTheta * u;
+    setLunarPlaneLeoState(state, t, theta);
+    if (samples && lastT) {
+      pushSample(samples, state, "leo", false, i === 0 || i === steps, 0, lastT);
+    }
+  }
+}
+
+/** Ascent end → lunar-plane LEO coast → LEO-rel state for probes. */
+function computeLeoRel(_coastS?: number): LeoRel {
+  void _coastS;
   const ascent = getAscent();
   const state = cloneState(ascent.state);
-  const tliEpoch = state.t + coastS;
-  while (state.t < tliEpoch) {
-    const dt = Math.min(DT_COAST, tliEpoch - state.t);
-    rk4Step(state, dt);
-  }
+  runLunarPlaneLeoCoast(state, null, null);
   return captureLeoRel(state);
 }
 
-/** Append ascent samples, then coast LEO until TLI epoch; returns post-coast state. */
+/** Append ascent samples, then coplanar LEO co-rotating with the Moon. */
 function appendAscentAndLeoCoast(
   samples: Sample[],
   lastT: { t: number },
-  coastS: number = _leoCoastS,
+  _coastS?: number,
 ): CraftState {
+  void _coastS;
   const ascent = getAscent();
   for (const s of ascent.samples) {
     samples.push({
@@ -194,15 +300,7 @@ function appendAscentAndLeoCoast(
     lastT.t = s.t;
   }
   const state = cloneState(ascent.state);
-  const tliEpoch = state.t + coastS;
-  while (state.t < tliEpoch) {
-    const dt = Math.min(DT_COAST, tliEpoch - state.t);
-    rk4Step(state, dt);
-    if (state.t - lastT.t >= 30) {
-      pushSample(samples, state, "leo", false, false, 30, lastT);
-    }
-  }
-  pushSample(samples, state, "leo", false, true, 0, lastT);
+  runLunarPlaneLeoCoast(state, samples, lastT);
   return state;
 }
 
@@ -402,23 +500,23 @@ function applyTli(state: CraftState, tliDv: number): void {
   const periY = -_radial.y;
   const periZ = -_radial.z;
 
-  // Prograde at periapsis in lunar plane: n × peri_hat
+  // Prograde at periapsis: n × peri_hat — same orbital sense as the Moon
+  // (Moon: v ∥ n × r with this n). Do NOT flip; that caused retrograde TLI.
   set(_relP, periX, periY, periZ);
   cross(_tmp, _tangent, _relP);
-  normalize(_relV, _tmp); // prograde
-  // Prefer same sense as Moon’s motion
-  if (dot(_relV, moonNow.vel) < 0) scale(_relV, _relV, -1);
+  normalize(_relV, _tmp);
 
   const r = LEO_RADIUS;
   const vPeri = transferVPeri(r, tliDv);
 
-  // Place at transfer periapsis in the lunar plane
+  // Place at transfer periapsis in the lunar plane (continuous with LEO park)
   state.pos.x = b0.earth.x + periX * r;
   state.pos.y = b0.earth.y + periY * r;
   state.pos.z = b0.earth.z + periZ * r;
   state.vel.x = b0.earthVel.x + _relV.x * vPeri;
   state.vel.y = b0.earthVel.y + _relV.y * vPeri;
   state.vel.z = b0.earthVel.z + _relV.z * vPeri;
+  void moonNow;
 }
 
 /** Build osculating Kepler orbit about Earth right after TLI. */
