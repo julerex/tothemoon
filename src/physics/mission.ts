@@ -72,7 +72,7 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   ascent: "Ascent to LEO",
   leo: "LEO",
   tli: "Trans-lunar injection",
-  coast: "Coast to apogee",
+  coast: "Trans-lunar coast",
   approach: "Lunar approach",
   braking: "Braking",
   descent: "Powered descent",
@@ -202,33 +202,110 @@ function appendAscentAndLeoCoast(
 }
 
 /**
- * Hohmann-class TLI: Earth-centered ellipse with apogee near the Moon.
- * Craft is injected at periapsis (LEO); the Moon “catches” it near apogee
- * after half an orbital period (~5 days), not on a fast free-return arc.
+ * LRO-style direct lunar transfer (near min-energy).
+ *
+ * LRO flew a ~4.5-day direct TLI→Moon path aimed for lunar approach / LOI,
+ * not a free-return and not an Earth ellipse whose apogee sits well beyond
+ * the Moon. We target apogee ≈ mean lunar distance so the craft reaches the
+ * Moon near the high point of the transfer (r ≈ A_EM), with only the smallest
+ * Δv bump the 4-body model needs for intercept.
+ *
+ * Pure Hohmann LEO→A_EM is ~5.0 d half-period; LRO was slightly faster.
+ * Design: ra = A_EM (no intentional overshoot); TOF = half-period.
  */
-/** Target apogee radius (km) — slightly past mean lunar distance for 4-body margin. */
-function transferApogee(): number {
-  return A_EM * 1.05;
-}
-
-function hohmannTransfer(): { ra: number; a: number; tliDv: number; tof: number; vPeri: number } {
+function lroTransfer(): { ra: number; a: number; tliDv: number; tof: number; vPeri: number } {
   const rp = LEO_RADIUS;
-  const ra = transferApogee();
+  // Apogee at the Moon — do not aim past lunar orbit
+  const ra = A_EM;
   const a = 0.5 * (rp + ra);
   const vLeo = Math.sqrt(MU_EARTH / rp);
   const vPeri = Math.sqrt(MU_EARTH * (2 / rp - 1 / a));
-  // Half ellipse periapsis → apogee
   const tof = Math.PI * Math.sqrt((a * a * a) / MU_EARTH);
   return { ra, a, tliDv: vPeri - vLeo, tof, vPeri };
 }
 
 function transferTimeEst(): number {
-  return hohmannTransfer().tof;
+  return lroTransfer().tof;
 }
 
-/** Periapsis speed for a transfer with given Δv above circular LEO. */
+/** Periapsis speed = circular LEO + TLI Δv (elliptical: strictly below escape). */
 function transferVPeri(r: number, tliDv: number): number {
-  return Math.sqrt(MU_EARTH / r) + tliDv;
+  const vCirc = Math.sqrt(MU_EARTH / r);
+  const vEsc = Math.sqrt((2 * MU_EARTH) / r);
+  // Safety only — must not clip pure Hohmann (≈0.97× escape Δv)
+  const dvMax = (vEsc - vCirc) * 0.999;
+  return vCirc + Math.min(tliDv, dvMax);
+}
+
+/** Earth-centered radius of transfer apogee for a given periapsis Δv. */
+function apogeeFromTliDv(r: number, tliDv: number): number {
+  const v = transferVPeri(r, tliDv);
+  const invA = 2 / r - (v * v) / MU_EARTH;
+  if (invA <= 1e-12) return Infinity;
+  const a = 1 / invA;
+  return 2 * a - r;
+}
+
+/** Max TLI Δv from LEO (km/s) for search ladder (keep near Hohmann). */
+function maxTliDv(r = LEO_RADIUS): number {
+  const base = lroTransfer().tliDv;
+  const vCirc = Math.sqrt(MU_EARTH / r);
+  const vEsc = Math.sqrt((2 * MU_EARTH) / r);
+  const escMargin = (vEsc - vCirc) * 0.999;
+  // Allow only a few % above Hohmann — LRO is not a high-energy lob
+  return Math.min(escMargin, base * 1.04);
+}
+
+/**
+ * Weak midcourse toward the Moon at design TOA (LRO flew MCCs).
+ * Keeps a near-Hohmann ellipse from missing under 4-body gravity.
+ */
+const MIDCOURSE_ACCEL = 0.0012; // km/s² ≈ 0.12 g peak
+
+function midcourseThrust(
+  t: number,
+  pos: V3,
+  vel: V3,
+  tTli: number,
+  T: number,
+): V3 | null {
+  const coastT = t - tTli;
+  // After early coast, before capture window
+  if (coastT < T * 0.15 || coastT > T * 0.88) return null;
+
+  const tArr = tTli + T;
+  const dt = tArr - t;
+  if (dt < 2_000) return null;
+
+  const bArr = bodyPositions(tArr);
+  // Desired velocity to arrive near the Moon at TOA
+  const vx = (bArr.moon.x - pos.x) / dt;
+  const vy = (bArr.moon.y - pos.y) / dt;
+  const vz = (bArr.moon.z - pos.z) / dt;
+  // Blend toward Moon velocity so we don't slam in
+  const bNow = getBodies(t);
+  const blend = Math.min(1, coastT / T);
+  const vDx = vx * (1 - 0.35 * blend) + bArr.moonVel.x * (0.35 * blend);
+  const vDy = vy * (1 - 0.35 * blend) + bArr.moonVel.y * (0.35 * blend);
+  const vDz = vz * (1 - 0.35 * blend) + bArr.moonVel.z * (0.35 * blend);
+
+  let ax = (vDx - vel.x) * 0.08;
+  let ay = (vDy - vel.y) * 0.08;
+  let az = (vDz - vel.z) * 0.08;
+  // Don't fight Earth gravity hard deep in the well
+  sub(_relP, pos, bNow.earth);
+  const rE = len(_relP);
+  if (rE < A_EM * 0.35) return null;
+
+  const mag = Math.hypot(ax, ay, az);
+  if (mag < 1e-6) return null;
+  if (mag > MIDCOURSE_ACCEL) {
+    const s = MIDCOURSE_ACCEL / mag;
+    ax *= s;
+    ay *= s;
+    az *= s;
+  }
+  return set(_thrust, ax, ay, az);
 }
 
 const _radial = v3();
@@ -329,123 +406,121 @@ function landingThrust(t: number, pos: V3, vel: V3, phase: PhaseId): V3 | null {
 }
 
 /**
- * Impulsive TLI: put the craft on a transfer ellipse that meets the Moon
- * near **Earth-centered apogee**.
+ * Impulsive TLI (LRO-style direct transfer): Earth ellipse aimed so the Moon
+ * is met near lunar distance — transfer apogee ≈ A_EM, not far beyond it.
  *
  * Geometry (2-body ideal):
- * - Periapsis now, on the LEO sphere, opposite the predicted Moon at TOA
- * - Apogee ~ half-period later toward that Moon — lunar gravity “catches” it
- * - Plane = plane of Earth→Moon_arrival and a small reference so Starbase
- *   LEO inclination is replaced by a lunar-plane injection at TLI
+ * - Periapsis now on the LEO sphere, opposite the predicted Moon at TOA
+ * - Apogee ~ half-period later at r ≈ A_EM toward that Moon
+ * - Plane from lunar orbital plane (replaces Starbase LEO plane at TLI)
  */
 function applyTli(state: CraftState, tliDv: number): void {
   const b0 = getBodies(state.t);
   const T = transferTimeEst();
   const b1 = bodyPositions(state.t + T);
 
-  // Predicted Earth→Moon at apogee arrival
+  // Predicted Earth→Moon at arrival (aim point)
   set(
     _tmp,
     b1.moon.x - b1.earth.x,
     b1.moon.y - b1.earth.y,
     b1.moon.z - b1.earth.z,
   );
-  const mLen = len(_tmp) || A_EM;
-  normalize(_radial, _tmp); // moon-hat at arrival ≈ apogee direction
+  normalize(_radial, _tmp); // moon-hat at arrival ≈ apogee / intercept direction
 
-  // Periapsis opposite the Moon so apogee aims at lunar intercept
+  // Periapsis opposite the Moon so the high point aims at lunar intercept
   const periX = -_radial.x;
   const periY = -_radial.y;
   const periZ = -_radial.z;
 
-  // Transfer plane: use Moon’s motion for a stable normal
+  // Transfer plane ≈ lunar orbital plane
   set(
     _relV,
     b1.moonVel.x - b1.earthVel.x,
     b1.moonVel.y - b1.earthVel.y,
     b1.moonVel.z - b1.earthVel.z,
   );
-  // n ∝ r_moon × v_moon (lunar orbital plane); fallback ecliptic north
-  cross(_tangent, _tmp, _relV);
+  cross(_tangent, _tmp, _relV); // n ∝ r_m × v_m
   if (len(_tangent) < 1e-6) set(_tangent, _up.x, _up.y, _up.z);
-  normalize(_tangent, _tangent); // n
+  normalize(_tangent, _tangent);
 
   // Prograde at periapsis: n × peri_hat
   set(_relP, periX, periY, periZ);
   cross(_tmp, _tangent, _relP);
-  if (len(_tmp) < 1e-6) {
-    cross(_tmp, _up, _relP);
-  }
-  normalize(_tangent, _tmp); // prograde
+  if (len(_tmp) < 1e-6) cross(_tmp, _up, _relP);
+  normalize(_tangent, _tmp);
 
-  // Park on LEO sphere at periapsis of the transfer
   const r = LEO_RADIUS;
   state.pos.x = b0.earth.x + periX * r;
   state.pos.y = b0.earth.y + periY * r;
   state.pos.z = b0.earth.z + periZ * r;
 
-  // Periapsis speed: circular + tliDv (search scales Δv → tweaks apogee)
   const vPeri = transferVPeri(r, tliDv);
   state.vel.x = b0.earthVel.x + _tangent.x * vPeri;
   state.vel.y = b0.earthVel.y + _tangent.y * vPeri;
   state.vel.z = b0.earthVel.z + _tangent.z * vPeri;
-
-  void mLen;
 }
 
 /**
  * Fast probe: coast only, return minimum Moon altitude.
  * Caller must set moon/sun phases first (see runMission).
  */
-type ProbeResult = { minAlt: number; periluneT: number };
+type ProbeResult = { minAlt: number; periluneT: number; rEarth: number };
 
 /** Template LEO (Earth-relative) for probes — set in runMission after a reference ascent. */
 let _leoRelTemplate: LeoRel | null = null;
 
 function probePerilune(tliDv: number): ProbeResult {
   if (!_leoRelTemplate) {
-    return { minAlt: Infinity, periluneT: 0 };
+    return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
   // Reattach LEO to current Earth (Moon phase may have changed barycentric frame)
   const state = restoreLeoRel(_leoRelTemplate);
   const tTli = state.t;
   applyTli(state, tliDv);
   const T = transferTimeEst();
-  // Coast through apogee and a bit past (Hohmann half-period + margin)
-  const maxT = tTli + T * 1.35 + 40_000;
+  // Coast through lunar distance / apogee window (with LRO-style midcourse)
+  const maxT = tTli + T * 1.2 + 30_000;
   let minAlt = Infinity;
   let periluneT = tTli;
-  let dt = 120;
+  let rEarthAtMin = Infinity;
+  let dt = 60;
   while (state.t < maxT) {
-    rk4Step(state, dt);
+    const thrustFn: ThrustFn = (tt, p, v) => midcourseThrust(tt, p, v, tTli, T);
+    rk4Step(state, dt, thrustFn);
     const altM = altitudeMoon(state.t, state.pos);
     const altE = altitudeEarth(state.t, state.pos);
+    const b = getBodies(state.t);
+    sub(_relP, state.pos, b.earth);
+    const rE = len(_relP);
     if (altM < minAlt) {
       minAlt = altM;
       periluneT = state.t;
+      rEarthAtMin = rE;
     }
     const coastT = state.t - tTli;
-    // Earth impact before apogee → miss
     if (altE < 0 && coastT < T * 0.75) {
-      return { minAlt: Infinity, periluneT: 0 };
+      return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
     }
     if (altE < 0) break;
-    // Past closest approach after apogee window — stop
     if (
-      coastT > T * 0.7 &&
+      coastT > T * 0.75 &&
       state.t > periluneT + 3_000 &&
-      altM > minAlt + 20_000 &&
-      minAlt < 200_000
+      altM > minAlt + 15_000 &&
+      minAlt < 150_000
     ) {
       break;
     }
     const dMoon = distanceToMoon(state.t, state.pos);
-    if (dMoon < 80_000) dt = 30;
-    else if (dMoon < 200_000) dt = 60;
-    else dt = 120;
+    if (dMoon < 80_000) dt = 20;
+    else if (dMoon < 200_000) dt = 40;
+    else dt = 60;
   }
-  // Return perilune time measured from TLI for transfer scoring
-  return { minAlt, periluneT: periluneT - tTli };
+  return {
+    minAlt,
+    periluneT: periluneT - tTli,
+    rEarth: rEarthAtMin,
+  };
 }
 
 /** Apply July-2027-consistent ephemeris for a candidate moon phase. */
@@ -504,7 +579,7 @@ function finishLanding(
 }
 
 /**
- * Full fidelity flight: Starbase ascent → LEO → TLI → apogee intercept → landing.
+ * Full fidelity flight: Starbase ascent → LEO → LRO-style TLI → lunar approach.
  * `toa` is expected coast time from TLI to lunar encounter (≈ half transfer period).
  */
 function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionResult {
@@ -558,11 +633,11 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       }
     }
 
-    // Capture near apogee when the Moon is close (Hohmann intercept geometry)
-    const CAPTURE_RANGE = 45_000;
+    // Capture near lunar distance when the Moon is close (LRO-style approach)
+    const CAPTURE_RANGE = 50_000;
     if (
       phase === "coast" &&
-      coastT > Tcoast * 0.75 &&
+      coastT > Tcoast * 0.7 &&
       dMoon < CAPTURE_RANGE
     ) {
       phase = "approach";
@@ -598,7 +673,9 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
     const thrustFn: ThrustFn | undefined = guided
       ? (t, p, v) => landingThrust(t, p, v, phase)
-      : undefined;
+      : phase === "coast"
+        ? (t, p, v) => midcourseThrust(t, p, v, tTli, Tcoast)
+        : undefined;
 
     const dt = guided
       ? phase === "descent"
@@ -677,13 +754,13 @@ function downsample(result: MissionResult, maxPoints = 2800): MissionResult {
 }
 
 /**
- * Starbase (TX) → LEO → Hohmann-class TLI → Moon at transfer apogee → landing.
+ * Starbase (TX) → LEO → LRO-style direct TLI → lunar approach at ~A_EM → landing.
  *
- * TLI places the craft at periapsis of an Earth-centered ellipse whose apogee
- * is near the Moon; lunar gravity captures near that apogee (~half period).
+ * Transfer apogee is sized to the Moon (not beyond it). Search takes the
+ * lowest Δv that still intercepts under 4-body gravity.
  */
 export function runMission(): MissionResult {
-  const xfer = hohmannTransfer();
+  const xfer = lroTransfer();
   const baseDv = xfer.tliDv;
   const T = xfer.tof;
 
@@ -713,82 +790,92 @@ export function runMission(): MissionResult {
   _leoRelTemplate = computeLeoRel();
   const tTli0 = _leoRelTemplate.t;
 
-  // Moon should be near the apogee direction after half-period coast
-  // Analytic lead: Moon advances N·T while craft goes periapsis → apogee (π).
+  // Moon near apogee direction after half-period (π) coast
   const guess = Math.PI - N_MOON * (T + tTli0);
 
   const phaseOffsets: number[] = [];
-  for (let i = -60; i <= 60; i++) phaseOffsets.push(i * 0.04);
+  for (let i = -70; i <= 70; i++) phaseOffsets.push(i * 0.035);
 
-  // Hohmann Δv ladder — small bumps for 4-body intercept at apogee
-  const dvScales = [
-    0.98, 0.99, 1.0, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.08, 1.1, 1.12, 1.15,
-  ];
+  // Stay sub-escape; climb from Hohmann only as far as intercept needs
+  // Near-Hohmann only — midcourse cleans 4-body error (don't lob past the Moon)
+  const dvMax = Math.min(maxTliDv(), baseDv * 1.04);
+  const dvScales = [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03, 1.04].filter(
+    (s) => baseDv * s <= dvMax + 1e-9,
+  );
 
-  /** Prefer close approach near apogee TOA (capture window). */
-  const INTERCEPT_ALT = 40_000;
+  const INTERCEPT_ALT = 45_000;
   const IDEAL_PERILUNE = 5_000;
   const IDEAL_TOA = T;
-  const TOA_MIN = T * 0.75;
+  const TOA_MIN = T * 0.7;
   const TOA_MAX = T * 1.25;
 
-  function periluneScore(alt: number, periluneT: number): number {
-    if (!Number.isFinite(alt) || alt > 300_000) return 1e12;
+  function periluneScore(
+    alt: number,
+    periluneT: number,
+    rEarth: number,
+  ): number {
+    if (!Number.isFinite(alt) || alt > 250_000) return 1e12;
     const altTerm =
       alt < 0
-        ? 35_000 - alt
+        ? 30_000 - alt
         : Math.abs(alt - IDEAL_PERILUNE) +
           (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 5 : 0);
-    // Strongly prefer encounter near apogee (half-period)
     const dtH = (periluneT - IDEAL_TOA) / 3600;
-    const timeTerm = dtH * dtH * 120;
+    const timeTerm = dtH * dtH * 80;
+    // Stay near lunar distance — neither deep undershoot nor lob past the Moon
+    const rErr = Math.abs(rEarth - A_EM) / 1000;
+    const rTerm = rErr * rErr * 8;
+    const overshoot = Math.max(0, rEarth - A_EM * 1.03);
+    const overshootTerm = (overshoot / 1000) * (overshoot / 1000) * 80;
     const windowPen =
       periluneT < TOA_MIN
-        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 200
+        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 120
         : periluneT > TOA_MAX
-          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 200
+          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 120
           : 0;
-    return altTerm + timeTerm + windowPen;
+    return altTerm + timeTerm + rTerm + overshootTerm + windowPen;
   }
 
   let bestPhase = guess;
   let bestDv = baseDv;
   let bestAlt = Infinity;
   let bestPeriluneT = T;
+  let bestREarth = Infinity;
   let bestScore = Infinity;
   let found = false;
 
   for (const dS of dvScales) {
-    const dv = baseDv * dS;
+    const dv = Math.min(baseDv * dS, dvMax);
     let localBestPhase = guess;
     let localBestAlt = Infinity;
     let localBestT = T;
+    let localBestR = Infinity;
     let localBestScore = Infinity;
 
     for (const off of phaseOffsets) {
       const ph = guess + off;
       setEpochPhases(ph, T);
       const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT);
+      const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
       if (sc < localBestScore) {
         localBestScore = sc;
         localBestAlt = pr.minAlt;
         localBestT = pr.periluneT;
+        localBestR = pr.rEarth;
         localBestPhase = ph;
       }
     }
 
-    for (const off of [
-      -0.04, -0.02, -0.01, 0.01, 0.02, 0.04,
-    ]) {
+    for (const off of [-0.03, -0.015, 0.015, 0.03]) {
       const ph = localBestPhase + off;
       setEpochPhases(ph, T);
       const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT);
+      const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
       if (sc < localBestScore) {
         localBestScore = sc;
         localBestAlt = pr.minAlt;
         localBestT = pr.periluneT;
+        localBestR = pr.rEarth;
         localBestPhase = ph;
       }
     }
@@ -797,30 +884,36 @@ export function runMission(): MissionResult {
       bestScore = localBestScore;
       bestAlt = localBestAlt;
       bestPeriluneT = localBestT;
+      bestREarth = localBestR;
       bestPhase = localBestPhase;
       bestDv = dv;
     }
 
-    // First (lowest) Δv with a real near-apogee intercept wins
+    // Lowest Δv with intercept near lunar distance (LRO / min-energy spirit)
     if (
       localBestAlt > 0 &&
       localBestAlt < INTERCEPT_ALT &&
       localBestT >= TOA_MIN &&
-      localBestT <= TOA_MAX
+      localBestT <= TOA_MAX &&
+      localBestR > A_EM * 0.85 &&
+      localBestR < A_EM * 1.06
     ) {
       bestAlt = localBestAlt;
       bestPeriluneT = localBestT;
+      bestREarth = localBestR;
       bestPhase = localBestPhase;
       bestDv = dv;
       found = true;
-      if (localBestAlt < IDEAL_PERILUNE) break;
+      break;
     }
   }
 
+  const raDes = apogeeFromTliDv(LEO_RADIUS, bestDv);
   console.info(
-    `[tothemoon] Apogee-intercept probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
-      `phase=${bestPhase.toFixed(3)} dv=${bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}, ×${(bestDv / baseDv).toFixed(3)}) ` +
-      `· T_apogee≈${(T / 3600).toFixed(1)}h ra≈${(xfer.ra / A_EM).toFixed(2)}×A_EM · ` +
+    `[tothemoon] LRO-style probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
+      `rEarth=${(bestREarth / A_EM).toFixed(3)}×A_EM phase=${bestPhase.toFixed(3)} ` +
+      `dv=${bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}, ×${(bestDv / baseDv).toFixed(3)}) ` +
+      `· ra_des≈${Number.isFinite(raDes) ? (raDes / A_EM).toFixed(3) : "∞"}×A_EM T≈${(T / 3600).toFixed(1)}h · ` +
       `${found ? "intercept" : "best-effort"}`,
   );
 
