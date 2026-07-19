@@ -231,11 +231,13 @@ export function flyAscent(): AscentResult {
     }
 
     const thrustFn: ThrustFn = (t, p, v) => ascentThrust(t, p, v);
-    const dt = alt < 20 ? 0.25 : alt < 100 ? 0.5 : 1.0;
+    // Fine integration + sampling so the pad→LEO trail is smooth
+    const dt = alt < 15 ? 0.15 : alt < 40 ? 0.25 : alt < 100 ? 0.4 : 0.6;
     rk4Step(state, dt, thrustFn);
 
-    const minDt = phase === "launch" ? 0.5 : 2;
-    if (state.t - lastSampleT >= minDt) {
+    // Sample every step (or at most every 0.5 s) during ascent
+    const minDt = phase === "launch" ? 0.15 : 0.35;
+    if (state.t - lastSampleT >= minDt - 1e-9) {
       lastSampleT = state.t;
       const burning = ascentThrust(state.t, state.pos, state.vel) !== null;
       samples.push({

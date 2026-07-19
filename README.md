@@ -7,9 +7,10 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 ## Physics
 
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
-- **Restricted 4-body** — craft integrated with RK4 under gravity of **Sun + Earth + Moon**
-- Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY), with ascending node and argument of perigee fixed for the theater; Sun on a far 1 AU ecliptic path
-- Mission: **Starbase pad** → powered ascent → LEO → TLI onto a **Keplerian transfer in the lunar plane** (LRO-style: meet the Moon at apogee / lunar distance) → LOI-style capture → soft landing
+- **Restricted 4-body** — craft integrated with **RK4** under gravity of **Sun + Earth + Moon** (ascent, TLI coast, capture, landing)
+- **Kepler reference** — after TLI, an Earth-centered 2-body ellipse is the design track; soft midcourse keeps N-body within that corridor and precompute logs max |Δr|
+- Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY); Sun on a far 1 AU ecliptic path
+- Mission: **Starbase pad** → powered ascent (fine samples) → lunar-plane LEO → TLI → **N-body coast with Kepler track** → LOI-style capture → soft landing
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 
 The craft mesh is near true size (tens of meters). In system views it is invisible — a **red marker** shows its location. Use the **Ship** camera to see the vehicle up close.
