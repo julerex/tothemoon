@@ -21,6 +21,8 @@ export type PackedSample = {
   fs: number;
   /** Thrust force (kN) — packed smaller than raw newtons */
   th: number;
+  /** Booster staged off */
+  st: boolean;
 };
 
 export type PackedTrajectory = {
@@ -54,6 +56,7 @@ function pack(result: MissionResult): PackedTrajectory {
       fb: round(s.fuelBooster, 4),
       fs: round(s.fuelShip, 4),
       th: round(s.thrustN / 1000, 2), // store kN
+      st: s.staged,
     })),
   };
 }

@@ -12,7 +12,8 @@ import { createScene } from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
   createCraft,
-  setPlumeVisible,
+  craftLengthKm,
+  updateCraftVisuals,
   updateLocatorVisibility,
 } from "./scene/craft";
 import { createTrailFromPoints, createPathGlowFromPoints } from "./scene/trail";
@@ -142,7 +143,11 @@ function applyMissionState(u: number): void {
   craft.position.copy(craftPos);
   orientCraft(craftVel);
 
-  setPlumeVisible(craft, frame.burning);
+  updateCraftVisuals(craft, {
+    staged: frame.staged,
+    burning: frame.burning,
+    thrustN: frame.thrustN,
+  });
   updateBodies(frame.t, bodies);
 
   // Sun light from ephemeris (direction only — avoid AU-scale light positions)
@@ -157,7 +162,7 @@ function applyMissionState(u: number): void {
   const mode = director.getMode();
   updateLocatorVisibility(locator, camera, craftPos, {
     forceShow: mode !== "chase",
-    craftLenKm: 0.04,
+    craftLenKm: craftLengthKm(frame.staged),
   });
 
   // Altitude: Earth during launch/LEO/TLI/coast (far from Moon); else Moon

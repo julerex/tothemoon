@@ -79,6 +79,8 @@ export type Sample = {
   fuelShip: number;
   /** Thrust force (N); 0 when idle */
   thrustN: number;
+  /** True after booster stage-out at LEO insert */
+  staged: boolean;
 };
 
 export type MissionResult = {
@@ -406,6 +408,7 @@ function appendAscentAndLeoCoast(
       fuelBooster: s.fuelBooster,
       fuelShip: s.fuelShip,
       thrustN: s.thrustN,
+      staged: s.staged,
     });
     lastT.t = s.t;
   }
@@ -525,6 +528,7 @@ function pushSample(
     fuelBooster,
     fuelShip,
     thrustN,
+    staged: prop?.staged ?? false,
   });
 }
 
@@ -822,6 +826,7 @@ function finishLanding(
 
   const fb = prop ? fuelBoosterFrac(prop) : 0;
   const fs = prop ? fuelShipFrac(prop) : 0;
+  const st = prop?.staged ?? true;
   for (let i = 1; i <= 30; i++) {
     const t = landT0 + i * 60;
     const bi = bodyPositions(t);
@@ -838,6 +843,7 @@ function finishLanding(
       fuelBooster: fb,
       fuelShip: fs,
       thrustN: 0,
+      staged: st,
     });
   }
 
@@ -889,6 +895,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     fuelBooster: fuelBoosterFrac(prop),
     fuelShip: fuelShipFrac(prop),
     thrustN: tliThrustN,
+    staged: prop.staged,
   });
   lastT.t = state.t;
 
@@ -1161,6 +1168,7 @@ export function runMission(): MissionResult {
         fuelBooster: s.fuelBooster,
         fuelShip: s.fuelShip,
         thrustN: s.thrustN,
+        staged: s.staged,
       })),
       durationS: ascent0.state.t,
       moonPhase0: 0,

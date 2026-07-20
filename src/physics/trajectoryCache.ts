@@ -27,6 +27,8 @@ export type FrameState = {
   fuelShip: number;
   /** Thrust force (N) */
   thrustN: number;
+  /** True after booster stage-out */
+  staged: boolean;
 };
 
 /** Build-time packed format (see scripts/precompute-trajectory.ts). */
@@ -46,6 +48,7 @@ type PackedTrajectory = {
     fb?: number;
     fs?: number;
     th?: number;
+    st?: boolean;
   }>;
 };
 
@@ -66,6 +69,10 @@ function unpack(packed: PackedTrajectory): MissionResult {
       fuelBooster: s.fb ?? 0,
       fuelShip: s.fs ?? 1,
       thrustN: (s.th ?? 0) * 1000, // kN → N
+      // Infer staged if missing: booster empty and not still in pad/ascent
+      staged:
+        s.st ??
+        (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
     })),
   };
 }
@@ -127,6 +134,7 @@ export class TrajectoryCache {
         fuelBooster: 0,
         fuelShip: 1,
         thrustN: 0,
+        staged: true,
       };
     }
 
@@ -162,6 +170,8 @@ export class TrajectoryCache {
     const fuelBooster = a.fuelBooster + (b.fuelBooster - a.fuelBooster) * f;
     const fuelShip = a.fuelShip + (b.fuelShip - a.fuelShip) * f;
     const thrustN = a.thrustN + (b.thrustN - a.thrustN) * f;
+    // Switch at mid-span so scrubbing across stage-out is stable
+    const staged = f < 0.5 ? a.staged : b.staged;
     return this.makeFrame(
       t,
       pos,
@@ -171,6 +181,7 @@ export class TrajectoryCache {
       fuelBooster,
       fuelShip,
       thrustN,
+      staged,
     );
   }
 
@@ -196,6 +207,7 @@ export class TrajectoryCache {
       s.fuelBooster,
       s.fuelShip,
       s.thrustN,
+      s.staged,
     );
   }
 
@@ -208,6 +220,7 @@ export class TrajectoryCache {
     fuelBooster: number,
     fuelShip: number,
     thrustN: number,
+    staged: boolean,
   ): FrameState {
     const b = bodyPositions(t);
     const dxM = pos.x - b.moon.x;
@@ -232,6 +245,7 @@ export class TrajectoryCache {
       fuelBooster,
       fuelShip,
       thrustN,
+      staged,
     };
   }
 }

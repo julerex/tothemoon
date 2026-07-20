@@ -55,6 +55,8 @@ export type AscentSample = {
   fuelShip: number;
   /** Thrust force (N); 0 when engines idle */
   thrustN: number;
+  /** True after booster stage-out at LEO insert */
+  staged: boolean;
 };
 
 export type AscentResult = {
@@ -91,6 +93,7 @@ function pushAscentSample(
     fuelBooster: fuelBoosterFrac(prop),
     fuelShip: fuelShipFrac(prop),
     thrustN,
+    staged: prop.staged,
   });
 }
 

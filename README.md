@@ -13,7 +13,7 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 - Mission: **Starbase pad** → powered ascent (fine samples) → lunar-plane LEO → TLI → **N-body coast with Kepler track** → LOI-style capture → soft landing
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 
-The craft mesh is near true size (tens of meters). In system views it is invisible — a **red marker** shows its location. Use the **Ship** camera to see the vehicle up close.
+The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters). The booster stages off at LEO insert; ship/booster plumes scale with thrust. In system views the vehicle is tiny — a **red marker** shows its location. Use the **Ship** camera to see it up close.
 
 ## Features
 
