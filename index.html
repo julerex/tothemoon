@@ -27,27 +27,46 @@
           <label class="speed">
             Speed
             <select id="speed" aria-label="Playback speed">
+              <option value="auto" selected>Auto</option>
               <option value="1">1×</option>
               <option value="10">10×</option>
               <option value="50">50×</option>
-              <option value="100" selected>100×</option>
+              <option value="100">100×</option>
               <option value="500">500×</option>
               <option value="2000">2000×</option>
             </select>
           </label>
-          <label class="scrubber">
-            Mission
-            <input
-              type="range"
-              id="scrub"
-              min="0"
-              max="1000"
-              value="0"
-              step="1"
-              aria-label="Mission progress"
-            />
-          </label>
+          <div class="scrubber">
+            <span class="scrubber-label">Mission</span>
+            <div class="scrub-wrap">
+              <div
+                class="scrub-markers"
+                id="scrub-markers"
+                aria-hidden="true"
+              ></div>
+              <input
+                type="range"
+                id="scrub"
+                min="0"
+                max="1000"
+                value="0"
+                step="1"
+                aria-label="Mission progress"
+              />
+            </div>
+          </div>
         </section>
+
+        <div
+          id="callout"
+          class="callout"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          <div class="callout-title" id="callout-title"></div>
+          <div class="callout-detail" id="callout-detail"></div>
+        </div>
 
         <section class="panel cameras" aria-label="Camera">
           <button type="button" data-camera="free" class="active">Free</button>
@@ -71,7 +90,7 @@
         </section>
 
         <p class="hint">
-          Space play/pause · 1–5 cameras · drag free orbit · scroll zoom · red marker = craft · booster stages at LEO
+          Space play/pause · 1–5 cameras · Auto speed by phase · click scrub marks to jump · red marker = craft
         </p>
       </div>
     </div>

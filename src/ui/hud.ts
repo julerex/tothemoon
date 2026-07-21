@@ -1,16 +1,24 @@
 import type { MissionClock } from "../mission/clock";
 import type { CameraMode } from "../camera/modes";
+import type {
+  MissionEvent,
+  MissionTimeline,
+  PhaseSegment,
+} from "../mission/timeline";
+import type { PhaseId } from "../physics/mission";
 import { BOOSTER_PROP_KG, SHIP_PROP_KG } from "../physics/constants";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
-  onSpeed: (speed: number) => void;
+  /** Fixed multiplier, or null when Auto is selected */
+  onSpeedMode: (mode: "auto" | number) => void;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
 };
 
 export type Telemetry = {
   phase: string;
+  phaseId: PhaseId;
   t: number;
   durationS: number;
   distanceToMoon: number;
@@ -24,14 +32,25 @@ export type Telemetry = {
   thrustN: number;
   playing: boolean;
   dateUtc: string;
+  /** Effective playback speed currently applied to the clock */
+  playbackSpeed: number;
+  /** Whether Auto speed is active */
+  autoSpeed: boolean;
 };
 
-export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
+const CALLOUT_MS = 4200;
+
+export function bindHud(
+  _clock: MissionClock,
+  timeline: MissionTimeline,
+  handlers: HudHandlers,
+): {
   update: (tel: Telemetry) => void;
 } {
   const btnPlay = el<HTMLButtonElement>("#btn-play");
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
+  const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
   const dateEl = document.querySelector<HTMLElement>("#date");
@@ -43,12 +62,24 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
   const shipEl = el<HTMLElement>("#tel-ship");
   const thrustEl = el<HTMLElement>("#tel-thrust");
   const camBtns = document.querySelectorAll<HTMLButtonElement>("[data-camera]");
+  const callout = document.querySelector<HTMLElement>("#callout");
+  const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
+  const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
 
   let scrubbing = false;
+  let lastPhase: PhaseId | null = null;
+  let lastMissionT = -1;
+  /** Events already shown this pass (reset when scrubbing backward). */
+  const firedEvents = new Set<string>();
+  let calloutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  if (markersEl) {
+    renderPhaseMarkers(markersEl, timeline.segments);
+  }
 
   btnPlay.addEventListener("click", () => handlers.onPlayToggle());
   speed.addEventListener("change", () => {
-    handlers.onSpeed(Number(speed.value));
+    handlers.onSpeedMode(parseSpeedMode(speed.value));
   });
 
   scrub.addEventListener("pointerdown", () => {
@@ -91,11 +122,62 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
     }
   });
 
-  handlers.onSpeed(Number(speed.value));
+  // Initial mode from select (defaults to Auto in HTML)
+  handlers.onSpeedMode(parseSpeedMode(speed.value));
 
   function setActiveCamera(mode: CameraMode): void {
     for (const btn of camBtns) {
       btn.classList.toggle("active", btn.dataset.camera === mode);
+    }
+  }
+
+  function showCallout(ev: MissionEvent): void {
+    if (!callout || !calloutTitle) return;
+    calloutTitle.textContent = ev.title;
+    if (calloutDetail) {
+      calloutDetail.textContent = ev.detail ?? "";
+      calloutDetail.hidden = !ev.detail;
+    }
+    callout.hidden = false;
+    callout.classList.remove("callout-out");
+    // retrigger enter animation
+    void callout.offsetWidth;
+    callout.classList.add("callout-in");
+    if (calloutTimer) clearTimeout(calloutTimer);
+    calloutTimer = setTimeout(() => {
+      callout.classList.remove("callout-in");
+      callout.classList.add("callout-out");
+      calloutTimer = setTimeout(() => {
+        callout.hidden = true;
+        callout.classList.remove("callout-out");
+      }, 320);
+    }, CALLOUT_MS);
+  }
+
+  function maybeFireEvents(missionT: number, playing: boolean): void {
+    // Rewound: allow events ahead of the new time to fire again
+    if (lastMissionT >= 0 && missionT + 1e-3 < lastMissionT) {
+      for (const ev of timeline.events) {
+        if (ev.t > missionT) firedEvents.delete(ev.id);
+      }
+    }
+    lastMissionT = missionT;
+
+    for (const ev of timeline.events) {
+      if (firedEvents.has(ev.id)) continue;
+      if (missionT + 0.05 < ev.t) continue;
+
+      const age = missionT - ev.t;
+      // Jumping far past a milestone: mark seen, no toast spam
+      if (age > 12) {
+        firedEvents.add(ev.id);
+        continue;
+      }
+      // Hold callouts until play/scrub so page load doesn't flash Liftoff
+      if (!playing && !scrubbing) continue;
+
+      firedEvents.add(ev.id);
+      showCallout(ev);
     }
   }
 
@@ -115,12 +197,101 @@ export function bindHud(_clock: MissionClock, handlers: HudHandlers): {
     btnPlay.textContent = tel.playing ? "Pause" : "Play";
     btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
 
+    // Keep Auto selected; show effective rate in the Auto option label
+    if (tel.autoSpeed) {
+      const autoOpt = speed.querySelector<HTMLOptionElement>('option[value="auto"]');
+      if (autoOpt) {
+        autoOpt.textContent = `Auto · ${formatRate(tel.playbackSpeed)}`;
+      }
+      if (speed.value !== "auto") speed.value = "auto";
+    } else {
+      const autoOpt = speed.querySelector<HTMLOptionElement>('option[value="auto"]');
+      if (autoOpt) autoOpt.textContent = "Auto";
+    }
+
     if (!scrubbing) {
       scrub.value = String(Math.round(Math.min(1, u) * 1000));
     }
+
+    // Highlight active phase marker
+    if (markersEl && tel.phaseId !== lastPhase) {
+      lastPhase = tel.phaseId;
+      for (const node of markersEl.querySelectorAll<HTMLElement>("[data-phase]")) {
+        node.classList.toggle("active", node.dataset.phase === tel.phaseId);
+      }
+    }
+
+    maybeFireEvents(tel.t, tel.playing);
   }
 
   return { update };
+}
+
+function parseSpeedMode(value: string): "auto" | number {
+  if (value === "auto") return "auto";
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : "auto";
+}
+
+function renderPhaseMarkers(
+  root: HTMLElement,
+  segments: PhaseSegment[],
+): void {
+  root.replaceChildren();
+  // Prefer one marker per phase start; hide ultra-short / overlapping labels
+  const major = new Set<PhaseId>([
+    "launch",
+    "ascent",
+    "leo",
+    "tli",
+    "coast",
+    "approach",
+    "braking",
+    "descent",
+    "landed",
+  ]);
+
+  for (const seg of segments) {
+    if (!major.has(seg.phase)) continue;
+    // Skip labels that would stack (very short phases under ~0.4% width)
+    const widthPct = (seg.u1 - seg.u0) * 100;
+    const mark = document.createElement("button");
+    mark.type = "button";
+    mark.className = "scrub-mark";
+    mark.dataset.phase = seg.phase;
+    mark.style.left = `${(seg.u0 * 100).toFixed(3)}%`;
+    mark.title = `${seg.label} · ${formatMissionTime(seg.t0)}`;
+    mark.setAttribute("aria-label", `Jump to ${seg.label}`);
+
+    const tick = document.createElement("span");
+    tick.className = "scrub-tick";
+    mark.appendChild(tick);
+
+    // Only label if there's room (coast always labeled; short burns tick-only if cramped)
+    if (widthPct >= 2.2 || seg.phase === "coast" || seg.phase === "ascent") {
+      const lab = document.createElement("span");
+      lab.className = "scrub-lab";
+      lab.textContent = seg.shortLabel;
+      mark.appendChild(lab);
+    }
+
+    mark.addEventListener("click", (e) => {
+      e.preventDefault();
+      const scrub = document.querySelector<HTMLInputElement>("#scrub");
+      if (!scrub) return;
+      const u = seg.u0;
+      scrub.value = String(Math.round(u * 1000));
+      scrub.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    root.appendChild(mark);
+  }
+}
+
+function formatRate(speed: number): string {
+  if (speed >= 100) return `${Math.round(speed)}×`;
+  if (speed >= 10) return `${Math.round(speed)}×`;
+  return `${speed.toFixed(0)}×`;
 }
 
 function formatMissionTime(seconds: number): string {

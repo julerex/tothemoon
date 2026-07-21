@@ -18,7 +18,12 @@ import {
 } from "./scene/craft";
 import { createTrailFromPoints, createPathGlowFromPoints } from "./scene/trail";
 import { CameraDirector, type CameraMode } from "./camera/modes";
+import {
+  autoSpeedForPhase,
+  buildTimeline,
+} from "./mission/timeline";
 import { bindHud } from "./ui/hud";
+import type { PhaseId } from "./physics/mission";
 import "./style.css";
 
 const canvasEl = document.querySelector<HTMLCanvasElement>("#c");
@@ -71,8 +76,20 @@ const { group: craft, locator } = createCraft();
 scene.add(craft);
 
 const clock = new MissionClock();
-// Mission duration drives scrub; default faster for multi-day flight
-clock.setSpeed(100);
+const timeline = buildTimeline(cache.samples, cache.durationS);
+/** Auto: phase-driven rates. Fixed: user-picked multiplier. */
+let autoSpeed = true;
+let lastAutoPhase: PhaseId | null = null;
+
+function applyAutoSpeed(phase: PhaseId): void {
+  if (!autoSpeed) return;
+  if (phase === lastAutoPhase) return;
+  lastAutoPhase = phase;
+  clock.setSpeed(autoSpeedForPhase(phase));
+}
+
+// Default until HUD binds (matches Auto · ascent-ish start)
+clock.setSpeed(autoSpeedForPhase("launch"));
 
 const craftPos = new THREE.Vector3();
 const craftVel = new THREE.Vector3();
@@ -81,26 +98,23 @@ const _look = new THREE.Matrix4();
 const _quat = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 
-const hud = bindHud(clock, {
+const hud = bindHud(clock, timeline, {
   onPlayToggle: () => clock.toggle(),
-  onSpeed: (s) => clock.setSpeed(s),
+  onSpeedMode: (mode) => {
+    if (mode === "auto") {
+      autoSpeed = true;
+      lastAutoPhase = null; // force re-apply for current phase
+      const frame = cache.sampleAtProgress(clock.t);
+      applyAutoSpeed(frame.phase);
+    } else {
+      autoSpeed = false;
+      lastAutoPhase = null;
+      clock.setSpeed(mode);
+    }
+  },
   onScrub: (t) => clock.seek(t),
   onCamera: (mode: CameraMode) => director.setMode(mode),
 });
-
-// Prefer 100× selected in UI if present
-const speedSel = document.querySelector<HTMLSelectElement>("#speed");
-if (speedSel) {
-  speedSel.value = "100";
-  // ensure option exists
-  if (![...speedSel.options].some((o) => o.value === "100")) {
-    const opt = document.createElement("option");
-    opt.value = "100";
-    opt.textContent = "100×";
-    speedSel.appendChild(opt);
-    speedSel.value = "100";
-  }
-}
 
 function orientCraft(vel: THREE.Vector3): void {
   if (vel.lengthSq() < 1e-12) return;
@@ -175,8 +189,11 @@ function applyMissionState(u: number): void {
   const altitude =
     nearEarth && frame.distMoon > 100_000 ? frame.altEarth : frame.altMoon;
 
+  applyAutoSpeed(frame.phase);
+
   hud.update({
     phase: frame.phaseLabel,
+    phaseId: frame.phase,
     t: frame.t,
     durationS: cache.durationS,
     distanceToMoon: Math.max(0, frame.distMoon - R_MOON),
@@ -187,6 +204,8 @@ function applyMissionState(u: number): void {
     thrustN: frame.thrustN,
     playing: clock.playing,
     dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
+    playbackSpeed: clock.speed,
+    autoSpeed,
   });
 
   // Auto-pause on landing at end
