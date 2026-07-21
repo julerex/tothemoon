@@ -130,6 +130,121 @@ body {
   letter-spacing: 0.01em;
 }
 
+.fuel-row {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr auto;
+  align-items: center;
+  gap: 0.35rem 0.4rem;
+  min-height: 1.35em;
+}
+
+.fuel-row .label {
+  min-width: 0;
+}
+
+.fuel-row > span:last-child {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: right;
+  min-width: 5.5rem;
+}
+
+.fuel-meter {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(20, 28, 44, 0.9);
+  border: 1px solid rgba(140, 180, 255, 0.15);
+  overflow: hidden;
+  min-width: 3.5rem;
+}
+
+.fuel-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #e07040, #ffb060);
+  transition: width 0.12s linear;
+}
+
+.fuel-bar.ship {
+  background: linear-gradient(90deg, #3a7ab8, #7ec8ff);
+}
+
+/* Mission complete card */
+.mission-complete {
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  padding: 1.1rem 1.35rem 1.15rem;
+  min-width: 16rem;
+  max-width: min(22rem, 92vw);
+  text-align: center;
+  border-color: rgba(126, 200, 255, 0.4);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  animation: mc-in 0.45s ease;
+}
+
+.mission-complete[hidden] {
+  display: none;
+}
+
+.mission-complete h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.mc-sub {
+  margin: 0.25rem 0 0.85rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 0.9rem;
+  margin: 0 0 0.95rem;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.mc-stats dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mc-stats dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.mc-replay {
+  width: 100%;
+}
+
+@keyframes mc-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
 button {
   appearance: none;
   border: 1px solid var(--panel-border);

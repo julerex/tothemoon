@@ -99,6 +99,40 @@ export function meshLocalToInertial(local: V3, t: number, out: V3 = v3()): V3 {
   return out;
 }
 
+/**
+ * Inverse of meshLocalToInertial: Earth-relative inertial vector → mesh-local
+ * (for parenting surface graphics under the spinning Earth mesh).
+ */
+export function inertialRelToMeshLocal(
+  inertial: V3,
+  t: number,
+  out: V3 = v3(),
+): V3 {
+  earthNorthPole(_north);
+  set(_tmp, _north.z, 0, -_north.x);
+  if (Math.hypot(_tmp.x, _tmp.y, _tmp.z) < 1e-8) set(_tmp, 1, 0, 0);
+  normalize(_tmp2, _tmp); // k
+  const kx = _tmp2.x;
+  const ky = _tmp2.y;
+  const kz = _tmp2.z;
+  const vx = inertial.x;
+  const vy = inertial.y;
+  const vz = inertial.z;
+  const kdot = kx * vx + ky * vy + kz * vz;
+  // R_axis^T = Rodrigues −90° about k: v = −(k×v) + k(k·v)
+  const spunX = -(ky * vz - kz * vy) + kx * kdot;
+  const spunY = -(kz * vx - kx * vz) + ky * kdot;
+  const spunZ = -(kx * vy - ky * vx) + kz * kdot;
+
+  const spin = earthSpinAngle(t);
+  const c = Math.cos(-spin);
+  const s = Math.sin(-spin);
+  out.x = c * spunX + s * spunZ;
+  out.y = spunY;
+  out.z = -s * spunX + c * spunZ;
+  return out;
+}
+
 /** Unit local east at a mesh-local surface point (inertial), for due-east launch. */
 export function localEastInertial(t: number, lat: number, lon: number, out: V3 = v3()): V3 {
   // East = ∂position/∂lon direction

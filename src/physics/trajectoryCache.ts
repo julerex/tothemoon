@@ -53,28 +53,67 @@ type PackedTrajectory = {
 };
 
 function unpack(packed: PackedTrajectory): MissionResult {
+  const samples = packed.samples.map((s) => ({
+    t: s.t,
+    pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
+    vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
+    phase: s.phase as PhaseId,
+    burning: s.burning,
+    fuelBooster: s.fb ?? 0,
+    fuelShip: s.fs ?? 1,
+    thrustN: (s.th ?? 0) * 1000, // kN → N
+    // Infer staged if missing: booster empty and not still in pad/ascent
+    staged:
+      s.st ??
+      (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
+  }));
   return {
     moonPhase0: packed.moonPhase0,
     tliDv: packed.tliDv,
     durationS: packed.durationS,
     ok: packed.ok,
     message: packed.message,
-    minMoonAlt: 0,
-    samples: packed.samples.map((s) => ({
-      t: s.t,
-      pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
-      vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
-      phase: s.phase as PhaseId,
-      burning: s.burning,
-      fuelBooster: s.fb ?? 0,
-      fuelShip: s.fs ?? 1,
-      thrustN: (s.th ?? 0) * 1000, // kN → N
-      // Infer staged if missing: booster empty and not still in pad/ascent
-      staged:
-        s.st ??
-        (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
-    })),
+    minMoonAlt: computeMinMoonAlt(samples),
+    samples,
   };
+}
+
+/** Scan lunar phases for lowest altitude above mean lunar radius. */
+function computeMinMoonAlt(
+  samples: Array<{ t: number; pos: V3; phase: PhaseId }>,
+): number {
+  let minAlt = Infinity;
+  for (const s of samples) {
+    if (
+      s.phase !== "approach" &&
+      s.phase !== "braking" &&
+      s.phase !== "descent" &&
+      s.phase !== "landed" &&
+      s.phase !== "coast"
+    ) {
+      continue;
+    }
+    // Coast: only late coast near the Moon
+    if (s.phase === "coast") {
+      const b = bodyPositions(s.t);
+      const d = Math.hypot(
+        s.pos.x - b.moon.x,
+        s.pos.y - b.moon.y,
+        s.pos.z - b.moon.z,
+      );
+      if (d > 80_000) continue;
+      minAlt = Math.min(minAlt, d - R_MOON);
+      continue;
+    }
+    const b = bodyPositions(s.t);
+    const d = Math.hypot(
+      s.pos.x - b.moon.x,
+      s.pos.y - b.moon.y,
+      s.pos.z - b.moon.z,
+    );
+    minAlt = Math.min(minAlt, d - R_MOON);
+  }
+  return Number.isFinite(minAlt) ? minAlt : 0;
 }
 
 export class TrajectoryCache {
@@ -83,6 +122,8 @@ export class TrajectoryCache {
   readonly ok: boolean;
   readonly message: string;
   readonly moonPhase0: number;
+  readonly tliDv: number;
+  readonly minMoonAlt: number;
 
   constructor(result: MissionResult) {
     this.samples = result.samples;
@@ -90,6 +131,11 @@ export class TrajectoryCache {
     this.ok = result.ok;
     this.message = result.message;
     this.moonPhase0 = result.moonPhase0;
+    this.tliDv = result.tliDv;
+    this.minMoonAlt =
+      result.minMoonAlt > 0 && Number.isFinite(result.minMoonAlt)
+        ? result.minMoonAlt
+        : computeMinMoonAlt(result.samples);
   }
 
   /** Load baked trajectory (default). Instant — no RK4 on the main thread. */

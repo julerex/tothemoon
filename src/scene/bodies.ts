@@ -215,13 +215,13 @@ export function createBodies(): Bodies {
   );
   earthAxis.add(earthClouds);
 
-  // Soft atmospheric limb
+  // Soft atmospheric limb (slightly stronger for ascent / limb views)
   const atmo = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.025, 64, 48),
+    new THREE.SphereGeometry(R_EARTH * 1.028, 64, 48),
     new THREE.MeshBasicMaterial({
       color: 0x6eb6ff,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.16,
       side: THREE.BackSide,
       depthWrite: false,
     }),
@@ -230,16 +230,30 @@ export function createBodies(): Bodies {
 
   // Faint outer halo
   const atmoOuter = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.045, 48, 32),
+    new THREE.SphereGeometry(R_EARTH * 1.055, 48, 32),
     new THREE.MeshBasicMaterial({
       color: 0x4a90d9,
       transparent: true,
-      opacity: 0.06,
+      opacity: 0.08,
       side: THREE.BackSide,
       depthWrite: false,
     }),
   );
   earthAxis.add(atmoOuter);
+
+  // Thin bright limb edge for pad / LEO drama
+  const atmoLimb = new THREE.Mesh(
+    new THREE.SphereGeometry(R_EARTH * 1.012, 64, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xa8d8ff,
+      transparent: true,
+      opacity: 0.07,
+      side: THREE.BackSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  earthAxis.add(atmoLimb);
 
   // Spin axis (fixed under earthAxis — does not rotate with surface texture)
   earthAxis.add(createEarthAxisVisual());

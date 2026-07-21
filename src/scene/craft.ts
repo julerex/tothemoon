@@ -290,13 +290,15 @@ const BOOSTER_THRUST_REF = 1.4e8; // ~140 MN theater ascent
 const SHIP_THRUST_REF = 8e6; // ~8 MN TLI / landing theater
 
 /**
- * Hide booster after stage-out; show the active plume and scale it with thrust.
+ * Hide stacked booster after stage-out (detached mesh is handled by StagingFx);
+ * show the active plume and scale it with thrust.
  */
 export function updateCraftVisuals(
   group: THREE.Group,
   state: CraftVisualState,
 ): void {
   const booster = group.getObjectByName("booster");
+  // Stacked booster only while unstaged; free-flyer lives in StagingFx
   if (booster) booster.visible = !state.staged;
 
   const shipPlume = group.getObjectByName("plume-ship");

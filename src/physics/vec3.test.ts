@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  inertialRelToMeshLocal,
+  meshLocalToInertial,
+} from "./earthFrame.ts";
+import {
   add,
   cross,
   dist,
@@ -33,5 +37,16 @@ describe("vec3", () => {
     normalize(c, v3(0, 0, 10));
     assert.deepEqual(c, { x: 0, y: 0, z: 1 });
     assert.equal(dist(v3(0, 0, 0), v3(3, 4, 0)), 5);
+  });
+});
+
+describe("earthFrame mesh ↔ inertial", () => {
+  it("round-trips mesh-local vectors", () => {
+    const local = v3(1000, 2000, -500);
+    for (const t of [0, 3600, 86_164]) {
+      const inertial = meshLocalToInertial(local, t);
+      const back = inertialRelToMeshLocal(inertial, t);
+      assert.ok(dist(local, back) < 1e-6, `t=${t} err=${dist(local, back)}`);
+    }
   });
 });

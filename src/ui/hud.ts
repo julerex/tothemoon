@@ -36,6 +36,12 @@ export type Telemetry = {
   playbackSpeed: number;
   /** Whether Auto speed is active */
   autoSpeed: boolean;
+  /** True once the craft has landed */
+  missionComplete: boolean;
+  /** TLI Δv (km/s) for mission-complete stats */
+  tliDv: number;
+  /** Minimum lunar altitude during approach/capture (km) */
+  minMoonAlt: number;
 };
 
 const CALLOUT_MS = 4200;
@@ -61,10 +67,18 @@ export function bindHud(
   const boosterEl = el<HTMLElement>("#tel-booster");
   const shipEl = el<HTMLElement>("#tel-ship");
   const thrustEl = el<HTMLElement>("#tel-thrust");
+  const barBooster = document.querySelector<HTMLElement>("#bar-booster");
+  const barShip = document.querySelector<HTMLElement>("#bar-ship");
   const camBtns = document.querySelectorAll<HTMLButtonElement>("[data-camera]");
   const callout = document.querySelector<HTMLElement>("#callout");
   const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
   const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
+  const completeEl = document.querySelector<HTMLElement>("#mission-complete");
+  const mcDuration = document.querySelector<HTMLElement>("#mc-duration");
+  const mcTli = document.querySelector<HTMLElement>("#mc-tlidv");
+  const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
+  const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
+  const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
 
   let scrubbing = false;
   let lastPhase: PhaseId | null = null;
@@ -72,6 +86,7 @@ export function bindHud(
   /** Events already shown this pass (reset when scrubbing backward). */
   const firedEvents = new Set<string>();
   let calloutTimer: ReturnType<typeof setTimeout> | null = null;
+  let completeShown = false;
 
   if (markersEl) {
     renderPhaseMarkers(markersEl, timeline.segments);
@@ -124,6 +139,18 @@ export function bindHud(
 
   // Initial mode from select (defaults to Auto in HTML)
   handlers.onSpeedMode(parseSpeedMode(speed.value));
+
+  if (mcReplay) {
+    mcReplay.addEventListener("click", () => {
+      handlers.onScrub(0);
+      // Start playback if paused
+      if (btnPlay.getAttribute("aria-pressed") !== "true") {
+        handlers.onPlayToggle();
+      }
+      if (completeEl) completeEl.hidden = true;
+      completeShown = false;
+    });
+  }
 
   function setActiveCamera(mode: CameraMode): void {
     for (const btn of camBtns) {
@@ -193,9 +220,37 @@ export function bindHud(
     boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
     shipEl.textContent = formatFuel(tel.fuelShip, "ship");
     thrustEl.textContent = formatThrust(tel.thrustN);
+    if (barBooster) {
+      barBooster.style.width = `${Math.round(clamp01(tel.fuelBooster) * 100)}%`;
+    }
+    if (barShip) {
+      barShip.style.width = `${Math.round(clamp01(tel.fuelShip) * 100)}%`;
+    }
 
     btnPlay.textContent = tel.playing ? "Pause" : "Play";
     btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
+
+    // Mission complete panel
+    if (completeEl) {
+      if (tel.missionComplete) {
+        if (!completeShown) {
+          completeShown = true;
+          if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
+          if (mcTli) mcTli.textContent = `${tel.tliDv.toFixed(3)} km/s`;
+          if (mcMinAlt) {
+            mcMinAlt.textContent =
+              tel.minMoonAlt < 1
+                ? `${(tel.minMoonAlt * 1000).toFixed(0)} m`
+                : formatDistance(Math.max(0, tel.minMoonAlt));
+          }
+          if (mcFuel) mcFuel.textContent = formatFuel(tel.fuelShip, "ship");
+        }
+        completeEl.hidden = false;
+      } else {
+        completeEl.hidden = true;
+        completeShown = false;
+      }
+    }
 
     // Keep Auto selected; show effective rate in the Auto option label
     if (tel.autoSpeed) {
@@ -333,6 +388,10 @@ function formatThrust(newtons: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MN`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(0)} kN`;
   return `${Math.round(n)} N`;
+}
+
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v));
 }
 
 function el<T extends HTMLElement>(sel: string): T {

@@ -17,6 +17,13 @@ import {
   updateLocatorVisibility,
 } from "./scene/craft";
 import { createTrailFromPoints, createPathGlowFromPoints } from "./scene/trail";
+import { StagingFx, findStageEvent } from "./scene/stagingFx";
+import { LandingFx } from "./scene/landingFx";
+import {
+  createAscentGroundTrack,
+  createStarbasePad,
+  pulsePadBeacon,
+} from "./scene/earthTheater";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import {
   autoSpeedForPhase,
@@ -68,12 +75,30 @@ const { scene, sunLight } = createScene();
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
+// Starbase pad + ground track (Earth mesh-local → co-rotates)
+const starbasePad = createStarbasePad();
+bodies.earth.add(starbasePad);
+const groundTrack = createAscentGroundTrack(cache.samples);
+if (groundTrack) bodies.earth.add(groundTrack);
+
 const trailPts = cache.trailPoints(1500);
 scene.add(createTrailFromPoints(trailPts));
 scene.add(createPathGlowFromPoints(trailPts));
 
 const { group: craft, locator } = createCraft();
 scene.add(craft);
+
+// Staging fallaway + flash (mesh scale matches createCraft)
+const boosterProto = craft.getObjectByName("booster");
+const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), 0.04);
+stagingFx.setStageEvent(findStageEvent(cache.samples));
+scene.add(stagingFx.group);
+
+// Landing site + dust
+const landingFx = new LandingFx();
+const lastSample = cache.samples[cache.samples.length - 1]!;
+landingFx.setLanding(lastSample.pos, lastSample.t);
+scene.add(landingFx.group);
 
 const clock = new MissionClock();
 const timeline = buildTimeline(cache.samples, cache.durationS);
@@ -162,6 +187,12 @@ function applyMissionState(u: number): void {
     burning: frame.burning,
     thrustN: frame.thrustN,
   });
+  stagingFx.update(frame.t, craftPos, craft.quaternion);
+  landingFx.update(frame.t, craftPos, {
+    phase: frame.phase,
+    burning: frame.burning,
+    altMoon: frame.altMoon,
+  });
   updateBodies(frame.t, bodies);
 
   // Sun light from ephemeris (direction only — avoid AU-scale light positions)
@@ -206,6 +237,9 @@ function applyMissionState(u: number): void {
     dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
     playbackSpeed: clock.speed,
     autoSpeed,
+    missionComplete: frame.phase === "landed",
+    tliDv: cache.tliDv,
+    minMoonAlt: cache.minMoonAlt,
   });
 
   // Auto-pause on landing at end
@@ -224,7 +258,6 @@ function resize(): void {
   }
 }
 
-// Patch clock.tick to use real mission duration
 const wall = new THREE.Clock();
 applyMissionState(0);
 
@@ -236,6 +269,7 @@ function frame(): void {
   clock.tick(dt, cache.durationS);
   applyMissionState(clock.t);
 
+  pulsePadBeacon(starbasePad, wall.elapsedTime);
   spinBodies(bodies, dt);
   director.update(dt, cache.sampleAtProgress(clock.t).t, craftPos, craftVel);
 

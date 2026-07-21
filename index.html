@@ -83,11 +83,55 @@
           <div><span class="label">To Moon</span> <span id="distance">—</span></div>
           <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
           <div><span class="label">Speed</span> <span id="tel-speed">—</span></div>
-          <div><span class="label">Booster</span> <span id="tel-booster">—</span></div>
-          <div><span class="label">Ship fuel</span> <span id="tel-ship">—</span></div>
+          <div class="fuel-row">
+            <span class="label">Booster</span>
+            <div class="fuel-meter">
+              <div class="fuel-bar" id="bar-booster"></div>
+            </div>
+            <span id="tel-booster">—</span>
+          </div>
+          <div class="fuel-row">
+            <span class="label">Ship fuel</span>
+            <div class="fuel-meter">
+              <div class="fuel-bar ship" id="bar-ship"></div>
+            </div>
+            <span id="tel-ship">—</span>
+          </div>
           <div><span class="label">Thrust</span> <span id="tel-thrust">—</span></div>
           <div><span class="label">Progress</span> <span id="progress">0%</span></div>
         </section>
+
+        <div
+          id="mission-complete"
+          class="mission-complete panel"
+          hidden
+          role="status"
+          aria-live="polite"
+        >
+          <h2>Mission complete</h2>
+          <p class="mc-sub">Starbase → lunar surface · July 2027</p>
+          <dl class="mc-stats">
+            <div>
+              <dt>Duration</dt>
+              <dd id="mc-duration">—</dd>
+            </div>
+            <div>
+              <dt>TLI Δv</dt>
+              <dd id="mc-tlidv">—</dd>
+            </div>
+            <div>
+              <dt>Min lunar alt</dt>
+              <dd id="mc-minalt">—</dd>
+            </div>
+            <div>
+              <dt>Ship prop left</dt>
+              <dd id="mc-fuel">—</dd>
+            </div>
+          </dl>
+          <button type="button" id="mc-replay" class="mc-replay">
+            Replay from liftoff
+          </button>
+        </div>
 
         <p class="hint">
           Space play/pause · 1–5 cameras · Auto speed by phase · click scrub marks to jump · red marker = craft
