@@ -30,6 +30,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Typecheck & test
+        run: npm run ci
+
       - name: Build
         run: npm run build
 

@@ -8,6 +8,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runMission } from "../src/physics/mission.ts";
 import type { MissionResult, Sample } from "../src/physics/mission.ts";
+import {
+  assertTrajectoryInvariants,
+  unpackPackedForInvariants,
+} from "../src/physics/trajectoryInvariants.ts";
 
 export type PackedSample = {
   t: number;
@@ -80,6 +84,10 @@ console.info(
   `[precompute] ${packed.message} · ${packed.samples.length} samples · ${(packed.durationS / 3600).toFixed(2)} h · ${ms.toFixed(0)} ms`,
 );
 console.info(`[precompute] wrote ${outPath}`);
+
+// Fail the build if the packed trajectory is structurally broken
+assertTrajectoryInvariants(unpackPackedForInvariants(packed));
+console.info("[precompute] trajectory invariants OK");
 
 if (!packed.ok) {
   console.warn("[precompute] warning: mission not marked ok — shipping anyway");

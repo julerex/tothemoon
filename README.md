@@ -31,9 +31,17 @@ npm run dev
 ```
 
 ```bash
-npm run build        # precompute → typecheck → vite
+npm test             # unit + baked-trajectory invariants (node:test via tsx)
+npm run typecheck
+npm run ci           # typecheck + test
+npm run build        # precompute (with invariant check) → typecheck → vite
 npm run preview
 ```
+
+Tests cover Kepler helpers, propellant bookkeeping, mission timeline UX data,
+and structural invariants on `src/data/trajectory.json` (phase order, fuel
+monotonicity, no trail teleport jumps). Precompute re-runs those invariants
+so a bad pack fails the build.
 
 Runtime recompute (slow, for physics debugging): open the site with `?recompute=1`.
 
