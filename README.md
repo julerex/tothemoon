@@ -48,6 +48,10 @@ Runtime recompute (slow, for physics debugging): open the site with `?recompute=
 
 Base path is `/tothemoon/` (GitHub project Pages).
 
+## Roadmap
+
+Recommended next work (prioritized): [docs/NEXT.md](./docs/NEXT.md).
+
 ## Deploy
 
 Pushes to `main` deploy via `.github/workflows/pages.yml`.
