@@ -2,12 +2,19 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { AU, R_EARTH } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import { starbasePadState } from "../physics/earthFrame";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
  * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
  */
-export type CameraMode = "free" | "sun" | "earth" | "chase" | "moon";
+export type CameraMode =
+  | "free"
+  | "sun"
+  | "earth"
+  | "chase"
+  | "moon"
+  | "starbase";
 
 /** F-key cycle: Sun → Earth → Moon → Starship. */
 const FOCUS_CYCLE: readonly CameraMode[] = [
@@ -160,7 +167,8 @@ export class CameraDirector {
     // Keep AU-scale max distance so focus switches never clamp a long zoom.
     this.controls.maxDistance = AU * 3;
     this.controls.minDistance = 0.05;
-    this.camera.near = this.focus === "chase" ? 0.001 : 0.1;
+    this.camera.near =
+      this.focus === "chase" || this.focus === "starbase" ? 0.001 : 0.1;
     this.camera.far = FAR_SOLAR;
     this.camera.updateProjectionMatrix();
   }
@@ -193,6 +201,12 @@ export class CameraDirector {
       case "moon":
         outTarget.set(b.moon.x, b.moon.y, b.moon.z);
         break;
+
+      case "starbase": {
+        const pad = starbasePadState(this.simTime);
+        outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
+        break;
+      }
     }
   }
 

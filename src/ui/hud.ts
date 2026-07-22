@@ -140,6 +140,9 @@ export function bindHud(
     } else if (e.key === "4") {
       handlers.onCamera("chase");
       setActiveCamera("chase");
+    } else if (e.key === "5") {
+      handlers.onCamera("starbase");
+      setActiveCamera("starbase");
     } else if (e.key === "r" || e.key === "R") {
       handlers.onCameraReset();
     } else if (e.key === "f" || e.key === "F") {
