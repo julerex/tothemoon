@@ -14,6 +14,10 @@ export type HudHandlers = {
   onSpeedMode: (mode: "auto" | number) => void;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
+  /** R — ecliptic north (+Z) screen-up, free orbit */
+  onCameraReset: () => void;
+  /** F — cycle Sun → Earth → Moon → Ship */
+  onCameraCycle: () => CameraMode;
 };
 
 export type Telemetry = {
@@ -134,6 +138,12 @@ export function bindHud(
     } else if (e.key === "5") {
       handlers.onCamera("solar");
       setActiveCamera("solar");
+    } else if (e.key === "r" || e.key === "R") {
+      handlers.onCameraReset();
+      setActiveCamera("free");
+    } else if (e.key === "f" || e.key === "F") {
+      const mode = handlers.onCameraCycle();
+      setActiveCamera(mode);
     }
   });
 

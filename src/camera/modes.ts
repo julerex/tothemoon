@@ -1,9 +1,26 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { A_EM, AU, R_EARTH, R_MOON } from "../physics/constants";
+import { A_EM, AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 
-export type CameraMode = "free" | "earth" | "chase" | "moon" | "solar";
+export type CameraMode =
+  | "free"
+  | "sun"
+  | "earth"
+  | "chase"
+  | "moon"
+  | "solar";
+
+/** F-key cycle: Sun → Earth → Moon → Starship. */
+const FOCUS_CYCLE: readonly CameraMode[] = [
+  "sun",
+  "earth",
+  "moon",
+  "chase",
+];
+
+/** Ecliptic / orbital north in this theater. */
+const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 
 const FAR_CISLUNAR = AU * 2.5;
 /** Far enough for a north-pole view that frames Sun + Earth (~1 AU span). */
@@ -47,7 +64,7 @@ export class CameraDirector {
     if (mode === "chase") {
       this.camera.near = 0.001;
       this.camera.far = FAR_CISLUNAR;
-    } else if (mode === "solar") {
+    } else if (mode === "solar" || mode === "sun") {
       this.camera.near = AU * 0.01;
       this.camera.far = FAR_SOLAR;
     } else {
@@ -55,6 +72,35 @@ export class CameraDirector {
       this.camera.far = FAR_CISLUNAR;
     }
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Reorient so ecliptic north (+Z) is screen-up, keep current target, and
+   * return to free orbit with that up axis.
+   */
+  resetNorthUp(): void {
+    this.camera.up.copy(ECLIPTIC_NORTH);
+    // If looking nearly along the pole, nudge so lookAt has a stable up.
+    this.tmp.copy(this.controls.target).sub(this.camera.position);
+    const dist = this.tmp.length();
+    if (dist > 1e-9) {
+      this.tmp.multiplyScalar(1 / dist);
+      if (Math.abs(this.tmp.dot(ECLIPTIC_NORTH)) > 0.995) {
+        this.camera.position.x += dist * 0.02;
+      }
+    }
+    this.camera.lookAt(this.controls.target);
+    this.setMode("free");
+    this.controls.update();
+  }
+
+  /** Cycle focus: Sun → Earth → Moon → Starship. */
+  cycleFocus(): CameraMode {
+    const i = FOCUS_CYCLE.indexOf(this.mode);
+    const next =
+      i < 0 ? FOCUS_CYCLE[0]! : FOCUS_CYCLE[(i + 1) % FOCUS_CYCLE.length]!;
+    this.setMode(next);
+    return next;
   }
 
   update(
@@ -70,6 +116,18 @@ export class CameraDirector {
       case "free":
         this.controls.update();
         return;
+
+      case "sun": {
+        this.desiredTarget.set(b.sun.x, b.sun.y, b.sun.z);
+        const R = R_SUN * 4.5;
+        const t = performance.now() * 0.00003;
+        this.desiredPos.set(
+          b.sun.x + R * Math.cos(t),
+          b.sun.y + R * 0.45,
+          b.sun.z + R * Math.sin(t),
+        );
+        break;
+      }
 
       case "earth": {
         this.desiredTarget.set(b.earth.x, b.earth.y, b.earth.z);
