@@ -110,7 +110,7 @@ body {
 
 .telemetry {
   position: absolute;
-  bottom: 0.85rem;
+  bottom: 1.85rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -458,7 +458,29 @@ input[type="range"] {
   font-size: 0.7rem;
   color: var(--muted);
   opacity: 0.85;
-  max-width: calc(100% - 15rem);
+  max-width: calc(100% - 22rem);
+}
+
+.source-link {
+  position: absolute;
+  right: 1.1rem;
+  bottom: 0.4rem;
+  z-index: 2;
+  margin: 0;
+  font-size: 0.68rem;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.source-link:hover,
+.source-link:focus-visible {
+  opacity: 1;
+  color: var(--text, #e8eaf0);
+  text-decoration: underline;
+  outline: none;
 }
 
 @media (max-width: 640px) {
@@ -469,7 +491,7 @@ input[type="range"] {
   }
 
   .telemetry {
-    bottom: 0.65rem;
+    bottom: 1.65rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
@@ -489,5 +511,14 @@ input[type="range"] {
 
   .hint {
     display: none;
+  }
+
+  .source-link {
+    right: 0.75rem;
+    bottom: 0.35rem;
+    font-size: 0.62rem;
+    max-width: calc(100% - 1.5rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
