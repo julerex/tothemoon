@@ -125,7 +125,7 @@ const _quat = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 
 /** Fixed playback rates offered in the HUD (and nudged by `,` / `.`). */
-const SPEED_STEPS = [1, 10, 50, 100, 500, 2000] as const;
+const SPEED_STEPS = [1, 10, 50, 100, 500, 1000, 2000] as const;
 
 function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
   if (dir > 0) {
