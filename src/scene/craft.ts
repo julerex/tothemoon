@@ -267,14 +267,15 @@ function createLocatorSprite(): THREE.Sprite {
   const mat = new THREE.SpriteMaterial({
     map,
     transparent: true,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
     sizeAttenuation: true,
   });
   const sprite = new THREE.Sprite(mat);
-  sprite.renderOrder = 999;
-  sprite.scale.set(800, 800, 1);
+  sprite.renderOrder = 5;
+  sprite.scale.set(1, 1, 1);
   sprite.name = "locator";
+  sprite.visible = false;
   return sprite;
 }
 
@@ -343,7 +344,7 @@ export function craftLengthKm(staged: boolean): number {
 }
 
 /**
- * Show the red locator only when the craft is too small to see on screen.
+ * Show the red locator only when the craft is effectively invisible on screen.
  * craftLenKm ≈ mesh scale length.
  */
 export function updateLocatorVisibility(
@@ -353,18 +354,32 @@ export function updateLocatorVisibility(
   opts: { craftLenKm: number },
 ): void {
   const dist = Math.max(1e-6, camera.position.distanceTo(craftPos));
+  const len = Math.max(opts.craftLenKm, 0.01);
+
+  // Hard hide once close enough that the mesh is clearly the subject
+  if (dist < len * 40) {
+    locator.visible = false;
+    return;
+  }
+
   const persp = camera as THREE.PerspectiveCamera;
   const fov = (persp.fov ?? 50) * (Math.PI / 180);
   const worldHeight = 2 * Math.tan(fov / 2) * dist;
   const viewH = window.innerHeight || 800;
-  const px = (opts.craftLenKm / worldHeight) * viewH;
+  const px = (len / worldHeight) * viewH;
 
-  // Hide once the stack is more than a few pixels tall — mesh takes over.
-  const tooSmall = px < 8;
+  // Only mark the craft when it's a sub-pixel / 1px speck — not when the mesh
+  // is already readable (old 8px threshold left a huge red blob over it).
+  const tooSmall = px < 1.5;
   locator.visible = tooSmall;
   if (!tooSmall) return;
 
-  // ~12 px on screen, clamped so it never becomes a planet-sized blob up close
-  const s = THREE.MathUtils.clamp((12 / viewH) * worldHeight, 0.5, dist * 0.08);
+  // ~8 px on screen, but never larger than a small multiple of the craft
+  const fromPixels = (8 / viewH) * worldHeight;
+  const s = THREE.MathUtils.clamp(
+    fromPixels,
+    len * 2,
+    Math.min(dist * 0.02, len * 60),
+  );
   locator.scale.set(s, s, 1);
 }
