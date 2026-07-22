@@ -12,6 +12,8 @@ export type HudHandlers = {
   onPlayToggle: () => void;
   /** Fixed multiplier, or null when Auto is selected */
   onSpeedMode: (mode: "auto" | number) => void;
+  /** `,` / `.` — step playback speed down / up through fixed presets */
+  onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
   /** Q/E yaw, R/F pitch around focus (hold) */
@@ -161,6 +163,14 @@ export function bindHud(
       setActiveCamera(handlers.onZoomKey("z", true));
     } else if (e.key === "x" || e.key === "X") {
       setActiveCamera(handlers.onZoomKey("x", true));
+    } else if (e.key === "," || e.key === "<") {
+      e.preventDefault();
+      const next = handlers.onSpeedNudge(-1);
+      speed.value = String(next);
+    } else if (e.key === "." || e.key === ">") {
+      e.preventDefault();
+      const next = handlers.onSpeedNudge(1);
+      speed.value = String(next);
     }
   });
 

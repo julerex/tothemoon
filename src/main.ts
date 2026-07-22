@@ -124,6 +124,23 @@ const _look = new THREE.Matrix4();
 const _quat = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 
+/** Fixed playback rates offered in the HUD (and nudged by `,` / `.`). */
+const SPEED_STEPS = [1, 10, 50, 100, 500, 2000] as const;
+
+function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
+  if (dir > 0) {
+    for (const step of SPEED_STEPS) {
+      if (step > current + 1e-9) return step;
+    }
+    return SPEED_STEPS[SPEED_STEPS.length - 1]!;
+  }
+  for (let i = SPEED_STEPS.length - 1; i >= 0; i--) {
+    const step = SPEED_STEPS[i]!;
+    if (step < current - 1e-9) return step;
+  }
+  return SPEED_STEPS[0]!;
+}
+
 const hud = bindHud(clock, timeline, {
   onPlayToggle: () => clock.toggle(),
   onSpeedMode: (mode) => {
@@ -137,6 +154,13 @@ const hud = bindHud(clock, timeline, {
       lastAutoPhase = null;
       clock.setSpeed(mode);
     }
+  },
+  onSpeedNudge: (dir) => {
+    const next = nudgePlaybackSpeed(clock.speed, dir);
+    autoSpeed = false;
+    lastAutoPhase = null;
+    clock.setSpeed(next);
+    return next;
   },
   onScrub: (t) => clock.seek(t),
   onCamera: (mode: CameraMode) => director.setMode(mode),
