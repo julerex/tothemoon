@@ -343,32 +343,28 @@ export function craftLengthKm(staged: boolean): number {
 }
 
 /**
- * Show red locator when craft is too small on screen or not in chase mode.
+ * Show the red locator only when the craft is too small to see on screen.
  * craftLenKm ≈ mesh scale length.
  */
 export function updateLocatorVisibility(
   locator: THREE.Sprite,
   camera: THREE.Camera,
   craftPos: THREE.Vector3,
-  opts: { forceShow: boolean; craftLenKm: number },
+  opts: { craftLenKm: number },
 ): void {
-  if (opts.forceShow) {
-    locator.visible = true;
-    const dist = camera.position.distanceTo(craftPos);
-    const s = Math.max(200, Math.min(4000, dist * 0.02));
-    locator.scale.set(s, s, 1);
-    return;
-  }
-
-  const dist = camera.position.distanceTo(craftPos);
+  const dist = Math.max(1e-6, camera.position.distanceTo(craftPos));
   const persp = camera as THREE.PerspectiveCamera;
   const fov = (persp.fov ?? 50) * (Math.PI / 180);
   const worldHeight = 2 * Math.tan(fov / 2) * dist;
-  const px = (opts.craftLenKm / worldHeight) * (window.innerHeight || 800);
-  const tooSmall = px < 6;
+  const viewH = window.innerHeight || 800;
+  const px = (opts.craftLenKm / worldHeight) * viewH;
+
+  // Hide once the stack is more than a few pixels tall — mesh takes over.
+  const tooSmall = px < 8;
   locator.visible = tooSmall;
-  if (tooSmall) {
-    const s = Math.max(150, Math.min(3000, dist * 0.015));
-    locator.scale.set(s, s, 1);
-  }
+  if (!tooSmall) return;
+
+  // ~12 px on screen, clamped so it never becomes a planet-sized blob up close
+  const s = THREE.MathUtils.clamp((12 / viewH) * worldHeight, 0.5, dist * 0.08);
+  locator.scale.set(s, s, 1);
 }

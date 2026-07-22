@@ -208,9 +208,7 @@ function applyMissionState(u: number): void {
   sunLight.target.position.set(0, 0, 0);
   sunLight.target.updateMatrixWorld();
 
-  const mode = director.getMode();
   updateLocatorVisibility(locator, camera, craftPos, {
-    forceShow: mode !== "chase",
     craftLenKm: craftLengthKm(frame.staged),
   });
 
