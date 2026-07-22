@@ -262,11 +262,15 @@ export class CameraDirector {
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
     if (yaw !== 0) {
+      // Turntable yaw about ecliptic north so elevation vs the orbital
+      // plane (and look-direction angle to that plane) stays fixed.
       this.orbitQuat.setFromAxisAngle(
-        this.camera.up,
+        ECLIPTIC_NORTH,
         yaw * ORBIT_RAD_PER_S * dt,
       );
       this.orbitOffset.applyQuaternion(this.orbitQuat);
+      this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+      this.syncOrbitControlsUp();
     }
 
     if (pitch !== 0) {
@@ -363,8 +367,10 @@ export class CameraDirector {
 
     this.trackFocus();
     this.applyPan(dt);
-    this.applyOrbit(dt);
     this.applyZoom(dt);
+    // OrbitControls first (mouse / damping), then Q/E/R/F so keyboard
+    // turntable yaw about ecliptic north is not overwritten.
     this.controls.update();
+    this.applyOrbit(dt);
   }
 }
