@@ -248,6 +248,10 @@ export class CameraDirector {
     this.camera.lookAt(this.controls.target);
   }
 
+  /**
+   * Slide camera + target in the ecliptic / orbital plane (XY, ⊥ +Z).
+   * W/S along look projected onto that plane; A/D along in-plane right.
+   */
   private applyPan(dt: number): void {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
     const right = (this.panA ? 1 : 0) - (this.panD ? 1 : 0);
@@ -256,15 +260,19 @@ export class CameraDirector {
     const dist = this.camera.position.distanceTo(this.controls.target);
     const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
 
+    // Look direction projected onto the ecliptic (drop the +Z component)
     this.tmp.copy(this.controls.target).sub(this.camera.position);
-    this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
+    this.tmp.addScaledVector(
+      ECLIPTIC_NORTH,
+      -this.tmp.dot(ECLIPTIC_NORTH),
+    );
     if (this.tmp.lengthSq() < 1e-12) {
+      // Looking along the pole — use world +X in-plane as forward
       this.tmp.set(1, 0, 0);
-      this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
-      if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
     }
     this.tmp.normalize();
-    this.panRight.crossVectors(this.camera.up, this.tmp).normalize();
+    // In-plane right = ecliptic north × forward
+    this.panRight.crossVectors(ECLIPTIC_NORTH, this.tmp).normalize();
 
     this.panOffset.set(0, 0, 0);
     this.panOffset.addScaledVector(this.tmp, fwd * speed * dt);
