@@ -171,7 +171,7 @@ function applyMissionState(u: number): void {
     const dy = craftPos.y - b.earth.y;
     const dz = craftPos.z - b.earth.z;
     const r = Math.hypot(dx, dy, dz);
-    const minR = R_EARTH + 50; // 50 km clearance above mean surface
+    const minR = R_EARTH + 0.05; // tiny epsilon above mean surface (km)
     if (r < minR && r > 1e-6) {
       const s = minR / r;
       craftPos.set(
