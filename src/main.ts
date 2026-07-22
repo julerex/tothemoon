@@ -16,7 +16,7 @@ import {
   updateCraftVisuals,
   updateLocatorVisibility,
 } from "./scene/craft";
-import { createTrailFromPoints, createPathGlowFromPoints } from "./scene/trail";
+import { createTrailFromPoints } from "./scene/trail";
 import { StagingFx, findStageEvent } from "./scene/stagingFx";
 import { LandingFx } from "./scene/landingFx";
 import {
@@ -84,7 +84,6 @@ if (groundTrack) bodies.earth.add(groundTrack);
 
 const trailPts = cache.trailPoints(1500);
 scene.add(createTrailFromPoints(trailPts));
-scene.add(createPathGlowFromPoints(trailPts));
 
 const { group: craft, locator } = createCraft();
 scene.add(craft);
