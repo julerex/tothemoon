@@ -123,6 +123,11 @@ export class CameraDirector {
     return this.focus;
   }
 
+  /** Distance from camera to OrbitControls focus target (km). */
+  getFocusDistance(): number {
+    return this.camera.position.distanceTo(this.controls.target);
+  }
+
   /**
    * Switch focus target while preserving current zoom (distance to target)
    * and view direction.

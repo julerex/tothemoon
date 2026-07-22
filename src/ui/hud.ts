@@ -50,6 +50,8 @@ export type Telemetry = {
   tliDv: number;
   /** Minimum lunar altitude during approach/capture (km) */
   minMoonAlt: number;
+  /** Camera distance to focus target (km) */
+  focusDistance: number;
 };
 
 const CALLOUT_MS = 4200;
@@ -78,6 +80,7 @@ export function bindHud(
   const barBooster = document.querySelector<HTMLElement>("#bar-booster");
   const barShip = document.querySelector<HTMLElement>("#bar-ship");
   const camBtns = document.querySelectorAll<HTMLButtonElement>("[data-camera]");
+  const camRangeEl = document.querySelector<HTMLElement>("#cam-range");
   const callout = document.querySelector<HTMLElement>("#callout");
   const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
   const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
@@ -291,6 +294,7 @@ export function bindHud(
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
     spdEl.textContent = formatSpeed(tel.speed);
+    if (camRangeEl) camRangeEl.textContent = formatFocusDistance(tel.focusDistance);
     boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
     shipEl.textContent = formatFuel(tel.fuelShip, "ship");
     thrustEl.textContent = formatThrust(tel.thrustN);
@@ -438,6 +442,18 @@ function formatDistance(km: number): string {
   if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
   if (v >= 10) return `${Math.round(v)} km`;
   return `${v.toFixed(2)} km`;
+}
+
+/** Camera–focus range: AU-scale down to meters. */
+function formatFocusDistance(km: number): string {
+  const v = Math.max(0, km);
+  if (v >= 149_597_870.7) return `${(v / 149_597_870.7).toFixed(3)} AU`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
+  if (v >= 10) return `${Math.round(v)} km`;
+  if (v >= 1) return `${v.toFixed(2)} km`;
+  if (v >= 0.001) return `${(v * 1000).toFixed(0)} m`;
+  return `${(v * 1e6).toFixed(0)} mm`;
 }
 
 function formatSpeed(kmPerS: number): string {

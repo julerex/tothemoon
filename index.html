@@ -70,11 +70,20 @@
         </div>
 
         <section class="panel cameras" aria-label="Camera">
-          <button type="button" data-camera="sun">Sun</button>
-          <button type="button" data-camera="earth" class="active">Earth</button>
-          <button type="button" data-camera="moon">Moon</button>
-          <button type="button" data-camera="chase">Ship</button>
-          <button type="button" data-camera="starbase">Starbase</button>
+          <div class="cam-focus-btns">
+            <button type="button" data-camera="sun">Sun</button>
+            <button type="button" data-camera="earth" class="active">Earth</button>
+            <button type="button" data-camera="moon">Moon</button>
+            <button type="button" data-camera="chase">Ship</button>
+            <button type="button" data-camera="starbase">Starbase</button>
+          </div>
+          <div
+            class="cam-range"
+            title="Distance from camera to focus target"
+          >
+            <span class="label">Range</span>
+            <span id="cam-range">—</span>
+          </div>
         </section>
 
         <section class="panel telemetry" aria-live="polite">

@@ -265,6 +265,7 @@ function applyMissionState(u: number): void {
     missionComplete: frame.phase === "landed",
     tliDv: cache.tliDv,
     minMoonAlt: cache.minMoonAlt,
+    focusDistance: director.getFocusDistance(),
   });
 
   // Auto-pause on landing at end

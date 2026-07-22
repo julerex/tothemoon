@@ -99,13 +99,34 @@ body {
 
 .cameras {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 0.35rem;
-  padding: 0.45rem;
+  padding: 0.45rem 0.55rem;
   width: fit-content;
   position: absolute;
   top: 1rem;
   right: 1.1rem;
+}
+
+.cam-focus-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.cam-range {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--text, #e8eaf0);
+  white-space: nowrap;
+}
+
+.cam-range .label {
+  color: var(--muted);
+  margin-right: 0.45rem;
 }
 
 .telemetry {
