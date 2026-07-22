@@ -221,7 +221,7 @@ export class CameraDirector {
 
   private applyPan(dt: number): void {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
-    const right = (this.panD ? 1 : 0) - (this.panA ? 1 : 0);
+    const right = (this.panA ? 1 : 0) - (this.panD ? 1 : 0);
     if ((fwd === 0 && right === 0) || dt <= 0) return;
 
     const dist = this.camera.position.distanceTo(this.controls.target);
