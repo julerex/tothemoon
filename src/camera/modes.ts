@@ -21,8 +21,6 @@ const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 
 /** Q/E yaw and R/F pitch rate around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
-/** Keep a small margin from looking straight along ±up when pitching. */
-const POLAR_MARGIN = 0.08;
 /** WASD pan rate as a fraction of focus distance per second. */
 const PAN_DIST_PER_S = 0.9;
 /** Floor so pan still moves when nearly on top of the target (km/s). */
@@ -223,24 +221,18 @@ export class CameraDirector {
     }
 
     if (pitch !== 0) {
-      this.panRight.crossVectors(this.camera.up, this.orbitOffset);
+      // Camera's world-space right — stays valid through the poles so R/F
+      // can pitch continuously like Q/E yaw.
+      this.camera.updateMatrixWorld();
+      this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
       if (this.panRight.lengthSq() > 1e-12) {
         this.panRight.normalize();
-        this.tmp.copy(this.orbitOffset);
         // Negative so R (pitch +) lifts the camera toward +up
         this.orbitQuat.setFromAxisAngle(
           this.panRight,
           -pitch * ORBIT_RAD_PER_S * dt,
         );
-        this.tmp.applyQuaternion(this.orbitQuat);
-        const len = this.tmp.length();
-        if (len > 1e-12) {
-          const cosPhi = this.tmp.dot(this.camera.up) / len;
-          const phi = Math.acos(THREE.MathUtils.clamp(cosPhi, -1, 1));
-          if (phi > POLAR_MARGIN && phi < Math.PI - POLAR_MARGIN) {
-            this.orbitOffset.copy(this.tmp);
-          }
-        }
+        this.orbitOffset.applyQuaternion(this.orbitQuat);
       }
     }
 
