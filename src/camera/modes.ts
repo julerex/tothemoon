@@ -18,6 +18,8 @@ export type CameraMode =
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
+/** OrbitControls maps camera.up → +Y internally. */
+const ORBIT_Y_UP = new THREE.Vector3(0, 1, 0);
 
 /** Q/E yaw and R/F pitch rate around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
@@ -221,8 +223,8 @@ export class CameraDirector {
     }
 
     if (pitch !== 0) {
-      // Camera's world-space right — stays valid through the poles so R/F
-      // can pitch continuously like Q/E yaw.
+      // Pitch around camera right, and tumble `up` with it so we can go
+      // smoothly upside-down without OrbitControls' polar singularity snap.
       this.camera.updateMatrixWorld();
       this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
       if (this.panRight.lengthSq() > 1e-12) {
@@ -233,11 +235,23 @@ export class CameraDirector {
           -pitch * ORBIT_RAD_PER_S * dt,
         );
         this.orbitOffset.applyQuaternion(this.orbitQuat);
+        this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+        this.syncOrbitControlsUp();
       }
     }
 
     this.camera.position.copy(this.controls.target).add(this.orbitOffset);
     this.camera.lookAt(this.controls.target);
+  }
+
+  /** Keep OrbitControls' internal up-basis in sync after tumbling camera.up. */
+  private syncOrbitControlsUp(): void {
+    const c = this.controls as OrbitControls & {
+      _quat: THREE.Quaternion;
+      _quatInverse: THREE.Quaternion;
+    };
+    c._quat.setFromUnitVectors(this.camera.up, ORBIT_Y_UP);
+    c._quatInverse.copy(c._quat).invert();
   }
 
   /**
