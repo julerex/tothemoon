@@ -20,6 +20,8 @@ export type HudHandlers = {
   onCameraCycle: () => CameraMode;
   /** Q/E — orbit left/right around focus (hold) */
   onOrbitKey: (key: "q" | "e", down: boolean) => CameraMode;
+  /** WASD — pan forward/left/back/right (hold) */
+  onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
 };
 
 export type Telemetry = {
@@ -153,6 +155,14 @@ export function bindHud(
     } else if (e.key === "e" || e.key === "E") {
       const mode = handlers.onOrbitKey("e", true);
       setActiveCamera(mode);
+    } else if (e.key === "w" || e.key === "W") {
+      setActiveCamera(handlers.onPanKey("w", true));
+    } else if (e.key === "a" || e.key === "A") {
+      setActiveCamera(handlers.onPanKey("a", true));
+    } else if (e.key === "s" || e.key === "S") {
+      setActiveCamera(handlers.onPanKey("s", true));
+    } else if (e.key === "d" || e.key === "D") {
+      setActiveCamera(handlers.onPanKey("d", true));
     }
   });
 
@@ -161,12 +171,24 @@ export function bindHud(
       handlers.onOrbitKey("q", false);
     } else if (e.key === "e" || e.key === "E") {
       handlers.onOrbitKey("e", false);
+    } else if (e.key === "w" || e.key === "W") {
+      handlers.onPanKey("w", false);
+    } else if (e.key === "a" || e.key === "A") {
+      handlers.onPanKey("a", false);
+    } else if (e.key === "s" || e.key === "S") {
+      handlers.onPanKey("s", false);
+    } else if (e.key === "d" || e.key === "D") {
+      handlers.onPanKey("d", false);
     }
   });
 
   window.addEventListener("blur", () => {
     handlers.onOrbitKey("q", false);
     handlers.onOrbitKey("e", false);
+    handlers.onPanKey("w", false);
+    handlers.onPanKey("a", false);
+    handlers.onPanKey("s", false);
+    handlers.onPanKey("d", false);
   });
 
   // Initial mode from select (defaults to Auto in HTML)

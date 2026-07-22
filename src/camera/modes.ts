@@ -24,6 +24,10 @@ const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 
 /** Q/E orbit rate around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
+/** WASD pan rate as a fraction of focus distance per second. */
+const PAN_DIST_PER_S = 0.9;
+/** Floor so pan still moves when nearly on top of the target (km/s). */
+const PAN_MIN_SPEED = R_EARTH * 0.4;
 
 const FAR_CISLUNAR = AU * 2.5;
 /** Far enough for a north-pole view that frames Sun + Earth (~1 AU span). */
@@ -37,9 +41,15 @@ export class CameraDirector {
   private readonly desiredPos = new THREE.Vector3();
   private readonly desiredTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
+  private readonly panRight = new THREE.Vector3();
+  private readonly panOffset = new THREE.Vector3();
   private readonly orbitQuat = new THREE.Quaternion();
   private orbitQ = false;
   private orbitE = false;
+  private panW = false;
+  private panA = false;
+  private panS = false;
+  private panD = false;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -119,6 +129,18 @@ export class CameraDirector {
     return this.mode;
   }
 
+  /** WASD hold state — pan forward/left/back/right. */
+  setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
+    if (key === "w") this.panW = down;
+    else if (key === "a") this.panA = down;
+    else if (key === "s") this.panS = down;
+    else this.panD = down;
+    if (down && this.mode !== "free") {
+      this.setMode("free");
+    }
+    return this.mode;
+  }
+
   /**
    * Rotate the camera around `controls.target` about `camera.up`.
    * Positive dir = E (right), negative = Q (left).
@@ -135,6 +157,37 @@ export class CameraDirector {
     this.camera.lookAt(this.controls.target);
   }
 
+  /**
+   * Slide camera + target in the view plane (⊥ camera.up).
+   * W/S along look, A/D along right — distance-scaled so it works near Earth or AU.
+   */
+  private applyPan(dt: number): void {
+    const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
+    const right = (this.panD ? 1 : 0) - (this.panA ? 1 : 0);
+    if ((fwd === 0 && right === 0) || dt <= 0) return;
+
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
+
+    // Forward = look direction projected onto plane perpendicular to up
+    this.tmp.copy(this.controls.target).sub(this.camera.position);
+    this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
+    if (this.tmp.lengthSq() < 1e-12) {
+      // Looking along up — pick a stable forward in the horizontal plane
+      this.tmp.set(1, 0, 0);
+      this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
+      if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
+    }
+    this.tmp.normalize();
+    this.panRight.crossVectors(this.camera.up, this.tmp).normalize();
+
+    this.panOffset.set(0, 0, 0);
+    this.panOffset.addScaledVector(this.tmp, fwd * speed * dt);
+    this.panOffset.addScaledVector(this.panRight, right * speed * dt);
+    this.camera.position.add(this.panOffset);
+    this.controls.target.add(this.panOffset);
+  }
+
   update(
     dt: number,
     simTime: number,
@@ -146,6 +199,7 @@ export class CameraDirector {
 
     switch (this.mode) {
       case "free":
+        this.applyPan(dt);
         this.applyOrbit(dt);
         this.controls.update();
         return;
