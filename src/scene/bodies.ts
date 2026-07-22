@@ -16,6 +16,7 @@ import {
   makeMoonTexture,
   makeSunGlowTexture,
 } from "./textures";
+import { markZoomLabel } from "./zoomLabels";
 
 export type Bodies = {
   earth: THREE.Mesh;
@@ -89,8 +90,14 @@ function makePoleLabel(text: string, color: string): THREE.Sprite {
     sizeAttenuation: true,
   });
   const spr = new THREE.Sprite(mat);
-  const s = R_EARTH * 0.55;
-  spr.scale.set(s, s, 1);
+  // Screen size driven by updateZoomLabels each frame
+  markZoomLabel(spr, {
+    targetPx: 28,
+    aspect: 1,
+    minH: 8,
+    maxH: R_EARTH * 0.55,
+  });
+  spr.scale.set(R_EARTH * 0.2, R_EARTH * 0.2, 1);
   return spr;
 }
 

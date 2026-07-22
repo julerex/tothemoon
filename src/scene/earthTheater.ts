@@ -12,6 +12,7 @@ import {
 import { bodyPositions } from "../physics/bodies";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
+import { markZoomLabel } from "./zoomLabels";
 
 /**
  * Starbase pad (Earth-fixed mesh-local) + ascent ground-track on the globe.
@@ -93,7 +94,13 @@ export function createStarbasePad(): THREE.Group {
 
   const label = makeTextSprite("STARBASE", "#7ec8ff");
   label.position.set(0, 18, 0);
-  label.scale.set(40, 14, 1);
+  markZoomLabel(label, {
+    targetPx: 22,
+    aspect: 256 / 64,
+    minH: 0.6,
+    maxH: 28,
+  });
+  label.scale.set(12, 3, 1);
   pad.add(label);
 
   return pad;

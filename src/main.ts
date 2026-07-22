@@ -24,6 +24,7 @@ import {
   createStarbasePad,
   pulsePadBeacon,
 } from "./scene/earthTheater";
+import { updateZoomLabels } from "./scene/zoomLabels";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import {
   autoSpeedForPhase,
@@ -273,6 +274,7 @@ function frame(): void {
   pulsePadBeacon(starbasePad, wall.elapsedTime);
   spinBodies(bodies, dt);
   director.update(dt, cache.sampleAtProgress(clock.t).t, craftPos, craftVel);
+  updateZoomLabels(scene, camera);
 
   renderer.render(scene, camera);
 }
