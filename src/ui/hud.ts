@@ -18,6 +18,8 @@ export type HudHandlers = {
   onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
   /** WASD — pan forward/left/back/right (hold) */
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
+  /** Z/X — zoom in/out (hold) */
+  onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
 };
 
 export type Telemetry = {
@@ -155,6 +157,10 @@ export function bindHud(
       setActiveCamera(handlers.onPanKey("s", true));
     } else if (e.key === "d" || e.key === "D") {
       setActiveCamera(handlers.onPanKey("d", true));
+    } else if (e.key === "z" || e.key === "Z") {
+      setActiveCamera(handlers.onZoomKey("z", true));
+    } else if (e.key === "x" || e.key === "X") {
+      setActiveCamera(handlers.onZoomKey("x", true));
     }
   });
 
@@ -175,6 +181,10 @@ export function bindHud(
       handlers.onPanKey("s", false);
     } else if (e.key === "d" || e.key === "D") {
       handlers.onPanKey("d", false);
+    } else if (e.key === "z" || e.key === "Z") {
+      handlers.onZoomKey("z", false);
+    } else if (e.key === "x" || e.key === "X") {
+      handlers.onZoomKey("x", false);
     }
   });
 
@@ -187,6 +197,8 @@ export function bindHud(
     handlers.onPanKey("a", false);
     handlers.onPanKey("s", false);
     handlers.onPanKey("d", false);
+    handlers.onZoomKey("z", false);
+    handlers.onZoomKey("x", false);
   });
 
   // Initial mode from select (defaults to Auto in HTML)

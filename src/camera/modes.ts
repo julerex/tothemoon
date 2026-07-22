@@ -27,6 +27,8 @@ const POLAR_MARGIN = 0.08;
 const PAN_DIST_PER_S = 0.9;
 /** Floor so pan still moves when nearly on top of the target (km/s). */
 const PAN_MIN_SPEED = R_EARTH * 0.4;
+/** Z/X zoom rate (exponential distance scale per second). */
+const ZOOM_RATE = 1.4;
 
 const FAR_SOLAR = AU * 4;
 /** Height above the ecliptic so both Sun and Earth sit in a 50° FOV with margin. */
@@ -51,6 +53,8 @@ export class CameraDirector {
   private panA = false;
   private panS = false;
   private panD = false;
+  private zoomZ = false;
+  private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
   private simTime = 0;
 
@@ -135,6 +139,13 @@ export class CameraDirector {
       this.focus = "free";
       this.applyClipPlanes();
     }
+    return this.focus;
+  }
+
+  /** Z/X hold state — zoom in / out toward the focus. */
+  setZoomKey(key: "z" | "x", down: boolean): CameraMode {
+    if (key === "z") this.zoomZ = down;
+    else this.zoomX = down;
     return this.focus;
   }
 
@@ -262,6 +273,24 @@ export class CameraDirector {
     this.controls.target.add(this.panOffset);
   }
 
+  /** Scale distance to the focus; Z zooms in, X zooms out. */
+  private applyZoom(dt: number): void {
+    const dir = (this.zoomZ ? 1 : 0) - (this.zoomX ? 1 : 0);
+    if (dir === 0 || dt <= 0) return;
+
+    this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
+    const dist = this.orbitOffset.length();
+    if (dist < 1e-12) return;
+
+    const next = THREE.MathUtils.clamp(
+      dist * Math.exp(-dir * ZOOM_RATE * dt),
+      this.controls.minDistance,
+      this.controls.maxDistance,
+    );
+    this.orbitOffset.multiplyScalar(next / dist);
+    this.camera.position.copy(this.controls.target).add(this.orbitOffset);
+  }
+
   update(
     dt: number,
     simTime: number,
@@ -274,6 +303,7 @@ export class CameraDirector {
     this.trackFocus();
     this.applyPan(dt);
     this.applyOrbit(dt);
+    this.applyZoom(dt);
     this.controls.update();
   }
 }
