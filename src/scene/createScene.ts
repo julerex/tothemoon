@@ -31,16 +31,16 @@ function createEclipticGridNear(): THREE.GridHelper {
 }
 
 /**
- * Same ecliptic plane, coarser and much larger so it reads out toward the Sun
- * (solar-camera scale) without drowning the cislunar view in ultra-fine lines.
+ * Same ecliptic plane, coarser and sized so the grid reaches the Sun (~1 AU
+ * from the barycenter) without drowning the cislunar view in fine lines.
  */
 function createEclipticGridTowardSun(): THREE.GridHelper {
-  // ~0.35 AU span: Earth–Moon region is a small patch; grid reaches well sunward
-  const size = AU * 0.35;
-  const divisions = 14;
+  // Full width 2.2 AU → edges past the Sun on either side of the barycenter
+  const size = AU * 2.2;
+  const divisions = 22;
   const grid = new THREE.GridHelper(size, divisions, 0x555566, 0x2a2a38);
   grid.rotation.x = Math.PI / 2;
-  styleGrid(grid, 0.22);
+  styleGrid(grid, 0.2);
   return grid;
 }
 
