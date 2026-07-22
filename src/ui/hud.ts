@@ -14,12 +14,8 @@ export type HudHandlers = {
   onSpeedMode: (mode: "auto" | number) => void;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
-  /** R — ecliptic north (+Z) screen-up, free orbit */
-  onCameraReset: () => void;
-  /** F — cycle Sun → Earth → Moon → Ship */
-  onCameraCycle: () => CameraMode;
-  /** Q/E — orbit left/right around focus (hold) */
-  onOrbitKey: (key: "q" | "e", down: boolean) => CameraMode;
+  /** Q/E yaw, R/F pitch around focus (hold) */
+  onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
   /** WASD — pan forward/left/back/right (hold) */
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
 };
@@ -143,17 +139,14 @@ export function bindHud(
     } else if (e.key === "5") {
       handlers.onCamera("starbase");
       setActiveCamera("starbase");
-    } else if (e.key === "r" || e.key === "R") {
-      handlers.onCameraReset();
-    } else if (e.key === "f" || e.key === "F") {
-      const mode = handlers.onCameraCycle();
-      setActiveCamera(mode);
     } else if (e.key === "q" || e.key === "Q") {
-      const mode = handlers.onOrbitKey("q", true);
-      setActiveCamera(mode);
+      setActiveCamera(handlers.onOrbitKey("q", true));
     } else if (e.key === "e" || e.key === "E") {
-      const mode = handlers.onOrbitKey("e", true);
-      setActiveCamera(mode);
+      setActiveCamera(handlers.onOrbitKey("e", true));
+    } else if (e.key === "r" || e.key === "R") {
+      setActiveCamera(handlers.onOrbitKey("r", true));
+    } else if (e.key === "f" || e.key === "F") {
+      setActiveCamera(handlers.onOrbitKey("f", true));
     } else if (e.key === "w" || e.key === "W") {
       setActiveCamera(handlers.onPanKey("w", true));
     } else if (e.key === "a" || e.key === "A") {
@@ -170,6 +163,10 @@ export function bindHud(
       handlers.onOrbitKey("q", false);
     } else if (e.key === "e" || e.key === "E") {
       handlers.onOrbitKey("e", false);
+    } else if (e.key === "r" || e.key === "R") {
+      handlers.onOrbitKey("r", false);
+    } else if (e.key === "f" || e.key === "F") {
+      handlers.onOrbitKey("f", false);
     } else if (e.key === "w" || e.key === "W") {
       handlers.onPanKey("w", false);
     } else if (e.key === "a" || e.key === "A") {
@@ -184,6 +181,8 @@ export function bindHud(
   window.addEventListener("blur", () => {
     handlers.onOrbitKey("q", false);
     handlers.onOrbitKey("e", false);
+    handlers.onOrbitKey("r", false);
+    handlers.onOrbitKey("f", false);
     handlers.onPanKey("w", false);
     handlers.onPanKey("a", false);
     handlers.onPanKey("s", false);

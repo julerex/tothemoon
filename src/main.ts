@@ -139,8 +139,6 @@ const hud = bindHud(clock, timeline, {
   },
   onScrub: (t) => clock.seek(t),
   onCamera: (mode: CameraMode) => director.setMode(mode),
-  onCameraReset: () => director.resetNorthUp(),
-  onCameraCycle: () => director.cycleFocus(),
   onOrbitKey: (key, down) => director.setOrbitKey(key, down),
   onPanKey: (key, down) => director.setPanKey(key, down),
 });

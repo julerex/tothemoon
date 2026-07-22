@@ -16,19 +16,13 @@ export type CameraMode =
   | "moon"
   | "starbase";
 
-/** F-key cycle: Sun → Earth → Moon → Starship. */
-const FOCUS_CYCLE: readonly CameraMode[] = [
-  "sun",
-  "earth",
-  "moon",
-  "chase",
-];
-
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 
-/** Q/E orbit rate around the focus (rad/s). */
+/** Q/E yaw and R/F pitch rate around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
+/** Keep a small margin from looking straight along ±up when pitching. */
+const POLAR_MARGIN = 0.08;
 /** WASD pan rate as a fraction of focus distance per second. */
 const PAN_DIST_PER_S = 0.9;
 /** Floor so pan still moves when nearly on top of the target (km/s). */
@@ -45,11 +39,14 @@ export class CameraDirector {
   private readonly desiredTarget = new THREE.Vector3();
   private readonly prevTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
+  private readonly orbitOffset = new THREE.Vector3();
   private readonly panRight = new THREE.Vector3();
   private readonly panOffset = new THREE.Vector3();
   private readonly orbitQuat = new THREE.Quaternion();
   private orbitQ = false;
   private orbitE = false;
+  private orbitR = false;
+  private orbitF = false;
   private panW = false;
   private panA = false;
   private panS = false;
@@ -118,35 +115,13 @@ export class CameraDirector {
   }
 
   /**
-   * Reorient so ecliptic north (+Z) is screen-up; keep current focus/target.
+   * Q/E yaw left/right, R/F pitch up/down around the focus (hold).
    */
-  resetNorthUp(): void {
-    this.camera.up.copy(ECLIPTIC_NORTH);
-    this.tmp.copy(this.controls.target).sub(this.camera.position);
-    const dist = this.tmp.length();
-    if (dist > 1e-9) {
-      this.tmp.multiplyScalar(1 / dist);
-      if (Math.abs(this.tmp.dot(ECLIPTIC_NORTH)) > 0.995) {
-        this.camera.position.x += dist * 0.02;
-      }
-    }
-    this.camera.lookAt(this.controls.target);
-    this.controls.update();
-  }
-
-  /** Cycle focus: Sun → Earth → Moon → Starship. */
-  cycleFocus(): CameraMode {
-    const i = FOCUS_CYCLE.indexOf(this.focus);
-    const next =
-      i < 0 ? FOCUS_CYCLE[0]! : FOCUS_CYCLE[(i + 1) % FOCUS_CYCLE.length]!;
-    this.setMode(next);
-    return next;
-  }
-
-  /** Q/E hold state — orbit left (Q) / right (E) around the focus. */
-  setOrbitKey(key: "q" | "e", down: boolean): CameraMode {
+  setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
     if (key === "q") this.orbitQ = down;
-    else this.orbitE = down;
+    else if (key === "e") this.orbitE = down;
+    else if (key === "r") this.orbitR = down;
+    else this.orbitF = down;
     return this.focus;
   }
 
@@ -222,14 +197,43 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    const dir = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
-    if (dir === 0 || dt <= 0) return;
+    const yaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
+    const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
+    if ((yaw === 0 && pitch === 0) || dt <= 0) return;
 
-    const angle = dir * ORBIT_RAD_PER_S * dt;
-    this.orbitQuat.setFromAxisAngle(this.camera.up, angle);
-    this.tmp.copy(this.camera.position).sub(this.controls.target);
-    this.tmp.applyQuaternion(this.orbitQuat);
-    this.camera.position.copy(this.controls.target).add(this.tmp);
+    this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
+
+    if (yaw !== 0) {
+      this.orbitQuat.setFromAxisAngle(
+        this.camera.up,
+        yaw * ORBIT_RAD_PER_S * dt,
+      );
+      this.orbitOffset.applyQuaternion(this.orbitQuat);
+    }
+
+    if (pitch !== 0) {
+      this.panRight.crossVectors(this.camera.up, this.orbitOffset);
+      if (this.panRight.lengthSq() > 1e-12) {
+        this.panRight.normalize();
+        this.tmp.copy(this.orbitOffset);
+        // Negative so R (pitch +) lifts the camera toward +up
+        this.orbitQuat.setFromAxisAngle(
+          this.panRight,
+          -pitch * ORBIT_RAD_PER_S * dt,
+        );
+        this.tmp.applyQuaternion(this.orbitQuat);
+        const len = this.tmp.length();
+        if (len > 1e-12) {
+          const cosPhi = this.tmp.dot(this.camera.up) / len;
+          const phi = Math.acos(THREE.MathUtils.clamp(cosPhi, -1, 1));
+          if (phi > POLAR_MARGIN && phi < Math.PI - POLAR_MARGIN) {
+            this.orbitOffset.copy(this.tmp);
+          }
+        }
+      }
+    }
+
+    this.camera.position.copy(this.controls.target).add(this.orbitOffset);
     this.camera.lookAt(this.controls.target);
   }
 
