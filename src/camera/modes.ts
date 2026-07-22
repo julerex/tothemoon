@@ -31,13 +31,15 @@ const PAN_MIN_SPEED = R_EARTH * 0.4;
 const ZOOM_RATE = 1.4;
 
 const FAR_SOLAR = AU * 4;
-/** Height above the ecliptic so both Sun and Earth sit in a 50° FOV with margin. */
-const SOLAR_VIEW_HEIGHT = AU * 1.35;
+/** Opening shot: distance from Earth center (km). */
+const EARTH_OPENING_DIST = R_EARTH * 8;
+/** Opening shot: elevation above the ecliptic. */
+const EARTH_OPENING_TILT = Math.PI / 4;
 
 export class CameraDirector {
   readonly controls: OrbitControls;
   /** What we track; OrbitControls stay enabled in every focus. */
-  private focus: CameraMode = "sun";
+  private focus: CameraMode = "earth";
   private readonly desiredTarget = new THREE.Vector3();
   private readonly prevTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
@@ -69,12 +71,52 @@ export class CameraDirector {
     this.controls.maxDistance = AU * 3;
     this.controls.enabled = true;
 
-    // Default: Sun (solar-system) overview from ecliptic north
-    this.controls.target.set(0, 0, 0);
-    this.camera.position.set(0, 0, SOLAR_VIEW_HEIGHT);
+    this.applyEarthOpeningShot();
     this.applyClipPlanes();
     this.camera.updateProjectionMatrix();
     this.controls.update();
+  }
+
+  /**
+   * Earth-centered opening: 45° above the ecliptic on the night side so the
+   * Sun sits behind Earth in the background.
+   */
+  private applyEarthOpeningShot(): void {
+    const b = bodyPositions(0);
+    this.desiredTarget.set(b.earth.x, b.earth.y, b.earth.z);
+
+    // Anti-sunward in the ecliptic (Sun → Earth → camera)
+    this.orbitOffset.set(
+      b.earth.x - b.sun.x,
+      b.earth.y - b.sun.y,
+      b.earth.z - b.sun.z,
+    );
+    this.orbitOffset.addScaledVector(
+      ECLIPTIC_NORTH,
+      -this.orbitOffset.dot(ECLIPTIC_NORTH),
+    );
+    if (this.orbitOffset.lengthSq() < 1e-12) {
+      this.orbitOffset.set(1, 0, 0);
+    }
+    this.orbitOffset.normalize();
+
+    // Tilt 45° toward ecliptic north
+    this.tmp
+      .copy(this.orbitOffset)
+      .multiplyScalar(Math.cos(EARTH_OPENING_TILT));
+    this.tmp.addScaledVector(
+      ECLIPTIC_NORTH,
+      Math.sin(EARTH_OPENING_TILT),
+    );
+    this.tmp.normalize();
+
+    this.camera.position
+      .copy(this.desiredTarget)
+      .addScaledVector(this.tmp, EARTH_OPENING_DIST);
+    this.controls.target.copy(this.desiredTarget);
+    this.camera.up.copy(ECLIPTIC_NORTH);
+    this.syncOrbitControlsUp();
+    this.camera.lookAt(this.controls.target);
   }
 
   getMode(): CameraMode {
