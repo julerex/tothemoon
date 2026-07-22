@@ -90,7 +90,7 @@ function createStarDome(): THREE.Mesh {
   };
 
   new THREE.TextureLoader().load(
-    "/textures/starmap_nasa_svs_2020_4k.jpg",
+    `${import.meta.env.BASE_URL}textures/starmap_nasa_svs_2020_4k.jpg`,
     (tex) => {
       applySkyMap(tex);
       mat.map = tex;
