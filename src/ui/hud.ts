@@ -145,7 +145,6 @@ export function bindHud(
       setActiveCamera("solar");
     } else if (e.key === "r" || e.key === "R") {
       handlers.onCameraReset();
-      setActiveCamera("free");
     } else if (e.key === "f" || e.key === "F") {
       const mode = handlers.onCameraCycle();
       setActiveCamera(mode);

@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { A_EM, AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 
+/** Focus preset — camera stays free; these only choose what to frame/track. */
 export type CameraMode =
   | "free"
   | "sun"
@@ -37,9 +38,11 @@ const SOLAR_VIEW_HEIGHT = AU * 1.35;
 
 export class CameraDirector {
   readonly controls: OrbitControls;
-  private mode: CameraMode = "free";
+  /** What we frame/track; OrbitControls stay enabled in every focus. */
+  private focus: CameraMode = "free";
   private readonly desiredPos = new THREE.Vector3();
   private readonly desiredTarget = new THREE.Vector3();
+  private readonly prevTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
   private readonly panRight = new THREE.Vector3();
   private readonly panOffset = new THREE.Vector3();
@@ -50,6 +53,10 @@ export class CameraDirector {
   private panA = false;
   private panS = false;
   private panD = false;
+  /** Craft state for framing Ship focus (set each update). */
+  private readonly craftPos = new THREE.Vector3();
+  private readonly craftVel = new THREE.Vector3();
+  private simTime = 0;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -58,7 +65,7 @@ export class CameraDirector {
     this.controls = new OrbitControls(camera, domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
-    this.controls.minDistance = R_EARTH * 1.5;
+    this.controls.minDistance = 0.05;
     this.controls.maxDistance = A_EM * 3;
     this.controls.target.set(0, 0, 0);
     // System overview: EM barycenter region
@@ -66,37 +73,33 @@ export class CameraDirector {
     this.camera.near = 0.1;
     this.camera.far = FAR_CISLUNAR;
     this.camera.updateProjectionMatrix();
+    this.controls.enabled = true;
     this.controls.update();
   }
 
   getMode(): CameraMode {
-    return this.mode;
-  }
-
-  setMode(mode: CameraMode): void {
-    this.mode = mode;
-    this.controls.enabled = mode === "free";
-
-    if (mode === "chase") {
-      this.camera.near = 0.001;
-      this.camera.far = FAR_CISLUNAR;
-    } else if (mode === "solar" || mode === "sun") {
-      this.camera.near = AU * 0.01;
-      this.camera.far = FAR_SOLAR;
-    } else {
-      this.camera.near = 1;
-      this.camera.far = FAR_CISLUNAR;
-    }
-    this.camera.updateProjectionMatrix();
+    return this.focus;
   }
 
   /**
-   * Reorient so ecliptic north (+Z) is screen-up, keep current target, and
-   * return to free orbit with that up axis.
+   * Jump to a focus preset and frame it. Camera stays freely controllable;
+   * body focuses keep the target locked while you orbit/zoom.
+   */
+  setMode(mode: CameraMode): void {
+    this.focus = mode;
+    this.applyClipPlanes(mode);
+    this.computeFrame(mode, this.desiredPos, this.desiredTarget);
+    this.controls.target.copy(this.desiredTarget);
+    this.camera.position.copy(this.desiredPos);
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+  }
+
+  /**
+   * Reorient so ecliptic north (+Z) is screen-up; keep current focus/target.
    */
   resetNorthUp(): void {
     this.camera.up.copy(ECLIPTIC_NORTH);
-    // If looking nearly along the pole, nudge so lookAt has a stable up.
     this.tmp.copy(this.controls.target).sub(this.camera.position);
     const dist = this.tmp.length();
     if (dist > 1e-9) {
@@ -106,13 +109,12 @@ export class CameraDirector {
       }
     }
     this.camera.lookAt(this.controls.target);
-    this.setMode("free");
     this.controls.update();
   }
 
   /** Cycle focus: Sun → Earth → Moon → Starship. */
   cycleFocus(): CameraMode {
-    const i = FOCUS_CYCLE.indexOf(this.mode);
+    const i = FOCUS_CYCLE.indexOf(this.focus);
     const next =
       i < 0 ? FOCUS_CYCLE[0]! : FOCUS_CYCLE[(i + 1) % FOCUS_CYCLE.length]!;
     this.setMode(next);
@@ -123,28 +125,115 @@ export class CameraDirector {
   setOrbitKey(key: "q" | "e", down: boolean): CameraMode {
     if (key === "q") this.orbitQ = down;
     else this.orbitE = down;
-    if (down && this.mode !== "free") {
-      this.setMode("free");
-    }
-    return this.mode;
+    return this.focus;
   }
 
-  /** WASD hold state — pan forward/left/back/right. */
+  /** WASD hold state — pan; drops body tracking so the slide sticks. */
   setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
     if (key === "w") this.panW = down;
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
     else this.panD = down;
-    if (down && this.mode !== "free") {
-      this.setMode("free");
+    if (down && this.focus !== "free") {
+      this.focus = "free";
+      this.applyClipPlanes("free");
     }
-    return this.mode;
+    return this.focus;
   }
 
-  /**
-   * Rotate the camera around `controls.target` about `camera.up`.
-   * Positive dir = E (right), negative = Q (left).
-   */
+  private applyClipPlanes(mode: CameraMode): void {
+    if (mode === "chase") {
+      this.camera.near = 0.001;
+      this.camera.far = FAR_CISLUNAR;
+      this.controls.maxDistance = A_EM * 3;
+    } else if (mode === "solar" || mode === "sun") {
+      this.camera.near = AU * 0.01;
+      this.camera.far = FAR_SOLAR;
+      this.controls.maxDistance = AU * 3;
+    } else {
+      this.camera.near = 0.1;
+      this.camera.far = FAR_CISLUNAR;
+      this.controls.maxDistance = A_EM * 3;
+    }
+    this.camera.updateProjectionMatrix();
+  }
+
+  private computeFrame(
+    mode: CameraMode,
+    outPos: THREE.Vector3,
+    outTarget: THREE.Vector3,
+  ): void {
+    const b = bodyPositions(this.simTime);
+
+    switch (mode) {
+      case "free":
+        outTarget.set(0, 0, 0);
+        outPos.set(-A_EM * 0.15, A_EM * 0.55, A_EM * 1.1);
+        break;
+
+      case "sun": {
+        outTarget.set(b.sun.x, b.sun.y, b.sun.z);
+        const R = R_SUN * 4.5;
+        outPos.set(b.sun.x + R * 0.8, b.sun.y + R * 0.45, b.sun.z + R * 0.6);
+        break;
+      }
+
+      case "earth": {
+        outTarget.set(b.earth.x, b.earth.y, b.earth.z);
+        const R = R_EARTH * 4.5;
+        outPos.set(
+          b.earth.x + R,
+          b.earth.y + R_EARTH * 1.8,
+          b.earth.z + R * 0.35,
+        );
+        break;
+      }
+
+      case "chase": {
+        const speed = this.craftVel.length() || 1;
+        this.tmp.copy(this.craftVel).normalize();
+        const back = THREE.MathUtils.clamp(speed * 0.4, 0.08, 8);
+        const up = THREE.MathUtils.clamp(back * 0.35, 0.03, 3);
+        outPos.copy(this.craftPos).addScaledVector(this.tmp, -back);
+        outPos.y += up;
+        outTarget.copy(this.craftPos).addScaledVector(this.tmp, back * 0.5);
+        break;
+      }
+
+      case "moon": {
+        outTarget.set(b.moon.x, b.moon.y, b.moon.z);
+        const pull = R_MOON * 6;
+        outPos.set(
+          b.moon.x - pull * 0.7,
+          b.moon.y + pull * 0.35,
+          b.moon.z + pull * 0.5,
+        );
+        break;
+      }
+
+      case "solar": {
+        const midX = (b.sun.x + b.earth.x) * 0.5;
+        const midY = (b.sun.y + b.earth.y) * 0.5;
+        const midZ = (b.sun.z + b.earth.z) * 0.5;
+        outTarget.set(midX, midY, midZ);
+        outPos.set(midX, midY, midZ + SOLAR_VIEW_HEIGHT);
+        break;
+      }
+    }
+  }
+
+  /** Keep target on the focused body; slide the camera with it. */
+  private trackFocus(): void {
+    if (this.focus === "free") return;
+
+    this.prevTarget.copy(this.controls.target);
+    this.computeFrame(this.focus, this.desiredPos, this.desiredTarget);
+    // Only pull the target (and camera by the same delta) — keep user's orbit offset
+    this.tmp.copy(this.desiredTarget).sub(this.prevTarget);
+    this.controls.target.copy(this.desiredTarget);
+    this.camera.position.add(this.tmp);
+  }
+
   private applyOrbit(dt: number): void {
     const dir = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     if (dir === 0 || dt <= 0) return;
@@ -157,10 +246,6 @@ export class CameraDirector {
     this.camera.lookAt(this.controls.target);
   }
 
-  /**
-   * Slide camera + target in the view plane (⊥ camera.up).
-   * W/S along look, A/D along right — distance-scaled so it works near Earth or AU.
-   */
   private applyPan(dt: number): void {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
     const right = (this.panD ? 1 : 0) - (this.panA ? 1 : 0);
@@ -169,11 +254,9 @@ export class CameraDirector {
     const dist = this.camera.position.distanceTo(this.controls.target);
     const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
 
-    // Forward = look direction projected onto plane perpendicular to up
     this.tmp.copy(this.controls.target).sub(this.camera.position);
     this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
     if (this.tmp.lengthSq() < 1e-12) {
-      // Looking along up — pick a stable forward in the horizontal plane
       this.tmp.set(1, 0, 0);
       this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
       if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
@@ -194,82 +277,13 @@ export class CameraDirector {
     craftPos: THREE.Vector3,
     craftVel: THREE.Vector3,
   ): void {
-    const lerp = 1 - Math.exp(-3.5 * dt);
-    const b = bodyPositions(simTime);
+    this.simTime = simTime;
+    this.craftPos.copy(craftPos);
+    this.craftVel.copy(craftVel);
 
-    switch (this.mode) {
-      case "free":
-        this.applyPan(dt);
-        this.applyOrbit(dt);
-        this.controls.update();
-        return;
-
-      case "sun": {
-        this.desiredTarget.set(b.sun.x, b.sun.y, b.sun.z);
-        const R = R_SUN * 4.5;
-        const t = performance.now() * 0.00003;
-        this.desiredPos.set(
-          b.sun.x + R * Math.cos(t),
-          b.sun.y + R * 0.45,
-          b.sun.z + R * Math.sin(t),
-        );
-        break;
-      }
-
-      case "earth": {
-        this.desiredTarget.set(b.earth.x, b.earth.y, b.earth.z);
-        const t = performance.now() * 0.00004;
-        const R = R_EARTH * 4.5;
-        this.desiredPos.set(
-          b.earth.x + R * Math.cos(t),
-          b.earth.y + R_EARTH * 1.8,
-          b.earth.z + R * Math.sin(t),
-        );
-        break;
-      }
-
-      case "chase": {
-        const speed = craftVel.length() || 1;
-        this.tmp.copy(craftVel).normalize();
-        // Offset behind and above — scale with a floor so tiny craft is framed
-        const back = THREE.MathUtils.clamp(speed * 0.4, 0.08, 8);
-        const up = THREE.MathUtils.clamp(back * 0.35, 0.03, 3);
-        this.desiredPos.copy(craftPos).addScaledVector(this.tmp, -back);
-        this.desiredPos.y += up;
-        this.desiredTarget.copy(craftPos).addScaledVector(this.tmp, back * 0.5);
-        break;
-      }
-
-      case "moon": {
-        this.desiredTarget.set(b.moon.x, b.moon.y, b.moon.z);
-        const distCraft = craftPos.distanceTo(this.desiredTarget);
-        const pull = THREE.MathUtils.clamp(
-          distCraft * 0.4 + R_MOON * 3,
-          R_MOON * 3,
-          A_EM * 0.6,
-        );
-        this.desiredPos.set(
-          b.moon.x - pull * 0.7,
-          b.moon.y + pull * 0.35,
-          b.moon.z + pull * 0.5,
-        );
-        break;
-      }
-
-      case "solar": {
-        // Top-down Sun–Earth system: look from ecliptic north (+Z) at the
-        // Sun–Earth midpoint so both bodies sit in frame.
-        const midX = (b.sun.x + b.earth.x) * 0.5;
-        const midY = (b.sun.y + b.earth.y) * 0.5;
-        const midZ = (b.sun.z + b.earth.z) * 0.5;
-        this.desiredTarget.set(midX, midY, midZ);
-        this.desiredPos.set(midX, midY, midZ + SOLAR_VIEW_HEIGHT);
-        break;
-      }
-    }
-
-    this.camera.position.lerp(this.desiredPos, lerp);
-    this.controls.target.lerp(this.desiredTarget, lerp);
-    this.camera.lookAt(this.controls.target);
+    this.trackFocus();
+    this.applyPan(dt);
+    this.applyOrbit(dt);
+    this.controls.update();
   }
 }
