@@ -1,0 +1,16 @@
+NASA / GSFC Scientific Visualization Studio — Deep Star Maps 2020
+Source: https://svs.gsfc.nasa.gov/4851/
+File: starmap_nasa_svs_2020_4k.jpg
+  Tone-mapped from starmap_2020_4k.exr (celestial / ICRF J2000 plate carrée,
+  4096×2048) for web use.
+
+Credit (as requested by NASA SVS):
+  NASA/Goddard Space Flight Center Scientific Visualization Studio.
+  Gaia DR2: ESA/Gaia/DPAC.
+  Constellation figures based on those developed for the IAU by Alan MacRobert
+  of Sky and Telescope magazine (Roger Sinnott and Rick Fienberg).
+
+Catalogs: Hipparcos-2, Tycho-2, Gaia DR2, Yale Bright Star Catalog, UCAC3, XHIP.
+
+U.S. government works from NASA are generally not subject to copyright in the
+United States; please retain credit when redistributing.

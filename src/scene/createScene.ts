@@ -59,22 +59,59 @@ function createMoonOrbitPath(): THREE.Line {
   return line;
 }
 
+/** Apply NASA SVS equirectangular star map (RA increases left → flip S). */
+function applySkyMap(texture: THREE.Texture): void {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.repeat.x = -1;
+  texture.needsUpdate = true;
+}
+
+/**
+ * Inward-facing sky dome. Prefer NASA Deep Star Maps 2020 (public textures);
+ * fall back to a procedural canvas map if the asset is missing.
+ */
+function createStarDome(): THREE.Mesh {
+  const mat = new THREE.MeshBasicMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+  });
+  // Large enough that solar-camera (near 1 AU) still sits inside the sky dome
+  const stars = new THREE.Mesh(
+    new THREE.SphereGeometry(AU * 2.2, 64, 48),
+    mat,
+  );
+
+  const fallback = () => {
+    const starMap = new THREE.CanvasTexture(makeStarTexture(1024));
+    starMap.colorSpace = THREE.SRGBColorSpace;
+    mat.map = starMap;
+    mat.needsUpdate = true;
+  };
+
+  new THREE.TextureLoader().load(
+    "/textures/starmap_nasa_svs_2020_4k.jpg",
+    (tex) => {
+      applySkyMap(tex);
+      mat.map = tex;
+      mat.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      console.warn(
+        "[tothemoon] NASA star map missing; using procedural fallback",
+      );
+      fallback();
+    },
+  );
+
+  return stars;
+}
+
 export function createScene(): SceneBundle {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x03050c);
-
-  const starMap = new THREE.CanvasTexture(makeStarTexture(1024));
-  starMap.colorSpace = THREE.SRGBColorSpace;
-  // Large enough that solar-camera (near 1 AU) still sits inside the sky dome
-  const stars = new THREE.Mesh(
-    new THREE.SphereGeometry(AU * 2.2, 48, 32),
-    new THREE.MeshBasicMaterial({
-      map: starMap,
-      side: THREE.BackSide,
-      depthWrite: false,
-    }),
-  );
-  scene.add(stars);
+  scene.add(createStarDome());
 
   // Ecliptic only (no lunar orbital plane grid)
   scene.add(createEclipticGridTowardSun());
