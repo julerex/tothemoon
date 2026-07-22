@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AU, R_EARTH } from "../physics/constants";
+import { AU, R_EARTH, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import { starbasePadState } from "../physics/earthFrame";
 
@@ -35,6 +35,10 @@ const FAR_SOLAR = AU * 4;
 const EARTH_OPENING_DIST = R_EARTH * 8;
 /** Opening shot: elevation above the ecliptic. */
 const EARTH_OPENING_TILT = Math.PI / 4;
+/** Closest comfortable orbit around the Sun (outside outer corona). */
+const SUN_MIN_DIST = R_SUN * 2.5;
+/** Default framing distance when switching to Sun from a much closer zoom. */
+const SUN_DEFAULT_DIST = R_SUN * 8;
 
 export class CameraDirector {
   readonly controls: OrbitControls;
@@ -158,9 +162,13 @@ export class CameraDirector {
     this.applyClipPlanes();
     this.computeTarget(mode, this.desiredTarget);
     this.controls.target.copy(this.desiredTarget);
+
+    // Cislunar zooms are tiny next to the Sun — pull back so the disc frames.
+    const framedDist =
+      mode === "sun" ? Math.max(dist, SUN_DEFAULT_DIST) : dist;
     this.camera.position
       .copy(this.desiredTarget)
-      .addScaledVector(this.tmp, dist);
+      .addScaledVector(this.tmp, framedDist);
     this.camera.lookAt(this.controls.target);
     this.controls.update();
   }
@@ -199,7 +207,7 @@ export class CameraDirector {
   private applyClipPlanes(): void {
     // Keep AU-scale max distance so focus switches never clamp a long zoom.
     this.controls.maxDistance = AU * 3;
-    this.controls.minDistance = 0.05;
+    this.controls.minDistance = this.focus === "sun" ? SUN_MIN_DIST : 0.05;
     this.camera.near =
       this.focus === "chase" || this.focus === "starbase" ? 0.001 : 0.1;
     this.camera.far = FAR_SOLAR;
@@ -213,15 +221,9 @@ export class CameraDirector {
       case "free":
         break;
 
-      case "sun": {
-        // Same as former Solar: Sun–Earth midpoint (system overview target)
-        outTarget.set(
-          (b.sun.x + b.earth.x) * 0.5,
-          (b.sun.y + b.earth.y) * 0.5,
-          (b.sun.z + b.earth.z) * 0.5,
-        );
+      case "sun":
+        outTarget.set(b.sun.x, b.sun.y, b.sun.z);
         break;
-      }
 
       case "earth":
         outTarget.set(b.earth.x, b.earth.y, b.earth.z);
