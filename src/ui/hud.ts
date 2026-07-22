@@ -135,11 +135,11 @@ export function bindHud(
       handlers.onCamera("earth");
       setActiveCamera("earth");
     } else if (e.key === "3") {
-      handlers.onCamera("chase");
-      setActiveCamera("chase");
-    } else if (e.key === "4") {
       handlers.onCamera("moon");
       setActiveCamera("moon");
+    } else if (e.key === "4") {
+      handlers.onCamera("chase");
+      setActiveCamera("chase");
     } else if (e.key === "r" || e.key === "R") {
       handlers.onCameraReset();
     } else if (e.key === "f" || e.key === "F") {
