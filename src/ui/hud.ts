@@ -18,6 +18,8 @@ export type HudHandlers = {
   onCameraReset: () => void;
   /** F — cycle Sun → Earth → Moon → Ship */
   onCameraCycle: () => CameraMode;
+  /** Q/E — orbit left/right around focus (hold) */
+  onOrbitKey: (key: "q" | "e", down: boolean) => CameraMode;
 };
 
 export type Telemetry = {
@@ -120,6 +122,7 @@ export function bindHud(
   }
 
   window.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
     if (e.code === "Space") {
       e.preventDefault();
       handlers.onPlayToggle();
@@ -144,7 +147,26 @@ export function bindHud(
     } else if (e.key === "f" || e.key === "F") {
       const mode = handlers.onCameraCycle();
       setActiveCamera(mode);
+    } else if (e.key === "q" || e.key === "Q") {
+      const mode = handlers.onOrbitKey("q", true);
+      setActiveCamera(mode);
+    } else if (e.key === "e" || e.key === "E") {
+      const mode = handlers.onOrbitKey("e", true);
+      setActiveCamera(mode);
     }
+  });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "q" || e.key === "Q") {
+      handlers.onOrbitKey("q", false);
+    } else if (e.key === "e" || e.key === "E") {
+      handlers.onOrbitKey("e", false);
+    }
+  });
+
+  window.addEventListener("blur", () => {
+    handlers.onOrbitKey("q", false);
+    handlers.onOrbitKey("e", false);
   });
 
   // Initial mode from select (defaults to Auto in HTML)

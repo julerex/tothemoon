@@ -22,6 +22,9 @@ const FOCUS_CYCLE: readonly CameraMode[] = [
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 
+/** Q/E orbit rate around the focus (rad/s). */
+const ORBIT_RAD_PER_S = 1.15;
+
 const FAR_CISLUNAR = AU * 2.5;
 /** Far enough for a north-pole view that frames Sun + Earth (~1 AU span). */
 const FAR_SOLAR = AU * 4;
@@ -34,6 +37,9 @@ export class CameraDirector {
   private readonly desiredPos = new THREE.Vector3();
   private readonly desiredTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
+  private readonly orbitQuat = new THREE.Quaternion();
+  private orbitQ = false;
+  private orbitE = false;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -103,6 +109,32 @@ export class CameraDirector {
     return next;
   }
 
+  /** Q/E hold state — orbit left (Q) / right (E) around the focus. */
+  setOrbitKey(key: "q" | "e", down: boolean): CameraMode {
+    if (key === "q") this.orbitQ = down;
+    else this.orbitE = down;
+    if (down && this.mode !== "free") {
+      this.setMode("free");
+    }
+    return this.mode;
+  }
+
+  /**
+   * Rotate the camera around `controls.target` about `camera.up`.
+   * Positive dir = E (right), negative = Q (left).
+   */
+  private applyOrbit(dt: number): void {
+    const dir = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
+    if (dir === 0 || dt <= 0) return;
+
+    const angle = dir * ORBIT_RAD_PER_S * dt;
+    this.orbitQuat.setFromAxisAngle(this.camera.up, angle);
+    this.tmp.copy(this.camera.position).sub(this.controls.target);
+    this.tmp.applyQuaternion(this.orbitQuat);
+    this.camera.position.copy(this.controls.target).add(this.tmp);
+    this.camera.lookAt(this.controls.target);
+  }
+
   update(
     dt: number,
     simTime: number,
@@ -114,6 +146,7 @@ export class CameraDirector {
 
     switch (this.mode) {
       case "free":
+        this.applyOrbit(dt);
         this.controls.update();
         return;
 

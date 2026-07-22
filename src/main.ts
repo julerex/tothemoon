@@ -141,6 +141,7 @@ const hud = bindHud(clock, timeline, {
   onCamera: (mode: CameraMode) => director.setMode(mode),
   onCameraReset: () => director.resetNorthUp(),
   onCameraCycle: () => director.cycleFocus(),
+  onOrbitKey: (key, down) => director.setOrbitKey(key, down),
 });
 
 function orientCraft(vel: THREE.Vector3): void {
