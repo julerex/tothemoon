@@ -248,7 +248,7 @@ export class CameraDirector {
     dt: number,
     simTime: number,
     craftPos: THREE.Vector3,
-    craftVel: THREE.Vector3,
+    _craftVel: THREE.Vector3,
   ): void {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
