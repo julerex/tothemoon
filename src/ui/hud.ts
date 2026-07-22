@@ -129,8 +129,8 @@ export function bindHud(
       e.preventDefault();
       handlers.onPlayToggle();
     } else if (e.key === "1") {
-      handlers.onCamera("free");
-      setActiveCamera("free");
+      handlers.onCamera("sun");
+      setActiveCamera("sun");
     } else if (e.key === "2") {
       handlers.onCamera("earth");
       setActiveCamera("earth");
@@ -140,9 +140,6 @@ export function bindHud(
     } else if (e.key === "4") {
       handlers.onCamera("moon");
       setActiveCamera("moon");
-    } else if (e.key === "5") {
-      handlers.onCamera("solar");
-      setActiveCamera("solar");
     } else if (e.key === "r" || e.key === "R") {
       handlers.onCameraReset();
     } else if (e.key === "f" || e.key === "F") {
