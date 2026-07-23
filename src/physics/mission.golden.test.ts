@@ -102,4 +102,21 @@ describe("mission golden bands (baked pack)", () => {
     assert.ok(packed.tliDv > 2.5 && packed.tliDv < 4.0);
     assert.ok(packed.durationS > 24 * 3600 && packed.durationS < 14 * 24 * 3600);
   });
+
+  it("has LEO dogleg burns (paid plane change) and ship fuel draw", () => {
+    const leo = packed.samples.filter((s) => s.phase === "leo");
+    assert.ok(leo.length > 10, "expected dense LEO samples");
+    const burning = leo.filter((s) => s.burning);
+    assert.ok(
+      burning.length > 5,
+      `expected LEO burning samples for dogleg, got ${burning.length}`,
+    );
+    // Ship fuel should drop over LEO (dogleg spends propellant)
+    const fs0 = leo[0]!.fs ?? 1;
+    const fs1 = leo[leo.length - 1]!.fs ?? 1;
+    assert.ok(
+      fs1 < fs0 - 1e-4,
+      `ship fuel should fall during dogleg (start=${fs0}, end=${fs1})`,
+    );
+  });
 });

@@ -31,6 +31,7 @@ import { finishLanding, landingThrust } from "./capture";
 import {
   appendAscentAndLeoCoast,
   computeLeoRel,
+  getLastDoglegDvKmS,
   restoreLeoRel,
   setLeoCoastS,
   type LeoRel,
@@ -150,6 +151,9 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   }
 
   const state = appendAscentAndLeoCoast(samples, lastT, prop);
+  console.info(
+    `[tothemoon] LEO dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
+  );
   // TLI: lunar-plane Hohmann injection (initial conditions)
   applyTli(state, tliDv);
   // Impulsive Δv as a finite ship burn for fuel + HUD thrust spike

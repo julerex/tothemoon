@@ -18,7 +18,7 @@ function sample(
     pos: v3(t, 0, 0),
     vel: v3(1, 0, 0),
     phase,
-    burning: false,
+    burning: opts.burning ?? false,
     fuelBooster: opts.fuelBooster ?? (phase === "launch" || phase === "ascent" ? 1 : 0),
     fuelShip: opts.fuelShip ?? 1,
     thrustN: opts.thrustN ?? 0,
@@ -46,11 +46,17 @@ describe("buildTimeline", () => {
     }
   });
 
-  it("emits liftoff, staging, and touchdown events", () => {
+  it("emits liftoff, staging, dogleg, and touchdown events", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: false }),
       sample(50, "ascent", { staged: false, fuelBooster: 0.5 }),
       sample(100, "leo", { staged: true, fuelBooster: 0 }),
+      sample(120, "leo", {
+        staged: true,
+        fuelBooster: 0,
+        burning: true,
+        thrustN: 5e5,
+      }),
       sample(200, "tli", { staged: true }),
       sample(300, "coast", { staged: true }),
       sample(400, "approach", { staged: true }),
@@ -62,6 +68,7 @@ describe("buildTimeline", () => {
     const ids = tl.events.map((e) => e.id);
     assert.ok(ids.includes("liftoff"));
     assert.ok(ids.includes("staging"));
+    assert.ok(ids.includes("dogleg"));
     assert.ok(ids.includes("tli"));
     assert.ok(ids.includes("coast"));
     assert.ok(ids.includes("touchdown"));

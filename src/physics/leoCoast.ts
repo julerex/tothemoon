@@ -26,6 +26,9 @@ export type LeoRel = { t: number; relPos: V3; relVel: V3 };
 /** Chosen LEO coast duration (s). */
 let _leoCoastS = LEO_COAST_S;
 
+/** Last dogleg plane-change Δv booked (km/s) — diagnostic / precompute log. */
+let _lastDoglegDvKmS = 0;
+
 export function setLeoCoastS(s: number): void {
   _leoCoastS = s;
 }
@@ -34,8 +37,14 @@ export function getLeoCoastS(): number {
   return _leoCoastS;
 }
 
+/** Total plane-change class Δv booked on the last LEO dogleg (km/s). */
+export function getLastDoglegDvKmS(): number {
+  return _lastDoglegDvKmS;
+}
+
 const _n0 = v3();
 const _n1 = v3();
+const _nPrev = v3();
 const _rHat = v3();
 const _rHat0 = v3();
 const _periHat = v3();
@@ -168,9 +177,23 @@ export function restoreLeoRel(rel: LeoRel): CraftState {
 }
 
 /**
- * After ascent: **continuous** circular LEO that gradually plane-changes into
- * the lunar plane (co-rotating with the Moon), ~1.25 revs, ending at the
- * transfer periapsis direction. No teleport from ascent insertion.
+ * Plane-change Δv (km/s) for an instantaneous change of orbital plane by
+ * angle di (rad) at circular speed v: classic 2 v sin(Δi/2).
+ */
+function planeChangeDv(vCirc: number, diRad: number): number {
+  if (diRad < 1e-12) return 0;
+  return 2 * vCirc * Math.sin(Math.min(diRad, Math.PI) * 0.5);
+}
+
+/**
+ * After ascent: **continuous** circular LEO that doglegs into the lunar
+ * plane (co-rotating with the Moon), ~1.25 revs, ending at the transfer
+ * periapsis direction.
+ *
+ * Geometry is kinematic (smooth trail / TLI aim). Plane-change cost is
+ * booked as ship thrust + propellant: each step pays 2 v sin(di/2) for the
+ * normal rotation that step (smoothstep concentrates burn mid-coast).
+ * In-plane prograde motion is free (orbital). No free plane slerp.
  */
 export function runLunarPlaneLeoCoast(
   state: CraftState,
@@ -183,12 +206,14 @@ export function runLunarPlaneLeoCoast(
   const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
   // Fine samples so the plane-change arc is smooth (~10 s chords ≈ 70 km)
   const steps = Math.max(180, Math.ceil(coastS / 10));
+  const dt = coastS / steps;
+  const vCirc = Math.sqrt(MU_EARTH / LEO_RADIUS);
 
   const b0 = bodyPositions(t0);
   sub(_relP, state.pos, b0.earth);
   sub(_relV, state.vel, b0.earthVel);
 
-  // Ascent orbital plane (prograde normal)
+  // Ascent orbital plane (prograde normal) — due-east parking ~site latitude
   cross(_n0, _relP, _relV);
   if (len(_n0) < 1e-12) set(_n0, 0, 0, 1);
   normalize(_n0, _n0);
@@ -201,6 +226,8 @@ export function runLunarPlaneLeoCoast(
   normalize(_n1, _n1);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
 
+  const totalDi = Math.acos(clamp1(dot(_n0, _n1)));
+
   // Start radial direction = ascent position (continuous)
   projectToPlaneUnit(_relP, _n0, _rHat0);
 
@@ -211,34 +238,40 @@ export function runLunarPlaneLeoCoast(
   projectToPlaneUnit(_periHat, _n1, _periHat);
 
   // In-plane angle from start to periapsis (prograde about final normal)
-  // Measure in the slerped sense using start projected onto n1
   projectToPlaneUnit(_rHat0, _n1, _rHat);
   let angInPlane = Math.atan2(
     dot(cross(_tmp, _rHat, _periHat), _n1),
     dot(_rHat, _periHat),
   );
-  // angInPlane is signed angle rHat → periHat about n1
   if (angInPlane < 0) angInPlane += 2 * Math.PI;
-  // Add full revs so total ~ LEO_COAST_REVS
   const targetAngle = (coastS / period) * 2 * Math.PI;
   while (angInPlane < targetAngle * 0.85) angInPlane += 2 * Math.PI;
 
-  // Record insertion as-is (no radius/velocity snap) so the trail does not
-  // jump from the last ascent sample; circular LEO begins on the next step.
+  // Insertion sample — not burning yet
   if (samples && lastT) {
     pushSample(samples, state, "leo", false, true, 0, lastT, prop, 0, "ship");
   }
 
+  set(_nPrev, _n0.x, _n0.y, _n0.z);
+  let doglegDv = 0;
+
   for (let i = 1; i <= steps; i++) {
     const u = i / steps;
-    // Ease plane change through the middle of the coast
+    // Ease plane change through the middle of the coast (node-ish peak)
     const uPlane = u * u * (3 - 2 * u); // smoothstep
     slerpUnit(_n0, _n1, uPlane, _tmp); // n(u)
 
-    // Direction: slerp start→peri in direction, then add remaining prograde spin
+    // Plane-change step angle → paid Δv (not free slerp)
+    const cosn = clamp1(dot(_nPrev, _tmp));
+    const di = Math.acos(cosn);
+    const dvPlane = planeChangeDv(vCirc, di);
+    doglegDv += dvPlane;
+    const aKmS2 = dvPlane / Math.max(dt, 1e-6);
+    const burning = aKmS2 >= 1e-4;
+
+    // Direction: slerp start→peri, then remaining prograde spin (free in-plane)
     slerpUnit(_rHat0, _periHat, u, _rHat);
     projectToPlaneUnit(_rHat, _tmp, _rHat);
-    // Extra revolutions beyond the short slerp arc
     const slerpArc = Math.acos(clamp1(dot(_rHat0, _periHat)));
     const extra = Math.max(0, angInPlane - slerpArc) * u;
     if (extra > 1e-6) rotateAbout(_rHat, _tmp, extra, _rHat);
@@ -251,16 +284,24 @@ export function runLunarPlaneLeoCoast(
         samples,
         state,
         "leo",
-        false,
+        burning,
         i === steps,
         0,
         lastT,
         prop,
-        0,
+        aKmS2,
         "ship",
+        true,
       );
     }
+
+    set(_nPrev, _tmp.x, _tmp.y, _tmp.z);
   }
+
+  _lastDoglegDvKmS = doglegDv;
+
+  // Sanity: continuous sum ≈ 2 v sin(Δi/2) for the total plane change
+  void totalDi;
 }
 
 /** Ascent end → continuous LEO coast → LEO-rel state for probes. */
@@ -272,7 +313,7 @@ export function computeLeoRel(_coastS?: number): LeoRel {
   return captureLeoRel(state);
 }
 
-/** Append ascent samples, then continuous LEO co-rotating toward the lunar plane. */
+/** Append ascent samples, then LEO dogleg into the lunar plane (paid ship Δv). */
 export function appendAscentAndLeoCoast(
   samples: Sample[],
   lastT: { t: number },

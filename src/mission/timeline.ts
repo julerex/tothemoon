@@ -144,7 +144,7 @@ function buildEvents(
         }
         break;
       case "leo":
-        add("leo", seg.t0, "LEO insertion", "Parking orbit · lunar plane");
+        add("leo", seg.t0, "LEO insertion", "Parking orbit · due-east");
         break;
       case "tli":
         add("tli", seg.t0, "TLI burn", "Trans-lunar injection");
@@ -174,6 +174,19 @@ function buildEvents(
     add("staging", s.t, "Staging", "Booster separation");
   } else if (stageIdx === 0 && samples[0]?.staged) {
     // already staged at t0 — skip
+  }
+
+  // Dogleg: first LEO sample with significant ship burn (plane change)
+  const dogleg = samples.find(
+    (s) => s.phase === "leo" && s.burning && s.thrustN > 1e3,
+  );
+  if (dogleg) {
+    add(
+      "dogleg",
+      dogleg.t,
+      "Dogleg",
+      "Plane change into lunar plane · paid ship Δv",
+    );
   }
 
   // Stable order by time, then id (dedupe same t)

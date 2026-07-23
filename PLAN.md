@@ -326,16 +326,13 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 4+   Mass-coupled thrust, J2/drag, discrete LOI, ephemeris
 ```
 
-### A3 implementation sketch (after D1)
+### A3 implementation sketch (after D1) — **done 2026-07-23**
 
-1. Replace free normal slerp in `leoCoast.ts` with guidance that applies ship
-   thrust (out-of-plane + in-plane phasing) toward lunar-plane circular LEO
-   at TLI periapsis.
-2. Book Δv via existing `burnProp` / `thrustForceN` (still accel-based until A4).
-3. Timeline: event when dogleg thrust becomes significant (or at LEO start).
-4. Invariants/goldens: LEO segment has some `burning` samples; ship fuel
-   drops by a plane-change-class amount; trail continuous; TLI still succeeds.
-5. README Physics bullet.
+1. Geometry still aims circular LEO in the lunar plane at TLI periapsis (smoothstep plane ease).
+2. Each step books plane-change cost \(2 v \sin(\mathrm{d}i/2)\) as ship accel via `burnProp` (in-plane arc free).
+3. Timeline event `dogleg` on first significant LEO burn; LEO insertion copy says due-east.
+4. Goldens: LEO burning samples + ship fuel drop; duration/TLI bands unchanged.
+5. README Physics bullet for paid dogleg.
 
 ### Definition of done for each slice
 
@@ -353,6 +350,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **A2:** 2–3 discrete TCMs; ballistic coast between |
 | 2026-07-23 | **D1 first:** full `mission.ts` split + golden tests before A3 physics |
 | 2026-07-23 | **D1 complete:** modules extracted; `mission.golden.test.ts` pins bake |
+| 2026-07-23 | **A3 complete:** paid LEO dogleg (~plane-change class Δv, ship fuel, timeline event) |
 
 ## Changelog
 
