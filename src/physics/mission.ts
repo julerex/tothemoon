@@ -27,7 +27,7 @@ import {
   type ThrustFn,
 } from "./integrator";
 import { keplerRefPos, keplerTrackThrust } from "./coast";
-import { finishLanding, landingThrust } from "./capture";
+import { finishLanding, landingThrust, southPoleAlign } from "./capture";
 import {
   appendAscentAndLeoCoast,
   computeLeoRel,
@@ -38,18 +38,13 @@ import {
 } from "./leoCoast";
 import { pushSample } from "./missionSample";
 import type { MissionResult, PhaseId, Sample } from "./missionTypes";
+import { createPropState, fuelShipFrac } from "./propellant";
 import {
-  applyImpulsiveShipDv,
-  createPropState,
-  fuelBoosterFrac,
-  fuelShipFrac,
-} from "./propellant";
-import {
-  applyTli,
   apogeeFromTliDv,
   lroTransfer,
   maxTliDv,
   orbitAfterTli,
+  runFiniteTli,
   transferTimeEst,
 } from "./tli";
 import { clone, len, sub, v3 } from "./vec3";
@@ -81,7 +76,8 @@ function probePerilune(tliDv: number): ProbeResult {
     return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
   const state = restoreLeoRel(_leoRelTemplate);
-  applyTli(state, tliDv);
+  // Same finite burn as full flight (no samples) so probe matches inject
+  runFiniteTli(state, tliDv, null, null, null);
   const tTli = state.t;
   const T = transferTimeEst();
   const orb = orbitAfterTli(state);
@@ -154,22 +150,13 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   console.info(
     `[tothemoon] LEO dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
-  // TLI: lunar-plane Hohmann injection (initial conditions)
-  applyTli(state, tliDv);
-  // Impulsive Δv as a finite ship burn for fuel + HUD thrust spike
-  const tliThrustN = applyImpulsiveShipDv(prop, state.t, tliDv, 180);
-  samples.push({
-    t: state.t,
-    pos: clone(state.pos),
-    vel: clone(state.vel),
-    phase: "tli",
-    burning: true,
-    fuelBooster: fuelBoosterFrac(prop),
-    fuelShip: fuelShipFrac(prop),
-    thrustN: tliThrustN,
-    staged: prop.staged,
-  });
-  lastT.t = state.t;
+  // Finite prograde TLI (~2–4 min) — no position teleport
+  const tliBurn = runFiniteTli(state, tliDv, samples, lastT, prop);
+  console.info(
+    `[tothemoon] TLI finite burn Δv=${tliBurn.dvDelivered.toFixed(3)} km/s · ` +
+      `${(tliBurn.burnS / 60).toFixed(2)} min · a=${(tliBurn.accel / 0.00980665).toFixed(2)} g · ` +
+      `ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
+  );
 
   // --- N-body ballistic coast; Kepler osculating orbit is reference only ---
   const tTli = state.t;
@@ -254,11 +241,13 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     }
   }
 
-  // --- LOI-style capture + soft landing (N-body + thrust) ---
-  const maxT = state.t + 80_000;
+  // --- LOI-style capture + south-pole soft landing (N-body + thrust) ---
+  // Extra time to dogleg around the Moon toward the pole
+  const maxT = state.t + 120_000;
   while (state.t < maxT) {
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
+    const poleAlign = southPoleAlign(state.t, state.pos);
 
     if (phase === "approach" && altM < DESCENT_ALTITUDE * 15) {
       phase = "braking";
@@ -307,19 +296,20 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     const b = getBodies(state.t);
     sub(_relV, state.vel, b.moonVel);
     const relSpeed = len(_relV);
+    // Soft touch in descent/braking — finishLanding settles then taxis to pole
+    const softTouch =
+      (phase === "descent" || phase === "braking") &&
+      altM2 < 0.35 &&
+      relSpeed < TOUCHDOWN_SPEED * 15;
+    const hardImpact = altM2 < 0 && phase !== "approach";
 
-    if (altM2 < 0.1 && relSpeed < TOUCHDOWN_SPEED * 8) {
-      const done = finishLanding(
-        state,
-        samples,
-        moonPhase0,
-        tliDv,
-        minMoonAlt,
-        prop,
-      );
-      return { ...done, keplerRefMaxDevKm };
-    }
-    if (altM2 < 0) {
+    if (softTouch || hardImpact) {
+      if (phase === "approach") {
+        pushSample(samples, state, "braking", true, true, 0, lastT, prop, 0, "ship");
+        pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
+      } else if (phase === "braking") {
+        pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
+      }
       const done = finishLanding(
         state,
         samples,
@@ -349,9 +339,20 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       "ship",
       consume,
     );
+    void poleAlign;
   }
 
-  if (minMoonAlt < 5_000) {
+  // Timeout: if we got close during capture/landing, still settle
+  if (
+    minMoonAlt < 5_000 &&
+    (phase === "approach" || phase === "braking" || phase === "descent")
+  ) {
+    if (phase === "approach") {
+      pushSample(samples, state, "braking", true, true, 0, lastT, prop, 0, "ship");
+      pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
+    } else if (phase === "braking") {
+      pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
+    }
     const done = finishLanding(
       state,
       samples,

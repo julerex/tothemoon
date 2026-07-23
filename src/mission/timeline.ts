@@ -147,7 +147,7 @@ function buildEvents(
         add("leo", seg.t0, "LEO insertion", "Parking orbit · due-east");
         break;
       case "tli":
-        add("tli", seg.t0, "TLI burn", "Trans-lunar injection");
+        add("tli", seg.t0, "TLI burn", "Finite prograde inject · ~2–4 min");
         break;
       case "coast":
         add("coast", seg.t0, "TLI complete", "Trans-lunar coast");
@@ -162,7 +162,7 @@ function buildEvents(
         add("descent", seg.t0, "Powered descent", "Final approach");
         break;
       case "landed":
-        add("touchdown", seg.t0, "Touchdown", "Mission complete");
+        add("touchdown", seg.t0, "Touchdown", "Lunar south pole");
         break;
     }
   }

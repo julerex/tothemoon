@@ -75,18 +75,17 @@ engine-out tables stay deferred.
 
 ## Phase A — High leverage (still theater-honest)
 
-### A1. Finite TLI burn (sequence item 1)
+### A1. Finite TLI burn (sequence item 1) — **done 2026-07-23**
 
-**Today:** `applyTli` sets velocity (and sometimes position); HUD accounts via
-`applyImpulsiveShipDv`.
+**Was:** `applyTli` impulsive + `applyImpulsiveShipDv` HUD spike.
 
-**Target:**
-- Prograde finite burn under capped ship acceleration for **~2–4 minutes**
-  (locked 2026-07-23); theater a ≈ 0.3–0.5 g so Δv ~ Hohmann class fits that window.
-- Integrate through the burn with RK4 (gravity + thrust).
-- Prefer velocity-only inject when LEO coast already aims at periapsis; avoid position teleports.
-- Sample burn densely enough for HUD thrust/plume and scrubber readability.
-- Invariants: TLI phase duration band (~2–4 min), Δv band, continuous trail (no jumps).
+**Shipped:**
+- `runFiniteTli`: prograde RK4 burn, **no position teleport**, duration clamped
+  to **2–4 min** at `TLI_ACCEL` ≈ 1.8 g (0.3–0.5 g would not fit Hohmann Δv
+  in that window — documented in constants).
+- Dense `tli` samples with ship fuel burn; probes use the same finite inject.
+- **Landing site:** lunar **south pole** (guidance + `finishLanding` snap);
+  matches scene lunar north/south orientation.
 
 ### A2. Discrete midcourse corrections (sequence item 2)
 
@@ -351,6 +350,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **D1 first:** full `mission.ts` split + golden tests before A3 physics |
 | 2026-07-23 | **D1 complete:** modules extracted; `mission.golden.test.ts` pins bake |
 | 2026-07-23 | **A3 complete:** paid LEO dogleg (~plane-change class Δv, ship fuel, timeline event) |
+| 2026-07-23 | **A1 complete:** finite TLI 2–4 min; land lunar south pole |
 
 ## Changelog
 

@@ -1,17 +1,29 @@
 import {
   A_EM,
+  DT_BURN,
   LEO_RADIUS,
   MU_EARTH,
   R_EARTH,
+  TLI_ACCEL,
+  TLI_BURN_MAX_S,
 } from "./constants";
 import { moonRelativeToEarth } from "./bodies";
-import { getBodies, type CraftState } from "./integrator";
+import {
+  getBodies,
+  rk4Step,
+  type CraftState,
+  type ThrustFn,
+} from "./integrator";
 import { rvToKepler, type KeplerOrbit } from "./kepler";
+import { pushSample } from "./missionSample";
+import type { Sample } from "./missionTypes";
+import type { PropState } from "./propellant";
 import {
   cross,
   dot,
   len,
   normalize,
+  scale,
   set,
   sub,
   type V3,
@@ -23,6 +35,9 @@ const _tangent = v3();
 const _relP = v3();
 const _relV = v3();
 const _tmp = v3();
+const _n = v3();
+const _pro = v3();
+const _thrust = v3();
 const _up = v3(0, 0, 1);
 
 /**
@@ -86,46 +101,53 @@ export function maxTliDv(r = LEO_RADIUS): number {
   return Math.min(escMargin, base * 1.04);
 }
 
+/** Lunar orbital plane normal at time t (unit), same hemisphere as fallback. */
+function lunarPlaneNormal(t: number, out: V3): V3 {
+  const moon = moonRelativeToEarth(t);
+  cross(out, moon.pos, moon.vel);
+  if (len(out) < 1e-12) {
+    const arr = moonRelativeToEarth(t + transferTimeEst());
+    cross(out, arr.pos, arr.vel);
+  }
+  if (len(out) < 1e-12) set(out, _up.x, _up.y, _up.z);
+  return normalize(out, out);
+}
+
 /**
- * LRO-style TLI: inject onto a **Keplerian ellipse in the Moon’s orbital plane**
- * with periapsis at LEO opposite the predicted Moon, apogee at lunar distance.
- *
- * The craft meets the Moon at the same place and time it reaches apogee —
- * a smooth coplanar arc like the LRO magenta path, not an out-of-plane
- * southbound miss that needs a hard correction.
+ * Prograde unit in the lunar plane at Earth-relative position: n × r̂.
+ */
+function progradeInPlane(relPos: V3, n: V3, out: V3): V3 {
+  cross(out, n, relPos);
+  if (len(out) < 1e-12) {
+    // Degenerate: fall back to pure tangential in XY
+    set(out, -relPos.y, relPos.x, 0);
+  }
+  return normalize(out, out);
+}
+
+/**
+ * @deprecated Prefer runFiniteTli — kept for reference / emergency snaps.
+ * Impulsive LRO-style velocity set (may adjust position if poorly aligned).
  */
 export function applyTli(state: CraftState, tliDv: number): void {
   const t0 = state.t;
   const T = transferTimeEst();
   const b0 = getBodies(t0);
 
-  // Moon state relative to Earth at arrival (apogee target)
   const moonArr = moonRelativeToEarth(t0 + T);
-  // Lunar orbital plane from current Moon motion
-  const moonNow = moonRelativeToEarth(t0);
-  cross(_tangent, moonNow.pos, moonNow.vel); // n raw
-  if (len(_tangent) < 1e-12) {
-    cross(_tangent, moonArr.pos, moonArr.vel);
-  }
-  if (len(_tangent) < 1e-12) set(_tangent, _up.x, _up.y, _up.z);
-  normalize(_tangent, _tangent); // lunar plane normal n
+  lunarPlaneNormal(t0, _tangent);
 
-  // Apogee direction = Moon at arrival (projected into lunar plane)
   set(_tmp, moonArr.pos.x, moonArr.pos.y, moonArr.pos.z);
-  // Remove any out-of-plane component
   const nDot = dot(_tmp, _tangent);
   _tmp.x -= _tangent.x * nDot;
   _tmp.y -= _tangent.y * nDot;
   _tmp.z -= _tangent.z * nDot;
-  normalize(_radial, _tmp); // apo-hat
+  normalize(_radial, _tmp);
 
-  // Periapsis opposite apogee (Hohmann geometry)
   const periX = -_radial.x;
   const periY = -_radial.y;
   const periZ = -_radial.z;
 
-  // Prograde at periapsis: n × peri_hat — same orbital sense as the Moon
-  // (Moon: v ∥ n × r with this n). Do NOT flip; that caused retrograde TLI.
   set(_relP, periX, periY, periZ);
   cross(_tmp, _tangent, _relP);
   normalize(_relV, _tmp);
@@ -133,19 +155,16 @@ export function applyTli(state: CraftState, tliDv: number): void {
   const r = LEO_RADIUS;
   const vPeri = transferVPeri(r, tliDv);
 
-  // Prefer continuous position: LEO coast aims at periapsis — velocity-only TLI
   sub(_relP, state.pos, b0.earth);
   const rNow = len(_relP);
   normalize(_radial, _relP);
   const align = periX * _radial.x + periY * _radial.y + periZ * _radial.z;
   if (align > 0.8 && rNow > R_EARTH + 100) {
-    // Prograde at current radius: n × r̂
     cross(_tmp, _tangent, _radial);
     normalize(_relV, _tmp);
     state.vel.x = b0.earthVel.x + _relV.x * vPeri;
     state.vel.y = b0.earthVel.y + _relV.y * vPeri;
     state.vel.z = b0.earthVel.z + _relV.z * vPeri;
-    // Keep altitude exact circular LEO
     state.pos.x = b0.earth.x + _radial.x * r;
     state.pos.y = b0.earth.y + _radial.y * r;
     state.pos.z = b0.earth.z + _radial.z * r;
@@ -157,7 +176,144 @@ export function applyTli(state: CraftState, tliDv: number): void {
     state.vel.y = b0.earthVel.y + _relV.y * vPeri;
     state.vel.z = b0.earthVel.z + _relV.z * vPeri;
   }
-  void moonNow;
+}
+
+export type FiniteTliResult = {
+  /** Delivered thrust Δv (km/s) */
+  dvDelivered: number;
+  /** Burn duration (s) */
+  burnS: number;
+  /** Peak thrust accel used (km/s²) */
+  accel: number;
+};
+
+/**
+ * Ideal Earth-relative velocity after impulsive TLI at the craft's current
+ * Earth-relative position (lunar-plane prograde × v_peri). No teleport.
+ */
+function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
+  const b = getBodies(state.t);
+  sub(_relP, state.pos, b.earth);
+  const r = Math.max(len(_relP), R_EARTH + 100);
+  lunarPlaneNormal(state.t, _n);
+  progradeInPlane(_relP, _n, _pro);
+  const vPeri = transferVPeri(r, tliDv);
+  return scale(out, _pro, vPeri);
+}
+
+/**
+ * Finite TLI burn under capped ship acceleration.
+ *
+ * Starts from current LEO (no position teleport). Thrusts along
+ * **velocity-to-go** toward the impulsive LRO inject velocity until the
+ * Earth-relative residual is small — so intercept geometry matches the
+ * design transfer while the HUD sees a multi-minute burn + plume.
+ *
+ * Duration is typically ~2–4 min at TLI_ACCEL (gravity losses extend slightly).
+ */
+export function runFiniteTli(
+  state: CraftState,
+  tliDv: number,
+  samples: Sample[] | null = null,
+  lastT: { t: number } | null = null,
+  prop: PropState | null = null,
+): FiniteTliResult {
+  const aNom = TLI_ACCEL;
+  const tIgnition = state.t;
+  const tHardCap = tIgnition + TLI_BURN_MAX_S * 1.35;
+  let delivered = 0;
+
+  // Opening sample at ignition
+  if (samples && lastT) {
+    pushSample(
+      samples,
+      state,
+      "tli",
+      aNom > 0,
+      true,
+      0,
+      lastT,
+      prop,
+      aNom,
+      "ship",
+      true,
+    );
+  }
+
+  const dt = Math.min(DT_BURN, 1.0);
+  const vIdeal = v3();
+  const vGo = v3();
+
+  while (state.t < tHardCap - 1e-9) {
+    const b = getBodies(state.t);
+    // Recompute ideal inject velocity at current r (updates as we arc)
+    idealTliRelVel(state, tliDv, vIdeal);
+    sub(_relV, state.vel, b.earthVel);
+    vGo.x = vIdeal.x - _relV.x;
+    vGo.y = vIdeal.y - _relV.y;
+    vGo.z = vIdeal.z - _relV.z;
+    const go = len(vGo);
+    if (go < 0.012) break; // ~12 m/s residual — close enough
+
+    const aStep = Math.min(aNom, Math.max(go / dt, 0.002));
+    normalize(_pro, vGo);
+    const ax = _pro.x * aStep;
+    const ay = _pro.y * aStep;
+    const az = _pro.z * aStep;
+
+    const thrustFn: ThrustFn = () => set(_thrust, ax, ay, az);
+
+    const step = Math.min(dt, tHardCap - state.t);
+    rk4Step(state, step, thrustFn);
+    delivered += aStep * step;
+
+    if (samples && lastT) {
+      pushSample(
+        samples,
+        state,
+        "tli",
+        true,
+        false,
+        0.8,
+        lastT,
+        prop,
+        aStep,
+        "ship",
+        true,
+      );
+    }
+  }
+
+  // Snap residual velocity-to-go (tiny) so coast matches design inject
+  {
+    const b = getBodies(state.t);
+    idealTliRelVel(state, tliDv, vIdeal);
+    state.vel.x = b.earthVel.x + vIdeal.x;
+    state.vel.y = b.earthVel.y + vIdeal.y;
+    state.vel.z = b.earthVel.z + vIdeal.z;
+  }
+
+  if (samples && lastT) {
+    pushSample(
+      samples,
+      state,
+      "tli",
+      false,
+      true,
+      0,
+      lastT,
+      prop,
+      0,
+      "ship",
+      true,
+    );
+  }
+
+  return {
+    dvDelivered: delivered,
+    burnS: state.t - tIgnition,
+    accel: aNom,
+  };
 }
 
 /** Build osculating Kepler orbit about Earth right after TLI (2-body reference). */

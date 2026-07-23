@@ -6,9 +6,11 @@ import {
   MOON_ECC,
   MOON_INCLINATION,
   MOON_NODE,
+  MOON_OBLIQUITY,
   MU_EM_ORB,
   N_EARTH_SUN,
   N_MOON,
+  R_MOON,
 } from "./constants";
 import { set, type V3, v3 } from "./vec3";
 
@@ -196,6 +198,37 @@ export function earthMoonUnit(t: number, out: V3): V3 {
   const rel = moonRelativeToEarth(t);
   const inv = 1 / rel.r;
   return set(out, rel.pos.x * inv, rel.pos.y * inv, rel.pos.z * inv);
+}
+
+/**
+ * Lunar north unit vector in the ecliptic/inertial frame.
+ * Matches scene orientation: tilt MOON_OBLIQUITY from +Z toward +X.
+ */
+export function moonNorthUnit(out: V3 = v3()): V3 {
+  return set(
+    out,
+    Math.sin(MOON_OBLIQUITY),
+    0,
+    Math.cos(MOON_OBLIQUITY),
+  );
+}
+
+/** Lunar south unit vector (Artemis-style polar target). */
+export function moonSouthUnit(out: V3 = v3()): V3 {
+  moonNorthUnit(out);
+  return set(out, -out.x, -out.y, -out.z);
+}
+
+/** Inertial position of the lunar south pole on the mean surface at time t. */
+export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
+  const b = bodyPositions(t);
+  moonSouthUnit(out);
+  return set(
+    out,
+    b.moon.x + out.x * R_MOON,
+    b.moon.y + out.y * R_MOON,
+    b.moon.z + out.z * R_MOON,
+  );
 }
 
 /**

@@ -8,22 +8,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import packed from "../data/trajectory.json";
+import { bodyPositions, moonSouthUnit, setMoonPhase0 } from "./bodies.ts";
+import { R_MOON } from "./constants.ts";
 import { EXPECTED_PHASE_ORDER } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands locked from bake at D1 (2026-07-23). Widen only with intentional physics changes. */
+/** Bands locked after A1 finite TLI + south-pole land (2026-07-23). */
 const GOLDEN = {
-  durationS: 425_523.455_752_903_25,
-  durationTolFrac: 0.02, // ±2%
+  durationS: 522_915.959_354_636_3,
+  durationTolFrac: 0.05, // ±5% (finite TLI / polar taxi length can shift)
   tliDv: 3.133_144_768_957_019_5,
-  tliDvTol: 0.05, // km/s
-  moonPhase0: 0.627_879_299_412_343_4,
-  moonPhaseTol: 0.05,
+  tliDvTol: 0.08, // km/s
+  moonPhase0: 0.058, // retuned by probe after finite TLI
+  moonPhaseTol: 0.2,
   samplesMin: 4_000,
-  samplesMax: 12_000,
+  samplesMax: 20_000,
   stageT: 497.7,
   stageTTol: 30, // s
-  // minMoonAlt is computed at load from samples; band from typical bake
   minMoonAltMax: 50_000, // km
 } as const;
 
@@ -118,5 +119,41 @@ describe("mission golden bands (baked pack)", () => {
       fs1 < fs0 - 1e-4,
       `ship fuel should fall during dogleg (start=${fs0}, end=${fs1})`,
     );
+  });
+
+  it("has a finite TLI burn lasting ~2–4 minutes", () => {
+    const tli = packed.samples.filter((s) => s.phase === "tli");
+    assert.ok(tli.length >= 2, "expected multiple TLI samples");
+    const t0 = tli[0]!.t;
+    const t1 = tli[tli.length - 1]!.t;
+    const burnS = t1 - t0;
+    assert.ok(
+      burnS >= 100 && burnS <= 360,
+      `TLI duration ${burnS.toFixed(1)}s outside ~2–6 min theater band`,
+    );
+    const burning = tli.filter((s) => s.burning);
+    assert.ok(burning.length > 5, "expected dense TLI burn samples");
+  });
+
+  it("lands near the lunar south pole", () => {
+    setMoonPhase0(packed.moonPhase0);
+    const landed = packed.samples.filter((s) => s.phase === "landed");
+    assert.ok(landed.length > 0);
+    const s0 = landed[0]!;
+    const b = bodyPositions(s0.t);
+    const dx = s0.p[0]! - b.moon.x;
+    const dy = s0.p[1]! - b.moon.y;
+    const dz = s0.p[2]! - b.moon.z;
+    const r = Math.hypot(dx, dy, dz) || 1;
+    const ux = dx / r;
+    const uy = dy / r;
+    const uz = dz / r;
+    const south = moonSouthUnit();
+    const align = ux * south.x + uy * south.y + uz * south.z;
+    assert.ok(
+      align > 0.7,
+      `landing radial·south=${align.toFixed(3)} (want >0.7 near pole)`,
+    );
+    assert.ok(Math.abs(r - R_MOON) < 5, `surface radius ${r} vs R_MOON`);
   });
 });

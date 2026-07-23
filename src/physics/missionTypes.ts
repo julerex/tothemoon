@@ -48,7 +48,7 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   approach: "Lunar approach",
   braking: "Braking",
   descent: "Powered descent",
-  landed: "Landed",
+  landed: "Landed · south pole",
 };
 
 export function phaseLabel(id: PhaseId): string {

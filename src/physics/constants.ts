@@ -127,6 +127,17 @@ export const LEO_COAST_S = LEO_COAST_REVS * LEO_PERIOD_S;
 /** Max continuous thrust acceleration during landing (km/s²) — ~1.2 g for theater */
 export const LANDING_ACCEL = 0.012;
 
+/**
+ * Ship acceleration during finite TLI (km/s²).
+ * ~1.8 g so a Hohmann-class ~3.1 km/s inject fits a **~2–4 min** burn window
+ * (real Starship is higher thrust; 0.3–0.5 g would need ~10+ min).
+ */
+export const TLI_ACCEL = 0.018;
+
+/** Finite TLI burn duration bounds (s) */
+export const TLI_BURN_MIN_S = 120;
+export const TLI_BURN_MAX_S = 240;
+
 /** Standard gravity (m/s²) — force / Isp bookkeeping */
 export const G0 = 9.80665;
 

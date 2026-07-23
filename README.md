@@ -10,7 +10,7 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 - **Restricted 4-body** — craft integrated with **RK4** under gravity of **Sun + Earth + Moon** (ascent, TLI coast, capture, landing)
 - **Kepler reference** — after TLI, an Earth-centered 2-body ellipse is the design track; soft midcourse keeps N-body within that corridor and precompute logs max |Δr|
 - Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY); Sun on a far 1 AU ecliptic path
-- Mission: **Starbase pad** → powered ascent (fine samples) → LEO with **paid dogleg** into the lunar plane (ship Δv ≈ plane-change class) → TLI → **N-body coast with Kepler track** → LOI-style capture → soft landing
+- Mission: **Starbase pad** → powered ascent → LEO with **paid dogleg** into the lunar plane → **finite TLI** (~2–4 min prograde burn) → **N-body coast with Kepler track** → LOI-style capture → soft landing at the **lunar south pole**
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 
 The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters): ring welds, denser heat-shield tiles, Raptor field, multi-layer additive plumes, exhaust light, Max-Q condensation, and hot-staging dual plumes. The booster stages off at LEO insert with a short fallaway + flash; plumes scale with thrust. Starbase pad (flame trench, deluge steam, chopsticks silhouette) and ascent ground track sit on the spinning Earth. Lunar landing site beacon + dust puff mark touchdown. In system views the vehicle is tiny — a **red marker** shows its location. Use the **Ship** camera to see liftoff up close.
