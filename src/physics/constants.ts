@@ -209,13 +209,12 @@ export const SHIP_MDOT_SCALE = 1;
 export const APPROACH_RANGE = 40_000;
 
 /**
- * South-of-Moon aim offset for the transfer plane (km).
- * LEO dogleg + TLI use a plane through Earth and (Moon + south·this) at
- * arrival so the coast approaches from the **southern** hemisphere — correct
- * geometry for a south-pole landing (not a northern flyby above the lunar plane).
- * Keep small (~few Mm) so perilune stays LOI-reachable; large offsets miss the Moon.
+ * Aim altitude above the lunar south pole surface (km) for the TLI inject.
+ * Transfer plane + LEO dogleg target the south-pole rendezvous point at
+ * arrival (Moon center + south·(R_MOON + this)). Pure ballistic coast after
+ * TLI (LRO-style); lunar gravity is cleaned up by LOI / PDI, not midcourse TCMs.
  */
-export const TRANSFER_SOUTH_AIM_KM = 3_500;
+export const TRANSFER_AIM_ALT_KM = 1_500;
 
 /** Target circular LLO altitude above mean lunar surface (km) */
 export const LLO_ALT_KM = 120;

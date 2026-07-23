@@ -1,5 +1,5 @@
 import { LEO_COAST_S, LEO_RADIUS, MU_EARTH } from "./constants";
-import { bodyPositions, moonRelativeToEarth } from "./bodies";
+import { bodyPositions } from "./bodies";
 import { getAscent } from "./ascentCache";
 import { getBodies, type CraftState } from "./integrator";
 import { pushSample } from "./missionSample";
@@ -9,7 +9,7 @@ import {
   createPropState,
   type PropState,
 } from "./propellant";
-import { transferPlaneNormal, transferTimeEst } from "./tli";
+import { southPoleRendezvousAim, transferPlaneNormal } from "./tli";
 import {
   clone,
   cross,
@@ -231,10 +231,9 @@ export function runLunarPlaneLeoCoast(
   // Start radial direction = ascent position (continuous)
   projectToPlaneUnit(_relP, _n0, _rHat0);
 
-  // End at transfer periapsis (opposite Moon/aim at arrival), in transfer plane
-  const T = transferTimeEst();
-  const moonArr = moonRelativeToEarth(t1 + T);
-  set(_periHat, -moonArr.pos.x, -moonArr.pos.y, -moonArr.pos.z);
+  // End at transfer periapsis (opposite south-pole aim at arrival)
+  southPoleRendezvousAim(t1, _periHat);
+  set(_periHat, -_periHat.x, -_periHat.y, -_periHat.z);
   projectToPlaneUnit(_periHat, _n1, _periHat);
 
   // In-plane angle from start to periapsis (prograde about final normal)

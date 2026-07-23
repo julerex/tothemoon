@@ -26,18 +26,9 @@ import {
   distanceToMoon,
   getBodies,
   rk4Step,
-  type CraftState,
   type ThrustFn,
 } from "./integrator";
-import {
-  keplerRefPos,
-  rejoinSouthOfMoon,
-  runTcmBurn,
-  tcmDeltaV,
-  TCM_APPROACH_FRAC,
-  TCM_HOURS_AFTER_TLI,
-  type TcmRecord,
-} from "./coast";
+import { placeOnKeplerTrack } from "./coast";
 import {
   finishLanding,
   lloPeriodS,
@@ -91,56 +82,19 @@ function setEpochPhases(moonPhase0: number, landingT = transferTimeEst()): void 
 }
 
 /**
- * Apply a TCM if |Δv| is meaningful. Mutates state; optional samples/prop.
- */
-function maybeTcm(
-  state: CraftState,
-  orb: ReturnType<typeof orbitAfterTli>,
-  tTli: number,
-  label: string,
-  hoursAfterTli: number,
-  records: TcmRecord[],
-  samples: Sample[] | null,
-  lastT: { t: number } | null,
-  prop: ReturnType<typeof createPropState> | null,
-): void {
-  const { dv, mag } = tcmDeltaV(state.t, state.pos, state.vel, orb);
-  if (mag < 0.002) return; // skip tiny corrections
-  const delivered = runTcmBurn(state, dv, samples, lastT, prop, orb);
-  if (delivered > 1e-4) {
-    records.push({
-      t: state.t,
-      hoursAfterTli,
-      dvKmS: delivered,
-      label,
-    });
-  }
-  void tTli;
-}
-
-/**
- * Fast probe: N-body **ballistic** coast + discrete TCMs after TLI.
- * Caller must set moon/sun phases first (see runMission).
+ * Fast probe: LRO-style free transfer on the post-TLI Kepler ellipse
+ * (no midcourse burns). Matches full-flight coast. Moon/sun phases set by caller.
  */
 function probePerilune(tliDv: number): ProbeResult {
   if (!_leoRelTemplate) {
     return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
   const state = restoreLeoRel(_leoRelTemplate);
-  // Same finite burn as full flight (no samples) so probe matches inject
   runFiniteTli(state, tliDv, null, null, null);
   const tTli = state.t;
   const T = transferTimeEst();
   const orb = orbitAfterTli(state);
   const maxT = tTli + T * 1.2 + 40_000;
-  const records: TcmRecord[] = [];
-  const tcmDue = TCM_HOURS_AFTER_TLI.map((h) => ({
-    t: tTli + h * 3600,
-    h,
-    label: `TCM +${h}h`,
-    done: false,
-  }));
-  let approachTcmDone = false;
 
   let minAlt = Infinity;
   let periluneT = tTli;
@@ -148,29 +102,8 @@ function probePerilune(tliDv: number): ProbeResult {
   let dt = 45;
   while (state.t < maxT) {
     const coastT = state.t - tTli;
-    for (const slot of tcmDue) {
-      if (!slot.done && state.t >= slot.t) {
-        maybeTcm(state, orb, tTli, slot.label, slot.h, records, null, null, null);
-        slot.done = true;
-      }
-    }
-    if (!approachTcmDone && coastT >= T * TCM_APPROACH_FRAC) {
-      // Probe: keep Kepler TCM so intercept search stays well-posed
-      maybeTcm(
-        state,
-        orb,
-        tTli,
-        "TCM approach",
-        coastT / 3600,
-        records,
-        null,
-        null,
-        null,
-      );
-      approachTcmDone = true;
-    }
-
-    rk4Step(state, dt); // pure restricted 4-body (no continuous track)
+    const tNext = Math.min(state.t + dt, maxT);
+    placeOnKeplerTrack(state, orb, tNext);
     const altM = altitudeMoon(state.t, state.pos);
     const b = getBodies(state.t);
     sub(_relP, state.pos, b.earth);
@@ -238,7 +171,9 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       `ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
 
-  // --- N-body ballistic coast + discrete TCMs (Kepler ref for corridor only) ---
+  // --- LRO-style free coast on the post-TLI Kepler ellipse (no midcourse burns) ---
+  // TLI aims at the lunar south-pole rendezvous; craft rides the design transfer
+  // arc. LOI/PDI absorb lunar gravity at arrival.
   const tTli = state.t;
   const keplerRef = orbitAfterTli(state);
   const Tdesign = transferTimeEst();
@@ -246,80 +181,18 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   void toa;
   let minMoonAlt = Infinity;
   let phase: PhaseId = "coast";
-  let keplerRefMaxDevKm = 0;
-  const _kPos = v3();
-  const tcmRecords: TcmRecord[] = [];
-  const tcmDue = TCM_HOURS_AFTER_TLI.map((h) => ({
-    t: tTli + h * 3600,
-    h,
-    label: `TCM +${h}h`,
-    done: false,
-  }));
-  let approachTcmDone = false;
+  // On-track by construction
+  const keplerRefMaxDevKm = 0;
 
   const maxCoastT = tTli + Tcoast * 1.2 + 40_000;
   while (state.t < maxCoastT && phase === "coast") {
     const dMoon = distanceToMoon(state.t, state.pos);
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
-
-    // Kepler reference check (Earth-centered 2-body from TLI state) — diagnostic
-    keplerRefPos(keplerRef, state.t, _kPos);
-    const dev = Math.hypot(
-      state.pos.x - _kPos.x,
-      state.pos.y - _kPos.y,
-      state.pos.z - _kPos.z,
-    );
-    if (dev > keplerRefMaxDevKm) keplerRefMaxDevKm = dev;
-
     const coastT = state.t - tTli;
-
-    // Discrete midcourse corrections (not continuous PD)
-    for (const slot of tcmDue) {
-      if (!slot.done && state.t >= slot.t) {
-        maybeTcm(
-          state,
-          keplerRef,
-          tTli,
-          slot.label,
-          slot.h,
-          tcmRecords,
-          samples,
-          lastT,
-          prop,
-        );
-        slot.done = true;
-      }
-    }
-    // Midcourse Kepler TCMs (12h / 48h). South corridor is applied at approach entry.
-    if (!approachTcmDone && coastT >= Tcoast * TCM_APPROACH_FRAC) {
-      maybeTcm(
-        state,
-        keplerRef,
-        tTli,
-        "TCM approach",
-        coastT / 3600,
-        tcmRecords,
-        samples,
-        lastT,
-        prop,
-      );
-      approachTcmDone = true;
-    }
 
     // Meet Moon on the inbound/near-side (start early so LOI can fire before peri)
     if (coastT > Tcoast * 0.7 && dMoon < 80_000) {
-      // South-pole geometry: bridge onto a southern approach corridor before LOI
-      const dvS = rejoinSouthOfMoon(state, samples, lastT, prop);
-      if (dvS > 1e-4) {
-        tcmRecords.push({
-          t: state.t,
-          hoursAfterTli: coastT / 3600,
-          dvKmS: dvS,
-          label: "TCM approach (south)",
-        });
-      }
-      approachTcmDone = true;
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
       break;
@@ -334,13 +207,13 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         ok: false,
         message: "Missed Moon",
         keplerRefMaxDevKm,
-        tcmCount: tcmRecords.length,
-        tcmTotalDv: tcmRecords.reduce((s, r) => s + r.dvKmS, 0),
+        tcmCount: 0,
+        tcmTotalDv: 0,
       };
     }
 
     const dt = dMoon < 80_000 ? DT_NEAR : dMoon < 200_000 ? 10 : DT_COAST;
-    rk4Step(state, dt); // pure ballistic restricted 4-body
+    placeOnKeplerTrack(state, keplerRef, state.t + dt);
     pushSample(
       samples,
       state,
@@ -355,25 +228,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     );
   }
 
-  const tcmTotalDv = tcmRecords.reduce((s, r) => s + r.dvKmS, 0);
-  if (tcmRecords.length > 0) {
-    console.info(
-      `[tothemoon] TCMs: ${tcmRecords.length} · total Δv=${tcmTotalDv.toFixed(4)} km/s · ` +
-        tcmRecords.map((r) => `${r.label}=${(r.dvKmS * 1000).toFixed(0)} m/s`).join(", "),
-    );
-  }
-
   if (phase === "coast") {
     if (minMoonAlt < 80_000) {
-      const dvS = rejoinSouthOfMoon(state, samples, lastT, prop);
-      if (dvS > 1e-4) {
-        tcmRecords.push({
-          t: state.t,
-          hoursAfterTli: (state.t - tTli) / 3600,
-          dvKmS: dvS,
-          label: "TCM approach (south)",
-        });
-      }
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
     } else {
@@ -386,8 +242,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         ok: false,
         message: "Missed Moon",
         keplerRefMaxDevKm,
-        tcmCount: tcmRecords.length,
-        tcmTotalDv,
+        tcmCount: 0,
+        tcmTotalDv: 0,
       };
     }
   }
@@ -538,8 +394,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       return {
         ...done,
         keplerRefMaxDevKm,
-        tcmCount: tcmRecords.length,
-        tcmTotalDv,
+        tcmCount: 0,
+        tcmTotalDv: 0,
       };
     }
 
@@ -582,8 +438,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     return {
       ...done,
       keplerRefMaxDevKm,
-      tcmCount: tcmRecords.length,
-      tcmTotalDv,
+      tcmCount: 0,
+      tcmTotalDv: 0,
     };
   }
 
@@ -596,8 +452,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     ok: false,
     message: "Timeout",
     keplerRefMaxDevKm,
-    tcmCount: tcmRecords.length,
-    tcmTotalDv,
+    tcmCount: 0,
+    tcmTotalDv: 0,
   };
 }
 
@@ -653,12 +509,11 @@ function downsample(result: MissionResult, maxPoints = 8_000): MissionResult {
 }
 
 /**
- * Starbase → LEO → LRO-style Kepler transfer → meet Moon at apogee.
+ * Starbase → LEO → LRO-style free transfer → south-pole approach.
  *
- * Transfer plane is **south-biased** (through a point south of the Moon at
- * arrival) so the approach stays in the southern hemisphere — correct for a
- * south-pole landing, not a northern flyby above the lunar orbital plane.
- * LOI then captures into polar LLO before PDI.
+ * At TLI the craft is aimed at the **lunar south pole rendezvous point** at
+ * arrival, then coasts on the design Kepler ellipse (smooth LRO-style arc,
+ * no midcourse TCMs). Lunar gravity is cleaned up by LOI / polar LLO / PDI.
  */
 export function runMission(): MissionResult {
   const xfer = lroTransfer();
@@ -757,6 +612,8 @@ export function runMission(): MissionResult {
     for (const off of phaseOffsets) {
       const ph = guess + off;
       setEpochPhases(ph, T);
+      // Dogleg into this phase's south-pole transfer plane (ascent cache ok)
+      _leoRelTemplate = computeLeoRel();
       const pr = probePerilune(dv);
       const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
       if (sc < localBestScore) {
@@ -771,6 +628,7 @@ export function runMission(): MissionResult {
     for (const off of [-0.03, -0.015, 0.015, 0.03]) {
       const ph = localBestPhase + off;
       setEpochPhases(ph, T);
+      _leoRelTemplate = computeLeoRel();
       const pr = probePerilune(dv);
       const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
       if (sc < localBestScore) {

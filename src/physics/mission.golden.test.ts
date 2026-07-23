@@ -10,13 +10,13 @@ import { R_MOON } from "./constants.ts";
 import { EXPECTED_PHASE_ORDER } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after south-pole transfer geometry + B1 LOI/PDI (2026-07-23). */
+/** Bands after LRO free coast + south-pole LOI/PDI (2026-07-23). */
 const GOLDEN = {
-  durationS: 454_680,
+  durationS: 386_500,
   durationTolFrac: 0.15,
-  tliDv: 3.164_5,
+  tliDv: 3.133_1,
   tliDvTol: 0.2,
-  moonPhaseTol: 0.4,
+  moonPhaseTol: 0.5,
   samplesMin: 4_000,
   samplesMax: 30_000,
   stageT: 140,
@@ -133,30 +133,13 @@ describe("mission golden bands (baked pack)", () => {
     assert.ok(Math.abs(r - R_MOON) < 5, `surface radius ${r} vs R_MOON`);
   });
 
-  it("has discrete TCM burns during coast (not continuous midcourse)", () => {
+  it("has a pure ballistic coast (no midcourse TCM burns)", () => {
     const coast = packed.samples.filter((s) => s.phase === "coast");
     assert.ok(coast.length > 50);
     const burning = coast.filter((s) => s.burning && (s.th ?? 0) > 0);
     assert.ok(
-      burning.length >= 5,
-      `expected TCM burn samples, got ${burning.length}`,
-    );
-    assert.ok(
-      burning.length < coast.length * 0.35,
-      `too many coast burns (${burning.length}/${coast.length}) — continuous track?`,
-    );
-    let clusters = 0;
-    let inB = false;
-    for (const s of coast) {
-      const b = !!(s.burning && (s.th ?? 0) > 0);
-      if (b && !inB) {
-        clusters += 1;
-        inB = true;
-      } else if (!b) inB = false;
-    }
-    assert.ok(
-      clusters >= 1 && clusters <= 8,
-      `expected 1–8 TCM clusters, got ${clusters}`,
+      burning.length === 0,
+      `LRO-style coast should be ballistic, got ${burning.length} burn samples`,
     );
   });
 });

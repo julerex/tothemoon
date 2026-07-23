@@ -189,28 +189,7 @@ function buildEvents(
     );
   }
 
-  // Discrete TCMs during coast (A2) — each significant coast burn cluster
-  let tcmIdx = 0;
-  let inTcm = false;
-  for (const s of samples) {
-    if (s.phase !== "coast") {
-      inTcm = false;
-      continue;
-    }
-    const burning = s.burning && s.thrustN > 1e3;
-    if (burning && !inTcm) {
-      tcmIdx += 1;
-      add(
-        `tcm-${tcmIdx}`,
-        s.t,
-        `TCM ${tcmIdx}`,
-        "Midcourse correction · discrete Δv",
-      );
-      inTcm = true;
-    } else if (!burning) {
-      inTcm = false;
-    }
-  }
+  // No midcourse TCMs on the LRO-style ballistic coast (burns only at LOI/PDI).
 
   // Stable order by time, then id (dedupe same t)
   events.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));

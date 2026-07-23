@@ -355,6 +355,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **C1 complete:** Earth J₂ + exponential atmosphere / quadratic drag |
 | 2026-07-23 | **B1 complete:** LOI burn → LLO coast (~¾ rev) → PDI south pole |
 | 2026-07-23 | **South-pole geometry:** transfer plane south-biased (`TRANSFER_SOUTH_AIM_KM`); LOI → polar LLO (not northern flyby above lunar plane) |
+| 2026-07-23 | **LRO free coast:** TLI aims south-pole rendezvous; smooth Kepler-ellipse coast (**no midcourse TCMs**); LOI/PDI absorb lunar gravity |
 
 ## Changelog
 

@@ -1,4 +1,4 @@
-import { DT_BURN, R_MOON, TRANSFER_SOUTH_AIM_KM } from "./constants";
+import { DT_BURN, R_MOON, TRANSFER_AIM_ALT_KM } from "./constants";
 import { bodyPositions, moonSouthUnit } from "./bodies";
 import {
   rk4Step,
@@ -58,6 +58,26 @@ export function keplerRefPos(orb: KeplerOrbit, t: number, out: V3): V3 {
   keplerRvAt(orb, t, _relP, _relV);
   const b = bodyPositions(t);
   return set(out, b.earth.x + _relP.x, b.earth.y + _relP.y, b.earth.z + _relP.z);
+}
+
+/**
+ * Place craft on the Earth-centered Kepler design track (LRO-style free
+ * transfer). No burns — smooth elliptical coast aimed at TLI inject.
+ */
+export function placeOnKeplerTrack(
+  state: { t: number; pos: V3; vel: V3 },
+  orb: KeplerOrbit,
+  t: number,
+): void {
+  keplerRvAt(orb, t, _relP, _relV);
+  const b = bodyPositions(t);
+  state.t = t;
+  state.pos.x = b.earth.x + _relP.x;
+  state.pos.y = b.earth.y + _relP.y;
+  state.pos.z = b.earth.z + _relP.z;
+  state.vel.x = b.earthVel.x + _relV.x;
+  state.vel.y = b.earthVel.y + _relV.y;
+  state.vel.z = b.earthVel.z + _relV.z;
 }
 
 /**
@@ -317,17 +337,17 @@ export function rejoinSouthOfMoon(
   samples: Sample[] | null,
   lastT: { t: number } | null,
   prop: PropState | null,
-  southAimKm = TRANSFER_SOUTH_AIM_KM,
+  southAimKm = R_MOON + TRANSFER_AIM_ALT_KM,
 ): number {
   const b0 = bodyPositions(state.t);
   moonSouthUnit(_south);
-  // Aim: south of Moon center, outside the surface (LOI-reachable)
-  const aimR = Math.max(R_MOON + 2_500, Math.abs(southAimKm) + R_MOON * 0.2);
+  // Aim: above lunar south pole (legacy helper; mission no longer calls this)
+  const aimR = Math.max(R_MOON + 2_500, Math.abs(southAimKm));
   set(
     _aim,
-    b0.moon.x + _south.x * Math.min(southAimKm, aimR * 0.85),
-    b0.moon.y + _south.y * Math.min(southAimKm, aimR * 0.85),
-    b0.moon.z + _south.z * Math.min(southAimKm, aimR * 0.85),
+    b0.moon.x + _south.x * Math.min(southAimKm, aimR),
+    b0.moon.y + _south.y * Math.min(southAimKm, aimR),
+    b0.moon.z + _south.z * Math.min(southAimKm, aimR),
   );
   // Keep range similar (don't dive into the Moon); rotate toward south
   const ox = state.pos.x - b0.moon.x;
