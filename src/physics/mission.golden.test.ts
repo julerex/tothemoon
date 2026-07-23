@@ -156,4 +156,33 @@ describe("mission golden bands (baked pack)", () => {
     );
     assert.ok(Math.abs(r - R_MOON) < 5, `surface radius ${r} vs R_MOON`);
   });
+
+  it("has discrete TCM burns during coast (not continuous midcourse)", () => {
+    const coast = packed.samples.filter((s) => s.phase === "coast");
+    assert.ok(coast.length > 50);
+    const burning = coast.filter((s) => s.burning && (s.th ?? 0) > 0);
+    // Discrete TCMs: some burns, but not the majority of coast samples
+    assert.ok(
+      burning.length >= 5,
+      `expected TCM burn samples, got ${burning.length}`,
+    );
+    assert.ok(
+      burning.length < coast.length * 0.25,
+      `too many coast burns (${burning.length}/${coast.length}) — continuous track?`,
+    );
+    // Cluster count ≈ TCM events (gaps between burns)
+    let clusters = 0;
+    let inB = false;
+    for (const s of coast) {
+      const b = !!(s.burning && (s.th ?? 0) > 0);
+      if (b && !inB) {
+        clusters += 1;
+        inB = true;
+      } else if (!b) inB = false;
+    }
+    assert.ok(
+      clusters >= 1 && clusters <= 5,
+      `expected 1–5 TCM clusters, got ${clusters}`,
+    );
+  });
 });

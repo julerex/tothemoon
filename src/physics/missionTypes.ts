@@ -37,6 +37,10 @@ export type MissionResult = {
   message: string;
   /** Max |r_N-body − r_Kepler| (km) on the TLI coast, if computed */
   keplerRefMaxDevKm?: number;
+  /** Discrete midcourse corrections executed during coast */
+  tcmCount?: number;
+  /** Total TCM |Δv| (km/s) */
+  tcmTotalDv?: number;
 };
 
 const PHASE_LABELS: Record<PhaseId, string> = {

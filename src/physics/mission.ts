@@ -24,9 +24,17 @@ import {
   distanceToMoon,
   getBodies,
   rk4Step,
+  type CraftState,
   type ThrustFn,
 } from "./integrator";
-import { keplerRefPos, keplerTrackThrust } from "./coast";
+import {
+  keplerRefPos,
+  runTcmBurn,
+  tcmDeltaV,
+  TCM_APPROACH_FRAC,
+  TCM_HOURS_AFTER_TLI,
+  type TcmRecord,
+} from "./coast";
 import { finishLanding, landingThrust, southPoleAlign } from "./capture";
 import {
   appendAscentAndLeoCoast,
@@ -68,7 +76,35 @@ function setEpochPhases(moonPhase0: number, landingT = transferTimeEst()): void 
 }
 
 /**
- * Fast probe: N-body ballistic coast after TLI, return minimum Moon altitude.
+ * Apply a TCM if |Δv| is meaningful. Mutates state; optional samples/prop.
+ */
+function maybeTcm(
+  state: CraftState,
+  orb: ReturnType<typeof orbitAfterTli>,
+  tTli: number,
+  label: string,
+  hoursAfterTli: number,
+  records: TcmRecord[],
+  samples: Sample[] | null,
+  lastT: { t: number } | null,
+  prop: ReturnType<typeof createPropState> | null,
+): void {
+  const { dv, mag } = tcmDeltaV(state.t, state.pos, state.vel, orb);
+  if (mag < 0.002) return; // skip tiny corrections
+  const delivered = runTcmBurn(state, dv, samples, lastT, prop, orb);
+  if (delivered > 1e-4) {
+    records.push({
+      t: state.t,
+      hoursAfterTli,
+      dvKmS: delivered,
+      label,
+    });
+  }
+  void tTli;
+}
+
+/**
+ * Fast probe: N-body **ballistic** coast + discrete TCMs after TLI.
  * Caller must set moon/sun phases first (see runMission).
  */
 function probePerilune(tliDv: number): ProbeResult {
@@ -82,14 +118,43 @@ function probePerilune(tliDv: number): ProbeResult {
   const T = transferTimeEst();
   const orb = orbitAfterTli(state);
   const maxT = tTli + T * 1.2 + 40_000;
+  const records: TcmRecord[] = [];
+  const tcmDue = TCM_HOURS_AFTER_TLI.map((h) => ({
+    t: tTli + h * 3600,
+    h,
+    label: `TCM +${h}h`,
+    done: false,
+  }));
+  let approachTcmDone = false;
 
   let minAlt = Infinity;
   let periluneT = tTli;
   let rEarthAtMin = Infinity;
   let dt = 45;
   while (state.t < maxT) {
-    const thrustFn: ThrustFn = (tt, p, v) => keplerTrackThrust(tt, p, v, orb);
-    rk4Step(state, dt, thrustFn); // N-body + soft Kepler track
+    const coastT = state.t - tTli;
+    for (const slot of tcmDue) {
+      if (!slot.done && state.t >= slot.t) {
+        maybeTcm(state, orb, tTli, slot.label, slot.h, records, null, null, null);
+        slot.done = true;
+      }
+    }
+    if (!approachTcmDone && coastT >= T * TCM_APPROACH_FRAC) {
+      maybeTcm(
+        state,
+        orb,
+        tTli,
+        "TCM approach",
+        coastT / 3600,
+        records,
+        null,
+        null,
+        null,
+      );
+      approachTcmDone = true;
+    }
+
+    rk4Step(state, dt); // pure restricted 4-body (no continuous track)
     const altM = altitudeMoon(state.t, state.pos);
     const b = getBodies(state.t);
     sub(_relP, state.pos, b.earth);
@@ -99,7 +164,6 @@ function probePerilune(tliDv: number): ProbeResult {
       periluneT = state.t;
       rEarthAtMin = rE;
     }
-    const coastT = state.t - tTli;
     if (altitudeEarth(state.t, state.pos) < 0 && coastT < T * 0.7) {
       return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
     }
@@ -158,7 +222,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       `ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
 
-  // --- N-body ballistic coast; Kepler osculating orbit is reference only ---
+  // --- N-body ballistic coast + discrete TCMs (Kepler ref for corridor only) ---
   const tTli = state.t;
   const keplerRef = orbitAfterTli(state);
   const Tdesign = transferTimeEst();
@@ -168,6 +232,14 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   let phase: PhaseId = "coast";
   let keplerRefMaxDevKm = 0;
   const _kPos = v3();
+  const tcmRecords: TcmRecord[] = [];
+  const tcmDue = TCM_HOURS_AFTER_TLI.map((h) => ({
+    t: tTli + h * 3600,
+    h,
+    label: `TCM +${h}h`,
+    done: false,
+  }));
+  let approachTcmDone = false;
 
   const maxCoastT = tTli + Tcoast * 1.2 + 40_000;
   while (state.t < maxCoastT && phase === "coast") {
@@ -175,7 +247,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
 
-    // Kepler reference check (Earth-centered 2-body from TLI state)
+    // Kepler reference check (Earth-centered 2-body from TLI state) — diagnostic
     keplerRefPos(keplerRef, state.t, _kPos);
     const dev = Math.hypot(
       state.pos.x - _kPos.x,
@@ -185,6 +257,39 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     if (dev > keplerRefMaxDevKm) keplerRefMaxDevKm = dev;
 
     const coastT = state.t - tTli;
+
+    // Discrete midcourse corrections (not continuous PD)
+    for (const slot of tcmDue) {
+      if (!slot.done && state.t >= slot.t) {
+        maybeTcm(
+          state,
+          keplerRef,
+          tTli,
+          slot.label,
+          slot.h,
+          tcmRecords,
+          samples,
+          lastT,
+          prop,
+        );
+        slot.done = true;
+      }
+    }
+    if (!approachTcmDone && coastT >= Tcoast * TCM_APPROACH_FRAC) {
+      maybeTcm(
+        state,
+        keplerRef,
+        tTli,
+        "TCM approach",
+        coastT / 3600,
+        tcmRecords,
+        samples,
+        lastT,
+        prop,
+      );
+      approachTcmDone = true;
+    }
+
     // Meet Moon near apogee / lunar distance
     if (coastT > Tcoast * 0.85 && dMoon < 35_000) {
       phase = "approach";
@@ -201,14 +306,13 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         ok: false,
         message: "Missed Moon",
         keplerRefMaxDevKm,
+        tcmCount: tcmRecords.length,
+        tcmTotalDv: tcmRecords.reduce((s, r) => s + r.dvKmS, 0),
       };
     }
 
     const dt = dMoon < 80_000 ? DT_NEAR : dMoon < 200_000 ? 10 : DT_COAST;
-    const trackFn: ThrustFn = (tt, p, v) =>
-      keplerTrackThrust(tt, p, v, keplerRef);
-    // Soft midcourse: dynamics use it; HUD ignores tiny accel (fuel floor)
-    rk4Step(state, dt, trackFn); // restricted 4-body + soft Kepler track
+    rk4Step(state, dt); // pure ballistic restricted 4-body
     pushSample(
       samples,
       state,
@@ -220,6 +324,14 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       prop,
       0,
       "ship",
+    );
+  }
+
+  const tcmTotalDv = tcmRecords.reduce((s, r) => s + r.dvKmS, 0);
+  if (tcmRecords.length > 0) {
+    console.info(
+      `[tothemoon] TCMs: ${tcmRecords.length} · total Δv=${tcmTotalDv.toFixed(4)} km/s · ` +
+        tcmRecords.map((r) => `${r.label}=${(r.dvKmS * 1000).toFixed(0)} m/s`).join(", "),
     );
   }
 
@@ -237,6 +349,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         ok: false,
         message: "Missed Moon",
         keplerRefMaxDevKm,
+        tcmCount: tcmRecords.length,
+        tcmTotalDv,
       };
     }
   }
@@ -318,7 +432,12 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         minMoonAlt,
         prop,
       );
-      return { ...done, keplerRefMaxDevKm };
+      return {
+        ...done,
+        keplerRefMaxDevKm,
+        tcmCount: tcmRecords.length,
+        tcmTotalDv,
+      };
     }
 
     const minSampleDt =
@@ -361,7 +480,12 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       minMoonAlt,
       prop,
     );
-    return { ...done, keplerRefMaxDevKm };
+    return {
+      ...done,
+      keplerRefMaxDevKm,
+      tcmCount: tcmRecords.length,
+      tcmTotalDv,
+    };
   }
 
   return {
@@ -373,6 +497,8 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     ok: false,
     message: "Timeout",
     keplerRefMaxDevKm,
+    tcmCount: tcmRecords.length,
+    tcmTotalDv,
   };
 }
 

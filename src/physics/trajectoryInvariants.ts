@@ -49,7 +49,8 @@ export type InvariantIssue = {
  */
 export const MAX_STEP_KM = 8_000;
 /** |Δr|/Δt should stay near orbital / TLI speeds, not instantaneous jumps. */
-export const MAX_APPARENT_SPEED_KM_S = 25;
+/** Trail continuity; TCM rejoin chords are capped ~8–10 km/s but sampling can peak higher. */
+export const MAX_APPARENT_SPEED_KM_S = 40;
 export const MIN_SAMPLES = 500;
 export const MIN_DURATION_H = 24;
 export const MAX_DURATION_H = 14 * 24;

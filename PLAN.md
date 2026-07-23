@@ -87,18 +87,17 @@ engine-out tables stay deferred.
 - **Landing site:** lunar **south pole** (guidance + `finishLanding` snap);
   matches scene lunar north/south orientation.
 
-### A2. Discrete midcourse corrections (sequence item 2)
+### A2. Discrete midcourse corrections (sequence item 2) — **done 2026-07-23**
 
-**Today:** `keplerTrackThrust` applies continuous soft PD so the path stays
-near the design Earth-centered ellipse.
+**Was:** continuous `keplerTrackThrust` PD on every coast step.
 
-**Target:**
-- Pure ballistic restricted 4-body coast after TLI.
-- **2–3 discrete TCMs** (locked 2026-07-23), e.g. ~+12 h, mid-coast / ~+48 h,
-  and approach — small impulsive or short finite burns toward perilune / B-plane.
-- Log TCM Δv and emit mission events (timeline + callouts).
-- Keep max |Δr| vs Kepler as a **debug / low-opacity corridor**, not continuous thrust.
-- Precompute logs: TCM count, total TCM Δv, max |Δr| (existing field OK).
+**Shipped:**
+- Pure ballistic restricted 4-body coast after TLI (no continuous Kepler PD).
+- Discrete TCMs at **+12 h**, **+48 h**, and **approach** (~0.8× TOF): short
+  finite burns matching design-track velocity (cap 0.35 km/s), then a soft
+  position rejoin chord so the trail stays continuous.
+- Timeline events `tcm-1`…; precompute logs count + total Δv; max |Δr| still logged.
+- Coast samples mostly idle (`burning` mainly during TCM clusters).
 
 ### A3. Honest LEO → lunar-plane story (sequence item 3)
 
@@ -351,6 +350,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **D1 complete:** modules extracted; `mission.golden.test.ts` pins bake |
 | 2026-07-23 | **A3 complete:** paid LEO dogleg (~plane-change class Δv, ship fuel, timeline event) |
 | 2026-07-23 | **A1 complete:** finite TLI 2–4 min; land lunar south pole |
+| 2026-07-23 | **A2 complete:** ballistic coast + discrete TCMs (+12 h, +48 h, approach) |
 
 ## Changelog
 
