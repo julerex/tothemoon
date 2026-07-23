@@ -72,6 +72,8 @@ describe("buildTimeline", () => {
     assert.ok(ids.includes("tli"));
     assert.ok(ids.includes("coast"));
     assert.ok(ids.includes("touchdown"));
+    assert.ok(ids.includes("loi") || ids.includes("approach"));
+    assert.ok(ids.includes("llo") || ids.includes("pdi") || ids.includes("descent"));
     // Monotonic event times
     for (let i = 1; i < tl.events.length; i++) {
       assert.ok(tl.events[i]!.t >= tl.events[i - 1]!.t);

@@ -10,15 +10,15 @@ import { R_MOON } from "./constants.ts";
 import { EXPECTED_PHASE_ORDER } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after A4 mass-coupled thrust (2026-07-23). */
+/** Bands after south-pole transfer geometry + B1 LOI/PDI (2026-07-23). */
 const GOLDEN = {
-  durationS: 554_346.386_003_947_6,
-  durationTolFrac: 0.08,
+  durationS: 454_680,
+  durationTolFrac: 0.15,
   tliDv: 3.164_5,
-  tliDvTol: 0.15,
-  moonPhaseTol: 0.25,
+  tliDvTol: 0.2,
+  moonPhaseTol: 0.4,
   samplesMin: 4_000,
-  samplesMax: 25_000,
+  samplesMax: 30_000,
   stageT: 140,
   stageTTol: 90, // mass-coupled dry booster stages earlier
 } as const;

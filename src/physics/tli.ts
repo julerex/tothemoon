@@ -6,8 +6,9 @@ import {
   R_EARTH,
   TLI_ACCEL,
   TLI_BURN_MAX_S,
+  TRANSFER_SOUTH_AIM_KM,
 } from "./constants";
-import { moonRelativeToEarth } from "./bodies";
+import { moonRelativeToEarth, moonSouthUnit } from "./bodies";
 import {
   getBodies,
   rk4Step,
@@ -44,6 +45,8 @@ const _n = v3();
 const _pro = v3();
 const _thrust = v3();
 const _up = v3(0, 0, 1);
+const _south = v3();
+const _aim = v3();
 
 /**
  * LRO-style direct lunar transfer (near min-energy).
@@ -119,7 +122,45 @@ function lunarPlaneNormal(t: number, out: V3): V3 {
 }
 
 /**
- * Prograde unit in the lunar plane at Earth-relative position: n × r̂.
+ * Transfer-plane normal for south-pole geometry (unit).
+ *
+ * Not pure lunar-plane: aims through Earth and a point
+ * `TRANSFER_SOUTH_AIM_KM` south of the Moon at arrival so the coast
+ * approaches from the southern hemisphere (Artemis-style polar path),
+ * rather than a northern flyby above the lunar orbital plane.
+ */
+export function transferPlaneNormal(t: number, out: V3): V3 {
+  const T = transferTimeEst();
+  const moonArr = moonRelativeToEarth(t + T);
+  lunarPlaneNormal(t, _n);
+  moonSouthUnit(_south);
+
+  // Aim point: south of Moon at lunar encounter (Earth-relative)
+  set(
+    _aim,
+    moonArr.pos.x + _south.x * TRANSFER_SOUTH_AIM_KM,
+    moonArr.pos.y + _south.y * TRANSFER_SOUTH_AIM_KM,
+    moonArr.pos.z + _south.z * TRANSFER_SOUTH_AIM_KM,
+  );
+
+  // Plane through Earth & aim, prograde-aligned with lunar motion
+  cross(out, _aim, moonArr.vel);
+  if (len(out) < 1e-12) {
+    // Degenerate: aim × lunar-plane prograde
+    cross(_pro, _n, moonArr.pos);
+    cross(out, _aim, _pro);
+  }
+  if (len(out) < 1e-12) {
+    set(out, _n.x, _n.y, _n.z);
+  }
+  normalize(out, out);
+  // Keep same hemisphere as lunar north so inject sense matches LEO dogleg
+  if (dot(out, _n) < 0) scale(out, out, -1);
+  return out;
+}
+
+/**
+ * Prograde unit in a given plane at Earth-relative position: n × r̂.
  */
 function progradeInPlane(relPos: V3, n: V3, out: V3): V3 {
   cross(out, n, relPos);
@@ -140,9 +181,16 @@ export function applyTli(state: CraftState, tliDv: number): void {
   const b0 = getBodies(t0);
 
   const moonArr = moonRelativeToEarth(t0 + T);
-  lunarPlaneNormal(t0, _tangent);
+  transferPlaneNormal(t0, _tangent);
 
-  set(_tmp, moonArr.pos.x, moonArr.pos.y, moonArr.pos.z);
+  // Project arrival aim (south of Moon) into the transfer plane for periapsis
+  moonSouthUnit(_south);
+  set(
+    _tmp,
+    moonArr.pos.x + _south.x * TRANSFER_SOUTH_AIM_KM,
+    moonArr.pos.y + _south.y * TRANSFER_SOUTH_AIM_KM,
+    moonArr.pos.z + _south.z * TRANSFER_SOUTH_AIM_KM,
+  );
   const nDot = dot(_tmp, _tangent);
   _tmp.x -= _tangent.x * nDot;
   _tmp.y -= _tangent.y * nDot;
@@ -194,13 +242,14 @@ export type FiniteTliResult = {
 
 /**
  * Ideal Earth-relative velocity after impulsive TLI at the craft's current
- * Earth-relative position (lunar-plane prograde × v_peri). No teleport.
+ * Earth-relative position (south-biased transfer-plane prograde × v_peri).
+ * No teleport.
  */
 function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
   const b = getBodies(state.t);
   sub(_relP, state.pos, b.earth);
   const r = Math.max(len(_relP), R_EARTH + 100);
-  lunarPlaneNormal(state.t, _n);
+  transferPlaneNormal(state.t, _n);
   progradeInPlane(_relP, _n, _pro);
   const vPeri = transferVPeri(r, tliDv);
   return scale(out, _pro, vPeri);

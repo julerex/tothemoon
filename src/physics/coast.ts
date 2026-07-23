@@ -1,5 +1,5 @@
-import { DT_BURN } from "./constants";
-import { bodyPositions } from "./bodies";
+import { DT_BURN, R_MOON, TRANSFER_SOUTH_AIM_KM } from "./constants";
+import { bodyPositions, moonSouthUnit } from "./bodies";
 import {
   rk4Step,
   type CraftState,
@@ -23,6 +23,8 @@ const _thrust = v3();
 const _dir = v3();
 const _p0 = v3();
 const _p1 = v3();
+const _south = v3();
+const _aim = v3();
 
 /**
  * Max |Δv| (km/s) per midcourse correction (velocity match to design track).
@@ -303,6 +305,121 @@ export function runTcmBurn(
   }
 
   return delivered;
+}
+
+/**
+ * Soft position bridge to a point **south of the Moon** (south-pole geometry).
+ * Used as the approach TCM rejoin so the trail does not cut through the
+ * northern hemisphere above the lunar orbital plane.
+ */
+export function rejoinSouthOfMoon(
+  state: CraftState,
+  samples: Sample[] | null,
+  lastT: { t: number } | null,
+  prop: PropState | null,
+  southAimKm = TRANSFER_SOUTH_AIM_KM,
+): number {
+  const b0 = bodyPositions(state.t);
+  moonSouthUnit(_south);
+  // Aim: south of Moon center, outside the surface (LOI-reachable)
+  const aimR = Math.max(R_MOON + 2_500, Math.abs(southAimKm) + R_MOON * 0.2);
+  set(
+    _aim,
+    b0.moon.x + _south.x * Math.min(southAimKm, aimR * 0.85),
+    b0.moon.y + _south.y * Math.min(southAimKm, aimR * 0.85),
+    b0.moon.z + _south.z * Math.min(southAimKm, aimR * 0.85),
+  );
+  // Keep range similar (don't dive into the Moon); rotate toward south
+  const ox = state.pos.x - b0.moon.x;
+  const oy = state.pos.y - b0.moon.y;
+  const oz = state.pos.z - b0.moon.z;
+  const rNow = Math.hypot(ox, oy, oz);
+  const rTgt = Math.min(Math.max(rNow, R_MOON + 2_000), 40_000);
+  // Rotate moon-relative direction toward south (positive southAlign)
+  let tx = ox / (rNow || 1) + _south.x * 1.8;
+  let ty = oy / (rNow || 1) + _south.y * 1.8;
+  let tz = oz / (rNow || 1) + _south.z * 1.8;
+  const tlen = Math.hypot(tx, ty, tz) || 1;
+  tx /= tlen;
+  ty /= tlen;
+  tz /= tlen;
+  set(
+    _p1,
+    b0.moon.x + tx * rTgt,
+    b0.moon.y + ty * rTgt,
+    b0.moon.z + tz * rTgt,
+  );
+  set(_p0, state.pos.x, state.pos.y, state.pos.z);
+  const dr = Math.hypot(_p1.x - _p0.x, _p1.y - _p0.y, _p1.z - _p0.z);
+  if (dr < 20) return 0;
+
+  const vBridge = 7;
+  let rejoinS = Math.min(2_500, Math.max(80, dr / vBridge));
+  const t0 = Math.max(state.t, lastT ? lastT.t + 0.05 : state.t);
+  const steps = Math.max(40, Math.ceil(rejoinS / 1.5));
+
+  // End velocity: modest inbound toward Moon (helps LOI)
+  const endVx = b0.moonVel.x + (b0.moon.x - _p1.x) * 0.00015;
+  const endVy = b0.moonVel.y + (b0.moon.y - _p1.y) * 0.00015;
+  const endVz = b0.moonVel.z + (b0.moon.z - _p1.z) * 0.00015;
+
+  if (!samples || !lastT) {
+    state.t = t0 + rejoinS;
+    const bi = bodyPositions(state.t);
+    // Rebuild aim at end time
+    moonSouthUnit(_south);
+    let ux = tx;
+    let uy = ty;
+    let uz = tz;
+    state.pos.x = bi.moon.x + ux * rTgt;
+    state.pos.y = bi.moon.y + uy * rTgt;
+    state.pos.z = bi.moon.z + uz * rTgt;
+    state.vel.x = bi.moonVel.x + (bi.moon.x - state.pos.x) * 0.00015;
+    state.vel.y = bi.moonVel.y + (bi.moon.y - state.pos.y) * 0.00015;
+    state.vel.z = bi.moonVel.z + (bi.moon.z - state.pos.z) * 0.00015;
+    return dr * 0.001; // nominal small Δv proxy
+  }
+
+  for (let i = 1; i <= steps; i++) {
+    const u = i / steps;
+    state.t = t0 + rejoinS * u;
+    const bi = bodyPositions(state.t);
+    // Chord in moon-relative frame so the Moon’s motion doesn’t stretch the trail
+    const mx0 = _p0.x - b0.moon.x;
+    const my0 = _p0.y - b0.moon.y;
+    const mz0 = _p0.z - b0.moon.z;
+    const mx1 = tx * rTgt;
+    const my1 = ty * rTgt;
+    const mz1 = tz * rTgt;
+    state.pos.x = bi.moon.x + mx0 + u * (mx1 - mx0);
+    state.pos.y = bi.moon.y + my0 + u * (my1 - my0);
+    state.pos.z = bi.moon.z + mz0 + u * (mz1 - mz0);
+    state.vel.x = endVx;
+    state.vel.y = endVy;
+    state.vel.z = endVz;
+    pushSample(
+      samples,
+      state,
+      "coast",
+      true,
+      true,
+      0,
+      lastT,
+      prop,
+      TCM_ACCEL,
+      "ship",
+      false,
+    );
+  }
+  // Match end velocity to moon frame inbound
+  {
+    const bi = bodyPositions(state.t);
+    state.vel.x = bi.moonVel.x + (bi.moon.x - state.pos.x) * 0.00015;
+    state.vel.y = bi.moonVel.y + (bi.moon.y - state.pos.y) * 0.00015;
+    state.vel.z = bi.moonVel.z + (bi.moon.z - state.pos.z) * 0.00015;
+  }
+  void _aim;
+  return Math.min(TCM_MAX_DV, dr / Math.max(rejoinS, 1));
 }
 
 /**

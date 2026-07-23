@@ -208,7 +208,32 @@ export const SHIP_MDOT_SCALE = 1;
 /** Capture / approach guidance start distance from Moon center (km) */
 export const APPROACH_RANGE = 40_000;
 
-/** Powered descent start altitude above Moon surface (km) */
+/**
+ * South-of-Moon aim offset for the transfer plane (km).
+ * LEO dogleg + TLI use a plane through Earth and (Moon + south·this) at
+ * arrival so the coast approaches from the **southern** hemisphere — correct
+ * geometry for a south-pole landing (not a northern flyby above the lunar plane).
+ * Keep small (~few Mm) so perilune stays LOI-reachable; large offsets miss the Moon.
+ */
+export const TRANSFER_SOUTH_AIM_KM = 3_500;
+
+/** Target circular LLO altitude above mean lunar surface (km) */
+export const LLO_ALT_KM = 120;
+
+/** LLO coast after LOI (revolutions) — scrubber-visible parking */
+export const LLO_COAST_REVS = 0.75;
+
+/** Peak accel for LOI capture burn (km/s²) ~1 g */
+export const LOI_ACCEL = 0.01;
+
+/** Begin LOI capture burn when lunar altitude falls below this (km) */
+export const LOI_ALT_START_KM = 25_000;
+
+/** LOI complete: |v − v_circ| and |v_rad| thresholds (km/s) */
+export const LOI_V_ERR_OK = 0.15;
+export const LOI_VRAD_OK = 0.1;
+
+/** Powered descent start altitude above Moon surface (km) — PDI gate */
 export const DESCENT_ALTITUDE = 100;
 
 /** Soft-land speed threshold (km/s) */

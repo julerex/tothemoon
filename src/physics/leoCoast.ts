@@ -9,7 +9,7 @@ import {
   createPropState,
   type PropState,
 } from "./propellant";
-import { transferTimeEst } from "./tli";
+import { transferPlaneNormal, transferTimeEst } from "./tli";
 import {
   clone,
   cross,
@@ -189,9 +189,9 @@ function planeChangeDv(vCirc: number, diRad: number): number {
 }
 
 /**
- * After ascent: **continuous** circular LEO that doglegs into the lunar
- * plane (co-rotating with the Moon), ~1.25 revs, ending at the transfer
- * periapsis direction.
+ * After ascent: **continuous** circular LEO that doglegs into the
+ * **south-biased transfer plane** (same as TLI), ~1.25 revs, ending at the
+ * transfer periapsis direction.
  *
  * Geometry is kinematic (smooth trail / TLI aim). Plane-change cost is
  * booked as ship thrust + propellant: each step pays 2 v sin(di/2) for the
@@ -221,12 +221,9 @@ export function runLunarPlaneLeoCoast(
   if (len(_n0) < 1e-12) set(_n0, 0, 0, 1);
   normalize(_n0, _n0);
 
-  // Target: lunar plane at end of coast, same hemisphere as ascent
+  // Target: south-biased transfer plane (matches TLI inject)
   const t1 = t0 + coastS;
-  const moonEnd = moonRelativeToEarth(t1);
-  cross(_n1, moonEnd.pos, moonEnd.vel);
-  if (len(_n1) < 1e-12) set(_n1, _up.x, _up.y, _up.z);
-  normalize(_n1, _n1);
+  transferPlaneNormal(t1, _n1);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
 
   const totalDi = Math.acos(clamp1(dot(_n0, _n1)));
@@ -234,7 +231,7 @@ export function runLunarPlaneLeoCoast(
   // Start radial direction = ascent position (continuous)
   projectToPlaneUnit(_relP, _n0, _rHat0);
 
-  // End at transfer periapsis (opposite Moon at arrival), in lunar plane
+  // End at transfer periapsis (opposite Moon/aim at arrival), in transfer plane
   const T = transferTimeEst();
   const moonArr = moonRelativeToEarth(t1 + T);
   set(_periHat, -moonArr.pos.x, -moonArr.pos.y, -moonArr.pos.z);

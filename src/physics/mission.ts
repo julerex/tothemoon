@@ -12,7 +12,9 @@ import {
   DT_NEAR,
   LEO_COAST_S,
   LEO_RADIUS,
+  LLO_COAST_REVS,
   N_MOON,
+  R_MOON,
   TOUCHDOWN_SPEED,
 } from "./constants";
 import { ensureAscent, getAscent, resetAscentCache } from "./ascentCache";
@@ -29,13 +31,21 @@ import {
 } from "./integrator";
 import {
   keplerRefPos,
+  rejoinSouthOfMoon,
   runTcmBurn,
   tcmDeltaV,
   TCM_APPROACH_FRAC,
   TCM_HOURS_AFTER_TLI,
   type TcmRecord,
 } from "./coast";
-import { finishLanding, landingThrust, southPoleAlign } from "./capture";
+import {
+  finishLanding,
+  lloPeriodS,
+  loiComplete,
+  loiThrust,
+  pdiThrust,
+  snapPolarLlo,
+} from "./capture";
 import {
   appendAscentAndLeoCoast,
   computeLeoRel,
@@ -145,6 +155,7 @@ function probePerilune(tliDv: number): ProbeResult {
       }
     }
     if (!approachTcmDone && coastT >= T * TCM_APPROACH_FRAC) {
+      // Probe: keep Kepler TCM so intercept search stays well-posed
       maybeTcm(
         state,
         orb,
@@ -280,6 +291,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
         slot.done = true;
       }
     }
+    // Midcourse Kepler TCMs (12h / 48h). South corridor is applied at approach entry.
     if (!approachTcmDone && coastT >= Tcoast * TCM_APPROACH_FRAC) {
       maybeTcm(
         state,
@@ -295,8 +307,19 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       approachTcmDone = true;
     }
 
-    // Meet Moon near apogee / lunar distance
-    if (coastT > Tcoast * 0.85 && dMoon < 35_000) {
+    // Meet Moon on the inbound/near-side (start early so LOI can fire before peri)
+    if (coastT > Tcoast * 0.7 && dMoon < 80_000) {
+      // South-pole geometry: bridge onto a southern approach corridor before LOI
+      const dvS = rejoinSouthOfMoon(state, samples, lastT, prop);
+      if (dvS > 1e-4) {
+        tcmRecords.push({
+          t: state.t,
+          hoursAfterTli: coastT / 3600,
+          dvKmS: dvS,
+          label: "TCM approach (south)",
+        });
+      }
+      approachTcmDone = true;
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
       break;
@@ -342,6 +365,15 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
   if (phase === "coast") {
     if (minMoonAlt < 80_000) {
+      const dvS = rejoinSouthOfMoon(state, samples, lastT, prop);
+      if (dvS > 1e-4) {
+        tcmRecords.push({
+          t: state.t,
+          hoursAfterTli: (state.t - tTli) / 3600,
+          dvKmS: dvS,
+          label: "TCM approach (south)",
+        });
+      }
       phase = "approach";
       pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
     } else {
@@ -360,64 +392,113 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     }
   }
 
-  // --- LOI-style capture + south-pole soft landing (N-body + thrust) ---
-  // Extra time to dogleg around the Moon toward the pole
-  const maxT = state.t + 120_000;
+  // --- B1: LOI burn → LLO coast → PDI → south-pole land ---
+  // approach = LOI, braking = ballistic LLO, descent = PDI
+  let lloCoastEndT = Infinity;
+  let loiStartT = -1;
+  const maxT = state.t + 250_000;
   while (state.t < maxT) {
     const altM = altitudeMoon(state.t, state.pos);
     minMoonAlt = Math.min(minMoonAlt, altM);
-    const poleAlign = southPoleAlign(state.t, state.pos);
 
-    if (phase === "approach" && altM < DESCENT_ALTITUDE * 15) {
+    // LOI complete → snap polar LLO + coast
+    if (phase === "approach" && loiComplete(state.t, state.pos, state.vel)) {
+      snapPolarLlo(state.t, state, samples, lastT, prop);
+      const altSnap = altitudeMoon(state.t, state.pos);
+      minMoonAlt = Math.min(minMoonAlt, altSnap);
+      const coastS = Math.min(
+        LLO_COAST_REVS * lloPeriodS(R_MOON + Math.max(altSnap, 80)),
+        3.5 * 3600,
+      );
+      lloCoastEndT = state.t + coastS;
       phase = "braking";
-      const th = landingThrust(state.t, state.pos, state.vel, phase);
-      pushSample(
-        samples,
-        state,
-        phase,
-        true,
-        true,
-        0,
-        lastT,
-        prop,
-        th ? len(th) : 0,
-        "ship",
+      pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
+      console.info(
+        `[tothemoon] LOI complete · LLO alt=${altSnap.toFixed(0)} km · coast ${(coastS / 3600).toFixed(2)} h`,
       );
     }
+
+    // Force capture: long LOI, past peri, or dry tanks near Moon (theater)
     if (
-      (phase === "braking" || phase === "approach") &&
-      altM < DESCENT_ALTITUDE
+      phase === "approach" &&
+      minMoonAlt < 40_000 &&
+      ((altM < 6_000 &&
+        loiStartT > 0 &&
+        state.t - loiStartT > 2_400) ||
+        (altM > minMoonAlt + 300 &&
+          minMoonAlt < 12_000 &&
+          loiStartT > 0 &&
+          state.t - loiStartT > 400) ||
+        (altM > minMoonAlt + 500 &&
+          minMoonAlt < 35_000 &&
+          !hasPropellant(prop, "ship") &&
+          state.t - (loiStartT > 0 ? loiStartT : state.t) > 60) ||
+        (altM > minMoonAlt + 800 &&
+          minMoonAlt < 8_000 &&
+          state.t > 0))
     ) {
-      phase = "descent";
-      const th = landingThrust(state.t, state.pos, state.vel, phase);
-      pushSample(
-        samples,
-        state,
-        phase,
-        true,
-        true,
-        0,
-        lastT,
-        prop,
-        th ? len(th) : 0,
-        "ship",
+      snapPolarLlo(state.t, state, samples, lastT, prop);
+      const altSnap = altitudeMoon(state.t, state.pos);
+      minMoonAlt = Math.min(minMoonAlt, altSnap);
+      const coastS = Math.min(
+        LLO_COAST_REVS * lloPeriodS(R_MOON + Math.max(altSnap, 80)),
+        3.5 * 3600,
       );
+      lloCoastEndT = state.t + coastS;
+      phase = "braking";
+      pushSample(samples, state, phase, false, true, 0, lastT, prop, 0, "ship");
+      console.info(
+        `[tothemoon] LOI → LLO coast · alt=${altSnap.toFixed(0)} km · minAlt=${minMoonAlt.toFixed(0)} km · coast ${(coastS / 3600).toFixed(2)} h`,
+      );
+    }
+
+    // LLO coast done → PDI
+    if (phase === "braking" && state.t >= lloCoastEndT) {
+      phase = "descent";
+      pushSample(samples, state, phase, true, true, 0, lastT, prop, 0, "ship");
+      console.info(`[tothemoon] PDI · powered descent from ${altM.toFixed(0)} km`);
+    }
+
+    // Emergency: very low without LOI complete → PDI
+    if (phase === "approach" && altM < 40) {
+      phase = "descent";
+      pushSample(samples, state, phase, true, true, 0, lastT, prop, 0, "ship");
+    }
+    if (phase === "braking" && altM < DESCENT_ALTITUDE * 0.5) {
+      phase = "descent";
+      pushSample(samples, state, phase, true, true, 0, lastT, prop, 0, "ship");
     }
 
     const dt =
-      phase === "descent" ? DT_BURN : phase === "braking" ? DT_NEAR : DT_NEAR;
-    // Mass-coupled ship thrust: a = F/m, empty tank cuts engines
+      phase === "descent"
+        ? DT_BURN
+        : phase === "braking"
+          ? DT_NEAR * 2
+          : DT_NEAR;
+
     const thrustFn: ThrustFn = (t, p, v) => {
       if (!hasPropellant(prop, "ship")) return null;
-      const th = landingThrust(t, p, v, phase);
+      let th =
+        phase === "approach"
+          ? loiThrust(t, p, v)
+          : phase === "descent"
+            ? pdiThrust(t, p, v)
+            : null;
       if (!th) return null;
       const aCmd = len(th);
       const lim = limitAccelByThrust(prop, aCmd, "ship");
       if (lim.forceN < 1e-3) return null;
       return scale(th, th, lim.aKmS2 / Math.max(aCmd, 1e-12));
     };
-    let thNow = landingThrust(state.t, state.pos, state.vel, phase);
+
+    let thNow =
+      phase === "approach"
+        ? loiThrust(state.t, state.pos, state.vel)
+        : phase === "descent"
+          ? pdiThrust(state.t, state.pos, state.vel)
+          : null;
     if (thNow && hasPropellant(prop, "ship")) {
+      if (phase === "approach" && loiStartT < 0) loiStartT = state.t;
       const aCmd = len(thNow);
       const lim = limitAccelByThrust(prop, aCmd, "ship");
       if (lim.forceN < 1e-3) thNow = null;
@@ -432,20 +513,20 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     const b = getBodies(state.t);
     sub(_relV, state.vel, b.moonVel);
     const relSpeed = len(_relV);
-    // Soft touch in descent/braking — finishLanding settles then taxis to pole
+
     const softTouch =
-      (phase === "descent" || phase === "braking") &&
+      phase === "descent" &&
       altM2 < 0.35 &&
       relSpeed < TOUCHDOWN_SPEED * 15;
-    const hardImpact = altM2 < 0 && phase !== "approach";
+    const hardImpact = phase === "descent" && altM2 < 0;
+    // Dry tanks in descent: theater finish (bridged surface project + taxi)
+    const dryDescent =
+      phase === "descent" &&
+      !hasPropellant(prop, "ship") &&
+      altM2 < 8_000 &&
+      state.t - (loiStartT > 0 ? loiStartT : state.t) > 30;
 
-    if (softTouch || hardImpact) {
-      if (phase === "approach") {
-        pushSample(samples, state, "braking", true, true, 0, lastT, prop, 0, "ship");
-        pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
-      } else if (phase === "braking") {
-        pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
-      }
+    if (softTouch || hardImpact || dryDescent) {
       const done = finishLanding(
         state,
         samples,
@@ -463,10 +544,10 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     }
 
     const minSampleDt =
-      phase === "descent" ? 2 : phase === "braking" ? 6 : 12;
+      phase === "descent" ? 2 : phase === "braking" ? 20 : 8;
     const aMag = thNow ? len(thNow) : 0;
-    // Approach guidance shows thrust but only braking/descent spend ship fuel
-    const consume = phase === "braking" || phase === "descent";
+    // LOI + PDI spend fuel; LLO coast is ballistic
+    const consume = phase === "approach" || phase === "descent";
     pushSample(
       samples,
       state,
@@ -480,16 +561,12 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       "ship",
       consume,
     );
-    void poleAlign;
   }
 
-  // Timeout: if we got close during capture/landing, still settle
-  if (
-    minMoonAlt < 5_000 &&
-    (phase === "approach" || phase === "braking" || phase === "descent")
-  ) {
+  // Timeout: settle if we got close
+  if (minMoonAlt < 5_000) {
     if (phase === "approach") {
-      pushSample(samples, state, "braking", true, true, 0, lastT, prop, 0, "ship");
+      pushSample(samples, state, "braking", false, true, 0, lastT, prop, 0, "ship");
       pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
     } else if (phase === "braking") {
       pushSample(samples, state, "descent", true, true, 0, lastT, prop, 0, "ship");
@@ -526,16 +603,17 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
 /**
  * Thin long coasts for file size, but never drop near-Earth trail detail.
- * Previous index-stride thinning skipped the first LEO samples after a dense
- * ascent block (next was already ahead), which looked like a ~300 km teleport.
+ * Also enforces a max trail step (~MAX_STEP_KM) so TLI-speed coasts aren't
+ * thinned into false "teleports" after dense LOI/PDI blocks inflate the stride.
  */
-function downsample(result: MissionResult, maxPoints = 4000): MissionResult {
+function downsample(result: MissionResult, maxPoints = 8_000): MissionResult {
   const s = result.samples;
   if (s.length <= maxPoints) return result;
   const out: Sample[] = [];
   const step = s.length / maxPoints;
   let next = 0;
   let prevPhase: PhaseId | null = null;
+  const maxStepKm = 6_000; // stay under invariant cap (8_000)
   for (let i = 0; i < s.length; i++) {
     const sample = s[i]!;
     const phaseChange = prevPhase !== null && sample.phase !== prevPhase;
@@ -547,14 +625,26 @@ function downsample(result: MissionResult, maxPoints = 4000): MissionResult {
       sample.phase === "leo" ||
       sample.phase === "tli" ||
       sample.phase === "landed" ||
+      sample.phase === "braking" ||
+      sample.phase === "descent" ||
       phaseChange ||
       i === 0 ||
       i === s.length - 1;
-    if (i >= next || priority) {
+    let forceGap = false;
+    if (out.length > 0 && !priority && i < next) {
+      const prev = out[out.length - 1]!;
+      const dr = Math.hypot(
+        sample.pos.x - prev.pos.x,
+        sample.pos.y - prev.pos.y,
+        sample.pos.z - prev.pos.z,
+      );
+      if (dr > maxStepKm) forceGap = true;
+    }
+    if (i >= next || priority || forceGap) {
       out.push(sample);
       // Advance the stride from this index so priority runs don't leave a hole
       // in the following thinned phase.
-      if (i >= next) next = i + step;
+      if (i >= next || forceGap) next = i + step;
       else if (phaseChange) next = i + step;
     }
     prevPhase = sample.phase;
@@ -563,11 +653,12 @@ function downsample(result: MissionResult, maxPoints = 4000): MissionResult {
 }
 
 /**
- * Starbase → LEO → LRO-style coplanar Kepler transfer → meet Moon at apogee.
+ * Starbase → LEO → LRO-style Kepler transfer → meet Moon at apogee.
  *
- * Geometry mirrors LRO: transfer lies in the lunar plane; craft reaches
- * lunar distance at the same time it meets the Moon (smooth arc, no
- * out-of-plane southbound miss).
+ * Transfer plane is **south-biased** (through a point south of the Moon at
+ * arrival) so the approach stays in the southern hemisphere — correct for a
+ * south-pole landing, not a northern flyby above the lunar orbital plane.
+ * LOI then captures into polar LLO before PDI.
  */
 export function runMission(): MissionResult {
   const xfer = lroTransfer();

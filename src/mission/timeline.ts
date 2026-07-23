@@ -7,9 +7,9 @@ const PHASE_SHORT: Record<PhaseId, string> = {
   leo: "LEO",
   tli: "TLI",
   coast: "Coast",
-  approach: "Appr.",
-  braking: "Brake",
-  descent: "Desc.",
+  approach: "LOI",
+  braking: "LLO",
+  descent: "PDI",
   landed: "Land",
 };
 
@@ -23,9 +23,9 @@ export const PHASE_AUTO_SPEED: Record<PhaseId, number> = {
   leo: 200,
   tli: 50,
   coast: 2000,
-  approach: 400,
-  braking: 50,
-  descent: 25,
+  approach: 80, // LOI burn — watchable
+  braking: 400, // LLO coast ~¾ rev
+  descent: 25, // PDI
   landed: 1,
 };
 
@@ -153,13 +153,13 @@ function buildEvents(
         add("coast", seg.t0, "TLI complete", "Trans-lunar coast");
         break;
       case "approach":
-        add("approach", seg.t0, "Lunar approach", "Near-Moon capture corridor");
+        add("loi", seg.t0, "LOI burn", "Capture into low lunar orbit");
         break;
       case "braking":
-        add("loi", seg.t0, "LOI · braking", "Lunar orbit insertion");
+        add("llo", seg.t0, "LLO coast", "Parking orbit · ~¾ rev");
         break;
       case "descent":
-        add("descent", seg.t0, "Powered descent", "Final approach");
+        add("pdi", seg.t0, "PDI", "Powered descent · south pole");
         break;
       case "landed":
         add("touchdown", seg.t0, "Touchdown", "Lunar south pole");

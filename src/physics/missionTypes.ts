@@ -49,9 +49,9 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   leo: "LEO",
   tli: "Trans-lunar injection",
   coast: "Trans-lunar coast",
-  approach: "Lunar approach",
-  braking: "Braking",
-  descent: "Powered descent",
+  approach: "LOI · capture burn",
+  braking: "LLO coast",
+  descent: "PDI · powered descent",
   landed: "Landed · south pole",
 };
 

@@ -158,19 +158,17 @@ engine-out tables stay deferred.
 
 ## Phase B — Capture, targeting, numerics
 
-### B1. Discrete LOI → LLO → PDI (sequence item 6)
+### B1. Discrete LOI → LLO → PDI (sequence item 6) — **done 2026-07-23**
 
-**Today:** continuous PD approach → braking → descent → soft land.
+**Was:** continuous PD approach → braking → descent.
 
-**Target (Apollo / LRO-like arc):**
-1. LOI1 into elliptical lunar orbit  
-2. Optional LOI2 / circularize  
-3. Coast ≥ ~½–1 rev (visible on scrubber)  
-4. Powered descent initiation with site-relative guidance  
-5. Touchdown with residual fuel that *can* go empty  
+**Shipped (phase IDs unchanged for timeline compatibility):**
+1. **approach** = LOI burn (`loiThrust`) — circularize into ~120 km LLO  
+2. **braking** = ballistic **LLO coast** ~¾ rev (`LLO_COAST_REVS`)  
+3. **descent** = **PDI** (`pdiThrust`) to south pole + taxi  
+4. Touchdown via `finishLanding`  
 
-Align phase IDs / labels with existing timeline events; extend invariants for
-phase order and LOI burn readability (thrust + fuel draw).
+Timeline: LOI burn → LLO coast → PDI callouts; auto-speed tuned per segment.
 
 ### B2. B-plane / perilune targeting
 
@@ -355,6 +353,8 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **A2 complete:** ballistic coast + discrete TCMs (+12 h, +48 h, approach) |
 | 2026-07-23 | **A4 complete:** mass-coupled a=F/m, pure rocket-equation ṁ, tank cutout |
 | 2026-07-23 | **C1 complete:** Earth J₂ + exponential atmosphere / quadratic drag |
+| 2026-07-23 | **B1 complete:** LOI burn → LLO coast (~¾ rev) → PDI south pole |
+| 2026-07-23 | **South-pole geometry:** transfer plane south-biased (`TRANSFER_SOUTH_AIM_KM`); LOI → polar LLO (not northern flyby above lunar plane) |
 
 ## Changelog
 
