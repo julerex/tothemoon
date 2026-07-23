@@ -224,14 +224,16 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       };
     }
 
-    // Flyby complete: only after design TOF window so we don't stop before
-    // true perilune. Then coast a bit outbound (avoid full Earth-return reverse).
-    const pastPerilune =
-      coastT > Tcoast * 0.85 &&
-      state.t > periluneT + 20_000 &&
-      altM > minMoonAlt + 25_000 &&
-      rE > A_EM * 0.6;
-    if (pastPerilune) {
+    // End after the transfer arc (design TOF + margin). Do not integrate a
+    // multi-day Earth return — that late reverse of Earth-relative h is what
+    // made the path look anti-Kepler.
+    const transferDone =
+      (coastT > Tcoast * 0.95 &&
+        state.t > periluneT + 8_000 &&
+        altM > minMoonAlt + 10_000) ||
+      coastT > Tcoast * 1.15;
+    if (transferDone) {
+      pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
       const msg =
         minMoonAlt < 100
           ? `Ballistic skim · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
@@ -241,7 +243,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       console.info(`[tothemoon] ${msg}`);
       return {
         samples,
-        durationS: state.t,
+        durationS: samples[samples.length - 1]!.t,
         moonPhase0,
         tliDv,
         minMoonAlt,
@@ -295,6 +297,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   }
 
   // Timeout after long coast
+  pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
   const msg =
     Number.isFinite(minMoonAlt) && minMoonAlt < 500_000
       ? `Ballistic coast end · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
@@ -302,7 +305,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
   console.info(`[tothemoon] ${msg}`);
   return {
     samples,
-    durationS: state.t,
+    durationS: samples[samples.length - 1]!.t,
     moonPhase0,
     tliDv,
     minMoonAlt,
