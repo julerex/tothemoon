@@ -3,15 +3,19 @@ import { describe, it } from "node:test";
 import {
   ASCENT_ACCEL,
   BOOSTER_PROP_KG,
+  BOOSTER_THRUST_N,
   SHIP_PROP_KG,
 } from "./constants.ts";
 import {
   applyImpulsiveShipDv,
+  burnForce,
   burnProp,
   coastProp,
   createPropState,
   fuelBoosterFrac,
   fuelShipFrac,
+  hasPropellant,
+  limitAccelByThrust,
   stageBooster,
   thrustForceN,
   wetMassKg,
@@ -39,6 +43,32 @@ describe("propellant bookkeeping", () => {
     burnProp(p, 1e6, ASCENT_ACCEL, "booster");
     assert.equal(p.boosterPropKg, 0);
     assert.equal(fuelBoosterFrac(p), 0);
+    assert.equal(hasPropellant(p, "booster"), false);
+  });
+
+  it("mass-coupled limitAccelByThrust respects peak thrust and empty tank", () => {
+    const p = createPropState(0);
+    const lim = limitAccelByThrust(p, ASCENT_ACCEL * 10, "booster");
+    assert.ok(lim.forceN <= BOOSTER_THRUST_N + 1e-6);
+    assert.ok(lim.aKmS2 > 0);
+    // Empty → no thrust
+    p.boosterPropKg = 0;
+    const empty = limitAccelByThrust(p, ASCENT_ACCEL, "booster");
+    assert.equal(empty.forceN, 0);
+    assert.equal(empty.aKmS2, 0);
+  });
+
+  it("burnForce uses pure rocket equation and hard-stops when dry", () => {
+    const p = createPropState(0);
+    const m0 = wetMassKg(p);
+    const F = BOOSTER_THRUST_N * 0.5;
+    burnForce(p, 10, F, "booster");
+    assert.ok(p.boosterPropKg < BOOSTER_PROP_KG);
+    assert.ok(wetMassKg(p) < m0);
+    // Drain completely
+    burnForce(p, 1e9, F, "booster");
+    assert.equal(p.boosterPropKg, 0);
+    assert.equal(burnForce(p, 1e9 + 1, F, "booster"), 0);
   });
 
   it("coastProp advances the clock without draining", () => {
@@ -81,12 +111,14 @@ describe("propellant bookkeeping", () => {
     assert.equal(thrustForceN(p, 0), 0);
   });
 
-  it("applyImpulsiveShipDv reduces ship prop and returns thrust", () => {
+  it("applyImpulsiveShipDv reduces ship prop via pure rocket equation", () => {
     const p = createPropState(0);
     stageBooster(p, 0);
     const F = applyImpulsiveShipDv(p, 0, 3.1, 180);
     assert.ok(F > 0);
     assert.ok(p.shipPropKg < SHIP_PROP_KG);
-    assert.ok(fuelShipFrac(p) > 0.5); // theater scale leaves most prop
+    // Pure RE for 3.1 km/s at Isp 380 leaves a meaningful fraction
+    assert.ok(fuelShipFrac(p) > 0.2);
+    assert.ok(fuelShipFrac(p) < 0.95);
   });
 });

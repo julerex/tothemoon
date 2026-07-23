@@ -1,9 +1,8 @@
 /**
  * Powered ascent from Starbase (Boca Chica, TX) to circular LEO.
  *
- * Theater model: continuous thrust ~2.5 g, gravity turn due-east so parking
- * inclination ≈ site latitude (~26°). Propellant/thrust fields are HUD
- * bookkeeping only (guidance stays acceleration-based).
+ * Theater model: gravity turn due-east (parking i ≈ site lat). Thrust is
+ * mass-coupled (a = F/m) with pure rocket-equation booster propellant.
  */
 
 import {
@@ -22,10 +21,12 @@ import {
   type ThrustFn,
 } from "./integrator";
 import {
-  burnProp,
+  burnForce,
   createPropState,
   fuelBoosterFrac,
   fuelShipFrac,
+  hasPropellant,
+  limitAccelByThrust,
   stageBooster,
   type PropState,
 } from "./propellant";
@@ -76,14 +77,8 @@ function pushAscentSample(
   phase: AscentPhase,
   burning: boolean,
   prop: PropState,
-  aKmS2: number,
+  thrustN: number,
 ): void {
-  let thrustN = 0;
-  if (burning && aKmS2 > 1e-12 && phase !== "leo") {
-    thrustN = burnProp(prop, state.t, aKmS2, "booster");
-  } else {
-    prop.lastT = state.t;
-  }
   samples.push({
     t: state.t,
     pos: clone(state.pos),
@@ -112,8 +107,16 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 
 /**
  * Desired thrust acceleration (km/s²) in inertial frame for ascent guidance.
+ * Magnitude is mass-coupled: a = F/m with F ≤ BOOSTER_THRUST_N; empty tank → null.
  */
-function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
+function ascentThrust(
+  t: number,
+  pos: V3,
+  vel: V3,
+  prop: PropState,
+): { a: V3; forceN: number } | null {
+  if (!hasPropellant(prop, "booster")) return null;
+
   const b = getBodies(t);
   sub(_relP, pos, b.earth);
   const r = len(_relP);
@@ -140,7 +143,6 @@ function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
 
   // Near LEO: steer to circular due-east orbit
   if (alt > 100) {
-    // Target velocity: circular, due east, kill radial & north
     const tgtEast = vCirc;
     const tgtRad =
       alt < LEO_ALTITUDE - 5
@@ -154,7 +156,6 @@ function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
       _up.y * tgtRad + _east.y * tgtEast,
       _up.z * tgtRad + _east.z * tgtEast,
     );
-    // thrust ∝ (v_des - v)
     set(
       _thrust,
       _target.x - _relV.x,
@@ -162,7 +163,6 @@ function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
       _target.z - _relV.z,
     );
   } else {
-    // Gravity turn: up * cos(pitch) + east * sin(pitch), damp north drift
     const cp = Math.cos(pitch);
     const sp = Math.sin(pitch);
     set(
@@ -182,8 +182,8 @@ function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
     normalize(_thrust, _thrust);
   }
 
-  let a = ASCENT_ACCEL;
-  // Throttle near insertion for control
+  // Request peak available a; force limit (BOOSTER_THRUST_N) sets real T/W
+  let aCmd = ASCENT_ACCEL;
   if (alt > 120) {
     const err = Math.hypot(
       vRad * 2,
@@ -191,9 +191,12 @@ function ascentThrust(t: number, pos: V3, vel: V3): V3 | null {
       vNorth * 2,
       (alt - LEO_ALTITUDE) * 0.03,
     );
-    a = Math.min(ASCENT_ACCEL * 1.1, Math.max(0.006, err * 1.2));
+    aCmd = Math.min(ASCENT_ACCEL * 1.1, Math.max(0.004, err * 1.0));
   }
-  return scale(_thrust, _thrust, a);
+
+  const { aKmS2, forceN } = limitAccelByThrust(prop, aCmd, "booster");
+  if (forceN < 1e-3 || aKmS2 < 1e-9) return null;
+  return { a: scale(_thrust, _thrust, aKmS2), forceN };
 }
 
 function insertionOk(t: number, pos: V3, vel: V3): boolean {
@@ -227,12 +230,20 @@ export function flyAscent(): AscentResult {
   state.vel.y += pad.up.y * 0.01;
   state.vel.z += pad.up.z * 0.01;
 
-  const a0 = ascentThrust(0, state.pos, state.vel);
-  pushAscentSample(samples, state, "launch", true, prop, a0 ? len(a0) : ASCENT_ACCEL);
+  const a0 = ascentThrust(0, state.pos, state.vel, prop);
+  pushAscentSample(
+    samples,
+    state,
+    "launch",
+    true,
+    prop,
+    a0?.forceN ?? 0,
+  );
 
   let lastSampleT = 0;
   let phase: AscentPhase = "launch";
-  const maxT = 12 * 60; // 12 min hard cap
+  const maxT = 25 * 60; // 25 min hard cap (mass-coupled lower T/W)
+  let lastForceN = a0?.forceN ?? 0;
 
   while (state.t < maxT) {
     const alt = altitudeEarth(state.t, state.pos);
@@ -267,39 +278,99 @@ export function flyAscent(): AscentResult {
       };
     }
 
-    const thrustFn: ThrustFn = (t, p, v) => ascentThrust(t, p, v);
-    // Fine integration + sampling so the pad→LEO trail is smooth
+    if (!hasPropellant(prop, "booster")) {
+      // Dry booster: stage; force-circularize if high enough for theater LEO
+      stageBooster(prop, state.t);
+      if (alt > 55) break;
+      return {
+        state,
+        samples,
+        ok: false,
+        message: "Booster propellant depleted",
+        insertionAlt: alt,
+        insertionSpeed: 0,
+        prop,
+      };
+    }
+
+    const thrustFn: ThrustFn = (t, p, v) => {
+      const th = ascentThrust(t, p, v, prop);
+      return th ? th.a : null;
+    };
     const dt = alt < 15 ? 0.15 : alt < 40 ? 0.25 : alt < 100 ? 0.4 : 0.6;
+    const tBefore = state.t;
     rk4Step(state, dt, thrustFn);
 
-    // Sample every step (or at most every 0.5 s) during ascent
+    // Mass-coupled drain every integration step (not only samples)
+    const thNow = ascentThrust(state.t, state.pos, state.vel, prop);
+    lastForceN = thNow?.forceN ?? 0;
+    if (lastForceN > 0) {
+      // Account force over the step just integrated
+      prop.lastT = tBefore;
+      burnForce(prop, state.t, lastForceN, "booster");
+    } else {
+      prop.lastT = state.t;
+    }
+
     const minDt = phase === "launch" ? 0.15 : 0.35;
     if (state.t - lastSampleT >= minDt - 1e-9) {
       lastSampleT = state.t;
-      const th = ascentThrust(state.t, state.pos, state.vel);
-      const aMag = th ? len(th) : 0;
-      pushAscentSample(samples, state, phase, th !== null, prop, aMag);
+      pushAscentSample(
+        samples,
+        state,
+        phase,
+        lastForceN > 0,
+        prop,
+        lastForceN,
+      );
     }
   }
 
-  // Force LEO if close enough
+  // Force LEO if high enough (dry booster or timeout near insertion)
   const alt = altitudeEarth(state.t, state.pos);
-  if (alt > 150) {
-    // Snap circularize for theater reliability
-    const b = getBodies(state.t);
-    sub(_relP, state.pos, b.earth);
-    normalize(_up, _relP);
-    enuAtPosition(state.t, state.pos, b.earth, _up, _east, _north);
-    // Place on LEO sphere along current radial
-    state.pos.x = b.earth.x + _up.x * LEO_RADIUS;
-    state.pos.y = b.earth.y + _up.y * LEO_RADIUS;
-    state.pos.z = b.earth.z + _up.z * LEO_RADIUS;
+  if (alt > 55) {
+    if (!prop.staged) stageBooster(prop, state.t);
+    // Soft circularize over a few seconds so the trail has no zero-dt teleport
     const vCirc = Math.sqrt(MU_EARTH / LEO_RADIUS);
-    state.vel.x = b.earthVel.x + _east.x * vCirc;
-    state.vel.y = b.earthVel.y + _east.y * vCirc;
-    state.vel.z = b.earthVel.z + _east.z * vCirc;
-    stageBooster(prop, state.t);
-    pushAscentSample(samples, state, "leo", false, prop, 0);
+    const settleS = 8;
+    const steps = 16;
+    for (let i = 1; i <= steps; i++) {
+      const u = i / steps;
+      state.t += settleS / steps;
+      const b = getBodies(state.t);
+      sub(_relP, state.pos, b.earth);
+      normalize(_up, _relP);
+      enuAtPosition(state.t, state.pos, b.earth, _up, _east, _north);
+      // Blend altitude toward LEO_RADIUS and velocity toward circular east
+      const rNow = len(_relP);
+      const rTgt = LEO_RADIUS;
+      const r = rNow + u * (rTgt - rNow);
+      state.pos.x = b.earth.x + _up.x * r;
+      state.pos.y = b.earth.y + _up.y * r;
+      state.pos.z = b.earth.z + _up.z * r;
+      const vTgtE = vCirc;
+      sub(_relV, state.vel, b.earthVel);
+      const vE = dot(_relV, _east);
+      const vN = dot(_relV, _north);
+      const vR = dot(_relV, _up);
+      const vEu = vE + u * (vTgtE - vE);
+      const vNu = vN * (1 - u);
+      const vRu = vR * (1 - u);
+      state.vel.x =
+        b.earthVel.x + _east.x * vEu + _north.x * vNu + _up.x * vRu;
+      state.vel.y =
+        b.earthVel.y + _east.y * vEu + _north.y * vNu + _up.y * vRu;
+      state.vel.z =
+        b.earthVel.z + _east.z * vEu + _north.z * vNu + _up.z * vRu;
+      pushAscentSample(
+        samples,
+        state,
+        i < steps ? "ascent" : "leo",
+        false,
+        prop,
+        0,
+      );
+    }
     return {
       state,
       samples,

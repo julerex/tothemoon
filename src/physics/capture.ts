@@ -181,31 +181,48 @@ export function landingThrust(
   return _thrust;
 }
 
-/** Rotate unit vector `a` toward unit `b` by angle fraction u ∈ [0,1] (slerp). */
+/**
+ * Slerp unit `a` → unit `b` by fraction u. Does **not** flip b for short-arc
+ * (must reach the true south pole even from the northern hemisphere).
+ */
 function slerpUnit(a: V3, b: V3, u: number, out: V3): V3 {
-  let cosom = clamp1(dot(a, b));
-  let bx = b.x;
-  let by = b.y;
-  let bz = b.z;
-  if (cosom < 0) {
-    cosom = -cosom;
-    bx = -bx;
-    by = -by;
-    bz = -bz;
-  }
+  const cosom = clamp1(dot(a, b));
   if (cosom > 0.9995) {
-    out.x = a.x + u * (bx - a.x);
-    out.y = a.y + u * (by - a.y);
-    out.z = a.z + u * (bz - a.z);
+    out.x = a.x + u * (b.x - a.x);
+    out.y = a.y + u * (b.y - a.y);
+    out.z = a.z + u * (b.z - a.z);
+    return normalize(out, out);
+  }
+  // Opposite poles: pick a perpendicular axis and rotate
+  if (cosom < -0.9995) {
+    // a ≈ −b: rotate 180° about an axis ⟂ a
+    cross(_tmp, a, { x: 1, y: 0, z: 0 });
+    if (len(_tmp) < 1e-6) cross(_tmp, a, { x: 0, y: 1, z: 0 });
+    normalize(_tmp, _tmp);
+    // At u=0.5 we're at the equator; use nlerp via intermediate
+    const midX = _tmp.x;
+    const midY = _tmp.y;
+    const midZ = _tmp.z;
+    if (u < 0.5) {
+      const v = u * 2;
+      out.x = a.x + v * (midX - a.x);
+      out.y = a.y + v * (midY - a.y);
+      out.z = a.z + v * (midZ - a.z);
+    } else {
+      const v = (u - 0.5) * 2;
+      out.x = midX + v * (b.x - midX);
+      out.y = midY + v * (b.y - midY);
+      out.z = midZ + v * (b.z - midZ);
+    }
     return normalize(out, out);
   }
   const omega = Math.acos(cosom);
   const sinom = Math.sin(omega);
   const s0 = Math.sin((1 - u) * omega) / sinom;
   const s1 = Math.sin(u * omega) / sinom;
-  out.x = s0 * a.x + s1 * bx;
-  out.y = s0 * a.y + s1 * by;
-  out.z = s0 * a.z + s1 * bz;
+  out.x = s0 * a.x + s1 * b.x;
+  out.y = s0 * a.y + s1 * b.y;
+  out.z = s0 * a.z + s1 * b.z;
   return normalize(out, out);
 }
 

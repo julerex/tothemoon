@@ -46,7 +46,12 @@ import {
 } from "./leoCoast";
 import { pushSample } from "./missionSample";
 import type { MissionResult, PhaseId, Sample } from "./missionTypes";
-import { createPropState, fuelShipFrac } from "./propellant";
+import {
+  createPropState,
+  fuelShipFrac,
+  hasPropellant,
+  limitAccelByThrust,
+} from "./propellant";
 import {
   apogeeFromTliDv,
   lroTransfer,
@@ -55,7 +60,7 @@ import {
   runFiniteTli,
   transferTimeEst,
 } from "./tli";
-import { clone, len, sub, v3 } from "./vec3";
+import { clone, len, scale, sub, v3 } from "./vec3";
 
 // Re-export public types / helpers so existing imports of ./mission keep working.
 export type { PhaseId, Sample, MissionResult } from "./missionTypes";
@@ -399,10 +404,27 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       );
     }
 
-    const thrustFn: ThrustFn = (t, p, v) => landingThrust(t, p, v, phase);
     const dt =
       phase === "descent" ? DT_BURN : phase === "braking" ? DT_NEAR : DT_NEAR;
-    const thNow = landingThrust(state.t, state.pos, state.vel, phase);
+    // Mass-coupled ship thrust: a = F/m, empty tank cuts engines
+    const thrustFn: ThrustFn = (t, p, v) => {
+      if (!hasPropellant(prop, "ship")) return null;
+      const th = landingThrust(t, p, v, phase);
+      if (!th) return null;
+      const aCmd = len(th);
+      const lim = limitAccelByThrust(prop, aCmd, "ship");
+      if (lim.forceN < 1e-3) return null;
+      return scale(th, th, lim.aKmS2 / Math.max(aCmd, 1e-12));
+    };
+    let thNow = landingThrust(state.t, state.pos, state.vel, phase);
+    if (thNow && hasPropellant(prop, "ship")) {
+      const aCmd = len(thNow);
+      const lim = limitAccelByThrust(prop, aCmd, "ship");
+      if (lim.forceN < 1e-3) thNow = null;
+      else thNow = scale(thNow, thNow, lim.aKmS2 / Math.max(aCmd, 1e-12));
+    } else if (!hasPropellant(prop, "ship")) {
+      thNow = null;
+    }
     const burning = thNow !== null;
     rk4Step(state, dt, thrustFn);
 

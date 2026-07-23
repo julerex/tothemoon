@@ -8,7 +8,12 @@ import {
 import { keplerRvAt, type KeplerOrbit } from "./kepler";
 import { pushSample } from "./missionSample";
 import type { Sample } from "./missionTypes";
-import type { PropState } from "./propellant";
+import {
+  burnForce,
+  hasPropellant,
+  limitAccelByThrust,
+  type PropState,
+} from "./propellant";
 import { set, type V3, v3 } from "./vec3";
 
 const _relP = v3();
@@ -123,11 +128,25 @@ export function runTcmBurn(
 
   const dt = Math.min(DT_BURN, 1.5);
   while (state.t < tEnd - 1e-9) {
+    if (prop && !hasPropellant(prop, "ship")) break;
     const step = Math.min(dt, tEnd - state.t);
     // Re-aim to current Kepler velocity residual each step
-    let ax = _dir.x * aBurn;
-    let ay = _dir.y * aBurn;
-    let az = _dir.z * aBurn;
+    let aCmd = aBurn;
+    if (orb) {
+      const { mag: gm } = tcmDeltaV(
+        state.t,
+        state.pos,
+        state.vel,
+        orb,
+        TCM_MAX_DV,
+      );
+      if (gm > 1e-5) {
+        // keep aBurn magnitude; direction from go below
+      }
+    }
+    let ax = _dir.x * aCmd;
+    let ay = _dir.y * aCmd;
+    let az = _dir.z * aCmd;
     if (orb) {
       const { dv: go, mag: gm } = tcmDeltaV(
         state.t,
@@ -137,14 +156,31 @@ export function runTcmBurn(
         TCM_MAX_DV,
       );
       if (gm > 1e-5) {
-        ax = (go.x / gm) * aBurn;
-        ay = (go.y / gm) * aBurn;
-        az = (go.z / gm) * aBurn;
+        ax = (go.x / gm) * aCmd;
+        ay = (go.y / gm) * aCmd;
+        az = (go.z / gm) * aCmd;
       }
     }
+    let forceN = 0;
+    if (prop) {
+      const lim = limitAccelByThrust(prop, aCmd, "ship");
+      if (lim.forceN < 1e-3) break;
+      const s = lim.aKmS2 / Math.max(aCmd, 1e-12);
+      ax *= s;
+      ay *= s;
+      az *= s;
+      forceN = lim.forceN;
+      aCmd = lim.aKmS2;
+    }
     const thrustFn: ThrustFn = () => set(_thrust, ax, ay, az);
+    const tBefore = state.t;
     rk4Step(state, step, thrustFn);
-    delivered += aBurn * step;
+    delivered += aCmd * step;
+
+    if (prop && forceN > 0) {
+      prop.lastT = tBefore;
+      burnForce(prop, state.t, forceN, "ship");
+    }
 
     if (samples && lastT) {
       pushSample(
@@ -156,9 +192,9 @@ export function runTcmBurn(
         1.2,
         lastT,
         prop,
-        aBurn,
+        aCmd,
         "ship",
-        true,
+        false, // already drained
       );
     }
   }

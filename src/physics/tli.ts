@@ -17,7 +17,12 @@ import {
 import { rvToKepler, type KeplerOrbit } from "./kepler";
 import { pushSample } from "./missionSample";
 import type { Sample } from "./missionTypes";
-import type { PropState } from "./propellant";
+import {
+  burnForce,
+  hasPropellant,
+  limitAccelByThrust,
+  type PropState,
+} from "./propellant";
 import {
   cross,
   dot,
@@ -245,6 +250,8 @@ export function runFiniteTli(
   const vGo = v3();
 
   while (state.t < tHardCap - 1e-9) {
+    if (prop && !hasPropellant(prop, "ship")) break;
+
     const b = getBodies(state.t);
     // Recompute ideal inject velocity at current r (updates as we arc)
     idealTliRelVel(state, tliDv, vIdeal);
@@ -255,7 +262,16 @@ export function runFiniteTli(
     const go = len(vGo);
     if (go < 0.012) break; // ~12 m/s residual — close enough
 
-    const aStep = Math.min(aNom, Math.max(go / dt, 0.002));
+    const aCmd = Math.min(aNom, Math.max(go / dt, 0.002));
+    // Mass-coupled: a = F/m ≤ peak ship thrust
+    let aStep = aCmd;
+    let forceN = 0;
+    if (prop) {
+      const lim = limitAccelByThrust(prop, aCmd, "ship");
+      aStep = lim.aKmS2;
+      forceN = lim.forceN;
+      if (forceN < 1e-3) break;
+    }
     normalize(_pro, vGo);
     const ax = _pro.x * aStep;
     const ay = _pro.y * aStep;
@@ -264,10 +280,17 @@ export function runFiniteTli(
     const thrustFn: ThrustFn = () => set(_thrust, ax, ay, az);
 
     const step = Math.min(dt, tHardCap - state.t);
+    const tBefore = state.t;
     rk4Step(state, step, thrustFn);
     delivered += aStep * step;
 
+    if (prop && forceN > 0) {
+      prop.lastT = tBefore;
+      burnForce(prop, state.t, forceN, "ship");
+    }
+
     if (samples && lastT) {
+      // Mass already drained via burnForce — record without double-drain
       pushSample(
         samples,
         state,
@@ -279,7 +302,7 @@ export function runFiniteTli(
         prop,
         aStep,
         "ship",
-        true,
+        false,
       );
     }
   }

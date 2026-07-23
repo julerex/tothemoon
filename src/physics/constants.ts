@@ -143,28 +143,45 @@ export const G0 = 9.80665;
 
 /**
  * Theater stack masses (kg) — Super Heavy / Starship order-of-magnitude.
- * Used only for HUD fuel + thrust force (F = m · a); guidance stays accel-based.
+ * Propellant loads sized for pure rocket-equation ṁ under mass-coupled burns
+ * (A4) so ascent + dogleg + TLI + TCM + landing still complete.
  */
 export const BOOSTER_DRY_KG = 200_000;
-export const BOOSTER_PROP_KG = 3_400_000;
+/** Sized for pure-RE multi-g burn lasting a few minutes to ~70+ km. */
+export const BOOSTER_PROP_KG = 9_000_000;
 export const SHIP_DRY_KG = 120_000;
-export const SHIP_PROP_KG = 1_200_000;
+export const SHIP_PROP_KG = 5_000_000;
 
-/** Specific impulse (s) for mass-flow bookkeeping */
+/** Specific impulse (s) — rocket-equation mass flow */
 export const ISP_BOOSTER = 330;
 export const ISP_SHIP = 380;
 
 /**
- * Scale pure rocket-equation ṁ so booster propellant lasts ~ascent duration
- * under continuous ASCENT_ACCEL (theater accel is higher than real average).
- * Tuned so ~8 min full-thrust equivalent drains ~95% of booster prop.
+ * Peak thrust (N). Mass-coupled a = F / m(t) (km/s² = F/m/1000).
+ *
+ * Peak is set so *continuous* full-throttle at full wet mass is a fraction of
+ * the old theater accel (pure rocket-equation ṁ would empty a multi-g stack in
+ * ~1–2 min). As mass drops, a rises — classic rocket. Guidance may still
+ * request up to this peak.
  */
-export const BOOSTER_MDOT_SCALE = 0.18;
+export const STACK_WET_KG =
+  BOOSTER_DRY_KG + BOOSTER_PROP_KG + SHIP_DRY_KG + SHIP_PROP_KG;
+export const SHIP_WET_KG = SHIP_DRY_KG + SHIP_PROP_KG;
 /**
- * Ship ṁ scale for braking/descent bookkeeping (soft multi-hour burns would
- * empty a pure rocket-equation tank). Tuned for residual at touchdown.
+ * ~1.6 g at full stack (must exceed 1 g to lift off). Pure-RE ṁ empties the
+ * booster in a few minutes; ascent stages dry and force-circularizes if high.
+ * a rises as mass drops.
  */
-export const SHIP_MDOT_SCALE = 0.06;
+export const BOOSTER_THRUST_N = STACK_WET_KG * 0.016 * 1000;
+/** ~1.2 g at full ship wet mass (TLI / landing / TCM). */
+export const SHIP_THRUST_N = SHIP_WET_KG * 0.012 * 1000;
+
+/**
+ * @deprecated A4 uses pure rocket equation (scale ≡ 1). Kept for any external refs.
+ */
+export const BOOSTER_MDOT_SCALE = 1;
+/** @deprecated A4 uses pure rocket equation (scale ≡ 1). */
+export const SHIP_MDOT_SCALE = 1;
 
 /** Capture / approach guidance start distance from Moon center (km) */
 export const APPROACH_RANGE = 40_000;

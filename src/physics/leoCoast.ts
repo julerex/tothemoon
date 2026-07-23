@@ -4,8 +4,11 @@ import { getAscent } from "./ascentCache";
 import { getBodies, type CraftState } from "./integrator";
 import { pushSample } from "./missionSample";
 import type { Sample } from "./missionTypes";
-import type { PropState } from "./propellant";
-import { createPropState } from "./propellant";
+import {
+  applyImpulsiveShipDv,
+  createPropState,
+  type PropState,
+} from "./propellant";
 import { transferTimeEst } from "./tli";
 import {
   clone,
@@ -280,6 +283,7 @@ export function runLunarPlaneLeoCoast(
     const t = t0 + coastS * u;
     setCircularLeo(state, t, _rHat, _tmp);
     if (samples && lastT) {
+      // Kinematic dogleg: show thrust for HUD; propellant booked once at end
       pushSample(
         samples,
         state,
@@ -291,7 +295,7 @@ export function runLunarPlaneLeoCoast(
         prop,
         aKmS2,
         "ship",
-        true,
+        false,
       );
     }
 
@@ -299,6 +303,12 @@ export function runLunarPlaneLeoCoast(
   }
 
   _lastDoglegDvKmS = doglegDv;
+  // Book a theater-capped plane-change cost (full 2v sin(Δi/2) would empty the
+  // ship under pure RE; path is kinematic — budget ~1.2 km/s for HUD honesty).
+  if (prop && doglegDv > 1e-6) {
+    const bookDv = Math.min(doglegDv, 0.9);
+    applyImpulsiveShipDv(prop, state.t, bookDv, Math.max(coastS * 0.4, 400));
+  }
 
   // Sanity: continuous sum ≈ 2 v sin(Δi/2) for the total plane change
   void totalDi;

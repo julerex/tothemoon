@@ -130,17 +130,17 @@ engine-out tables stay deferred.
   down to hide cost.
 - Document in README Physics: “LEO dogleg into lunar plane (paid Δv).”
 
-### A4. Mass-coupled dynamics (sequence item 4)
+### A4. Mass-coupled dynamics (sequence item 4) — **done 2026-07-23**
 
-**Today:** guidance is acceleration-based; `propellant.ts` is HUD-only with
-`BOOSTER_MDOT_SCALE` / `SHIP_MDOT_SCALE`.
+**Was:** accel-based guidance; HUD-only propellant with mdot fudge scales.
 
-**Target:**
-- State includes dry + propellant mass (or wet mass derived from tanks).
-- Engine model: thrust force → a = F / m(t).
-- Rocket-equation ṁ without fudge scales, or retune only after F/Isp are consistent.
-- Empty tanks cut engines (hard stop) so LOI/landing budgets constrain the mission.
-- HUD fuel bars remain authoritative for the same state used by dynamics.
+**Shipped:**
+- Peak thrust `BOOSTER_THRUST_N` / `SHIP_THRUST_N`; a = F/m(t) via `limitAccelByThrust`.
+- Pure rocket-equation ṁ (`burnForce`); empty tanks return zero force.
+- Ascent drains every integration step; TLI/TCM/landing ship burns mass-coupled.
+- Dogleg (kinematic) books plane-change Δv once via pure-RE impulsive helper.
+- Propellant loads retuned for pure RE so the mission still closes.
+- HUD fuel/thrust use the same `PropState` as dynamics.
 
 ### A5. Ascent atmosphere + staged profile
 
@@ -351,6 +351,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **A3 complete:** paid LEO dogleg (~plane-change class Δv, ship fuel, timeline event) |
 | 2026-07-23 | **A1 complete:** finite TLI 2–4 min; land lunar south pole |
 | 2026-07-23 | **A2 complete:** ballistic coast + discrete TCMs (+12 h, +48 h, approach) |
+| 2026-07-23 | **A4 complete:** mass-coupled a=F/m, pure rocket-equation ṁ, tank cutout |
 
 ## Changelog
 

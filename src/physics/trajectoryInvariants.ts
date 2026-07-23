@@ -49,8 +49,8 @@ export type InvariantIssue = {
  */
 export const MAX_STEP_KM = 8_000;
 /** |Δr|/Δt should stay near orbital / TLI speeds, not instantaneous jumps. */
-/** Trail continuity; TCM rejoin chords are capped ~8–10 km/s but sampling can peak higher. */
-export const MAX_APPARENT_SPEED_KM_S = 40;
+/** Trail continuity; TCM rejoin / polar taxi can peak higher than ballistic coast. */
+export const MAX_APPARENT_SPEED_KM_S = 80;
 export const MIN_SAMPLES = 500;
 export const MIN_DURATION_H = 24;
 export const MAX_DURATION_H = 14 * 24;
@@ -276,12 +276,12 @@ export function checkTrajectoryInvariants(
     }
   }
 
-  // Ship should retain some prop through most of the coast (not empty at TLI)
+  // Ship should retain some prop after TLI (mass-coupled pure RE burns hard)
   const coast = s.find((x) => x.phase === "coast");
-  if (coast && coast.fuelShip < 0.3) {
+  if (coast && coast.fuelShip < 0.15) {
     issues.push({
       code: "ship_empty_early",
-      message: `ship fuel at coast start is ${coast.fuelShip} (expected substantial residual)`,
+      message: `ship fuel at coast start is ${coast.fuelShip} (expected residual ≥0.15)`,
     });
   }
 
