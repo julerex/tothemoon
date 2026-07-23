@@ -165,33 +165,20 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
 
   pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
 
-  // Integrate well past design encounter so flyby or impact can complete
-  const maxCoastT = tTli + Tcoast * 1.45 + 80_000;
+  // Integrate through lunar encounter; stop after flyby (do not fall all the
+  // way back to Earth — that late reverse is solar/4-body, not the transfer).
+  const maxCoastT = tTli + Tcoast * 1.35 + 60_000;
   while (state.t < maxCoastT) {
     const dMoon = distanceToMoon(state.t, state.pos);
     const altM = altitudeMoon(state.t, state.pos);
     const coastT = state.t - tTli;
+    const bE = getBodies(state.t);
+    sub(_relP, state.pos, bE.earth);
+    const rE = len(_relP);
 
     if (altM < minMoonAlt) {
       minMoonAlt = altM;
       periluneT = state.t;
-    }
-
-    // Earth impact (failed transfer)
-    if (altitudeEarth(state.t, state.pos) < 0) {
-      console.info(`[tothemoon] Earth impact @ t=${(state.t / 3600).toFixed(1)} h`);
-      return {
-        samples,
-        durationS: state.t,
-        moonPhase0,
-        tliDv,
-        minMoonAlt,
-        ok: true,
-        message: "Earth impact (ballistic · no post-TLI burns)",
-        keplerRefMaxDevKm,
-        tcmCount: 0,
-        tcmTotalDv: 0,
-      };
     }
 
     // Lunar impact — project onto surface, freeze for a short settle
@@ -207,7 +194,6 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       state.vel.y = b.moonVel.y;
       state.vel.z = b.moonVel.z;
       pushSample(samples, state, "impact", false, true, 0, lastT, prop, 0, "ship");
-      // Short surface freeze so the scrubber shows impact epoch
       const tHit = state.t;
       for (let i = 1; i <= 20; i++) {
         const t = tHit + i * 60;
@@ -226,7 +212,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       console.info(`[tothemoon] ${msg}`);
       return {
         samples,
-        durationS: state.t,
+        durationS: samples[samples.length - 1]!.t,
         moonPhase0,
         tliDv,
         minMoonAlt: Math.min(minMoonAlt, 0),
@@ -238,37 +224,51 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       };
     }
 
-    // Flyby complete: past perilune and climbing away
-    if (
-      coastT > Tcoast * 0.7 &&
-      state.t > periluneT + 8_000 &&
-      altM > minMoonAlt + 20_000 &&
-      minMoonAlt < 250_000
-    ) {
-      // Coast a bit further so the trail shows the outbound leg
-      if (altM > minMoonAlt + 80_000 || state.t > periluneT + 100_000) {
-        const msg =
-          minMoonAlt < 0
-            ? "Lunar impact"
-            : minMoonAlt < 100
-              ? `Ballistic skim · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
-              : minMoonAlt < 10_000
-                ? `Ballistic flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
-                : `Distant flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`;
-        console.info(`[tothemoon] ${msg}`);
-        return {
-          samples,
-          durationS: state.t,
-          moonPhase0,
-          tliDv,
-          minMoonAlt,
-          ok: true,
-          message: msg,
-          keplerRefMaxDevKm,
-          tcmCount: 0,
-          tcmTotalDv: 0,
-        };
-      }
+    // Flyby complete: only after design TOF window so we don't stop before
+    // true perilune. Then coast a bit outbound (avoid full Earth-return reverse).
+    const pastPerilune =
+      coastT > Tcoast * 0.85 &&
+      state.t > periluneT + 20_000 &&
+      altM > minMoonAlt + 25_000 &&
+      rE > A_EM * 0.6;
+    if (pastPerilune) {
+      const msg =
+        minMoonAlt < 100
+          ? `Ballistic skim · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
+          : minMoonAlt < 25_000
+            ? `Ballistic flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
+            : `Distant flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`;
+      console.info(`[tothemoon] ${msg}`);
+      return {
+        samples,
+        durationS: state.t,
+        moonPhase0,
+        tliDv,
+        minMoonAlt,
+        ok: true,
+        message: msg,
+        keplerRefMaxDevKm,
+        tcmCount: 0,
+        tcmTotalDv: 0,
+      };
+    }
+
+    // Earth impact only if it happens before we declare flyby
+    if (altitudeEarth(state.t, state.pos) < 0) {
+      pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
+      console.info(`[tothemoon] Earth impact @ t=${(state.t / 3600).toFixed(1)} h`);
+      return {
+        samples,
+        durationS: samples[samples.length - 1]!.t,
+        moonPhase0,
+        tliDv,
+        minMoonAlt,
+        ok: true,
+        message: "Earth impact (ballistic · no post-TLI burns)",
+        keplerRefMaxDevKm,
+        tcmCount: 0,
+        tcmTotalDv: 0,
+      };
     }
 
     const dt =
@@ -398,44 +398,68 @@ export function runMission(): MissionResult {
 
   const guess = Math.PI - N_MOON * (T + tTli0);
 
+  // Epoch + Δv search for free 4-body close pass (keep prograde: near-Hohmann only)
   const phaseOffsets: number[] = [];
   for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
 
-  const dvMax = Math.min(maxTliDv(), baseDv * 1.03);
-  const dvScales = [1.0, 1.005, 1.01, 1.015, 1.02, 1.025, 1.03].filter(
+  const dvMax = maxTliDv();
+  // Stay at/just above Hohmann so apo reaches the Moon (cool → Earth return)
+  const dvScales = [1.0, 1.002, 1.004, 1.005].filter(
     (s) => baseDv * s <= dvMax + 1e-9,
   );
 
-  // Prefer a close lunar pass (impact or low flyby) for an interesting trail
-  const INTERCEPT_ALT = 40_000;
-  const IDEAL_PERILUNE = 2_000;
+  const INTERCEPT_ALT = 80_000;
+  const IDEAL_PERILUNE = 8_000;
   const IDEAL_TOA = T;
-  const TOA_MIN = T * 0.75;
-  const TOA_MAX = T * 1.25;
+  const TOA_MIN = T * 0.65;
+  const TOA_MAX = T * 1.4;
 
   function periluneScore(
     alt: number,
     periluneT: number,
     rEarth: number,
   ): number {
-    if (!Number.isFinite(alt) || alt > 300_000) return 1e12;
-    // Impact (alt < 0) is a valid interesting outcome — small penalty
+    if (!Number.isFinite(alt) || alt > 400_000) return 1e12;
+    // Ignore "closest approach" still in LEO (rE ≪ A_EM)
+    if (rEarth < A_EM * 0.5 && alt > 50_000) return 1e12;
     const altTerm =
       alt < 0
-        ? 500 + Math.abs(alt) * 0.1
-        : Math.abs(alt - IDEAL_PERILUNE) * 2 +
-          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 8 : 0);
+        ? 100
+        : Math.abs(alt - IDEAL_PERILUNE) +
+          (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 10 : 0) +
+          (alt > 150_000 ? (alt - 150_000) * 8 : 0);
     const dtH = (periluneT - IDEAL_TOA) / 3600;
-    const timeTerm = dtH * dtH * 120;
+    const timeTerm = dtH * dtH * 40;
     const rErr = Math.abs(rEarth - A_EM) / 1000;
-    const rTerm = rErr * rErr * 20;
+    const rTerm = rErr * rErr * 25;
     const windowPen =
       periluneT < TOA_MIN
-        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 150
+        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 80
         : periluneT > TOA_MAX
-          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 150
+          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 80
           : 0;
-    return altTerm + timeTerm + rTerm + windowPen;
+    const nearLunar =
+      rEarth > A_EM * 0.75 && rEarth < A_EM * 1.2
+        ? 0
+        : ((rEarth - A_EM) / 1000) ** 2 * 50;
+    return altTerm + timeTerm + rTerm + windowPen + nearLunar;
+  }
+
+  function evalCandidate(dv: number, ph: number): {
+    sc: number;
+    alt: number;
+    t: number;
+    rE: number;
+  } {
+    setEpochPhases(ph, T);
+    _leoRelTemplate = computeLeoRel();
+    const pr = probePerilune(dv);
+    return {
+      sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth),
+      alt: pr.minAlt,
+      t: pr.periluneT,
+      rE: pr.rEarth,
+    };
   }
 
   let bestPhase = guess;
@@ -448,67 +472,54 @@ export function runMission(): MissionResult {
 
   for (const dS of dvScales) {
     const dv = Math.min(baseDv * dS, dvMax);
-    let localBestPhase = guess;
-    let localBestAlt = Infinity;
-    let localBestT = T;
-    let localBestR = Infinity;
-    let localBestScore = Infinity;
-
     for (const off of phaseOffsets) {
       const ph = guess + off;
-      setEpochPhases(ph, T);
-      _leoRelTemplate = computeLeoRel();
-      const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
-      if (sc < localBestScore) {
-        localBestScore = sc;
-        localBestAlt = pr.minAlt;
-        localBestT = pr.periluneT;
-        localBestR = pr.rEarth;
-        localBestPhase = ph;
+      const ev = evalCandidate(dv, ph);
+      if (ev.sc < bestScore) {
+        bestScore = ev.sc;
+        bestAlt = ev.alt;
+        bestPeriluneT = ev.t;
+        bestREarth = ev.rE;
+        bestPhase = ph;
+        bestDv = dv;
       }
-    }
-
-    for (const off of [-0.03, -0.015, 0.015, 0.03]) {
-      const ph = localBestPhase + off;
-      setEpochPhases(ph, T);
-      _leoRelTemplate = computeLeoRel();
-      const pr = probePerilune(dv);
-      const sc = periluneScore(pr.minAlt, pr.periluneT, pr.rEarth);
-      if (sc < localBestScore) {
-        localBestScore = sc;
-        localBestAlt = pr.minAlt;
-        localBestT = pr.periluneT;
-        localBestR = pr.rEarth;
-        localBestPhase = ph;
-      }
-    }
-
-    if (localBestScore < bestScore) {
-      bestScore = localBestScore;
-      bestAlt = localBestAlt;
-      bestPeriluneT = localBestT;
-      bestREarth = localBestR;
-      bestPhase = localBestPhase;
-      bestDv = dv;
-    }
-
-    if (
-      localBestAlt < INTERCEPT_ALT &&
-      localBestT >= TOA_MIN &&
-      localBestT <= TOA_MAX &&
-      localBestR > A_EM * 0.8 &&
-      localBestR < A_EM * 1.15
-    ) {
-      bestAlt = localBestAlt;
-      bestPeriluneT = localBestT;
-      bestREarth = localBestR;
-      bestPhase = localBestPhase;
-      bestDv = dv;
-      found = true;
-      break;
     }
   }
+
+  // Coordinate descent refine (phase, then Δv)
+  for (let iter = 0; iter < 8; iter++) {
+    let improved = false;
+    const dPh = 0.02 / (1 + iter);
+    for (const s of [-2, -1, 1, 2]) {
+      const ph = bestPhase + s * dPh;
+      const ev = evalCandidate(bestDv, ph);
+      if (ev.sc < bestScore - 1e-6) {
+        bestScore = ev.sc;
+        bestAlt = ev.alt;
+        bestPeriluneT = ev.t;
+        bestREarth = ev.rE;
+        bestPhase = ph;
+        improved = true;
+      }
+    }
+    const dDv = 0.004 / (1 + iter);
+    for (const s of [-2, -1, 1, 2]) {
+      // Never cool below ~0.998× Hohmann (sub-lunar apo → Earth impact)
+      const dv = Math.min(dvMax, Math.max(baseDv * 0.998, bestDv + s * dDv));
+      const ev = evalCandidate(dv, bestPhase);
+      if (ev.sc < bestScore - 1e-6) {
+        bestScore = ev.sc;
+        bestAlt = ev.alt;
+        bestPeriluneT = ev.t;
+        bestREarth = ev.rE;
+        bestDv = dv;
+        improved = true;
+      }
+    }
+    if (!improved) break;
+  }
+
+  if (bestAlt < INTERCEPT_ALT) found = true;
 
   const raDes = apogeeFromTliDv(LEO_RADIUS, bestDv);
   console.info(

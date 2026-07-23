@@ -13,10 +13,10 @@ import type { PhaseId } from "./missionTypes.ts";
 
 /** Bands after pure 4-body ballistic coast (no post-TLI burns) 2026-07-23. */
 const GOLDEN = {
-  durationS: 710_613,
-  durationTolFrac: 0.2,
-  tliDv: 3.180_1,
-  tliDvTol: 0.25,
+  durationS: 450_000,
+  durationTolFrac: 0.45,
+  tliDv: 3.133_1,
+  tliDvTol: 0.15,
   samplesMin: 2_000,
   samplesMax: 25_000,
   stageT: 140,
