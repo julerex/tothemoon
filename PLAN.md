@@ -222,27 +222,28 @@ Moon is Keplerian with fixed Ω and ω in `constants.ts`.
 
 ## Phase D — Architecture & verification (do early / alongside)
 
-### D1. Split `mission.ts` (**do first**, before A3)
+### D1. Split `mission.ts` (**do first**, before A3) — **done 2026-07-23**
 
 **Decision (2026-07-23): full D1 split with no behavior change, then A3.**
 
-Extract from `src/physics/mission.ts` (~1.3k lines) into:
+Extracted from `src/physics/mission.ts` into:
 
-| Module | Owns (from current `mission.ts`) |
-|--------|----------------------------------|
-| `missionTypes.ts` (or keep types in `mission.ts`) | `PhaseId`, `Sample`, `MissionResult`, `phaseLabel` |
-| `ascent` | already `ascent.ts` + `appendAscentAndLeoCoast` glue stays in leo or mission |
-| `leoCoast.ts` | `runLunarPlaneLeoCoast`, `computeLeoRel`, `appendAscentAndLeoCoast`, slerp helpers, `setCircularLeo` — **A3 lands here** |
-| `tli.ts` | `lroTransfer`, `applyTli`, `transferTimeEst`, `transferVPeri`, `apogeeFromTliDv`, `maxTliDv`, `orbitAfterTli` — **A1 lands here** |
-| `coast.ts` | `keplerTrackThrust`, `keplerRefPos`, coast integration loop pieces — **A2 lands here** |
-| `capture.ts` | `landingThrust`, `finishLanding`, approach/braking/descent arc of `flyMission` |
-| `mission.ts` | thin `runMission` / `flyMission` orchestrator, probe search, downsample, ascent cache, `pushSample` shared helper |
+| Module | Owns |
+|--------|------|
+| `missionTypes.ts` | `PhaseId`, `Sample`, `MissionResult`, `phaseLabel` |
+| `missionSample.ts` | `pushSample` |
+| `ascentCache.ts` | ascent cache / `ensureAscent` |
+| `ascent.ts` | powered ascent (pre-existing) |
+| `leoCoast.ts` | LEO plane slerp coast, LeoRel — **A3 lands here** |
+| `tli.ts` | LRO transfer + `applyTli` — **A1 lands here** |
+| `coast.ts` | Kepler-track midcourse — **A2 lands here** |
+| `capture.ts` | `landingThrust`, `finishLanding` |
+| `mission.ts` | thin `runMission` / `flyMission` orchestrator, probe search, downsample |
 
-**Rules for the split PR:**
-- No intentional physics change (same bake within tolerance).
-- Public API unchanged: `runMission`, `phaseLabel`, `PhaseId`, `Sample`, `MissionResult`.
-- Add **golden tests** against current bake before/after: phase order, duration band, stage time window, TLI Δv band, minMoonAlt band, sample count band.
-- Prefer moving functions + re-export over rewriting logic.
+**Rules (met):**
+- No intentional physics change (same bake within golden tolerance).
+- Public API unchanged: `runMission`, `phaseLabel`, `PhaseId`, `Sample`, `MissionResult` re-exported from `mission.ts`.
+- Golden tests: `mission.golden.test.ts` pins duration, TLI Δv, stage time, phase order, sample count.
 
 ### D2. Golden tests & pack metadata
 
@@ -351,6 +352,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **A1 burn:** ~2–4 min finite TLI at ~0.3–0.5 g theater ship accel |
 | 2026-07-23 | **A2:** 2–3 discrete TCMs; ballistic coast between |
 | 2026-07-23 | **D1 first:** full `mission.ts` split + golden tests before A3 physics |
+| 2026-07-23 | **D1 complete:** modules extracted; `mission.golden.test.ts` pins bake |
 
 ## Changelog
 
