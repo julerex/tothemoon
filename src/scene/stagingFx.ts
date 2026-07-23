@@ -43,9 +43,11 @@ export class StagingFx {
     // Stacked booster sits under craft mesh scale; apply the same here
     this.booster.scale.setScalar(meshScale);
     this.booster.userData.baseScale = meshScale;
-    // Kill plumes on the free flyer
-    const plume = this.booster.getObjectByName("plume-booster");
-    if (plume) plume.visible = false;
+    // Kill plumes / exhaust glow on the free flyer
+    for (const name of ["plume-booster", "exhaust-glow"]) {
+      const obj = this.booster.getObjectByName(name);
+      if (obj) obj.visible = false;
+    }
     this.group.add(this.booster);
 
     this.flashMat = new THREE.MeshBasicMaterial({

@@ -23,6 +23,7 @@ import {
   createAscentGroundTrack,
   createStarbasePad,
   pulsePadBeacon,
+  updateStarbaseLaunchFx,
 } from "./scene/earthTheater";
 import { updateZoomLabels } from "./scene/zoomLabels";
 import { CameraDirector, type CameraMode } from "./camera/modes";
@@ -213,6 +214,13 @@ function applyMissionState(u: number): void {
     staged: frame.staged,
     burning: frame.burning,
     thrustN: frame.thrustN,
+    missionT: frame.t,
+  });
+  updateStarbaseLaunchFx(starbasePad, {
+    missionT: frame.t,
+    phase: frame.phase,
+    burning: frame.burning,
+    altEarth: frame.altEarth,
   });
   stagingFx.update(frame.t, craftPos, craft.quaternion);
   landingFx.update(frame.t, craftPos, {
