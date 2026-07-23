@@ -195,11 +195,13 @@ phase order and LOI burn readability (thrust + fuel draw).
 
 ## Phase C — Ephemeris & Earth model
 
-### C1. Earth gravity (sequence item 5)
+### C1. Earth gravity (sequence item 5) — **done 2026-07-23**
 
-- Add **J2** (optionally J3/J4) for LEO; parking orbit precession matters for
-  multi-rev coast and ground track.
-- Simple atmospheric density below ~120 km for ascent (and any future reentry).
+**Shipped:**
+- Earth **J₂** in `integrator.addEarthJ2` (pole-aligned to theater Earth axis).
+- Exponential atmosphere + quadratic drag vs co-rotating air below ~120 km
+  (`atmDensity`, `addEarthDrag`); fixed ballistic factor for the stack.
+- Applied on every `rk4Step` (ascent feels Max-Q drag; LEO gets mild J₂).
 
 ### C2. Lunar / solar ephemeris (sequence item 7)
 
@@ -352,6 +354,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **A1 complete:** finite TLI 2–4 min; land lunar south pole |
 | 2026-07-23 | **A2 complete:** ballistic coast + discrete TCMs (+12 h, +48 h, approach) |
 | 2026-07-23 | **A4 complete:** mass-coupled a=F/m, pure rocket-equation ṁ, tank cutout |
+| 2026-07-23 | **C1 complete:** Earth J₂ + exponential atmosphere / quadratic drag |
 
 ## Changelog
 

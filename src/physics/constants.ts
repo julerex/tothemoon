@@ -7,6 +7,28 @@
 export const R_EARTH = 6371.0;
 
 /**
+ * Earth dynamical form factor J₂ (unnormalized). Used for LEO nodal precession
+ * and slight equatorial bulge force (theater-grade, not EGM).
+ */
+export const EARTH_J2 = 1.082_626_68e-3;
+
+/**
+ * Simple exponential atmosphere for ascent / low LEO drag (theater).
+ * ρ = ρ₀ exp(−h / H) for h < ATM_H_MAX_KM; zero above.
+ * ρ₀ in kg/km³ (1.225 kg/m³ = 1.225×10⁹ kg/km³).
+ */
+export const ATM_RHO0_KG_KM3 = 1.225e9;
+export const ATM_SCALE_HEIGHT_KM = 7.5;
+/** Cutoff altitude (km) — drag ignored above this. */
+export const ATM_H_MAX_KM = 120;
+
+/**
+ * Ballistic factor Cd·A/m for the stack (km²/kg).
+ * ~ Cd 0.5 · A 80 m² / m 5e6 kg → order 1e-11 km²/kg.
+ */
+export const DRAG_CD_A_OVER_M = 1.2e-11;
+
+/**
  * Earth axial tilt vs the ecliptic / orbital plane (rad).
  * In this theater the Sun–Earth–Moon plane is XY; ecliptic north is +Z.
  */
