@@ -92,7 +92,9 @@ scene.add(craft);
 // Staging fallaway + flash (mesh scale matches createCraft)
 const boosterProto = craft.getObjectByName("booster");
 const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), 0.04);
-stagingFx.setStageEvent(findStageEvent(cache.samples));
+const stageEvent = findStageEvent(cache.samples);
+stagingFx.setStageEvent(stageEvent);
+const stageT = stageEvent?.t ?? null;
 scene.add(stagingFx.group);
 
 // Landing site + dust
@@ -215,6 +217,9 @@ function applyMissionState(u: number): void {
     burning: frame.burning,
     thrustN: frame.thrustN,
     missionT: frame.t,
+    stageT,
+    altEarth: frame.altEarth,
+    phase: frame.phase,
   });
   updateStarbaseLaunchFx(starbasePad, {
     missionT: frame.t,

@@ -34,10 +34,12 @@ export function createCraft(): {
     metalness: 0.72,
     roughness: 0.42,
   });
+  const tileMap = makeHeatTileTexture();
   const tile = new THREE.MeshStandardMaterial({
-    color: 0x1a1c1e,
-    metalness: 0.15,
-    roughness: 0.82,
+    color: 0xffffff,
+    map: tileMap,
+    metalness: 0.12,
+    roughness: 0.88,
   });
   const tileEdge = new THREE.MeshStandardMaterial({
     color: 0x2a2e32,
@@ -99,34 +101,76 @@ export function createCraft(): {
   shipMain.position.z = -0.02;
   ship.add(shipMain);
 
-  // Windward heat-shield tiles (partial cylinder)
+  // Windward heat-shield tiles (partial cylinder + dense canvas tile map)
   const heatStrip = new THREE.Mesh(
     new THREE.CylinderGeometry(
       0.223,
       0.223,
-      0.95,
-      24,
-      1,
+      1.05,
+      32,
+      12,
+      true,
+      -Math.PI * 0.3,
+      Math.PI * 0.6,
+    ),
+    tile,
+  );
+  heatStrip.rotation.x = Math.PI / 2;
+  heatStrip.position.z = 0.1;
+  ship.add(heatStrip);
+
+  // Secondary tile band on nose / forward barrel (theater cue)
+  const heatFwd = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      0.201,
+      0.221,
+      0.42,
+      28,
+      6,
       true,
       -Math.PI * 0.28,
       Math.PI * 0.56,
     ),
     tile,
   );
-  heatStrip.rotation.x = Math.PI / 2;
-  heatStrip.position.z = 0.12;
-  ship.add(heatStrip);
+  heatFwd.rotation.x = Math.PI / 2;
+  heatFwd.position.z = 0.55;
+  ship.add(heatFwd);
 
   // Tile edge trim
   for (const side of [-1, 1]) {
     const trim = new THREE.Mesh(
-      new THREE.BoxGeometry(0.012, 0.02, 0.95),
+      new THREE.BoxGeometry(0.012, 0.02, 1.05),
       tileEdge,
     );
-    const ang = side * Math.PI * 0.28;
-    trim.position.set(Math.sin(ang) * 0.222, Math.cos(ang) * 0.222, 0.12);
+    const ang = side * Math.PI * 0.3;
+    trim.position.set(Math.sin(ang) * 0.222, Math.cos(ang) * 0.222, 0.1);
     trim.rotation.z = -ang;
     ship.add(trim);
+  }
+
+  // A few "missing tile" / white target tiles (Flight-test style markers)
+  for (const [u, v] of [
+    [0.12, 0.25],
+    [-0.08, -0.1],
+    [0.05, -0.35],
+  ] as [number, number][]) {
+    const marker = new THREE.Mesh(
+      new THREE.BoxGeometry(0.035, 0.008, 0.04),
+      new THREE.MeshStandardMaterial({
+        color: 0xe8eaf0,
+        metalness: 0.1,
+        roughness: 0.65,
+      }),
+    );
+    const ang = u;
+    marker.position.set(
+      Math.sin(ang) * 0.226,
+      Math.cos(ang) * 0.226,
+      v,
+    );
+    marker.lookAt(0, 0, v);
+    ship.add(marker);
   }
 
   // Barrel ring welds (visual stringers)
@@ -400,6 +444,10 @@ export function createCraft(): {
   exhaustLight.position.set(0, 0, -2.0);
   mesh.add(exhaustLight);
 
+  // Max-Q condensation / vapor sheath (mission-time driven)
+  const condense = makeCondensationCloud();
+  mesh.add(condense);
+
   mesh.scale.setScalar(scale);
   group.add(mesh);
 
@@ -511,6 +559,133 @@ function makeExhaustGlowSprite(): THREE.Sprite {
   );
 }
 
+/** Dense hex-ish TPS tile map for the windward heat shield. */
+function makeHeatTileTexture(): THREE.CanvasTexture {
+  const w = 256;
+  const h = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  // Base carbon / dark tile field
+  ctx.fillStyle = "#16181b";
+  ctx.fillRect(0, 0, w, h);
+
+  const cols = 14;
+  const rows = 48;
+  const tw = w / cols;
+  const th = h / rows;
+
+  for (let row = 0; row < rows; row++) {
+    const xOff = (row % 2) * (tw * 0.5);
+    for (let col = -1; col <= cols; col++) {
+      const x = col * tw + xOff;
+      const y = row * th;
+      // Slight per-tile brightness variation
+      const n =
+        14 +
+        ((row * 17 + col * 31) % 11) +
+        ((row * 3 + col * 7) % 5);
+      ctx.fillStyle = `rgb(${n},${n + 1},${n + 2})`;
+      ctx.fillRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
+      // Grout
+      ctx.strokeStyle = "rgba(48,52,58,0.85)";
+      ctx.lineWidth = 0.7;
+      ctx.strokeRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
+    }
+  }
+
+  // Occasional lighter / damaged tiles
+  for (let i = 0; i < 18; i++) {
+    const col = (i * 5 + 3) % cols;
+    const row = (i * 11 + 7) % rows;
+    const xOff = (row % 2) * (tw * 0.5);
+    const x = col * tw + xOff;
+    const y = row * th;
+    ctx.fillStyle = i % 4 === 0 ? "#c8ccd2" : "#2a3036";
+    ctx.fillRect(x + 1, y + 0.8, tw - 2, th - 1.4);
+  }
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.ClampToEdgeWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.anisotropy = 4;
+  return map;
+}
+
+/**
+ * Soft vapor / condensation sheath around the stack (Max-Q theater cue).
+ * Sprites face the camera; opacity driven by altitude in updateCraftVisuals.
+ */
+function makeCondensationCloud(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "condense-cloud";
+  g.visible = false;
+
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, "rgba(230, 235, 240, 0.9)");
+  grad.addColorStop(0.35, "rgba(200, 210, 220, 0.4)");
+  grad.addColorStop(1, "rgba(180, 190, 200, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+
+  // Stack of soft puffs along the body (nose → mid-stack)
+  const puffs: { z: number; s: number; phase: number }[] = [
+    { z: 1.3, s: 0.9, phase: 0.2 },
+    { z: 0.85, s: 1.15, phase: 1.1 },
+    { z: 0.35, s: 1.35, phase: 2.0 },
+    { z: -0.15, s: 1.5, phase: 0.7 },
+    { z: -0.7, s: 1.65, phase: 1.6 },
+    { z: -1.2, s: 1.4, phase: 2.4 },
+  ];
+  for (const p of puffs) {
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.NormalBlending,
+      }),
+    );
+    sprite.position.set(0, 0, p.z);
+    sprite.scale.setScalar(p.s);
+    sprite.userData.baseScale = p.s;
+    sprite.userData.phase = p.phase;
+    g.add(sprite);
+  }
+
+  // Thin translucent sheath body (reads better edge-on)
+  const sheathMat = new THREE.MeshBasicMaterial({
+    color: 0xc8d0d8,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const sheath = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.42, 0.55, 2.4, 20, 1, true),
+    sheathMat,
+  );
+  sheath.rotation.x = Math.PI / 2;
+  sheath.position.z = -0.1;
+  sheath.name = "condense-sheath";
+  sheath.userData.mat = sheathMat;
+  g.add(sheath);
+
+  return g;
+}
+
 function createLocatorSprite(): THREE.Sprite {
   const size = 64;
   const canvas = document.createElement("canvas");
@@ -559,11 +734,20 @@ export type CraftVisualState = {
   thrustN: number;
   /** Mission time (s) — deterministic plume flicker when scrubbing */
   missionT?: number;
+  /** Stage-out epoch (s); enables hot-staging dual-plume window */
+  stageT?: number | null;
+  /** Altitude above Earth (km) — Max-Q condensation envelope */
+  altEarth?: number;
+  phase?: string;
 };
 
 /** Reference thrust (N) for plume size normalization. */
 const BOOSTER_THRUST_REF = 1.4e8; // ~140 MN theater ascent
 const SHIP_THRUST_REF = 8e6; // ~8 MN TLI / landing theater
+/** Ship Raptors light this many seconds before stage-out (hot-stage theater). */
+const HOT_STAGE_PRE_S = 4.0;
+/** Brief dual-plume hang after stage while flash is still readable. */
+const HOT_STAGE_POST_S = 1.2;
 
 function thrustFlicker(missionT: number): number {
   // Fast, non-periodic-looking envelope (scrub-stable)
@@ -596,8 +780,33 @@ function setPlumeScale(
 }
 
 /**
+ * Theater Max-Q condensation strength in [0,1].
+ *
+ * Absolute altEarth in this mission pack is barycenter-frame noisy for
+ * low-altitude cues, so we use a mission-time envelope peaking near real
+ * Starship Max-Q (~T+55 s) during powered launch/ascent. Scrub-safe.
+ */
+function condensationStrength(
+  phase: string | undefined,
+  missionT: number,
+  burning: boolean,
+): number {
+  if (!burning) return 0;
+  if (phase !== "launch" && phase !== "ascent") return 0;
+  if (missionT < 8 || missionT > 140) return 0;
+  const peakT = 55; // s after liftoff
+  const widthT = 22;
+  const d = (missionT - peakT) / widthT;
+  const bell = Math.exp(-0.5 * d * d);
+  // Soft pad gate so deluge steam owns the first seconds
+  const padGate = THREE.MathUtils.smoothstep(missionT, 12, 28);
+  return THREE.MathUtils.clamp(bell * padGate * 1.2, 0, 1);
+}
+
+/**
  * Hide stacked booster after stage-out (detached mesh is handled by StagingFx);
  * show the active plume and scale it with thrust.
+ * Hot-staging: ship plume ramps on shortly before stage while booster still burns.
  */
 export function updateCraftVisuals(
   group: THREE.Group,
@@ -613,55 +822,125 @@ export function updateCraftVisuals(
   const exhaustLight = group.getObjectByName("exhaust-light") as
     | THREE.PointLight
     | undefined;
+  const condense = group.getObjectByName("condense-cloud");
+
+  const missionT = state.missionT ?? 0;
+  const stageT = state.stageT ?? null;
+  const flicker = thrustFlicker(missionT);
+
+  // Hot-stage window: ship lights before sep while still stacked
+  let hotPre = 0;
+  let hotPost = 0;
+  if (stageT != null && Number.isFinite(stageT)) {
+    if (!state.staged && missionT >= stageT - HOT_STAGE_PRE_S && missionT < stageT) {
+      hotPre = THREE.MathUtils.clamp(
+        (missionT - (stageT - HOT_STAGE_PRE_S)) / HOT_STAGE_PRE_S,
+        0,
+        1,
+      );
+      // Ease-in so ignition reads
+      hotPre = hotPre * hotPre;
+    }
+    if (state.staged && missionT < stageT + HOT_STAGE_POST_S) {
+      hotPost = 1 - THREE.MathUtils.clamp((missionT - stageT) / HOT_STAGE_POST_S, 0, 1);
+    }
+  }
 
   const showBoost = state.burning && !state.staged;
-  const showShip = state.burning && state.staged;
-  const flicker = thrustFlicker(state.missionT ?? 0);
+  const showShip =
+    (state.burning && state.staged) ||
+    (state.burning && hotPre > 0.02);
 
   if (boostPlume) {
     boostPlume.visible = showBoost;
     if (showBoost) {
-      const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF);
+      // Slight visual MECO fade in the last second of hot-stage pre
+      const mecoFade = hotPre > 0.7 ? 1 - (hotPre - 0.7) / 0.3 * 0.35 : 1;
+      const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF) * mecoFade;
       setPlumeScale(boostPlume, u, flicker, 0.55, 0.95);
     }
   }
   if (shipPlume) {
     shipPlume.visible = showShip;
     if (showShip) {
-      const u = Math.min(1, state.thrustN / SHIP_THRUST_REF);
+      let u: number;
+      if (state.staged) {
+        u = Math.min(1, state.thrustN / SHIP_THRUST_REF);
+      } else {
+        // Hot-stage ignition — synthetic ship thrust (physics still on booster)
+        u = 0.35 + 0.55 * hotPre;
+      }
       setPlumeScale(shipPlume, u, flicker, 0.55, 0.8);
     }
   }
 
   if (exhaustGlow) {
-    exhaustGlow.visible = showBoost;
+    exhaustGlow.visible = showBoost || hotPost > 0.05;
     if (showBoost) {
       const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF);
       const s = (1.2 + 1.4 * u) * flicker;
       exhaustGlow.scale.set(s, s, 1);
       const mat = (exhaustGlow as THREE.Sprite).material as THREE.SpriteMaterial;
       mat.opacity = (0.55 + 0.4 * u) * flicker;
-      // Glow sits under booster engines
       exhaustGlow.position.z = -2.15 - 0.2 * u;
     }
   }
 
   if (exhaustLight) {
-    if (showBoost) {
+    if (showBoost && hotPre < 0.85) {
       const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF);
-      exhaustLight.intensity = (4.5 + 8 * u) * flicker;
-      exhaustLight.color.setHex(0xffa050);
+      // Blend toward ship-blue as hot-stage ship lights
+      const mix = hotPre;
+      exhaustLight.intensity = (4.5 + 8 * u) * flicker * (1 + 0.25 * mix);
+      exhaustLight.color.setRGB(
+        THREE.MathUtils.lerp(1, 0.53, mix),
+        THREE.MathUtils.lerp(0.63, 0.8, mix),
+        THREE.MathUtils.lerp(0.31, 1, mix),
+      );
       exhaustLight.distance = 14 + 10 * u;
-      exhaustLight.position.set(0, 0, -2.0);
-    } else if (showShip) {
-      const u = Math.min(1, state.thrustN / SHIP_THRUST_REF);
+      exhaustLight.position.set(0, 0, -2.0 + mix * 0.8);
+    } else if (showShip || hotPre > 0) {
+      const u = state.staged
+        ? Math.min(1, state.thrustN / SHIP_THRUST_REF)
+        : 0.35 + 0.55 * hotPre;
       exhaustLight.intensity = (1.2 + 3.5 * u) * flicker;
       exhaustLight.color.setHex(0x88ccff);
       exhaustLight.distance = 8 + 6 * u;
-      // Ship engines sit higher once booster is gone (ship local + mesh)
       exhaustLight.position.set(0, 0, 0.55 - 0.9);
     } else {
       exhaustLight.intensity = 0;
+    }
+  }
+
+  // Max-Q condensation cloud
+  if (condense) {
+    const str = condensationStrength(state.phase, missionT, state.burning);
+    condense.visible = str > 0.03;
+    if (str > 0.03) {
+      const wobble =
+        0.92 +
+        0.08 * Math.sin(missionT * 7.3) +
+        0.04 * Math.sin(missionT * 13.1 + 0.5);
+      condense.traverse((obj) => {
+        if (obj instanceof THREE.Sprite) {
+          const mat = obj.material as THREE.SpriteMaterial;
+          const phase = (obj.userData.phase as number) ?? 0;
+          const local =
+            str *
+            (0.75 + 0.25 * Math.sin(missionT * 5.1 + phase)) *
+            wobble;
+          mat.opacity = 0.35 * local;
+          const base = (obj.userData.baseScale as number) ?? 1;
+          const grow = base * (0.85 + 0.55 * str) * (0.95 + 0.08 * Math.sin(missionT * 4 + phase));
+          obj.scale.setScalar(grow);
+        } else if (obj.name === "condense-sheath") {
+          const mat =
+            (obj.userData.mat as THREE.MeshBasicMaterial | undefined) ??
+            ((obj as THREE.Mesh).material as THREE.MeshBasicMaterial);
+          mat.opacity = 0.12 * str * wobble;
+          obj.scale.set(1 + 0.15 * str, 1 + 0.15 * str, 1);
+        }
+      });
     }
   }
 }
