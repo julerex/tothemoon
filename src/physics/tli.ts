@@ -395,6 +395,56 @@ export function orbitAfterTli(state: CraftState): KeplerOrbit {
   return rvToKepler(_relP, _relV, MU_EARTH, state.t);
 }
 
+/**
+ * Design transfer ellipse whose **apogee is the lunar south-pole rendezvous**.
+ *
+ * After finite TLI, set prograde speed for ra = |aim|. Position stays continuous
+ * (dogleg already ends near transfer peri); only velocity is adjusted so the
+ * free-coast apogee lies on the south-pole aim direction.
+ */
+export function designApogeeTransferOrbit(state: CraftState): KeplerOrbit {
+  const t0 = state.t;
+  const b = getBodies(t0);
+  sub(_relP, state.pos, b.earth);
+  const rp = Math.max(len(_relP), LEO_RADIUS);
+  southPoleRendezvousAim(t0, _aim);
+  const ra = Math.max(len(_aim), A_EM * 0.95);
+
+  transferPlaneNormal(t0, _n);
+  // Keep current radial (continuous trail); project into transfer plane
+  const nDotR = dot(_relP, _n);
+  _radial.x = _relP.x - _n.x * nDotR;
+  _radial.y = _relP.y - _n.y * nDotR;
+  _radial.z = _relP.z - _n.z * nDotR;
+  if (len(_radial) < 1e-8) {
+    // Degenerate: peri opposite aim
+    const nDotA = dot(_aim, _n);
+    _tmp.x = _aim.x - _n.x * nDotA;
+    _tmp.y = _aim.y - _n.y * nDotA;
+    _tmp.z = _aim.z - _n.z * nDotA;
+    normalize(_tmp, _tmp);
+    set(_radial, -_tmp.x, -_tmp.y, -_tmp.z);
+  } else {
+    normalize(_radial, _radial);
+  }
+
+  const a = 0.5 * (rp + ra);
+  const vPeri = Math.sqrt(MU_EARTH * (2 / rp - 1 / a));
+  progradeInPlane(_radial, _n, _pro);
+
+  // Position continuous at current LEO radius; velocity locks the ellipse
+  state.pos.x = b.earth.x + _radial.x * rp;
+  state.pos.y = b.earth.y + _radial.y * rp;
+  state.pos.z = b.earth.z + _radial.z * rp;
+  state.vel.x = b.earthVel.x + _pro.x * vPeri;
+  state.vel.y = b.earthVel.y + _pro.y * vPeri;
+  state.vel.z = b.earthVel.z + _pro.z * vPeri;
+
+  sub(_relP, state.pos, b.earth);
+  sub(_relV, state.vel, b.earthVel);
+  return rvToKepler(_relP, _relV, MU_EARTH, t0);
+}
+
 /** Scratch export for callers that need a temp vector (avoid shared state). */
 export function tliScratchRelP(): V3 {
   return _relP;

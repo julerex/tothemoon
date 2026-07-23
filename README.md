@@ -8,9 +8,9 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
 - **Restricted 4-body + Earth J₂** — craft integrated with **RK4** under gravity of **Sun + Earth + Moon**, plus Earth **J₂** and a simple **exponential atmosphere / quadratic drag** below ~120 km
-- **Translunar coast** — LRO-style free transfer on the post-TLI Earth-centered Kepler ellipse (smooth arc, **no midcourse TCMs**); LOI/PDI handle lunar gravity near the Moon
+- **Translunar coast** — LRO-style free transfer: post-TLI Kepler ellipse with **apogee = lunar south-pole rendezvous** (smooth arc, **no midcourse TCMs**); short LOI then land from apo
 - Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY); Sun on a far 1 AU ecliptic path
-- Mission: **Starbase pad** → powered ascent → LEO dogleg → finite TLI aimed at **lunar south pole rendezvous** → **smooth free coast** → **LOI → polar LLO → PDI** → soft landing at the **lunar south pole**
+- Mission: **Starbase pad** → powered ascent → LEO dogleg → finite TLI → **smooth free coast to apogee** → short LOI → soft landing at the **lunar south pole**
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp); empty tanks cut engines
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 

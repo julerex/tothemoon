@@ -10,15 +10,15 @@ import { R_MOON } from "./constants.ts";
 import { EXPECTED_PHASE_ORDER } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after LRO free coast + south-pole LOI/PDI (2026-07-23). */
+/** Bands after LRO free coast to apogee + south-pole land (2026-07-23). */
 const GOLDEN = {
-  durationS: 386_500,
+  durationS: 417_637,
   durationTolFrac: 0.15,
   tliDv: 3.133_1,
   tliDvTol: 0.2,
   moonPhaseTol: 0.5,
   samplesMin: 4_000,
-  samplesMax: 30_000,
+  samplesMax: 20_000,
   stageT: 140,
   stageTTol: 90, // mass-coupled dry booster stages earlier
 } as const;

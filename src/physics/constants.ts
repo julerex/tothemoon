@@ -226,7 +226,7 @@ export const LLO_COAST_REVS = 0.75;
 export const LOI_ACCEL = 0.01;
 
 /** Begin LOI capture burn when lunar altitude falls below this (km) */
-export const LOI_ALT_START_KM = 25_000;
+export const LOI_ALT_START_KM = 45_000;
 
 /** LOI complete: |v − v_circ| and |v_rad| thresholds (km/s) */
 export const LOI_V_ERR_OK = 0.15;
