@@ -55,18 +55,21 @@ Key modules: `src/physics/{mission,ascent,integrator,bodies,kepler,propellant,co
 
 ## Suggested sequence
 
-Do these first; reassess after 1–3 (highest “feels real” ROI):
+**Locked order for the first three slices (2026-07-23):**
 
-1. **Finite TLI burn** + no position teleport on inject  
-2. **Discrete TCMs** instead of continuous Kepler track  
-3. **Honest LEO plane story** (dogleg burn or out-of-plane transfer)  
+1. **A3 — Honest LEO plane (dogleg)** — replace free plane slerp with paid Δv  
+2. **A1 — Finite TLI burn** — integrate prograde burn; no position teleport  
+3. **A2 — Discrete TCMs** — ballistic coast + evented corrections  
+
+Then reassess. Remaining backlog (not reordered yet):
+
 4. **Mass-coupled thrust** + remove / retune mdot fudge scales  
 5. **J2 + simple drag on ascent**  
 6. **Discrete LOI → LLO coast → PDI**  
 7. **Better lunar ephemeris** (mean rates, then optional DE table)
 
-Stop after (1)–(3) and reassess. Ephemeris and J2 are the next tier; full
-free-body n-body and engine-out tables are deferred.
+Ephemeris and J2 are the next tier after 1–3; full free-body n-body and
+engine-out tables stay deferred.
 
 ---
 
@@ -78,11 +81,12 @@ free-body n-body and engine-out tables are deferred.
 `applyImpulsiveShipDv`.
 
 **Target:**
-- Prograde finite burn under capped ship acceleration for tens of seconds–minutes.
+- Prograde finite burn under capped ship acceleration for **~2–4 minutes**
+  (locked 2026-07-23); theater a ≈ 0.3–0.5 g so Δv ~ Hohmann class fits that window.
 - Integrate through the burn with RK4 (gravity + thrust).
 - Prefer velocity-only inject when LEO coast already aims at periapsis; avoid position teleports.
 - Sample burn densely enough for HUD thrust/plume and scrubber readability.
-- Invariants: TLI phase duration band, Δv band, continuous trail (no jumps).
+- Invariants: TLI phase duration band (~2–4 min), Δv band, continuous trail (no jumps).
 
 ### A2. Discrete midcourse corrections (sequence item 2)
 
@@ -91,8 +95,8 @@ near the design Earth-centered ellipse.
 
 **Target:**
 - Pure ballistic restricted 4-body coast after TLI.
-- At fixed epochs (e.g. +12 h, +48 h, approach), compute a small impulsive or
-  short finite TCM toward a B-plane / perilune target.
+- **2–3 discrete TCMs** (locked 2026-07-23), e.g. ~+12 h, mid-coast / ~+48 h,
+  and approach — small impulsive or short finite burns toward perilune / B-plane.
 - Log TCM Δv and emit mission events (timeline + callouts).
 - Keep max |Δr| vs Kepler as a **debug / low-opacity corridor**, not continuous thrust.
 - Precompute logs: TCM count, total TCM Δv, max |Δr| (existing field OK).
@@ -101,16 +105,32 @@ near the design Earth-centered ellipse.
 
 **Today:** `runLunarPlaneLeoCoast` slerps the orbital plane and snaps circular LEO.
 
-**Pick one design (document the choice in README):**
+**Decision (2026-07-23): Option B — dogleg / combined burn.**
 
-| Option | Behavior | Notes |
+| Option | Behavior | Status |
 |--------|----------|--------|
-| **A** | Stay at ~26° parking; out-of-plane transfer | Closest to real due-east Starbase launch |
-| **B** | Lunar-plane LEO via short dogleg / combined burn | Shows plane-change Δv and ship propellant |
-| **C** | Dedicated plane-change burn at a node | Cost ~2 v sin(Δi/2); clearest pedagogy |
+| **A** | Stay at ~26° parking; out-of-plane transfer | Deferred (harder targeting) |
+| **B** | Lunar-plane LEO via short dogleg / combined burn | **Chosen** |
+| **C** | Dedicated plane-change burn at a node | Deferred |
 
-**Target:** no free plane slerp; any plane change spends Δv and is visible as
-a burn phase or event.
+**Target:**
+- No free plane slerp; plane change spends ship Δv and is visible (thrust + fuel).
+- Ascent remains due-east (~i ≈ site lat); LEO coast combines in-plane phasing
+  toward TLI periapsis with a continuous out-of-plane dogleg into the lunar
+  plane (theater guidance, not ops-optimal).
+- **UX (locked):** stay on phaseId `leo`; samples show `burning` + ship
+  `thrustN` + ship fuel drain during the dogleg; add a timeline **event**
+  (e.g. “Dogleg into lunar plane”) — no new PhaseId.
+- End state: circular-ish LEO in the lunar plane at transfer periapsis, with
+  plane-change Δv booked on ship propellant.
+- **Δv honesty (locked): most realistic for Option B** — aim for total
+  plane-change class Δv near \(2 v \sin(\Delta i/2)\) (~3–3.5 km/s for
+  \(\Delta i \approx 26^\circ\)), via combined in-plane + out-of-plane guidance
+  that is not deliberately softened. Prefer burns when efficient (near nodes)
+  over a wasteful always-on PD. Expect ship propellant / Isp theater numbers
+  may need retune so TLI+capture still close; do **not** silently scale Δv
+  down to hide cost.
+- Document in README Physics: “LEO dogleg into lunar plane (paid Δv).”
 
 ### A4. Mass-coupled dynamics (sequence item 4)
 
@@ -202,15 +222,27 @@ Moon is Keplerian with fixed Ω and ω in `constants.ts`.
 
 ## Phase D — Architecture & verification (do early / alongside)
 
-### D1. Split `mission.ts`
+### D1. Split `mission.ts` (**do first**, before A3)
 
-Extract without behavior change first (see NEXT.md P3.12):
+**Decision (2026-07-23): full D1 split with no behavior change, then A3.**
 
-- `ascent` (already partly separate)
-- `tli` / transfer design
-- `coast` + midcourse
-- `capture` / descent / land
-- thin `runMission()` orchestrator
+Extract from `src/physics/mission.ts` (~1.3k lines) into:
+
+| Module | Owns (from current `mission.ts`) |
+|--------|----------------------------------|
+| `missionTypes.ts` (or keep types in `mission.ts`) | `PhaseId`, `Sample`, `MissionResult`, `phaseLabel` |
+| `ascent` | already `ascent.ts` + `appendAscentAndLeoCoast` glue stays in leo or mission |
+| `leoCoast.ts` | `runLunarPlaneLeoCoast`, `computeLeoRel`, `appendAscentAndLeoCoast`, slerp helpers, `setCircularLeo` — **A3 lands here** |
+| `tli.ts` | `lroTransfer`, `applyTli`, `transferTimeEst`, `transferVPeri`, `apogeeFromTliDv`, `maxTliDv`, `orbitAfterTli` — **A1 lands here** |
+| `coast.ts` | `keplerTrackThrust`, `keplerRefPos`, coast integration loop pieces — **A2 lands here** |
+| `capture.ts` | `landingThrust`, `finishLanding`, approach/braking/descent arc of `flyMission` |
+| `mission.ts` | thin `runMission` / `flyMission` orchestrator, probe search, downsample, ascent cache, `pushSample` shared helper |
+
+**Rules for the split PR:**
+- No intentional physics change (same bake within tolerance).
+- Public API unchanged: `runMission`, `phaseLabel`, `PhaseId`, `Sample`, `MissionResult`.
+- Add **golden tests** against current bake before/after: phase order, duration band, stage time window, TLI Δv band, minMoonAlt band, sample count band.
+- Prefer moving functions + re-export over rewriting logic.
 
 ### D2. Golden tests & pack metadata
 
@@ -224,6 +256,7 @@ Extract without behavior change first (see NEXT.md P3.12):
 When fidelity rises, update Physics bullets, e.g.:
 
 - “Restricted 4-body + J2”
+- “LEO dogleg into lunar plane (paid Δv)”
 - “Finite TLI / LOI burns; discrete TCMs”
 - “Theater propellant / Isp”
 - Optional HUD one-liner for Sun / Earth / Moon phase at landing
@@ -281,8 +314,47 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 
 ---
 
+## Execution roadmap (locked)
+
+```
+0. D1  Split mission.ts + golden tests (no behavior change)
+1. A3  LEO dogleg (paid Δv, phase stays leo, timeline event)
+2. A1  Finite TLI ~2–4 min
+3. A2  2–3 discrete TCMs; remove continuous Kepler-track PD
+— reassess —
+4+   Mass-coupled thrust, J2/drag, discrete LOI, ephemeris
+```
+
+### A3 implementation sketch (after D1)
+
+1. Replace free normal slerp in `leoCoast.ts` with guidance that applies ship
+   thrust (out-of-plane + in-plane phasing) toward lunar-plane circular LEO
+   at TLI periapsis.
+2. Book Δv via existing `burnProp` / `thrustForceN` (still accel-based until A4).
+3. Timeline: event when dogleg thrust becomes significant (or at LEO start).
+4. Invariants/goldens: LEO segment has some `burning` samples; ship fuel
+   drops by a plane-change-class amount; trail continuous; TLI still succeeds.
+5. README Physics bullet.
+
+### Definition of done for each slice
+
+See “Definition of done (per slice)” below — precompute + tests + README + push.
+
+## Decisions log
+
+| Date | Decision |
+|------|----------|
+| 2026-07-23 | **A3 = Option B** (dogleg / combined burn into lunar-plane LEO; paid ship Δv) |
+| 2026-07-23 | **Implement order: D1 → A3 → A1 → A2** |
+| 2026-07-23 | **A3 UX:** keep phase `leo`; dogleg = burning samples + timeline event (no new PhaseId) |
+| 2026-07-23 | **A3 Δv:** most realistic — full plane-change class cost, not theater-softened |
+| 2026-07-23 | **A1 burn:** ~2–4 min finite TLI at ~0.3–0.5 g theater ship accel |
+| 2026-07-23 | **A2:** 2–3 discrete TCMs; ballistic coast between |
+| 2026-07-23 | **D1 first:** full `mission.ts` split + golden tests before A3 physics |
+
 ## Changelog
 
 | Date | Note |
 |------|------|
 | 2026-07-23 | Initial plan: baseline gaps, A–D phases, sequence 1–7, deferred work |
+| 2026-07-23 | Locked A3=B, order D1→A3→A1→A2, dogleg UX/Δv, TLI 2–4 min, 2–3 TCMs |
