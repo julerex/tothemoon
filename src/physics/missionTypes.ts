@@ -9,7 +9,9 @@ export type PhaseId =
   | "approach"
   | "braking"
   | "descent"
-  | "landed";
+  | "landed"
+  /** Ballistic lunar surface impact (no capture burns after TLI). */
+  | "impact";
 
 export type Sample = {
   t: number;
@@ -48,11 +50,12 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   ascent: "Ascent to LEO",
   leo: "LEO",
   tli: "Trans-lunar injection",
-  coast: "Trans-lunar coast",
+  coast: "Trans-lunar coast (ballistic)",
   approach: "LOI · capture burn",
   braking: "LLO coast",
   descent: "PDI · powered descent",
   landed: "Landed · south pole",
+  impact: "Lunar impact (ballistic)",
 };
 
 export function phaseLabel(id: PhaseId): string {

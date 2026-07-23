@@ -5,17 +5,22 @@
 
 import type { PhaseId } from "./mission";
 
-/** Expected phase order for a complete Starbase → Moon mission. */
+/**
+ * Expected phase order for ballistic free-coast mission (no post-TLI burns).
+ * Optional terminal: `impact` if the craft hits the Moon.
+ */
 export const EXPECTED_PHASE_ORDER: readonly PhaseId[] = [
   "launch",
   "ascent",
   "leo",
   "tli",
   "coast",
-  "approach",
-  "braking",
-  "descent",
-  "landed",
+] as const;
+
+/** Allowed end phases for a completed ballistic coast. */
+export const EXPECTED_END_PHASES: readonly PhaseId[] = [
+  "coast",
+  "impact",
 ] as const;
 
 /** Minimal sample shape (works for packed JSON and live Sample). */
@@ -108,10 +113,10 @@ export function checkTrajectoryInvariants(
       message: "first sample should not be staged",
     });
   }
-  if (last.phase !== "landed") {
+  if (last.phase !== "coast" && last.phase !== "impact") {
     issues.push({
       code: "end_phase",
-      message: `last phase should be landed, got ${last.phase}`,
+      message: `last phase should be coast or impact (ballistic), got ${last.phase}`,
     });
   }
   if (!last.staged) {
@@ -135,11 +140,13 @@ export function checkTrajectoryInvariants(
     }
   }
   const expected = EXPECTED_PHASE_ORDER as readonly string[];
-  if (phaseSeq.join(">") !== expected.join(">")) {
-    // Allow missing intermediate only if order of present phases is correct
+  const endOk = EXPECTED_END_PHASES.includes(phaseSeq[phaseSeq.length - 1] as PhaseId);
+  // Core arc must be present; optional terminal impact after coast
+  const core = phaseSeq.filter((p) => p !== "impact");
+  if (core.join(">") !== expected.join(">") || !endOk) {
     let ei = 0;
     let orderOk = true;
-    for (const p of phaseSeq) {
+    for (const p of core) {
       const idx = expected.indexOf(p as PhaseId, ei);
       if (idx < 0) {
         orderOk = false;
@@ -147,13 +154,12 @@ export function checkTrajectoryInvariants(
       }
       ei = idx + 1;
     }
-    if (!orderOk || phaseSeq[0] !== expected[0] || phaseSeq[phaseSeq.length - 1] !== "landed") {
+    if (!orderOk || core[0] !== expected[0] || !endOk) {
       issues.push({
         code: "phase_order",
-        message: `phase sequence ${phaseSeq.join(" → ")} does not match expected mission arc`,
+        message: `phase sequence ${phaseSeq.join(" → ")} does not match ballistic coast arc (launch→…→coast[→impact])`,
       });
     }
-    // Prefer full sequence for this theater
     for (const need of expected) {
       if (!phaseSeq.includes(need)) {
         issues.push({

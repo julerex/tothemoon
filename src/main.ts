@@ -275,7 +275,10 @@ function applyMissionState(u: number): void {
     dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
     playbackSpeed: clock.speed,
     autoSpeed,
-    missionComplete: frame.phase === "landed",
+    missionComplete:
+      frame.phase === "landed" ||
+      frame.phase === "impact" ||
+      (u >= 0.999 && frame.phase === "coast"),
     tliDv: cache.tliDv,
     minMoonAlt: cache.minMoonAlt,
     focusDistance: director.getFocusDistance(),

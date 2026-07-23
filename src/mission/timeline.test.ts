@@ -35,7 +35,7 @@ describe("buildTimeline", () => {
       sample(100, "leo", { staged: true }),
       sample(200, "tli", { staged: true }),
       sample(300, "coast", { staged: true }),
-      sample(900, "landed", { staged: true }),
+      sample(900, "impact", { staged: true }),
     ];
     const tl = buildTimeline(samples, 1000);
     assert.ok(tl.segments.length >= 4);
@@ -46,7 +46,7 @@ describe("buildTimeline", () => {
     }
   });
 
-  it("emits liftoff, staging, dogleg, and touchdown events", () => {
+  it("emits liftoff, staging, dogleg, and impact events", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: false }),
       sample(50, "ascent", { staged: false, fuelBooster: 0.5 }),
@@ -59,10 +59,7 @@ describe("buildTimeline", () => {
       }),
       sample(200, "tli", { staged: true }),
       sample(300, "coast", { staged: true }),
-      sample(400, "approach", { staged: true }),
-      sample(500, "braking", { staged: true }),
-      sample(600, "descent", { staged: true }),
-      sample(700, "landed", { staged: true }),
+      sample(700, "impact", { staged: true }),
     ];
     const tl = buildTimeline(samples, 700);
     const ids = tl.events.map((e) => e.id);
@@ -71,10 +68,7 @@ describe("buildTimeline", () => {
     assert.ok(ids.includes("dogleg"));
     assert.ok(ids.includes("tli"));
     assert.ok(ids.includes("coast"));
-    assert.ok(ids.includes("touchdown"));
-    assert.ok(ids.includes("loi") || ids.includes("approach"));
-    assert.ok(ids.includes("llo") || ids.includes("pdi") || ids.includes("descent"));
-    // Monotonic event times
+    assert.ok(ids.includes("impact"));
     for (let i = 1; i < tl.events.length; i++) {
       assert.ok(tl.events[i]!.t >= tl.events[i - 1]!.t);
     }
@@ -82,7 +76,7 @@ describe("buildTimeline", () => {
 
   it("autoSpeedForPhase slows burns and races coast", () => {
     assert.ok(autoSpeedForPhase("coast") > autoSpeedForPhase("ascent"));
-    assert.ok(autoSpeedForPhase("ascent") > autoSpeedForPhase("landed"));
+    assert.ok(autoSpeedForPhase("ascent") > autoSpeedForPhase("impact"));
     assert.equal(autoSpeedForPhase("coast"), PHASE_AUTO_SPEED.coast);
   });
 });

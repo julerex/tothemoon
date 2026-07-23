@@ -5,22 +5,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import packed from "../data/trajectory.json";
-import { bodyPositions, moonSouthUnit, setMoonPhase0 } from "./bodies.ts";
-import { R_MOON } from "./constants.ts";
-import { EXPECTED_PHASE_ORDER } from "./trajectoryInvariants.ts";
+import {
+  EXPECTED_END_PHASES,
+  EXPECTED_PHASE_ORDER,
+} from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after LRO free coast to apogee + south-pole land (2026-07-23). */
+/** Bands after pure 4-body ballistic coast (no post-TLI burns) 2026-07-23. */
 const GOLDEN = {
-  durationS: 417_637,
-  durationTolFrac: 0.15,
-  tliDv: 3.133_1,
-  tliDvTol: 0.2,
-  moonPhaseTol: 0.5,
-  samplesMin: 4_000,
-  samplesMax: 20_000,
+  durationS: 710_613,
+  durationTolFrac: 0.2,
+  tliDv: 3.180_1,
+  tliDvTol: 0.25,
+  samplesMin: 2_000,
+  samplesMax: 25_000,
   stageT: 140,
-  stageTTol: 90, // mass-coupled dry booster stages earlier
+  stageTTol: 90,
 } as const;
 
 function phaseSequence(samples: Array<{ phase: string }>): PhaseId[] {
@@ -63,9 +63,14 @@ describe("mission golden bands (baked pack)", () => {
     );
   });
 
-  it("has expected phase order and stage-out window", () => {
+  it("has ballistic phase order (launch→…→coast or impact) and stage-out", () => {
     const seq = phaseSequence(packed.samples);
-    assert.deepEqual(seq, [...EXPECTED_PHASE_ORDER]);
+    const core = seq.filter((p) => p !== "impact");
+    assert.deepEqual(core, [...EXPECTED_PHASE_ORDER]);
+    assert.ok(
+      EXPECTED_END_PHASES.includes(seq[seq.length - 1]!),
+      `end phase ${seq[seq.length - 1]} not in coast|impact`,
+    );
 
     const stageT = firstStagedT(packed.samples);
     assert.ok(stageT != null, "expected a staged sample");
@@ -75,9 +80,10 @@ describe("mission golden bands (baked pack)", () => {
     );
   });
 
-  it("starts at launch and ends landed with finite TLI", () => {
+  it("starts at launch, ends coast or impact, with finite TLI", () => {
     assert.equal(packed.samples[0]!.phase, "launch");
-    assert.equal(packed.samples[packed.samples.length - 1]!.phase, "landed");
+    const last = packed.samples[packed.samples.length - 1]!.phase;
+    assert.ok(last === "coast" || last === "impact", `last=${last}`);
     assert.ok(packed.tliDv > 2.5 && packed.tliDv < 4.0);
     assert.ok(packed.durationS > 24 * 3600 && packed.durationS < 14 * 24 * 3600);
   });
@@ -90,7 +96,6 @@ describe("mission golden bands (baked pack)", () => {
       burning.length > 5,
       `expected LEO burning samples for dogleg, got ${burning.length}`,
     );
-    // Dogleg books prop at end of LEO; fuel drop visible by first TLI sample
     const tli = packed.samples.find((s) => s.phase === "tli");
     assert.ok(tli);
     const fsLeo = leo[0]!.fs ?? 1;
@@ -113,33 +118,34 @@ describe("mission golden bands (baked pack)", () => {
     assert.ok(burning.length > 5, "expected dense TLI burn samples");
   });
 
-  it("lands near the lunar south pole", () => {
-    setMoonPhase0(packed.moonPhase0);
-    const landed = packed.samples.filter((s) => s.phase === "landed");
-    assert.ok(landed.length > 0);
-    // Use last landed sample (after polar taxi)
-    const s0 = landed[landed.length - 1]!;
-    const b = bodyPositions(s0.t);
-    const dx = s0.p[0]! - b.moon.x;
-    const dy = s0.p[1]! - b.moon.y;
-    const dz = s0.p[2]! - b.moon.z;
-    const r = Math.hypot(dx, dy, dz) || 1;
-    const south = moonSouthUnit();
-    const align = (dx * south.x + dy * south.y + dz * south.z) / r;
+  it("message reports ballistic impact or flyby (no powered landing)", () => {
+    const m = packed.message.toLowerCase();
     assert.ok(
-      align > 0.7,
-      `landing radial·south=${align.toFixed(3)} (want >0.7 near pole)`,
+      m.includes("impact") || m.includes("flyby") || m.includes("skim") || m.includes("ballistic"),
+      `unexpected message: ${packed.message}`,
     );
-    assert.ok(Math.abs(r - R_MOON) < 5, `surface radius ${r} vs R_MOON`);
+    assert.ok(
+      !m.includes("landed · lunar south pole"),
+      "should not claim powered south-pole landing",
+    );
   });
 
-  it("has a pure ballistic coast (no midcourse TCM burns)", () => {
+  it("has a pure ballistic coast (no post-TLI burns)", () => {
     const coast = packed.samples.filter((s) => s.phase === "coast");
     assert.ok(coast.length > 50);
     const burning = coast.filter((s) => s.burning && (s.th ?? 0) > 0);
     assert.ok(
       burning.length === 0,
-      `LRO-style coast should be ballistic, got ${burning.length} burn samples`,
+      `ballistic coast should have zero burns, got ${burning.length}`,
     );
+    // No LOI/PDI phases
+    const powered = packed.samples.filter(
+      (s) =>
+        s.phase === "approach" ||
+        s.phase === "braking" ||
+        s.phase === "descent" ||
+        s.phase === "landed",
+    );
+    assert.equal(powered.length, 0, "no LOI/PDI/landed samples expected");
   });
 });

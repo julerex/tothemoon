@@ -89,6 +89,7 @@ function computeMinMoonAlt(
       s.phase !== "braking" &&
       s.phase !== "descent" &&
       s.phase !== "landed" &&
+      s.phase !== "impact" &&
       s.phase !== "coast"
     ) {
       continue;

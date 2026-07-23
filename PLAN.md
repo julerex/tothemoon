@@ -356,6 +356,7 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **B1 complete:** LOI burn → LLO coast (~¾ rev) → PDI south pole |
 | 2026-07-23 | **South-pole geometry:** transfer plane south-biased (`TRANSFER_SOUTH_AIM_KM`); LOI → polar LLO (not northern flyby above lunar plane) |
 | 2026-07-23 | **LRO free coast:** design ellipse **apogee = south-pole rendezvous**; smooth Kepler coast (no TCMs); short LOI + land from apo |
+| 2026-07-23 | **Ballistic free coast:** no post-TLI burns; restricted 4-body RK4; outcome impact or flyby (landing not required) |
 
 ## Changelog
 

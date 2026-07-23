@@ -11,6 +11,7 @@ const PHASE_SHORT: Record<PhaseId, string> = {
   braking: "LLO",
   descent: "PDI",
   landed: "Land",
+  impact: "Impact",
 };
 
 /**
@@ -23,10 +24,11 @@ export const PHASE_AUTO_SPEED: Record<PhaseId, number> = {
   leo: 200,
   tli: 50,
   coast: 2000,
-  approach: 80, // LOI burn — watchable
-  braking: 400, // LLO coast ~¾ rev
-  descent: 25, // PDI
+  approach: 80,
+  braking: 400,
+  descent: 25,
   landed: 1,
+  impact: 1,
 };
 
 export type PhaseSegment = {
@@ -150,7 +152,12 @@ function buildEvents(
         add("tli", seg.t0, "TLI burn", "Finite prograde inject · ~2–4 min");
         break;
       case "coast":
-        add("coast", seg.t0, "TLI complete", "Trans-lunar coast");
+        add(
+          "coast",
+          seg.t0,
+          "TLI complete",
+          "Ballistic 4-body coast · no further burns",
+        );
         break;
       case "approach":
         add("loi", seg.t0, "LOI burn", "Capture into low lunar orbit");
@@ -163,6 +170,14 @@ function buildEvents(
         break;
       case "landed":
         add("touchdown", seg.t0, "Touchdown", "Lunar south pole");
+        break;
+      case "impact":
+        add(
+          "impact",
+          seg.t0,
+          "Lunar impact",
+          "Ballistic · no post-TLI burns",
+        );
         break;
     }
   }

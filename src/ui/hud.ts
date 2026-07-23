@@ -382,6 +382,7 @@ function renderPhaseMarkers(
     "braking",
     "descent",
     "landed",
+    "impact",
   ]);
 
   for (const seg of segments) {
