@@ -4,6 +4,10 @@ import { TrajectoryCache } from "./physics/trajectoryCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./physics/bodies";
 import { R_EARTH, R_MOON } from "./physics/constants";
 import {
+  EARTH_SPIN_RATE,
+  earthNorthPole,
+} from "./physics/earthFrame";
+import {
   daysPastFullAtLanding,
   formatMissionDateUtc,
   sunPhase0ForLanding,
@@ -124,7 +128,25 @@ const craftVel = new THREE.Vector3();
 const craftTan = new THREE.Vector3();
 const _look = new THREE.Matrix4();
 const _quat = new THREE.Quaternion();
-const _up = new THREE.Vector3(0, 1, 0);
+/** Roll reference for lookAt (must not be parallel to heading). */
+const _rollUp = new THREE.Vector3(0, 1, 0);
+const _earthPos = new THREE.Vector3();
+const _earthVel = new THREE.Vector3();
+const _localUp = new THREE.Vector3();
+const _omega = new THREE.Vector3();
+const _spinVel = new THREE.Vector3();
+const _airVel = new THREE.Vector3();
+const _lookTarget = new THREE.Vector3();
+/** Earth north pole (fixed); spin ω = pole × EARTH_SPIN_RATE. */
+earthNorthPole(_omega);
+_omega.multiplyScalar(EARTH_SPIN_RATE);
+
+/**
+ * Minimum surface-relative speed (km/s) before we trust air-relative velocity
+ * for attitude. Below this (pad / first moments of liftoff) stand on local up
+ * so Earth rotation does not lay the stack on its side next to the tower.
+ */
+const AIR_VEL_ATTITUDE_MIN = 0.04;
 
 /** Fixed playback rates offered in the HUD (and nudged by `,` / `.`). */
 const SPEED_STEPS = [1, 10, 50, 100, 500, 1000, 2000] as const;
@@ -171,13 +193,62 @@ const hud = bindHud(clock, timeline, {
   onZoomKey: (key, down) => director.setZoomKey(key, down),
 });
 
-function orientCraft(vel: THREE.Vector3): void {
-  if (vel.lengthSq() < 1e-12) return;
-  craftTan.copy(vel).normalize();
-  const lookTarget = craftPos.clone().add(craftTan);
-  _look.lookAt(craftPos, lookTarget, _up);
+/**
+ * Point craft local +Z (nose) along `heading`, with engines (−Z) aft.
+ * Matrix4.lookAt is camera-convention; swap eye/target like Object3D.lookAt.
+ */
+function applyCraftHeading(heading: THREE.Vector3): void {
+  if (heading.lengthSq() < 1e-16) return;
+  craftTan.copy(heading).normalize();
+  _lookTarget.copy(craftPos).add(craftTan);
+  // Roll hint: world Y unless nearly parallel to nose
+  _rollUp.set(0, 1, 0);
+  if (Math.abs(craftTan.dot(_rollUp)) > 0.95) {
+    _rollUp.set(1, 0, 0);
+  }
+  _look.lookAt(_lookTarget, craftPos, _rollUp);
   _quat.setFromRotationMatrix(_look);
   craft.quaternion.copy(_quat);
+}
+
+/**
+ * Attitude for the stack:
+ * - Pad / tower: local radial up (inertial vel is Earth spin → would lay horizontal)
+ * - Near-Earth flight: surface-relative velocity (climb + gravity turn)
+ * - Deep space: inertial velocity
+ */
+function orientCraft(
+  vel: THREE.Vector3,
+  earthPos: THREE.Vector3,
+  earthVel: THREE.Vector3,
+  nearEarth: boolean,
+): void {
+  _localUp.set(
+    craftPos.x - earthPos.x,
+    craftPos.y - earthPos.y,
+    craftPos.z - earthPos.z,
+  );
+  const r = _localUp.length();
+  if (r > 1e-6) {
+    _localUp.multiplyScalar(1 / r);
+  } else {
+    _localUp.set(0, 1, 0);
+  }
+
+  if (nearEarth) {
+    // v_air = v − v_earth − ω × r  (ground-relative)
+    _spinVel.crossVectors(_omega, _localUp).multiplyScalar(r);
+    _airVel.copy(vel).sub(earthVel).sub(_spinVel);
+    if (_airVel.lengthSq() < AIR_VEL_ATTITUDE_MIN * AIR_VEL_ATTITUDE_MIN) {
+      applyCraftHeading(_localUp);
+      return;
+    }
+    applyCraftHeading(_airVel);
+    return;
+  }
+
+  if (vel.lengthSq() < 1e-12) return;
+  applyCraftHeading(vel);
 }
 
 function applyMissionState(u: number): void {
@@ -186,6 +257,8 @@ function applyMissionState(u: number): void {
   craftVel.set(frame.vel.x, frame.vel.y, frame.vel.z);
 
   const b = bodyPositions(frame.t);
+  _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
+  _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
   // Never draw the craft under Earth's surface (ascent/LEO numerical dips)
   const nearEarthPhase =
@@ -210,7 +283,11 @@ function applyMissionState(u: number): void {
   }
 
   craft.position.copy(craftPos);
-  orientCraft(craftVel);
+  // Use surface-relative attitude through early cislunar; pure inertial beyond
+  const attitudeNearEarth =
+    nearEarthPhase ||
+    (Number.isFinite(frame.altEarth) && frame.altEarth < 50_000);
+  orientCraft(craftVel, _earthPos, _earthVel, attitudeNearEarth);
 
   updateCraftVisuals(craft, {
     staged: frame.staged,

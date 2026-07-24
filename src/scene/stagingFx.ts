@@ -112,11 +112,14 @@ export class StagingFx {
       .addScaledVector(this.sepVel, tVis)
       .addScaledVector(this.acc, 0.5 * tVis * tVis);
 
-    // Orient along free-fall velocity
+    // Orient nose (+Z) along free-fall velocity (Object3D lookAt convention)
     const vNow = this.sepVel.clone().addScaledVector(this.acc, tVis);
     if (vNow.lengthSq() > 1e-12) {
-      const lookTarget = this.booster.position.clone().add(vNow.normalize());
-      this.look.lookAt(this.booster.position, lookTarget, this.up);
+      vNow.normalize();
+      const lookTarget = this.booster.position.clone().add(vNow);
+      this.up.set(0, 1, 0);
+      if (Math.abs(vNow.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
+      this.look.lookAt(lookTarget, this.booster.position, this.up);
       this.quat.setFromRotationMatrix(this.look);
       this.booster.quaternion.copy(this.quat);
     } else {
