@@ -63,6 +63,43 @@ function addGravity(acc: V3, craft: V3, body: V3, mu: number): void {
 }
 
 /**
+ * Third-body **tidal** acceleration relative to a primary (Earth).
+ *
+ * a = −μ [ (r_c − r_b)/|r_c−r_b|³ − (r_p − r_b)/|r_p−r_b|³ ]
+ *
+ * Required when the primary is on rails: full solar point-mass would pull the
+ * craft into a solar orbit while Earth stays near the EM barycenter, draining
+ * Earth-relative energy on multi-day coasts. Tidal form is the correct
+ * restricted n-body residual.
+ */
+function addTidalGravity(
+  acc: V3,
+  craft: V3,
+  body: V3,
+  primary: V3,
+  mu: number,
+): void {
+  // −μ (craft − body) / |craft − body|³
+  sub(_r, craft, body);
+  let r = len(_r);
+  if (r > 1e-6) {
+    const f = -mu / (r * r * r);
+    acc.x += _r.x * f;
+    acc.y += _r.y * f;
+    acc.z += _r.z * f;
+  }
+  // +μ (primary − body) / |primary − body|³  (cancel bulk field on primary)
+  sub(_r, primary, body);
+  r = len(_r);
+  if (r > 1e-6) {
+    const f = -mu / (r * r * r);
+    acc.x -= _r.x * f;
+    acc.y -= _r.y * f;
+    acc.z -= _r.z * f;
+  }
+}
+
+/**
  * Earth J₂ acceleration in the inertial frame.
  * a = 1½ J₂ μ R² / r⁵ · [ (5 ζ² − 1) r − 2 ζ n̂ ]
  * where ζ = (r · n̂)/r and n̂ is the Earth north pole.
@@ -130,6 +167,9 @@ export function addEarthDrag(
 
 /**
  * Gravitational acceleration on craft at time t (optional thrust + Earth J2/drag).
+ *
+ * Restricted n-body: Earth + Moon point-mass, Sun as **tidal** residual about
+ * Earth (ephemeris-fixed primaries), plus J₂ / drag / thrust.
  * Pass `vel` to include atmospheric drag; omit for pure gravity+J2.
  */
 export function acceleration(
@@ -141,10 +181,13 @@ export function acceleration(
 ): V3 {
   bodyPositions(t, _bodies);
   set(out, 0, 0, 0);
-  addGravity(out, pos, _bodies.sun, MU_SUN);
+  // Earth dominant + J2
   addGravity(out, pos, _bodies.earth, MU_EARTH);
   addEarthJ2(out, pos, _bodies.earth);
+  // Moon: full point-mass (nearby; EM barycenter ephemeris is self-consistent)
   addGravity(out, pos, _bodies.moon, MU_MOON);
+  // Sun: tidal only — full point-mass would strip Earth-relative orbits
+  addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
   if (vel) {
     addEarthDrag(out, pos, _bodies.earth, vel, _bodies.earthVel);
   }

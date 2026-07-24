@@ -11,11 +11,11 @@ import {
 } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after super-Hohmann TLI + Kepler free coast (no post-TLI burns). */
+/** Bands after hot TLI + pure n-body free coast (no post-TLI burns). */
 const GOLDEN = {
-  durationS: 530_000,
+  durationS: 640_000,
   durationTolFrac: 0.45,
-  tliDv: 3.144,
+  tliDv: 3.154,
   tliDvTol: 0.15,
   samplesMin: 2_000,
   samplesMax: 25_000,

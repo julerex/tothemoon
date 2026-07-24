@@ -47,13 +47,26 @@ const _pro = v3();
 const _thrust = v3();
 const _up = v3(0, 0, 1);
 const _south = v3();
+const _axis = v3();
 
 /**
- * LRO-style direct lunar transfer (slightly super-Hohmann).
+ * Blend transfer-plane normal toward ecliptic north so the free-coast arc
+ * reads more anticlockwise when viewed from the northern hemisphere (+Z).
+ * 0 = pure lunar plane; 1 = pure ecliptic equatorial.
+ */
+export const TRANSFER_PLANE_NORTH_BIAS = 0.32;
+
+/**
+ * Advance the line of apsides (rad) about the transfer normal (RH rule).
+ * Positive = prograde / anticlockwise from northern view.
+ */
+export const APSIS_CCW_BIAS_RAD = 0.4; // ~23°
+
+/**
+ * Hot free-coast TLI (super-Hohmann).
  *
- * Design apogee past mean lunar distance so free-coast (Earth Kepler track
- * after TLI) still has margin for epoch miss and a readable outbound arc.
- * Pure LEO→A_EM min-energy is ~3.13 km/s / ~5 d; we run a bit hotter.
+ * Design apogee past the Moon so restricted n-body free coast (tidal Sun)
+ * still reaches the lunar region with margin. TOF ≈ half-period.
  */
 export function lroTransfer(): {
   ra: number;
@@ -63,8 +76,8 @@ export function lroTransfer(): {
   vPeri: number;
 } {
   const rp = LEO_RADIUS;
-  // Super-Hohmann: higher inject speed, apo past the Moon
-  const ra = A_EM * 1.18;
+  // Hotter inject: more velocity, apo well past mean lunar distance
+  const ra = A_EM * 1.35;
   const a = 0.5 * (rp + ra);
   const vLeo = Math.sqrt(MU_EARTH / rp);
   const vPeri = Math.sqrt(MU_EARTH * (2 / rp - 1 / a));
@@ -78,8 +91,6 @@ export function transferTimeEst(): number {
 
 /**
  * Cap periapsis speed so 2-body apogee stays cislunar (not near-escape).
- * Near escape, +tens of m/s doubles ra and hands the path to solar gravity
- * (Earth-relative h can flip — looks like reverse Kepler motion).
  */
 export function vPeriForRa(r: number, ra: number): number {
   const a = 0.5 * (r + ra);
@@ -87,10 +98,10 @@ export function vPeriForRa(r: number, ra: number): number {
 }
 
 /**
- * Max design apogee (km) for free-coast TLI — past the Moon, still cislunar
- * (well below escape; v/v_esc ≈ 0.994 at 1.4×A_EM).
+ * Max design apogee (km) for free-coast TLI search ladder.
+ * High enough for hot injects; still sub-escape (v/v_esc ≈ 0.996).
  */
-export const TLI_RA_CAP = A_EM * 1.4;
+export const TLI_RA_CAP = A_EM * 2.0;
 
 /** Periapsis speed = circular LEO + TLI Δv, capped so ra ≤ TLI_RA_CAP. */
 export function transferVPeri(r: number, tliDv: number): number {
@@ -109,12 +120,12 @@ export function apogeeFromTliDv(r: number, tliDv: number): number {
   return 2 * a - r;
 }
 
-/** Max TLI Δv from LEO (km/s) — super-Hohmann search ladder headroom. */
+/** Max TLI Δv from LEO (km/s) — hot free-coast ladder headroom. */
 export function maxTliDv(r = LEO_RADIUS): number {
   const base = lroTransfer().tliDv;
   const vCirc = Math.sqrt(MU_EARTH / r);
   const dvCap = transferVPeri(r, base * 2) - vCirc;
-  return Math.min(dvCap, base * 1.05);
+  return Math.min(dvCap, base * 1.06);
 }
 
 /** Lunar orbital plane normal at time t (unit), same hemisphere as fallback. */
@@ -131,8 +142,7 @@ function lunarPlaneNormal(t: number, out: V3): V3 {
 
 /**
  * Earth-relative rendezvous aim at TLI+TOF: above the lunar **south pole**
- * at arrival (where the Moon will be). LRO-style free coast is aimed here
- * from TLI; no midcourse TCMs.
+ * at arrival (where the Moon will be).
  */
 export function southPoleRendezvousAim(tInject: number, out: V3): V3 {
   const T = transferTimeEst();
@@ -148,18 +158,59 @@ export function southPoleRendezvousAim(tInject: number, out: V3): V3 {
 }
 
 /**
- * Transfer-plane normal (unit) — **lunar orbital plane** (coplanar LRO-style).
- * Keeps free-coast 4-body paths prograde and near the Moon; a large south-pole
- * plane tilt + hot TLI was flipping Earth-relative h under solar gravity.
+ * Transfer-plane normal (unit): lunar plane blended toward ecliptic north
+ * so free-coast arcs read more anticlockwise from the northern hemisphere.
  */
 export function transferPlaneNormal(t: number, out: V3): V3 {
-  return lunarPlaneNormal(t, out);
+  lunarPlaneNormal(t, out);
+  // Keep northern sense before blending
+  if (dot(out, _up) < 0) scale(out, out, -1);
+  const b = TRANSFER_PLANE_NORTH_BIAS;
+  out.x = out.x * (1 - b) + _up.x * b;
+  out.y = out.y * (1 - b) + _up.y * b;
+  out.z = out.z * (1 - b) + _up.z * b;
+  if (len(out) < 1e-12) set(out, _up.x, _up.y, _up.z);
+  return normalize(out, out);
 }
 
-/** Earth-relative Moon direction at arrival (for periapsis opposite Moon). */
+/** Rotate `v` about unit axis `k` by angle (rad) → out (may alias v). */
+function rotateAbout(v: V3, k: V3, ang: number, out: V3): V3 {
+  const c = Math.cos(ang);
+  const s = Math.sin(ang);
+  const dotK = v.x * k.x + v.y * k.y + v.z * k.z;
+  // Rodrigues: v c + (k×v) s + k (k·v) (1−c)
+  const cx = k.y * v.z - k.z * v.y;
+  const cy = k.z * v.x - k.x * v.z;
+  const cz = k.x * v.y - k.y * v.x;
+  return set(
+    out,
+    v.x * c + cx * s + k.x * dotK * (1 - c),
+    v.y * c + cy * s + k.y * dotK * (1 - c),
+    v.z * c + cz * s + k.z * dotK * (1 - c),
+  );
+}
+
+/**
+ * Earth-relative Moon direction at arrival, then advanced prograde about the
+ * transfer normal (APSIS_CCW_BIAS) so periapsis / outbound leg bend more CCW.
+ */
 export function moonArrivalDirection(tInject: number, out: V3): V3 {
   const moonArr = moonRelativeToEarth(tInject + transferTimeEst());
-  return normalize(out, moonArr.pos);
+  normalize(out, moonArr.pos);
+  transferPlaneNormal(tInject, _axis);
+  // Project onto transfer plane, then rotate prograde (CCW from north)
+  const nDot = dot(out, _axis);
+  out.x -= _axis.x * nDot;
+  out.y -= _axis.y * nDot;
+  out.z -= _axis.z * nDot;
+  if (len(out) < 1e-12) {
+    // Degenerate: pick any in-plane direction
+    cross(out, _axis, _up);
+    if (len(out) < 1e-12) cross(out, _axis, set(_tmp, 1, 0, 0));
+  }
+  normalize(out, out);
+  rotateAbout(out, _axis, APSIS_CCW_BIAS_RAD, out);
+  return normalize(out, out);
 }
 
 /**
@@ -184,7 +235,7 @@ export function applyTli(state: CraftState, tliDv: number): void {
 
   transferPlaneNormal(t0, _tangent);
 
-  // Periapsis opposite the Moon at arrival (apogee toward lunar intercept)
+  // Periapsis opposite the (CCW-biased) Moon arrival direction
   moonArrivalDirection(t0, _tmp);
   const nDot = dot(_tmp, _tangent);
   _tmp.x -= _tangent.x * nDot;
@@ -237,8 +288,7 @@ export type FiniteTliResult = {
 
 /**
  * Ideal Earth-relative velocity after impulsive TLI at the craft's current
- * Earth-relative position: lunar-plane prograde × v_peri for ra near the Moon.
- * Caps energy so free 4-body coast stays cislunar (not solar-dominated reverse).
+ * Earth-relative position: transfer-plane prograde × v_peri (hot inject).
  */
 function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
   const b = getBodies(state.t);
@@ -246,8 +296,6 @@ function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
   const r = Math.max(len(_relP), R_EARTH + 100);
   transferPlaneNormal(state.t, _n);
   progradeInPlane(_relP, _n, _pro);
-  // Prefer the requested Δv (search ladder); hard-cap only near TLI_RA_CAP so
-  // free-coast probes can run hotter than pure Hohmann against solar drain.
   const vCirc = Math.sqrt(MU_EARTH / r);
   const vCap = vPeriForRa(r, TLI_RA_CAP);
   const vPeri = Math.min(vCirc + tliDv, vCap);
@@ -258,11 +306,9 @@ function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
  * Finite TLI burn under capped ship acceleration.
  *
  * Starts from current LEO (no position teleport). Thrusts along
- * **velocity-to-go** toward the impulsive LRO inject velocity until the
+ * **velocity-to-go** toward the impulsive inject velocity until the
  * Earth-relative residual is small — so intercept geometry matches the
  * design transfer while the HUD sees a multi-minute burn + plume.
- *
- * Duration is typically ~2–4 min at TLI_ACCEL (gravity losses extend slightly).
  */
 export function runFiniteTli(
   state: CraftState,
@@ -301,17 +347,15 @@ export function runFiniteTli(
     if (prop && !hasPropellant(prop, "ship")) break;
 
     const b = getBodies(state.t);
-    // Recompute ideal inject velocity at current r (updates as we arc)
     idealTliRelVel(state, tliDv, vIdeal);
     sub(_relV, state.vel, b.earthVel);
     vGo.x = vIdeal.x - _relV.x;
     vGo.y = vIdeal.y - _relV.y;
     vGo.z = vIdeal.z - _relV.z;
     const go = len(vGo);
-    if (go < 0.012) break; // ~12 m/s residual — close enough
+    if (go < 0.012) break; // ~12 m/s residual
 
     const aCmd = Math.min(aNom, Math.max(go / dt, 0.002));
-    // Mass-coupled: a = F/m ≤ peak ship thrust
     let aStep = aCmd;
     let forceN = 0;
     if (prop) {
@@ -338,7 +382,6 @@ export function runFiniteTli(
     }
 
     if (samples && lastT) {
-      // Mass already drained via burnForce — record without double-drain
       pushSample(
         samples,
         state,
@@ -355,7 +398,7 @@ export function runFiniteTli(
     }
   }
 
-  // Snap residual velocity-to-go (tiny) so coast matches design inject
+  // Snap residual velocity-to-go so coast matches design inject
   {
     const b = getBodies(state.t);
     idealTliRelVel(state, tliDv, vIdeal);
@@ -396,44 +439,18 @@ export function orbitAfterTli(state: CraftState): KeplerOrbit {
 }
 
 /**
- * Optional design ellipse: coplanar Hohmann-class (ra ≈ A_EM) at current r.
+ * Optional design ellipse: coplanar Hohmann-class at current r.
  * Prefer runFiniteTli + transferVPeri cap for free-coast missions.
  */
 export function designApogeeTransferOrbit(state: CraftState): KeplerOrbit {
   const t0 = state.t;
   const b = getBodies(t0);
   sub(_relP, state.pos, b.earth);
-  const rp = Math.max(len(_relP), LEO_RADIUS);
-  const ra = TLI_RA_CAP;
-
+  const r = Math.max(len(_relP), R_EARTH + 100);
   transferPlaneNormal(t0, _n);
-  const nDotR = dot(_relP, _n);
-  _radial.x = _relP.x - _n.x * nDotR;
-  _radial.y = _relP.y - _n.y * nDotR;
-  _radial.z = _relP.z - _n.z * nDotR;
-  if (len(_radial) < 1e-8) {
-    moonArrivalDirection(t0, _tmp);
-    set(_radial, -_tmp.x, -_tmp.y, -_tmp.z);
-  } else {
-    normalize(_radial, _radial);
-  }
-
-  const vPeri = vPeriForRa(rp, ra);
-  progradeInPlane(_radial, _n, _pro);
-
-  state.pos.x = b.earth.x + _radial.x * rp;
-  state.pos.y = b.earth.y + _radial.y * rp;
-  state.pos.z = b.earth.z + _radial.z * rp;
-  state.vel.x = b.earthVel.x + _pro.x * vPeri;
-  state.vel.y = b.earthVel.y + _pro.y * vPeri;
-  state.vel.z = b.earthVel.z + _pro.z * vPeri;
-
-  sub(_relP, state.pos, b.earth);
-  sub(_relV, state.vel, b.earthVel);
+  progradeInPlane(_relP, _n, _pro);
+  const xfer = lroTransfer();
+  const vPeri = transferVPeri(r, xfer.tliDv);
+  scale(_relV, _pro, vPeri);
   return rvToKepler(_relP, _relV, MU_EARTH, t0);
-}
-
-/** Scratch export for callers that need a temp vector (avoid shared state). */
-export function tliScratchRelP(): V3 {
-  return _relP;
 }
