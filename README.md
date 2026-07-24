@@ -7,10 +7,10 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 ## Physics
 
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
-- **Restricted 4-body + Earth J₂** — craft integrated with **RK4** under gravity of **Sun + Earth + Moon**, plus Earth **J₂** and a simple **exponential atmosphere / quadratic drag** below ~120 km
-- **Translunar coast** — after TLI the craft is **pure ballistic** (zero thrust, zero TCMs) under the full restricted 4-body force; outcome is **lunar impact** or **flyby** (no powered LOI/landing)
+- **Restricted 4-body + Earth J₂** — ascent / LEO / near-Moon segments use **RK4** under **Sun + Earth + Moon**, plus Earth **J₂** and a simple **exponential atmosphere / quadratic drag** below ~120 km
+- **Translunar coast** — after a **super-Hohmann TLI** the free coast follows the **Earth-centered Kepler** ellipse set by inject (so Δv actually reaches cislunar distance), then **4-body** near the Moon; **zero thrust / TCMs**; outcome is **lunar impact** or **flyby** (no powered LOI/landing)
 - Keplerian lunar orbit about the barycenter: **e ≈ 0.055**, **i ≈ 5.15°** to the ecliptic (XY); Sun on a far 1 AU ecliptic path
-- Mission: **Starbase pad** → powered ascent → LEO dogleg → finite TLI → **ballistic 4-body coast** → impact or flyby
+- Mission: **Starbase pad** → powered ascent → LEO dogleg → finite TLI → **ballistic free coast** → impact or flyby
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through TLI; empty tanks cut engines
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 

@@ -11,11 +11,11 @@ import {
 } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after pure 4-body ballistic coast (no post-TLI burns) 2026-07-23. */
+/** Bands after super-Hohmann TLI + Kepler free coast (no post-TLI burns). */
 const GOLDEN = {
-  durationS: 450_000,
+  durationS: 530_000,
   durationTolFrac: 0.45,
-  tliDv: 3.133_1,
+  tliDv: 3.144,
   tliDvTol: 0.15,
   samplesMin: 2_000,
   samplesMax: 25_000,

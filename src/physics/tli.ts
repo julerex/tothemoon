@@ -49,16 +49,11 @@ const _up = v3(0, 0, 1);
 const _south = v3();
 
 /**
- * LRO-style direct lunar transfer (near min-energy).
+ * LRO-style direct lunar transfer (slightly super-Hohmann).
  *
- * LRO flew a ~4.5-day direct TLI→Moon path aimed for lunar approach / LOI,
- * not a free-return and not an Earth ellipse whose apogee sits well beyond
- * the Moon. We target apogee ≈ mean lunar distance so the craft reaches the
- * Moon near the high point of the transfer (r ≈ A_EM), with only the smallest
- * Δv bump the 4-body model needs for intercept.
- *
- * Pure Hohmann LEO→A_EM is ~5.0 d half-period; LRO was slightly faster.
- * Design: ra = A_EM (no intentional overshoot); TOF = half-period.
+ * Design apogee past mean lunar distance so free-coast (Earth Kepler track
+ * after TLI) still has margin for epoch miss and a readable outbound arc.
+ * Pure LEO→A_EM min-energy is ~3.13 km/s / ~5 d; we run a bit hotter.
  */
 export function lroTransfer(): {
   ra: number;
@@ -68,8 +63,8 @@ export function lroTransfer(): {
   vPeri: number;
 } {
   const rp = LEO_RADIUS;
-  // Apogee at the Moon — do not aim past lunar orbit
-  const ra = A_EM;
+  // Super-Hohmann: higher inject speed, apo past the Moon
+  const ra = A_EM * 1.18;
   const a = 0.5 * (rp + ra);
   const vLeo = Math.sqrt(MU_EARTH / rp);
   const vPeri = Math.sqrt(MU_EARTH * (2 / rp - 1 / a));
@@ -82,7 +77,7 @@ export function transferTimeEst(): number {
 }
 
 /**
- * Cap periapsis speed so 2-body apogee stays near the Moon.
+ * Cap periapsis speed so 2-body apogee stays cislunar (not near-escape).
  * Near escape, +tens of m/s doubles ra and hands the path to solar gravity
  * (Earth-relative h can flip — looks like reverse Kepler motion).
  */
@@ -91,8 +86,11 @@ export function vPeriForRa(r: number, ra: number): number {
   return Math.sqrt(MU_EARTH * (2 / r - 1 / a));
 }
 
-/** Max design apogee (km) for free-coast TLI — keep cislunar, not near-escape. */
-export const TLI_RA_CAP = A_EM * 1.02;
+/**
+ * Max design apogee (km) for free-coast TLI — past the Moon, still cislunar
+ * (well below escape; v/v_esc ≈ 0.994 at 1.4×A_EM).
+ */
+export const TLI_RA_CAP = A_EM * 1.4;
 
 /** Periapsis speed = circular LEO + TLI Δv, capped so ra ≤ TLI_RA_CAP. */
 export function transferVPeri(r: number, tliDv: number): number {
@@ -111,12 +109,12 @@ export function apogeeFromTliDv(r: number, tliDv: number): number {
   return 2 * a - r;
 }
 
-/** Max TLI Δv from LEO (km/s) — barely above Hohmann for free-coast geometry. */
+/** Max TLI Δv from LEO (km/s) — super-Hohmann search ladder headroom. */
 export function maxTliDv(r = LEO_RADIUS): number {
   const base = lroTransfer().tliDv;
   const vCirc = Math.sqrt(MU_EARTH / r);
   const dvCap = transferVPeri(r, base * 2) - vCirc;
-  return Math.min(dvCap, base * 1.005);
+  return Math.min(dvCap, base * 1.05);
 }
 
 /** Lunar orbital plane normal at time t (unit), same hemisphere as fallback. */
@@ -248,15 +246,11 @@ function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
   const r = Math.max(len(_relP), R_EARTH + 100);
   transferPlaneNormal(state.t, _n);
   progradeInPlane(_relP, _n, _pro);
-  // Target apogee ≈ Moon distance at design TOF (not beyond)
-  const moonArr = moonRelativeToEarth(state.t + transferTimeEst());
-  const rMoon = len(moonArr.pos);
-  const raTgt = Math.min(TLI_RA_CAP, Math.max(A_EM * 0.92, rMoon));
-  const vFromRa = vPeriForRa(r, raTgt);
+  // Prefer the requested Δv (search ladder); hard-cap only near TLI_RA_CAP so
+  // free-coast probes can run hotter than pure Hohmann against solar drain.
   const vCirc = Math.sqrt(MU_EARTH / r);
-  const vReq = vCirc + tliDv;
-  // Use the cooler of requested Δv and ra-cap (never near-escape)
-  const vPeri = Math.min(vReq, vFromRa);
+  const vCap = vPeriForRa(r, TLI_RA_CAP);
+  const vPeri = Math.min(vCirc + tliDv, vCap);
   return scale(out, _pro, vPeri);
 }
 

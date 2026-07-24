@@ -1,9 +1,10 @@
 /**
- * Mission orchestrator: Starbase → LEO → TLI → pure ballistic 4-body coast.
+ * Mission orchestrator: Starbase → LEO → TLI → ballistic coast to the Moon.
  *
- * After TLI there are **no burns** (no TCMs, no LOI/PDI). The craft coasts under
- * restricted 4-body gravity (Sun + Earth + Moon). Outcome is lunar impact or
- * ballistic flyby — not a powered landing.
+ * After TLI there are **no burns** (no TCMs, no LOI/PDI). The free coast follows
+ * the Earth-centered Kepler ellipse set by inject (so TLI Δv actually reaches
+ * cislunar distance). Near the Moon, restricted 4-body RK4 takes over for the
+ * flyby/impact. Outcome is lunar impact or ballistic flyby — not a powered landing.
  */
 import {
   A_EM,
@@ -16,6 +17,7 @@ import {
 } from "./constants";
 import { ensureAscent, getAscent, resetAscentCache } from "./ascentCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
+import { placeOnKeplerTrack } from "./coast";
 import { sunPhase0ForLanding } from "./epoch";
 import {
   altitudeEarth,
@@ -39,6 +41,7 @@ import {
   apogeeFromTliDv,
   lroTransfer,
   maxTliDv,
+  orbitAfterTli,
   runFiniteTli,
   transferTimeEst,
 } from "./tli";
@@ -63,7 +66,8 @@ function setEpochPhases(moonPhase0: number, landingT = transferTimeEst()): void 
 }
 
 /**
- * Fast probe: pure restricted 4-body ballistic coast after TLI (no burns).
+ * Fast probe: Earth-Kepler free coast after TLI, 4-body near the Moon.
+ * Matches flyMission so search scores the path the bake will fly.
  */
 function probePerilune(tliDv: number): ProbeResult {
   if (!_leoRelTemplate) {
@@ -72,6 +76,7 @@ function probePerilune(tliDv: number): ProbeResult {
   const state = restoreLeoRel(_leoRelTemplate);
   runFiniteTli(state, tliDv, null, null, null);
   const tTli = state.t;
+  const orb = orbitAfterTli(state);
   const T = transferTimeEst();
   const maxT = tTli + T * 1.35 + 50_000;
 
@@ -79,9 +84,21 @@ function probePerilune(tliDv: number): ProbeResult {
   let periluneT = tTli;
   let rEarthAtMin = Infinity;
   let dt = 45;
+  /** Hand off to 4-body inside this Moon distance (km). */
+  const N_BODY_HANDOFF_KM = 80_000;
+  let nBody = false;
+
   while (state.t < maxT) {
     const coastT = state.t - tTli;
-    rk4Step(state, dt); // pure restricted 4-body, no thrust
+    const dMoon0 = distanceToMoon(state.t, state.pos);
+    if (!nBody && dMoon0 < N_BODY_HANDOFF_KM) nBody = true;
+
+    if (nBody) {
+      rk4Step(state, dt);
+    } else {
+      placeOnKeplerTrack(state, orb, state.t + dt);
+    }
+
     const altM = altitudeMoon(state.t, state.pos);
     const b = getBodies(state.t);
     sub(_relP, state.pos, b.earth);
@@ -94,7 +111,6 @@ function probePerilune(tliDv: number): ProbeResult {
     if (altitudeEarth(state.t, state.pos) < 0 && coastT < T * 0.7) {
       return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
     }
-    // Lunar impact
     if (altM < 0) {
       return {
         minAlt: Math.min(minAlt, 0),
@@ -123,7 +139,8 @@ function probePerilune(tliDv: number): ProbeResult {
 }
 
 /**
- * Full flight: ascent → LEO dogleg → finite TLI → **zero-thrust** 4-body coast.
+ * Full flight: ascent → LEO dogleg → finite TLI → ballistic free coast.
+ * Earth-Kepler ellipse after inject (TLI Δv sets apogee); 4-body near Moon.
  * Ends in lunar impact or ballistic flyby (no LOI/PDI/landing burns).
  */
 function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionResult {
@@ -156,17 +173,21 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       `ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
 
-  // --- Pure ballistic restricted 4-body coast (no TCMs, no LOI) ---
+  // --- Ballistic free coast: Kepler transfer, then 4-body near the Moon ---
   const tTli = state.t;
+  const orb = orbitAfterTli(state);
   const Tcoast = transferTimeEst();
   let minMoonAlt = Infinity;
   let periluneT = tTli;
-  const keplerRefMaxDevKm = 0; // no Kepler track after TLI
+  const keplerRefMaxDevKm = 0;
+  /** Hand off to 4-body inside this Moon distance (km). */
+  const N_BODY_HANDOFF_KM = 80_000;
+  let nBody = false;
 
   pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
 
   // Integrate through lunar encounter; stop after flyby (do not fall all the
-  // way back to Earth — that late reverse is solar/4-body, not the transfer).
+  // way back to Earth on the return leg of the transfer ellipse).
   const maxCoastT = tTli + Tcoast * 1.35 + 60_000;
   while (state.t < maxCoastT) {
     const dMoon = distanceToMoon(state.t, state.pos);
@@ -174,7 +195,6 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
     const coastT = state.t - tTli;
     const bE = getBodies(state.t);
     sub(_relP, state.pos, bE.earth);
-    const rE = len(_relP);
 
     if (altM < minMoonAlt) {
       minMoonAlt = altM;
@@ -224,9 +244,7 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
       };
     }
 
-    // End after the transfer arc (design TOF + margin). Do not integrate a
-    // multi-day Earth return — that late reverse of Earth-relative h is what
-    // made the path look anti-Kepler.
+    // End after the transfer arc (design TOF + margin).
     const transferDone =
       (coastT > Tcoast * 0.95 &&
         state.t > periluneT + 8_000 &&
@@ -281,7 +299,14 @@ function flyMission(moonPhase0: number, tliDv: number, toa?: number): MissionRes
           : dMoon < 250_000
             ? 12
             : DT_COAST;
-    rk4Step(state, dt); // restricted 4-body, zero thrust
+
+    if (!nBody && dMoon < N_BODY_HANDOFF_KM) nBody = true;
+    if (nBody) {
+      rk4Step(state, dt);
+    } else {
+      placeOnKeplerTrack(state, orb, state.t + dt);
+    }
+
     pushSample(
       samples,
       state,
@@ -363,8 +388,8 @@ function downsample(result: MissionResult, maxPoints = 8_000): MissionResult {
 }
 
 /**
- * Starbase → LEO → TLI → pure 4-body ballistic coast (no post-TLI burns).
- * Outcome: lunar impact or flyby. Probe search still aims for a close Moon pass.
+ * Starbase → LEO → TLI → ballistic free coast (no post-TLI burns).
+ * Outcome: lunar impact or flyby. Probe search aims for a close Moon pass.
  */
 export function runMission(): MissionResult {
   const xfer = lroTransfer();
@@ -401,13 +426,13 @@ export function runMission(): MissionResult {
 
   const guess = Math.PI - N_MOON * (T + tTli0);
 
-  // Epoch + Δv search for free 4-body close pass (keep prograde: near-Hohmann only)
+  // Epoch + Δv search for free-coast close pass (super-Hohmann ladder)
   const phaseOffsets: number[] = [];
   for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
 
   const dvMax = maxTliDv();
-  // Stay at/just above Hohmann so apo reaches the Moon (cool → Earth return)
-  const dvScales = [1.0, 1.002, 1.004, 1.005].filter(
+  // Prefer design / slightly hotter injects (higher apo, still cislunar)
+  const dvScales = [1.0, 1.01, 1.02, 1.03, 1.04, 1.05].filter(
     (s) => baseDv * s <= dvMax + 1e-9,
   );
 
@@ -505,10 +530,10 @@ export function runMission(): MissionResult {
         improved = true;
       }
     }
-    const dDv = 0.004 / (1 + iter);
+    const dDv = 0.008 / (1 + iter);
     for (const s of [-2, -1, 1, 2]) {
-      // Never cool below ~0.998× Hohmann (sub-lunar apo → Earth impact)
-      const dv = Math.min(dvMax, Math.max(baseDv * 0.998, bestDv + s * dDv));
+      // Never cool below design (sub-lunar apo → early Earth return)
+      const dv = Math.min(dvMax, Math.max(baseDv * 0.999, bestDv + s * dDv));
       const ev = evalCandidate(dv, bestPhase);
       if (ev.sc < bestScore - 1e-6) {
         bestScore = ev.sc;
