@@ -101,7 +101,7 @@ const craftTrail = createTrailFromPoints(trailPts);
 orbitGroup.add(craftTrail);
 
 /** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI). */
-const orbitExtras: THREE.Object3D[] = [bodies.earthSoi, bodies.moonSoi];
+const orbitExtras: THREE.Object3D[] = [bodies.moonSoi];
 if (groundTrack) orbitExtras.push(groundTrack);
 
 let orbitsVisible = true;

@@ -65,11 +65,9 @@ export const AU = 149_597_870.7;
 export const A_EM = 384_400;
 
 /**
- * Laplace sphere of influence radii (km).
- * r_SOI ≈ a (m/M)^{2/5} — theater values for overlay shells.
- * Earth vs Sun; Moon vs Earth. (Uses μ ratio = mass ratio.)
+ * Laplace sphere of influence radius (km) for the Moon vs Earth.
+ * r_SOI ≈ a (m/M)^{2/5} — theater overlay shell (uses μ ratio = mass ratio).
  */
-export const SOI_EARTH_KM = AU * (MU_EARTH / MU_SUN) ** (2 / 5);
 export const SOI_MOON_KM = A_EM * (MU_MOON / MU_EARTH) ** (2 / 5);
 
 /**

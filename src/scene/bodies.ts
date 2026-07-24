@@ -5,7 +5,6 @@ import {
   R_EARTH,
   R_MOON,
   R_SUN,
-  SOI_EARTH_KM,
   SOI_MOON_KM,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
@@ -30,8 +29,6 @@ export type Bodies = {
   earthGroup: THREE.Group;
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
-  /** Laplace SOI shell (parented to earthGroup); toggled with orbits (O). */
-  earthSoi: THREE.Mesh;
   /** Laplace SOI shell (parented to moonGroup); toggled with orbits (O). */
   moonSoi: THREE.Mesh;
 };
@@ -312,9 +309,7 @@ export function createBodies(): Bodies {
   );
   moonAxis.add(moon);
 
-  // Gravitational spheres of influence (Laplace) — co-move with each body
-  const earthSoi = createSoiShell(SOI_EARTH_KM, "earth-soi");
-  earthGroup.add(earthSoi);
+  // Moon gravitational sphere of influence (Laplace) — co-moves with the Moon
   const moonSoi = createSoiShell(SOI_MOON_KM, "moon-soi");
   moonGroup.add(moonSoi);
 
@@ -330,7 +325,6 @@ export function createBodies(): Bodies {
     moon,
     moonAxis,
     sun,
-    earthSoi,
     moonSoi,
   });
 
@@ -343,7 +337,6 @@ export function createBodies(): Bodies {
     earthGroup,
     moonGroup,
     sunGroup,
-    earthSoi,
     moonSoi,
   };
 }
