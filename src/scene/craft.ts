@@ -963,8 +963,10 @@ export function craftLengthKm(staged: boolean): number {
 }
 
 /**
- * Show the red locator only when the craft is effectively invisible on screen.
- * craftLenKm ≈ mesh scale length.
+ * Red locator: keep a constant on-screen marker whenever the craft mesh is
+ * too small to read. Hide only once the stack itself subtends enough pixels.
+ *
+ * craftLenKm ≈ mesh length in scene units (km).
  */
 export function updateLocatorVisibility(
   locator: THREE.Sprite,
@@ -975,30 +977,30 @@ export function updateLocatorVisibility(
   const dist = Math.max(1e-6, camera.position.distanceTo(craftPos));
   const len = Math.max(opts.craftLenKm, 0.01);
 
-  // Hard hide once close enough that the mesh is clearly the subject
-  if (dist < len * 40) {
-    locator.visible = false;
-    return;
-  }
-
   const persp = camera as THREE.PerspectiveCamera;
   const fov = (persp.fov ?? 50) * (Math.PI / 180);
   const worldHeight = 2 * Math.tan(fov / 2) * dist;
   const viewH = window.innerHeight || 800;
-  const px = (len / worldHeight) * viewH;
+  const craftPx = (len / worldHeight) * viewH;
 
-  // Only mark the craft when it's a sub-pixel / 1px speck — not when the mesh
-  // is already readable (old 8px threshold left a huge red blob over it).
-  const tooSmall = px < 1.5;
-  locator.visible = tooSmall;
-  if (!tooSmall) return;
+  // Mesh is the subject once it's a few pixels tall — drop the marker.
+  // (Not a distance hard-cut: solar / cislunar zooms must still show a dot.)
+  const MESH_READABLE_PX = 5;
+  if (craftPx >= MESH_READABLE_PX) {
+    locator.visible = false;
+    return;
+  }
 
-  // ~8 px on screen, but never larger than a small multiple of the craft
-  const fromPixels = (8 / viewH) * worldHeight;
-  const s = THREE.MathUtils.clamp(
-    fromPixels,
-    len * 2,
-    Math.min(dist * 0.02, len * 60),
-  );
+  locator.visible = true;
+
+  // Constant ~10 px on screen at any range (Earth orbit → lunar → solar).
+  // World scale grows with distance under sizeAttenuation.
+  const TARGET_PX = 10;
+  const fromPixels = (TARGET_PX / viewH) * worldHeight;
+
+  // Floor near the craft when almost visible; cap as a fraction of distance
+  // so the marker stays a "dot" and never a planet-sized blob. Do not cap
+  // by craft length — that made cislunar markers sub-pixel.
+  const s = THREE.MathUtils.clamp(fromPixels, len * 1.5, dist * 0.05);
   locator.scale.set(s, s, 1);
 }
