@@ -1,15 +1,14 @@
 import * as THREE from "three";
 import type { V3 } from "../physics/vec3";
+import { createFatLine } from "./fatLines";
 
-export function createTrailFromPoints(points: V3[]): THREE.Line {
+export function createTrailFromPoints(points: V3[]): THREE.Object3D {
   const vecs = points.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  const geom = new THREE.BufferGeometry().setFromPoints(vecs);
-  const mat = new THREE.LineBasicMaterial({
+  const line = createFatLine(vecs, {
     color: 0x7ec8ff,
-    transparent: true,
-    opacity: 0.5,
+    opacity: 0.72,
+    linewidth: 3.25,
   });
-  const line = new THREE.Line(geom, mat);
-  line.frustumCulled = false;
+  line.name = "craft-trail";
   return line;
 }

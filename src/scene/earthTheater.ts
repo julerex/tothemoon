@@ -12,6 +12,7 @@ import {
 import { bodyPositions } from "../physics/bodies";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
+import { createFatLine } from "./fatLines";
 import { markZoomLabel } from "./zoomLabels";
 
 /**
@@ -307,7 +308,9 @@ export function updateStarbaseLaunchFx(
  * Sub-satellite ground track for launch → early LEO, in Earth mesh-local coords
  * so it co-rotates with the surface.
  */
-export function createAscentGroundTrack(samples: Sample[]): THREE.Line | null {
+export function createAscentGroundTrack(
+  samples: Sample[],
+): THREE.Object3D | null {
   const pts: THREE.Vector3[] = [];
   const rel = v3();
   const local = v3();
@@ -342,16 +345,13 @@ export function createAscentGroundTrack(samples: Sample[]): THREE.Line | null {
           return pts[Math.round(u * (pts.length - 1))]!;
         });
 
-  const geom = new THREE.BufferGeometry().setFromPoints(used);
-  const mat = new THREE.LineBasicMaterial({
+  const line = createFatLine(used, {
     color: 0xff8866,
-    transparent: true,
-    opacity: 0.75,
-    depthWrite: false,
+    opacity: 0.85,
+    linewidth: 2.75,
+    depthTest: true,
   });
-  const line = new THREE.Line(geom, mat);
   line.name = "ascent-ground-track";
-  line.frustumCulled = false;
   return line;
 }
 

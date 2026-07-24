@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { A_EM, AU } from "../physics/constants";
 import { moonOrbitPathPoints } from "../physics/bodies";
+import { createFatLine } from "./fatLines";
 import { makeStarTexture } from "./textures";
 
 export type SceneBundle = {
@@ -46,18 +47,16 @@ function createEclipticGridTowardSun(): THREE.GridHelper {
   return grid;
 }
 
-/** Thin ellipse of the Moon’s path about the barycenter (one sidereal month). */
-function createMoonOrbitPath(): THREE.Line {
+/** Moon’s path about the barycenter (one sidereal month). */
+function createMoonOrbitPath(): THREE.Object3D {
   const pts = moonOrbitPathPoints(256, 0);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  const geom = new THREE.BufferGeometry().setFromPoints(vecs);
-  const mat = new THREE.LineBasicMaterial({
+  const line = createFatLine(vecs, {
     color: 0x88aacc,
-    transparent: true,
-    opacity: 0.4,
+    opacity: 0.55,
+    linewidth: 2.75,
   });
-  const line = new THREE.Line(geom, mat);
-  line.frustumCulled = false;
+  line.name = "moon-orbit-path";
   return line;
 }
 
@@ -74,9 +73,12 @@ function applySkyMap(texture: THREE.Texture): void {
  * fall back to a procedural canvas map if the asset is missing.
  */
 function createStarDome(): THREE.Mesh {
+  // Dim the sky map so bodies, trails, and SOI shells read clearly
   const mat = new THREE.MeshBasicMaterial({
     side: THREE.BackSide,
     depthWrite: false,
+    color: 0x555566,
+    toneMapped: false,
   });
   // Large enough that solar-camera (near 1 AU) still sits inside the sky dome
   const stars = new THREE.Mesh(
@@ -112,7 +114,7 @@ function createStarDome(): THREE.Mesh {
 
 export function createScene(): SceneBundle {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x03050c);
+  scene.background = new THREE.Color(0x010208);
   scene.add(createStarDome());
 
   // Orbit overlays (ecliptic grids + Moon path) — O toggles visibility

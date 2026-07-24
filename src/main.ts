@@ -20,6 +20,7 @@ import {
   updateCraftVisuals,
   updateLocatorVisibility,
 } from "./scene/craft";
+import { updateFatLineResolutions } from "./scene/fatLines";
 import { createTrailFromPoints } from "./scene/trail";
 import { StagingFx, findStageEvent } from "./scene/stagingFx";
 import { LandingFx } from "./scene/landingFx";
@@ -407,6 +408,8 @@ function resize(): void {
     renderer.setSize(w, h, false);
     camera.aspect = w / Math.max(h, 1);
     camera.updateProjectionMatrix();
+    // Line2 stroke width is resolution-dependent
+    updateFatLineResolutions(scene, w, h);
   }
 }
 
