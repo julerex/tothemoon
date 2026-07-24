@@ -90,12 +90,11 @@ function makePoleLabel(text: string, color: string): THREE.Sprite {
     sizeAttenuation: true,
   });
   const spr = new THREE.Sprite(mat);
-  // Screen size driven by updateZoomLabels each frame
+  // Screen size driven by updateZoomLabels each frame (constant px at any zoom)
   markZoomLabel(spr, {
-    targetPx: 28,
+    targetPx: 26,
     aspect: 1,
-    minH: 8,
-    maxH: R_EARTH * 0.55,
+    minH: 4,
   });
   spr.scale.set(R_EARTH * 0.2, R_EARTH * 0.2, 1);
   return spr;

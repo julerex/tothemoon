@@ -30,7 +30,7 @@ import {
   updateStarbaseLaunchFx,
 } from "./scene/earthTheater";
 import { createGroundSky, updateGroundSky } from "./scene/groundSky";
-import { updateZoomLabels } from "./scene/zoomLabels";
+import { toggleZoomLabels, updateZoomLabels } from "./scene/zoomLabels";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import {
   autoSpeedForPhase,
@@ -198,6 +198,9 @@ const hud = bindHud(clock, timeline, {
   onOrbitKey: (key, down) => director.setOrbitKey(key, down),
   onPanKey: (key, down) => director.setPanKey(key, down),
   onZoomKey: (key, down) => director.setZoomKey(key, down),
+  onToggleLabels: () => {
+    toggleZoomLabels();
+  },
 });
 
 /**

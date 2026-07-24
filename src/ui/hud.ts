@@ -22,6 +22,8 @@ export type HudHandlers = {
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
+  /** L — toggle scene labels (poles, Starbase, …) */
+  onToggleLabels?: () => void;
 };
 
 export type Telemetry = {
@@ -174,6 +176,9 @@ export function bindHud(
       e.preventDefault();
       const next = handlers.onSpeedNudge(1);
       speed.value = String(next);
+    } else if (e.key === "l" || e.key === "L") {
+      e.preventDefault();
+      handlers.onToggleLabels?.();
     }
   });
 

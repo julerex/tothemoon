@@ -197,11 +197,11 @@ export function createStarbasePad(): THREE.Group {
 
   const label = makeTextSprite("STARBASE", "#7ec8ff");
   label.position.set(0, 18, 0);
+  // Constant screen size at any zoom (no maxH — far cams still show the label)
   markZoomLabel(label, {
-    targetPx: 22,
+    targetPx: 20,
     aspect: 256 / 64,
-    minH: 0.6,
-    maxH: 28,
+    minH: 0.4,
   });
   label.scale.set(12, 3, 1);
   pad.add(label);
