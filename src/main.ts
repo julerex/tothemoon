@@ -29,6 +29,7 @@ import {
   pulsePadBeacon,
   updateStarbaseLaunchFx,
 } from "./scene/earthTheater";
+import { createGroundSky, updateGroundSky } from "./scene/groundSky";
 import { updateZoomLabels } from "./scene/zoomLabels";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import {
@@ -80,6 +81,12 @@ const director = new CameraDirector(camera, canvas);
 const { scene, sunLight } = createScene();
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
+
+// Atmospheric sky shell — visible only for low-altitude / pad cameras
+const groundSky = createGroundSky();
+scene.add(groundSky.mesh);
+const _skyEarth = new THREE.Vector3();
+const _skySun = new THREE.Vector3();
 
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
@@ -320,6 +327,9 @@ function applyMissionState(u: number): void {
   );
   sunLight.target.position.set(0, 0, 0);
   sunLight.target.updateMatrixWorld();
+  // Cache for ground-sky update after the camera moves this frame
+  _skyEarth.copy(_earthPos);
+  _skySun.copy(sunLight.position);
 
   updateLocatorVisibility(locator, camera, craftPos, {
     craftLenKm: craftLengthKm(frame.staged),
@@ -392,6 +402,9 @@ function frame(): void {
   spinBodies(bodies, dt);
   director.update(dt, cache.sampleAtProgress(clock.t).t, craftPos, craftVel);
   updateZoomLabels(scene, camera);
+
+  // Pad / low-altitude sky (fades out once the camera leaves the atmosphere)
+  updateGroundSky(groundSky, camera, _skyEarth, _skySun);
 
   renderer.render(scene, camera);
 }
