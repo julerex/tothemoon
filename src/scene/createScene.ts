@@ -6,6 +6,8 @@ import { makeStarTexture } from "./textures";
 export type SceneBundle = {
   scene: THREE.Scene;
   sunLight: THREE.DirectionalLight;
+  /** Ecliptic grids + Moon path — toggle with O */
+  orbitGroup: THREE.Group;
 };
 
 function styleGrid(grid: THREE.GridHelper, opacity: number): void {
@@ -113,10 +115,13 @@ export function createScene(): SceneBundle {
   scene.background = new THREE.Color(0x03050c);
   scene.add(createStarDome());
 
-  // Ecliptic only (no lunar orbital plane grid)
-  scene.add(createEclipticGridTowardSun());
-  scene.add(createEclipticGridNear());
-  scene.add(createMoonOrbitPath());
+  // Orbit overlays (ecliptic grids + Moon path) — O toggles visibility
+  const orbitGroup = new THREE.Group();
+  orbitGroup.name = "orbit-overlays";
+  orbitGroup.add(createEclipticGridTowardSun());
+  orbitGroup.add(createEclipticGridNear());
+  orbitGroup.add(createMoonOrbitPath());
+  scene.add(orbitGroup);
 
   scene.add(new THREE.AmbientLight(0x334466, 0.22));
   scene.add(new THREE.HemisphereLight(0x8899bb, 0x080810, 0.28));
@@ -131,5 +136,5 @@ export function createScene(): SceneBundle {
   rim.position.set(A_EM, -A_EM * 0.3, -A_EM * 0.5);
   scene.add(rim);
 
-  return { scene, sunLight };
+  return { scene, sunLight, orbitGroup };
 }

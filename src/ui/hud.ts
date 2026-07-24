@@ -24,6 +24,8 @@ export type HudHandlers = {
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
   /** L — toggle scene labels (poles, Starbase, …) */
   onToggleLabels?: () => void;
+  /** O — toggle orbit overlays (grids, Moon path, craft trail, ground track) */
+  onToggleOrbits?: () => void;
 };
 
 export type Telemetry = {
@@ -179,6 +181,9 @@ export function bindHud(
     } else if (e.key === "l" || e.key === "L") {
       e.preventDefault();
       handlers.onToggleLabels?.();
+    } else if (e.key === "o" || e.key === "O") {
+      e.preventDefault();
+      handlers.onToggleOrbits?.();
     }
   });
 

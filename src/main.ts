@@ -78,7 +78,7 @@ renderer.toneMappingExposure = 1.05;
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
 
-const { scene, sunLight } = createScene();
+const { scene, sunLight, orbitGroup } = createScene();
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
@@ -95,7 +95,24 @@ const groundTrack = createAscentGroundTrack(cache.samples);
 if (groundTrack) bodies.earth.add(groundTrack);
 
 const trailPts = cache.trailPoints(1500);
-scene.add(createTrailFromPoints(trailPts));
+const craftTrail = createTrailFromPoints(trailPts);
+// Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
+orbitGroup.add(craftTrail);
+
+/** Extra orbit overlays not parented under orbitGroup (e.g. Earth-fixed track). */
+const orbitExtras: THREE.Object3D[] = [];
+if (groundTrack) orbitExtras.push(groundTrack);
+
+let orbitsVisible = true;
+function setOrbitsVisible(visible: boolean): void {
+  orbitsVisible = visible;
+  orbitGroup.visible = visible;
+  for (const obj of orbitExtras) obj.visible = visible;
+}
+function toggleOrbits(): boolean {
+  setOrbitsVisible(!orbitsVisible);
+  return orbitsVisible;
+}
 
 const { group: craft, locator } = createCraft();
 scene.add(craft);
@@ -200,6 +217,9 @@ const hud = bindHud(clock, timeline, {
   onZoomKey: (key, down) => director.setZoomKey(key, down),
   onToggleLabels: () => {
     toggleZoomLabels();
+  },
+  onToggleOrbits: () => {
+    toggleOrbits();
   },
 });
 
