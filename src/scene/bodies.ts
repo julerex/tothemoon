@@ -5,6 +5,8 @@ import {
   R_EARTH,
   R_MOON,
   R_SUN,
+  SOI_EARTH_KM,
+  SOI_MOON_KM,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import { EARTH_SPIN0, EARTH_SPIN_RATE } from "../physics/earthFrame";
@@ -28,7 +30,30 @@ export type Bodies = {
   earthGroup: THREE.Group;
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
+  /** Laplace SOI shell (parented to earthGroup); toggled with orbits (O). */
+  earthSoi: THREE.Mesh;
+  /** Laplace SOI shell (parented to moonGroup); toggled with orbits (O). */
+  moonSoi: THREE.Mesh;
 };
+
+/** Translucent sphere of influence shell (Laplace SOI). */
+function createSoiShell(radiusKm: number, name: string): THREE.Mesh {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radiusKm, 48, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xff3344,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.NormalBlending,
+    }),
+  );
+  mesh.name = name;
+  mesh.renderOrder = -1;
+  mesh.frustumCulled = false;
+  return mesh;
+}
 
 /** Lunar north in the ecliptic frame (small tilt from +Z). */
 const _moonNorth = new THREE.Vector3(
@@ -287,6 +312,12 @@ export function createBodies(): Bodies {
   );
   moonAxis.add(moon);
 
+  // Gravitational spheres of influence (Laplace) — co-move with each body
+  const earthSoi = createSoiShell(SOI_EARTH_KM, "earth-soi");
+  earthGroup.add(earthSoi);
+  const moonSoi = createSoiShell(SOI_MOON_KM, "moon-soi");
+  moonGroup.add(moonSoi);
+
   const { sun, sunGroup } = createSun();
 
   // Initial placement + spin / tidal lock
@@ -299,6 +330,8 @@ export function createBodies(): Bodies {
     moon,
     moonAxis,
     sun,
+    earthSoi,
+    moonSoi,
   });
 
   return {
@@ -310,6 +343,8 @@ export function createBodies(): Bodies {
     earthGroup,
     moonGroup,
     sunGroup,
+    earthSoi,
+    moonSoi,
   };
 }
 
