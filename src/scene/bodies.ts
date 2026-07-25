@@ -17,6 +17,7 @@ import {
   makeMoonTexture,
   makeSunGlowTexture,
 } from "./textures";
+import { createLocatorSprite } from "./craft";
 import { markZoomLabel } from "./zoomLabels";
 
 export type Bodies = {
@@ -31,6 +32,10 @@ export type Bodies = {
   sunGroup: THREE.Group;
   /** Laplace SOI shell (parented to moonGroup); toggled with orbits (O). */
   moonSoi: THREE.Mesh;
+  /** Far-range green locator (same on-screen size as craft red dot). */
+  earthLocator: THREE.Sprite;
+  /** Far-range light-blue locator. */
+  moonLocator: THREE.Sprite;
 };
 
 /** Translucent sphere of influence shell (Laplace SOI). */
@@ -313,6 +318,20 @@ export function createBodies(): Bodies {
   const moonSoi = createSoiShell(SOI_MOON_KM, "moon-soi");
   moonGroup.add(moonSoi);
 
+  // Far-range locators (shown when the disc is sub-pixel / too small to read)
+  const earthLocator = createLocatorSprite(
+    "#22c55e",
+    "34, 197, 94",
+    "earth-locator",
+  );
+  earthGroup.add(earthLocator);
+  const moonLocator = createLocatorSprite(
+    "#93c5fd",
+    "147, 197, 253",
+    "moon-locator",
+  );
+  moonGroup.add(moonLocator);
+
   const { sun, sunGroup } = createSun();
 
   // Initial placement + spin / tidal lock
@@ -326,6 +345,8 @@ export function createBodies(): Bodies {
     moonAxis,
     sun,
     moonSoi,
+    earthLocator,
+    moonLocator,
   });
 
   return {
@@ -338,6 +359,8 @@ export function createBodies(): Bodies {
     moonGroup,
     sunGroup,
     moonSoi,
+    earthLocator,
+    moonLocator,
   };
 }
 

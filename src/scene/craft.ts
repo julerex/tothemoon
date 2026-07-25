@@ -698,7 +698,16 @@ function makeCondensationCloud(): THREE.Group {
   return g;
 }
 
-function createLocatorSprite(): THREE.Sprite {
+/**
+ * Soft glowing locator dot (constant on-screen size via updateLocatorVisibility).
+ * @param coreCss solid disc color
+ * @param glowRgb "r, g, b" for the outer halo
+ */
+export function createLocatorSprite(
+  coreCss = "#ff2233",
+  glowRgb = "255, 40, 55",
+  name = "locator",
+): THREE.Sprite {
   const size = 64;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -706,16 +715,16 @@ function createLocatorSprite(): THREE.Sprite {
   const ctx = canvas.getContext("2d")!;
 
   const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-  g.addColorStop(0, "rgba(255, 70, 80, 1)");
-  g.addColorStop(0.25, "rgba(255, 40, 55, 0.9)");
-  g.addColorStop(0.55, "rgba(255, 40, 55, 0.25)");
-  g.addColorStop(1, "rgba(255, 40, 55, 0)");
+  g.addColorStop(0, `rgba(${glowRgb}, 1)`);
+  g.addColorStop(0.25, `rgba(${glowRgb}, 0.9)`);
+  g.addColorStop(0.55, `rgba(${glowRgb}, 0.25)`);
+  g.addColorStop(1, `rgba(${glowRgb}, 0)`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
 
   ctx.beginPath();
   ctx.arc(32, 32, 5, 0, Math.PI * 2);
-  ctx.fillStyle = "#ff2233";
+  ctx.fillStyle = coreCss;
   ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.85)";
   ctx.lineWidth = 2;
@@ -734,7 +743,7 @@ function createLocatorSprite(): THREE.Sprite {
   const sprite = new THREE.Sprite(mat);
   sprite.renderOrder = 5;
   sprite.scale.set(1, 1, 1);
-  sprite.name = "locator";
+  sprite.name = name;
   sprite.visible = false;
   return sprite;
 }
@@ -975,44 +984,42 @@ export function craftLengthKm(staged: boolean): number {
 }
 
 /**
- * Red locator: keep a constant on-screen marker whenever the craft mesh is
- * too small to read. Hide only once the stack itself subtends enough pixels.
+ * Locator dot: constant on-screen marker whenever the body/craft is too small
+ * to read. Hide once the real geometry subtends enough pixels.
  *
- * craftLenKm ≈ mesh length in scene units (km).
+ * `sizeKm` — characteristic size in scene units (craft length, body diameter).
  */
 export function updateLocatorVisibility(
   locator: THREE.Sprite,
   camera: THREE.Camera,
-  craftPos: THREE.Vector3,
-  opts: { craftLenKm: number },
+  worldPos: THREE.Vector3,
+  opts: { sizeKm: number },
 ): void {
-  const dist = Math.max(1e-6, camera.position.distanceTo(craftPos));
-  const len = Math.max(opts.craftLenKm, 0.01);
+  const dist = Math.max(1e-6, camera.position.distanceTo(worldPos));
+  const len = Math.max(opts.sizeKm, 0.01);
 
   const persp = camera as THREE.PerspectiveCamera;
   const fov = (persp.fov ?? 50) * (Math.PI / 180);
   const worldHeight = 2 * Math.tan(fov / 2) * dist;
   const viewH = window.innerHeight || 800;
-  const craftPx = (len / worldHeight) * viewH;
+  const bodyPx = (len / worldHeight) * viewH;
 
-  // Mesh is the subject once it's a few pixels tall — drop the marker.
-  // (Not a distance hard-cut: solar / cislunar zooms must still show a dot.)
+  // Real mesh is the subject once it's a few pixels tall — drop the marker.
   const MESH_READABLE_PX = 5;
-  if (craftPx >= MESH_READABLE_PX) {
+  if (bodyPx >= MESH_READABLE_PX) {
     locator.visible = false;
     return;
   }
 
   locator.visible = true;
 
-  // Constant ~10 px on screen at any range (Earth orbit → lunar → solar).
-  // World scale grows with distance under sizeAttenuation.
+  // Constant ~10 px on screen at any range (same as craft red dot).
   const TARGET_PX = 10;
   const fromPixels = (TARGET_PX / viewH) * worldHeight;
 
-  // Floor near the craft when almost visible; cap as a fraction of distance
-  // so the marker stays a "dot" and never a planet-sized blob. Do not cap
-  // by craft length — that made cislunar markers sub-pixel.
-  const s = THREE.MathUtils.clamp(fromPixels, len * 1.5, dist * 0.05);
+  // Cap as a fraction of distance so the marker stays a "dot". Floor is tiny
+  // so large bodies (Earth diameter) don't force a planet-sized sprite.
+  const minS = Math.min(len * 1.5, fromPixels * 0.5, dist * 0.001);
+  const s = THREE.MathUtils.clamp(fromPixels, Math.max(minS, 1e-6), dist * 0.05);
   locator.scale.set(s, s, 1);
 }

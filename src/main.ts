@@ -375,7 +375,15 @@ function applyMissionState(u: number): void {
   _skySun.copy(sunLight.position);
 
   updateLocatorVisibility(locator, camera, craftPos, {
-    craftLenKm: craftLengthKm(frame.staged),
+    sizeKm: craftLengthKm(frame.staged),
+  });
+  // Earth green / Moon light-blue dots when the real disc is too small
+  updateLocatorVisibility(bodies.earthLocator, camera, _earthPos, {
+    sizeKm: R_EARTH * 2,
+  });
+  _moonPosV.set(b.moon.x, b.moon.y, b.moon.z);
+  updateLocatorVisibility(bodies.moonLocator, camera, _moonPosV, {
+    sizeKm: R_MOON * 2,
   });
 
   // Altitude: Earth during launch/LEO/TLI/coast (far from Moon); else Moon
