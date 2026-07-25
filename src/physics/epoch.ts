@@ -57,13 +57,16 @@ export function sunEclipticLongitudeAtLanding(): number {
 }
 
 /**
- * Sun inertial angle offset at mission t = 0 so that at `landingT`
+ * Earth mean longitude offset at mission t = 0 so that at `landingT`
  * the ecliptic elongation is a waning gibbous (July 2027).
  *
- * Uses the Moon’s ecliptic longitude (atan2 of Earth→Moon XY) from the
- * Keplerian orbit; Sun stays on the ecliptic:
- *   λ_m − θ_s = π + δ  at t = landingT
- *   θ_s = sunPhase0 + N_EARTH_SUN · landingT
+ * Heliocentric frame: EM barycenter at angle θ_e about the Sun; Earth→Sun
+ * points toward the origin (angle θ_e + π). Moon ecliptic longitude λ_m
+ * (Earth→Moon from the Keplerian orbit):
+ *   full:      λ_m = θ_e
+ *   waning +δ: λ_m = θ_e + δ
+ *   θ_e = sunPhase0 + N_EARTH_SUN · landingT
+ *   sunPhase0 = λ_m − δ − N_EARTH_SUN · landingT
  */
 export function sunPhase0ForLanding(
   moonPhase0: number,
@@ -71,7 +74,7 @@ export function sunPhase0ForLanding(
 ): number {
   const δ = moonElongationPastFullRad();
   const λm = moonEclipticLongitude(landingT, moonPhase0);
-  return λm - Math.PI - δ - N_EARTH_SUN * landingT;
+  return λm - δ - N_EARTH_SUN * landingT;
 }
 
 /** UTC ms for a mission clock time, with t = durationS at landing. */

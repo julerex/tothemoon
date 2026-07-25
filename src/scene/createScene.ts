@@ -34,11 +34,11 @@ function createEclipticGridNear(): THREE.GridHelper {
 }
 
 /**
- * Same ecliptic plane, coarser and sized so the grid reaches the Sun (~1 AU
- * from the barycenter) without drowning the cislunar view in fine lines.
+ * Same ecliptic plane, coarser and sized out to ~1 AU past Earth's orbit
+ * (Sun at origin) without drowning the cislunar view in fine lines.
  */
 function createEclipticGridTowardSun(): THREE.GridHelper {
-  // Full width 2.2 AU → edges past the Sun on either side of the barycenter
+  // Full width 2.2 AU → past Earth's orbit on either side of the Sun
   const size = AU * 2.2;
   const divisions = 22;
   const grid = new THREE.GridHelper(size, divisions, 0x555566, 0x2a2a38);
@@ -61,8 +61,7 @@ function createMoonOrbitPath(): THREE.Object3D {
 }
 
 /**
- * Earth’s orbit around the Sun — 1 AU ring in the ecliptic (warm gold so it
- * reads apart from the cooler Moon path).
+ * Earth’s orbit around the Sun (origin) — 1 AU ecliptic ring (warm gold).
  */
 function createEarthOrbitPath(): THREE.Object3D {
   const pts = earthOrbitPathPoints(256);

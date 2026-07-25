@@ -54,9 +54,10 @@ describe("baked trajectory.json invariants", () => {
   });
 
   it("has finite positions within solar-system-ish bounds", () => {
+    // Heliocentric frame: Earth ~1 AU ≈ 1.5e8 km; allow out to ~2 AU
     for (const s of traj.samples) {
       const r = Math.hypot(s.pos.x, s.pos.y, s.pos.z);
-      assert.ok(r < 2e6, `position |r|=${r} looks unbounded`);
+      assert.ok(r < 3e8, `position |r|=${r} looks unbounded`);
       assert.ok(Number.isFinite(s.vel.x));
     }
   });

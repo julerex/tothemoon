@@ -15,11 +15,20 @@ import {
 import { set, type V3, v3 } from "./vec3";
 
 /**
- * Prescribed body positions in the Earth–Moon barycentric inertial frame.
+ * Prescribed body positions in a **heliocentric / solar-system-barycentric
+ * theater frame** (SSB ≈ Sun for this app).
  *
- * - Ecliptic / Sun–Earth plane: XY (z = 0)
- * - Moon: Keplerian ellipse about Earth (a, e, i, Ω, ω), barycenter at origin
- * - moonPhase0 = mean anomaly M at t = 0 (mission search tunes this)
+ * Orientation: mean **ecliptic of J2000** (XY = Earth orbital plane, +Z =
+ * ecliptic north). True ICRS/ICRF axes are equatorial; this is the usual
+ * ecliptic realization of a barycentric solar-system frame (BCRS-like origin,
+ * ecliptic axes) so the Sun stays fixed and Earth orbits at ~1 AU — not the
+ * inverted EM-barycentric view where the Sun appeared to circle Earth.
+ *
+ * - Sun ≈ origin (fixed for theater)
+ * - Earth–Moon barycenter on a circular 1 AU ecliptic orbit
+ * - Moon: Keplerian ellipse about Earth (a, e, i, Ω, ω)
+ * - moonPhase0 = Moon mean anomaly M at t = 0
+ * - sunPhase0 = Earth mean ecliptic longitude at t = 0
  */
 
 export type BodyState = {
@@ -40,9 +49,9 @@ const _moonVel = v3();
 let moonPhase0 = 0;
 
 /**
- * Sun inertial angle offset at t=0 (rad).
- * Set from July 2027 epoch so landing geometry is a waning gibbous
- * (see epoch.ts); default π is a placeholder until the trajectory loads.
+ * Earth mean ecliptic longitude at t=0 (rad) — heliocentric angle of the
+ * EM barycenter about the Sun. Set from July 2027 epoch so landing geometry
+ * is a waning gibbous (see epoch.ts).
  */
 let sunPhase0 = Math.PI;
 
@@ -162,18 +171,51 @@ export function moonEclipticLongitude(t: number, M0: number = moonPhase0): numbe
 
 export function bodyPositions(t: number, out?: BodyState): BodyState {
   const rel = moonRelativeToEarth(t);
-  // Barycenter at origin: Earth and Moon on opposite sides of r_em
+  // EM mass split about the Earth–Moon barycenter
   const kM = 1 / (1 + MASS_RATIO_ME); // m_e / (m_e + m_m)
   const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME); // m_m / (m_e + m_m)
 
-  set(_moon, kM * rel.pos.x, kM * rel.pos.y, kM * rel.pos.z);
-  set(_earth, -kE * rel.pos.x, -kE * rel.pos.y, -kE * rel.pos.z);
-  set(_moonVel, kM * rel.vel.x, kM * rel.vel.y, kM * rel.vel.z);
-  set(_earthVel, -kE * rel.vel.x, -kE * rel.vel.y, -kE * rel.vel.z);
+  // Sun fixed at origin (heliocentric / SSB theater)
+  set(_sun, 0, 0, 0);
 
-  // Sun on the ecliptic at ~1 AU
-  const θs = sunPhase0 + N_EARTH_SUN * t;
-  set(_sun, AU * Math.cos(θs), AU * Math.sin(θs), 0);
+  // EM barycenter on a circular 1 AU ecliptic orbit about the Sun
+  const θ = sunPhase0 + N_EARTH_SUN * t;
+  const cosθ = Math.cos(θ);
+  const sinθ = Math.sin(θ);
+  const r = AU;
+  const vOrb = N_EARTH_SUN * r; // circular: v = n a
+  const bx = r * cosθ;
+  const by = r * sinθ;
+  const bz = 0;
+  const bvx = -vOrb * sinθ;
+  const bvy = vOrb * cosθ;
+  const bvz = 0;
+
+  // Earth and Moon about the EM barycenter (same as before, now translated)
+  set(
+    _earth,
+    bx - kE * rel.pos.x,
+    by - kE * rel.pos.y,
+    bz - kE * rel.pos.z,
+  );
+  set(
+    _moon,
+    bx + kM * rel.pos.x,
+    by + kM * rel.pos.y,
+    bz + kM * rel.pos.z,
+  );
+  set(
+    _earthVel,
+    bvx - kE * rel.vel.x,
+    bvy - kE * rel.vel.y,
+    bvz - kE * rel.vel.z,
+  );
+  set(
+    _moonVel,
+    bvx + kM * rel.vel.x,
+    bvy + kM * rel.vel.y,
+    bvz + kM * rel.vel.z,
+  );
 
   if (out) {
     set(out.sun, _sun.x, _sun.y, _sun.z);
@@ -232,31 +274,28 @@ export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
 }
 
 /**
- * Sample the Moon’s path about the barycenter for orbit visualization.
- * Returns points in ecliptic/bary frame over one sidereal month.
+ * Sample the Moon’s path about Earth for orbit visualization (one sidereal
+ * month). Drawn around Earth’s mean heliocentric position (AU, 0, 0) so the
+ * small lunar loop sits on the Earth orbit ring.
  */
 export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
   const pts: V3[] = [];
   const period = (2 * Math.PI) / N_MOON;
-  const kM = 1 / (1 + MASS_RATIO_ME);
   for (let i = 0; i <= samples; i++) {
     const t = (i / samples) * period;
     const rel = moonRelativeToEarth(t, M0);
     pts.push({
-      x: kM * rel.pos.x,
-      y: kM * rel.pos.y,
-      z: kM * rel.pos.z,
+      x: AU + rel.pos.x,
+      y: rel.pos.y,
+      z: rel.pos.z,
     });
   }
   return pts;
 }
 
 /**
- * Earth's heliocentric orbit as a circle of radius AU in the ecliptic (XY).
- *
- * Theater frame is EM-barycentric: Earth sits near the origin and the Sun
- * travels this ring, so the path is the relative Earth–Sun orbit (mean
- * separation 1 AU) drawn about the barycenter.
+ * Earth’s heliocentric orbit — circle of radius AU about the Sun (origin)
+ * in the ecliptic (XY).
  */
 export function earthOrbitPathPoints(samples = 256): V3[] {
   const pts: V3[] = [];

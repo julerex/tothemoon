@@ -30,7 +30,8 @@ export const DRAG_CD_A_OVER_M = 1.2e-11;
 
 /**
  * Earth axial tilt vs the ecliptic / orbital plane (rad).
- * In this theater the Sun–Earth–Moon plane is XY; ecliptic north is +Z.
+ * Heliocentric theater: ecliptic XY, +Z = ecliptic north (ICRF-related
+ * solar-system frame with ecliptic axes; see bodies.ts).
  */
 export const EARTH_OBLIQUITY = (23.439_281 * Math.PI) / 180;
 
