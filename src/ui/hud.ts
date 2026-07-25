@@ -94,6 +94,8 @@ export function bindHud(
   const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
   const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
   const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
+  const keymapEl = document.querySelector<HTMLElement>("#keymap");
+  const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
 
   let scrubbing = false;
   let lastPhase: PhaseId | null = null;
@@ -102,6 +104,16 @@ export function bindHud(
   const firedEvents = new Set<string>();
   let calloutTimer: ReturnType<typeof setTimeout> | null = null;
   let completeShown = false;
+  let keymapOpen = false;
+
+  function setKeymapOpen(open: boolean): void {
+    keymapOpen = open;
+    if (keymapEl) keymapEl.hidden = !open;
+  }
+
+  function toggleKeymap(): void {
+    setKeymapOpen(!keymapOpen);
+  }
 
   if (markersEl) {
     renderPhaseMarkers(markersEl, timeline.segments);
@@ -130,8 +142,37 @@ export function bindHud(
     });
   }
 
+  if (keymapClose) {
+    keymapClose.addEventListener("click", () => setKeymapOpen(false));
+  }
+  if (keymapEl) {
+    keymapEl.addEventListener("click", (ev) => {
+      // Backdrop click closes; clicks inside the card do not
+      if (ev.target === keymapEl) setKeymapOpen(false);
+    });
+  }
+
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
+    // Don't steal typing from form controls
+    const t = e.target;
+    if (
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLSelectElement ||
+      t instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
+    if (e.key === "k" || e.key === "K") {
+      e.preventDefault();
+      toggleKeymap();
+      return;
+    }
+    if (e.key === "Escape" && keymapOpen) {
+      e.preventDefault();
+      setKeymapOpen(false);
+      return;
+    }
     if (e.code === "Space") {
       e.preventDefault();
       handlers.onPlayToggle();
