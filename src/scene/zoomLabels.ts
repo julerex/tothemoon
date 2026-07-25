@@ -48,6 +48,56 @@ export function markZoomLabel(
 }
 
 /**
+ * Body / craft name plate (canvas sprite). Screen size tracked by L-key zoom labels.
+ */
+export function createNameLabel(
+  text: string,
+  color: string,
+  spec: ZoomLabelSpec = { targetPx: 18, aspect: 256 / 64, minH: 0.3 },
+): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, 256, 64);
+  ctx.font = "bold 34px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  // Soft pill background
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  const tw = ctx.measureText(text).width;
+  const bw = Math.min(240, tw + 28);
+  const bh = 40;
+  const x0 = (256 - bw) / 2;
+  const y0 = (64 - bh) / 2;
+  const r = 8;
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0);
+  ctx.arcTo(x0 + bw, y0, x0 + bw, y0 + bh, r);
+  ctx.arcTo(x0 + bw, y0 + bh, x0, y0 + bh, r);
+  ctx.arcTo(x0, y0 + bh, x0, y0, r);
+  ctx.arcTo(x0, y0, x0 + bw, y0, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(text, 128, 34);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const spr = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map,
+      transparent: true,
+      depthWrite: false,
+      sizeAttenuation: true,
+    }),
+  );
+  spr.name = `label-${text.toLowerCase()}`;
+  markZoomLabel(spr, spec);
+  spr.scale.set(spec.aspect * spec.minH * 4, spec.minH * 4, 1);
+  return spr;
+}
+
+/**
  * Scale marked sprites from camera distance so they keep ~targetPx on screen
  * at any zoom, and apply the L-key visibility flag.
  */

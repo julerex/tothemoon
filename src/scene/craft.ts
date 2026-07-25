@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createNameLabel } from "./zoomLabels";
 
 /**
  * Near-true-scale Super Heavy + Starship stack plus a red locator for system views.
@@ -465,6 +466,15 @@ export function createCraft(): {
 
   const locator = createLocatorSprite();
   group.add(locator);
+
+  // Name plate near the nose (L toggle); world height floors for close-up
+  const shipLabel = createNameLabel("STARSHIP", "#ff8a7a", {
+    targetPx: 16,
+    aspect: 256 / 64,
+    minH: 0.015,
+  });
+  shipLabel.position.set(0, 0, 0.07);
+  group.add(shipLabel);
 
   return { group, mesh, locator };
 }

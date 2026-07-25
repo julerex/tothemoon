@@ -18,7 +18,7 @@ import {
   makeSunGlowTexture,
 } from "./textures";
 import { createLocatorSprite } from "./craft";
-import { markZoomLabel } from "./zoomLabels";
+import { createNameLabel, markZoomLabel } from "./zoomLabels";
 
 export type Bodies = {
   earth: THREE.Mesh;
@@ -331,6 +331,23 @@ export function createBodies(): Bodies {
     "moon-locator",
   );
   moonGroup.add(moonLocator);
+
+  // Name labels (L toggle) — float just outside the disc along ecliptic north
+  const earthLabel = createNameLabel("EARTH", "#7ec8ff", {
+    targetPx: 18,
+    aspect: 256 / 64,
+    minH: 80,
+  });
+  earthLabel.position.set(0, 0, R_EARTH * 1.18);
+  earthGroup.add(earthLabel);
+
+  const moonLabel = createNameLabel("MOON", "#c8d4e8", {
+    targetPx: 18,
+    aspect: 256 / 64,
+    minH: 25,
+  });
+  moonLabel.position.set(0, 0, R_MOON * 1.35);
+  moonGroup.add(moonLabel);
 
   const { sun, sunGroup } = createSun();
 

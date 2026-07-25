@@ -13,7 +13,6 @@ import { bodyPositions } from "../physics/bodies";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
 import { createFatLine } from "./fatLines";
-import { markZoomLabel } from "./zoomLabels";
 
 /**
  * Starbase pad (Earth-fixed mesh-local) + ascent ground-track on the globe.
@@ -195,17 +194,6 @@ export function createStarbasePad(): THREE.Group {
   glow.position.set(0, 1.5, 0);
   glow.scale.setScalar(80);
   pad.add(glow);
-
-  const label = makeTextSprite("STARBASE", "#7ec8ff");
-  label.position.set(0, 18, 0);
-  // Constant screen size at any zoom (no maxH — far cams still show the label)
-  markZoomLabel(label, {
-    targetPx: 20,
-    aspect: 256 / 64,
-    minH: 0.4,
-  });
-  label.scale.set(12, 3, 1);
-  pad.add(label);
 
   return pad;
 }
@@ -394,31 +382,6 @@ function makeSteamTexture(): THREE.CanvasTexture {
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
   return map;
-}
-
-function makeTextSprite(text: string, color: string): THREE.Sprite {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.font = "bold 36px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  ctx.fillRect(20, 12, 216, 40);
-  ctx.fillStyle = color;
-  ctx.fillText(text, 128, 34);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map,
-      transparent: true,
-      depthWrite: false,
-      sizeAttenuation: true,
-    }),
-  );
 }
 
 /** Pulse pad beacon (wall-clock). */

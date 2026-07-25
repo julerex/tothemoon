@@ -29,7 +29,7 @@ export type HudHandlers = {
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
-  /** L — toggle scene labels (poles, Starbase, …) */
+  /** L — toggle scene labels (Earth, Moon, Starship, poles, …) */
   onToggleLabels?: () => void;
   /** O — toggle orbit overlays (grids, Moon path, craft trail, ground track) */
   onToggleOrbits?: () => void;
