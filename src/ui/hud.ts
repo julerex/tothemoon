@@ -6,7 +6,14 @@ import type {
   PhaseSegment,
 } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
-import { BOOSTER_PROP_KG, SHIP_PROP_KG } from "../physics/constants";
+import {
+  BOOSTER_DRY_KG,
+  BOOSTER_PROP_KG,
+  R_EARTH,
+  R_MOON,
+  SHIP_DRY_KG,
+  SHIP_PROP_KG,
+} from "../physics/constants";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
@@ -56,6 +63,14 @@ export type Telemetry = {
   minMoonAlt: number;
   /** Camera distance to focus target (km) */
   focusDistance: number;
+  /** Detailed metrics (M overlay) */
+  altEarth: number;
+  altMoon: number;
+  distMoon: number;
+  speedEarth: number;
+  speedMoon: number;
+  staged: boolean;
+  burning: boolean;
 };
 
 const CALLOUT_MS = 4200;
@@ -96,6 +111,34 @@ export function bindHud(
   const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
   const keymapEl = document.querySelector<HTMLElement>("#keymap");
   const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
+  const metricsEl = document.querySelector<HTMLElement>("#metrics");
+  const metricsClose = document.querySelector<HTMLButtonElement>("#metrics-close");
+  const mx = {
+    phase: document.querySelector<HTMLElement>("#mx-phase"),
+    time: document.querySelector<HTMLElement>("#mx-time"),
+    date: document.querySelector<HTMLElement>("#mx-date"),
+    progress: document.querySelector<HTMLElement>("#mx-progress"),
+    playback: document.querySelector<HTMLElement>("#mx-playback"),
+    altEarth: document.querySelector<HTMLElement>("#mx-alt-earth"),
+    rEarth: document.querySelector<HTMLElement>("#mx-r-earth"),
+    altMoon: document.querySelector<HTMLElement>("#mx-alt-moon"),
+    distMoon: document.querySelector<HTMLElement>("#mx-dist-moon"),
+    rMoon: document.querySelector<HTMLElement>("#mx-r-moon"),
+    cam: document.querySelector<HTMLElement>("#mx-cam"),
+    speed: document.querySelector<HTMLElement>("#mx-speed"),
+    speedEarth: document.querySelector<HTMLElement>("#mx-speed-earth"),
+    speedMoon: document.querySelector<HTMLElement>("#mx-speed-moon"),
+    booster: document.querySelector<HTMLElement>("#mx-booster"),
+    ship: document.querySelector<HTMLElement>("#mx-ship"),
+    mass: document.querySelector<HTMLElement>("#mx-mass"),
+    thrust: document.querySelector<HTMLElement>("#mx-thrust"),
+    accel: document.querySelector<HTMLElement>("#mx-accel"),
+    engines: document.querySelector<HTMLElement>("#mx-engines"),
+    staged: document.querySelector<HTMLElement>("#mx-staged"),
+    duration: document.querySelector<HTMLElement>("#mx-duration"),
+    tlidv: document.querySelector<HTMLElement>("#mx-tlidv"),
+    minalt: document.querySelector<HTMLElement>("#mx-minalt"),
+  };
 
   let scrubbing = false;
   let lastPhase: PhaseId | null = null;
@@ -105,14 +148,26 @@ export function bindHud(
   let calloutTimer: ReturnType<typeof setTimeout> | null = null;
   let completeShown = false;
   let keymapOpen = false;
+  let metricsOpen = false;
 
   function setKeymapOpen(open: boolean): void {
     keymapOpen = open;
     if (keymapEl) keymapEl.hidden = !open;
+    if (open) setMetricsOpen(false);
   }
 
   function toggleKeymap(): void {
     setKeymapOpen(!keymapOpen);
+  }
+
+  function setMetricsOpen(open: boolean): void {
+    metricsOpen = open;
+    if (metricsEl) metricsEl.hidden = !open;
+    if (open) setKeymapOpen(false);
+  }
+
+  function toggleMetrics(): void {
+    setMetricsOpen(!metricsOpen);
   }
 
   if (markersEl) {
@@ -151,6 +206,14 @@ export function bindHud(
       if (ev.target === keymapEl) setKeymapOpen(false);
     });
   }
+  if (metricsClose) {
+    metricsClose.addEventListener("click", () => setMetricsOpen(false));
+  }
+  if (metricsEl) {
+    metricsEl.addEventListener("click", (ev) => {
+      if (ev.target === metricsEl) setMetricsOpen(false);
+    });
+  }
 
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
@@ -168,9 +231,15 @@ export function bindHud(
       toggleKeymap();
       return;
     }
-    if (e.key === "Escape" && keymapOpen) {
+    if (e.key === "m" || e.key === "M") {
       e.preventDefault();
-      setKeymapOpen(false);
+      toggleMetrics();
+      return;
+    }
+    if (e.key === "Escape" && (keymapOpen || metricsOpen)) {
+      e.preventDefault();
+      if (metricsOpen) setMetricsOpen(false);
+      else setKeymapOpen(false);
       return;
     }
     if (e.code === "Space") {
@@ -406,9 +475,82 @@ export function bindHud(
     }
 
     maybeFireEvents(tel.t, tel.playing);
+
+    if (metricsOpen) updateMetrics(tel);
+  }
+
+  function updateMetrics(tel: Telemetry): void {
+    const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
+    const rEarth = R_EARTH + tel.altEarth;
+    const rMoon = tel.distMoon;
+    const boosterKg = clamp01(tel.fuelBooster) * BOOSTER_PROP_KG;
+    const shipKg = clamp01(tel.fuelShip) * SHIP_PROP_KG;
+    const wetKg = tel.staged
+      ? SHIP_DRY_KG + shipKg
+      : BOOSTER_DRY_KG + boosterKg + SHIP_DRY_KG + shipKg;
+    const accelG =
+      wetKg > 1 && tel.thrustN > 0
+        ? tel.thrustN / (wetKg * 9.80665)
+        : 0;
+
+    setText(mx.phase, tel.phase);
+    setText(mx.time, formatMissionTimeDetailed(tel.t));
+    setText(mx.date, tel.dateUtc);
+    setText(
+      mx.progress,
+      `${(Math.min(1, Math.max(0, u)) * 100).toFixed(2)}% · ${formatMissionTimeDetailed(Math.max(0, tel.durationS - tel.t))} left`,
+    );
+    setText(
+      mx.playback,
+      tel.autoSpeed
+        ? `Auto · ${formatRate(tel.playbackSpeed)}`
+        : `${formatRate(tel.playbackSpeed)}${tel.playing ? "" : " · paused"}`,
+    );
+    setText(mx.altEarth, formatDistancePrecise(tel.altEarth));
+    setText(mx.rEarth, formatDistancePrecise(rEarth));
+    setText(mx.altMoon, formatDistancePrecise(tel.altMoon));
+    setText(mx.distMoon, formatDistancePrecise(Math.max(0, rMoon - R_MOON)));
+    setText(mx.rMoon, formatDistancePrecise(rMoon));
+    setText(mx.cam, formatFocusDistance(tel.focusDistance));
+    setText(mx.speed, formatSpeedPrecise(tel.speed));
+    setText(mx.speedEarth, formatSpeedPrecise(tel.speedEarth));
+    setText(mx.speedMoon, formatSpeedPrecise(tel.speedMoon));
+    setText(
+      mx.booster,
+      tel.staged
+        ? "staged · empty"
+        : formatFuelDetailed(tel.fuelBooster, boosterKg, BOOSTER_PROP_KG),
+    );
+    setText(
+      mx.ship,
+      formatFuelDetailed(tel.fuelShip, shipKg, SHIP_PROP_KG),
+    );
+    setText(mx.mass, formatMassKg(wetKg));
+    setText(mx.thrust, formatThrustDetailed(tel.thrustN));
+    setText(
+      mx.accel,
+      accelG > 1e-4 ? `${accelG.toFixed(3)} g` : "—",
+    );
+    setText(
+      mx.engines,
+      tel.burning && tel.thrustN > 500 ? "burning" : "coast / idle",
+    );
+    setText(mx.staged, tel.staged ? "yes · ship only" : "no · full stack");
+    setText(mx.duration, formatMissionTimeDetailed(tel.durationS));
+    setText(mx.tlidv, `${tel.tliDv.toFixed(4)} km/s`);
+    setText(
+      mx.minalt,
+      Number.isFinite(tel.minMoonAlt)
+        ? formatDistancePrecise(Math.max(0, tel.minMoonAlt))
+        : "—",
+    );
   }
 
   return { update };
+}
+
+function setText(node: HTMLElement | null, text: string): void {
+  if (node) node.textContent = text;
 }
 
 function parseSpeedMode(value: string): "auto" | number {
@@ -488,12 +630,35 @@ function formatMissionTime(seconds: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
+/** Metrics panel: include seconds. */
+function formatMissionTimeDetailed(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (d > 0) return `${d}d ${h}h ${pad(m)}m ${pad(sec)}s`;
+  return `${h}h ${pad(m)}m ${pad(sec)}s · ${s.toLocaleString()} s`;
+}
+
 function formatDistance(km: number): string {
   const v = Math.max(0, km);
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
   if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
   if (v >= 10) return `${Math.round(v)} km`;
   return `${v.toFixed(2)} km`;
+}
+
+function formatDistancePrecise(km: number): string {
+  const v = km; // allow negative altitude (below mean radius)
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "−" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(3)} Mkm`;
+  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(3)} Mm (${abs.toFixed(1)} km)`;
+  if (abs >= 1) return `${sign}${abs.toFixed(3)} km`;
+  if (abs >= 0.001) return `${sign}${(abs * 1000).toFixed(1)} m`;
+  return `${sign}${(abs * 1e6).toFixed(0)} mm`;
 }
 
 /** Camera–focus range: AU-scale down to meters. */
@@ -514,6 +679,12 @@ function formatSpeed(kmPerS: number): string {
   return `${(v * 1000).toFixed(0)} m/s`;
 }
 
+function formatSpeedPrecise(kmPerS: number): string {
+  const v = Math.max(0, kmPerS);
+  if (v >= 1) return `${v.toFixed(4)} km/s · ${(v * 1000).toFixed(1)} m/s`;
+  return `${(v * 1000).toFixed(2)} m/s · ${v.toFixed(6)} km/s`;
+}
+
 function formatFuel(frac: number, tank: "booster" | "ship"): string {
   const f = Math.max(0, Math.min(1, frac));
   const cap = tank === "booster" ? BOOSTER_PROP_KG : SHIP_PROP_KG;
@@ -524,12 +695,33 @@ function formatFuel(frac: number, tank: "booster" | "ship"): string {
   return `${pct} · ${Math.round(kg)} kg`;
 }
 
+function formatFuelDetailed(frac: number, kg: number, capKg: number): string {
+  const f = clamp01(frac);
+  const pct = `${(f * 100).toFixed(2)}%`;
+  return `${pct} · ${formatMassKg(kg)} / ${formatMassKg(capKg)}`;
+}
+
+function formatMassKg(kg: number): string {
+  const v = Math.max(0, kg);
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(3)} kt (${Math.round(v).toLocaleString()} kg)`;
+  if (v >= 1000) return `${(v / 1000).toFixed(2)} t (${Math.round(v).toLocaleString()} kg)`;
+  return `${Math.round(v)} kg`;
+}
+
 function formatThrust(newtons: number): string {
   const n = Math.max(0, newtons);
   if (n < 500) return "—";
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MN`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(0)} kN`;
   return `${Math.round(n)} N`;
+}
+
+function formatThrustDetailed(newtons: number): string {
+  const n = Math.max(0, newtons);
+  if (n < 1) return "0 N";
+  if (n >= 1e6) return `${(n / 1e6).toFixed(3)} MN · ${(n / 1e3).toFixed(0)} kN`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(2)} kN · ${Math.round(n).toLocaleString()} N`;
+  return `${n.toFixed(1)} N`;
 }
 
 function clamp01(v: number): number {

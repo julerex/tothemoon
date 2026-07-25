@@ -369,6 +369,18 @@ function applyMissionState(u: number): void {
   const altitude =
     nearEarth && frame.distMoon > 100_000 ? frame.altEarth : frame.altMoon;
 
+  // Relative speeds for metrics (M) — barycentric inertial sample minus body vel
+  const speedEarth = Math.hypot(
+    craftVel.x - b.earthVel.x,
+    craftVel.y - b.earthVel.y,
+    craftVel.z - b.earthVel.z,
+  );
+  const speedMoon = Math.hypot(
+    craftVel.x - b.moonVel.x,
+    craftVel.y - b.moonVel.y,
+    craftVel.z - b.moonVel.z,
+  );
+
   applyAutoSpeed(frame.phase);
 
   hud.update({
@@ -393,6 +405,13 @@ function applyMissionState(u: number): void {
     tliDv: cache.tliDv,
     minMoonAlt: cache.minMoonAlt,
     focusDistance: director.getFocusDistance(),
+    altEarth: frame.altEarth,
+    altMoon: frame.altMoon,
+    distMoon: frame.distMoon,
+    speedEarth,
+    speedMoon,
+    staged: frame.staged,
+    burning: frame.burning,
   });
 
   // Auto-pause on landing at end

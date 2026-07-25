@@ -613,6 +613,43 @@ kbd {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
+/* Metrics overlay (M) — shares .keymap shell; monospace values */
+
+.metrics-card {
+  width: min(40rem, 100%);
+}
+
+.metrics-body {
+  grid-template-columns: 1fr 1fr;
+}
+
+.metrics-body .keymap-section dl > div {
+  grid-template-columns: minmax(6.2rem, auto) 1fr;
+}
+
+.metrics-body dd {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.metrics-body dt {
+  font-family: var(--font);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.metrics-foot {
+  margin: 0;
+  padding: 0.45rem 0.95rem 0.75rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  border-top: 1px solid var(--panel-border);
+  letter-spacing: 0.02em;
+}
+
 .source-link {
   position: absolute;
   right: 1.1rem;

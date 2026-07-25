@@ -202,7 +202,8 @@
                   <div><dt><kbd>L</kbd></dt><dd>Toggle labels</dd></div>
                   <div><dt><kbd>O</kbd></dt><dd>Toggle orbits / SOI / trail</dd></div>
                   <div><dt><kbd>K</kbd></dt><dd>This keymap</dd></div>
-                  <div><dt><kbd>Esc</kbd></dt><dd>Close keymap</dd></div>
+                  <div><dt><kbd>M</kbd></dt><dd>Mission metrics</dd></div>
+                  <div><dt><kbd>Esc</kbd></dt><dd>Close overlay</dd></div>
                 </dl>
               </section>
               <section class="keymap-section">
@@ -213,6 +214,76 @@
                 </dl>
               </section>
             </div>
+          </div>
+        </div>
+
+        <div
+          id="metrics"
+          class="keymap metrics"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="metrics-title"
+        >
+          <div class="keymap-card panel metrics-card">
+            <header class="keymap-header">
+              <h2 id="metrics-title">Mission metrics</h2>
+              <button type="button" id="metrics-close" class="keymap-close" title="Close (M or Esc)" aria-label="Close metrics">
+                ×
+              </button>
+            </header>
+            <div class="keymap-body metrics-body">
+              <section class="keymap-section">
+                <h3>Epoch</h3>
+                <dl>
+                  <div><dt>Phase</dt><dd id="mx-phase">—</dd></div>
+                  <div><dt>Mission t</dt><dd id="mx-time">—</dd></div>
+                  <div><dt>UTC</dt><dd id="mx-date">—</dd></div>
+                  <div><dt>Progress</dt><dd id="mx-progress">—</dd></div>
+                  <div><dt>Playback</dt><dd id="mx-playback">—</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Distances</h3>
+                <dl>
+                  <div><dt>Alt Earth</dt><dd id="mx-alt-earth">—</dd></div>
+                  <div><dt>r Earth</dt><dd id="mx-r-earth">—</dd></div>
+                  <div><dt>Alt Moon</dt><dd id="mx-alt-moon">—</dd></div>
+                  <div><dt>To Moon sfc</dt><dd id="mx-dist-moon">—</dd></div>
+                  <div><dt>r Moon</dt><dd id="mx-r-moon">—</dd></div>
+                  <div><dt>Cam range</dt><dd id="mx-cam">—</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Speed</h3>
+                <dl>
+                  <div><dt>Inertial |v|</dt><dd id="mx-speed">—</dd></div>
+                  <div><dt>vs Earth</dt><dd id="mx-speed-earth">—</dd></div>
+                  <div><dt>vs Moon</dt><dd id="mx-speed-moon">—</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Propulsion</h3>
+                <dl>
+                  <div><dt>Booster prop</dt><dd id="mx-booster">—</dd></div>
+                  <div><dt>Ship prop</dt><dd id="mx-ship">—</dd></div>
+                  <div><dt>Wet mass</dt><dd id="mx-mass">—</dd></div>
+                  <div><dt>Thrust</dt><dd id="mx-thrust">—</dd></div>
+                  <div><dt>Accel</dt><dd id="mx-accel">—</dd></div>
+                  <div><dt>Engines</dt><dd id="mx-engines">—</dd></div>
+                  <div><dt>Staged</dt><dd id="mx-staged">—</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Mission (baked)</h3>
+                <dl>
+                  <div><dt>Duration</dt><dd id="mx-duration">—</dd></div>
+                  <div><dt>TLI Δv</dt><dd id="mx-tlidv">—</dd></div>
+                  <div><dt>Min lunar alt</dt><dd id="mx-minalt">—</dd></div>
+                </dl>
+              </section>
+            </div>
+            <p class="metrics-foot">Live at scrubber time · <kbd>M</kbd> / <kbd>Esc</kbd> close</p>
           </div>
         </div>
 
