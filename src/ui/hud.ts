@@ -101,8 +101,6 @@ export function bindHud(
   const thrustEl = el<HTMLElement>("#tel-thrust");
   const barBooster = document.querySelector<HTMLElement>("#bar-booster");
   const barShip = document.querySelector<HTMLElement>("#bar-ship");
-  const camBtns = document.querySelectorAll<HTMLButtonElement>("[data-camera]");
-  const camRangeEl = document.querySelector<HTMLElement>("#cam-range");
   const callout = document.querySelector<HTMLElement>("#callout");
   const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
   const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
@@ -192,14 +190,6 @@ export function bindHud(
     handlers.onScrub(Number(scrub.value) / 1000);
   });
 
-  for (const btn of camBtns) {
-    btn.addEventListener("click", () => {
-      const mode = btn.dataset.camera as CameraMode;
-      handlers.onCamera(mode);
-      setActiveCamera(mode);
-    });
-  }
-
   if (keymapClose) {
     keymapClose.addEventListener("click", () => setKeymapOpen(false));
   }
@@ -250,42 +240,36 @@ export function bindHud(
       handlers.onPlayToggle();
     } else if (e.key === "1") {
       handlers.onCamera("sun");
-      setActiveCamera("sun");
     } else if (e.key === "2") {
       handlers.onCamera("earth");
-      setActiveCamera("earth");
     } else if (e.key === "3") {
       handlers.onCamera("moon");
-      setActiveCamera("moon");
     } else if (e.key === "4") {
       handlers.onCamera("chase");
-      setActiveCamera("chase");
     } else if (e.key === "5") {
       handlers.onCamera("starbase");
-      setActiveCamera("starbase");
     } else if (e.key === "6") {
       handlers.onCamera("fin");
-      setActiveCamera("fin");
     } else if (e.key === "q" || e.key === "Q") {
-      setActiveCamera(handlers.onOrbitKey("q", true));
+      handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
-      setActiveCamera(handlers.onOrbitKey("e", true));
+      handlers.onOrbitKey("e", true);
     } else if (e.key === "r" || e.key === "R") {
-      setActiveCamera(handlers.onOrbitKey("r", true));
+      handlers.onOrbitKey("r", true);
     } else if (e.key === "f" || e.key === "F") {
-      setActiveCamera(handlers.onOrbitKey("f", true));
+      handlers.onOrbitKey("f", true);
     } else if (e.key === "a" || e.key === "A") {
-      setActiveCamera(handlers.onOrbitKey("a", true));
+      handlers.onOrbitKey("a", true);
     } else if (e.key === "d" || e.key === "D") {
-      setActiveCamera(handlers.onOrbitKey("d", true));
+      handlers.onOrbitKey("d", true);
     } else if (e.key === "w" || e.key === "W") {
-      setActiveCamera(handlers.onPanKey("w", true));
+      handlers.onPanKey("w", true);
     } else if (e.key === "s" || e.key === "S") {
-      setActiveCamera(handlers.onPanKey("s", true));
+      handlers.onPanKey("s", true);
     } else if (e.key === "z" || e.key === "Z") {
-      setActiveCamera(handlers.onZoomKey("z", true));
+      handlers.onZoomKey("z", true);
     } else if (e.key === "x" || e.key === "X") {
-      setActiveCamera(handlers.onZoomKey("x", true));
+      handlers.onZoomKey("x", true);
     } else if (e.key === "," || e.key === "<") {
       e.preventDefault();
       const next = handlers.onSpeedNudge(-1);
@@ -355,12 +339,6 @@ export function bindHud(
     });
   }
 
-  function setActiveCamera(mode: CameraMode): void {
-    for (const btn of camBtns) {
-      btn.classList.toggle("active", btn.dataset.camera === mode);
-    }
-  }
-
   function showCallout(ev: MissionEvent): void {
     if (!callout || !calloutTitle) return;
     calloutTitle.textContent = ev.title;
@@ -420,7 +398,6 @@ export function bindHud(
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
     spdEl.textContent = formatSpeed(tel.speed);
-    if (camRangeEl) camRangeEl.textContent = formatFocusDistance(tel.focusDistance);
     boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
     shipEl.textContent = formatFuel(tel.fuelShip, "ship");
     thrustEl.textContent = formatThrust(tel.thrustN);
