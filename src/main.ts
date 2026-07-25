@@ -32,6 +32,7 @@ import {
 } from "./scene/earthTheater";
 import { createGroundSky, updateGroundSky } from "./scene/groundSky";
 import { toggleZoomLabels, updateZoomLabels } from "./scene/zoomLabels";
+import { createVectorArrows } from "./scene/vectorArrows";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import {
   autoSpeedForPhase,
@@ -117,6 +118,14 @@ function toggleOrbits(): boolean {
 
 const { group: craft, locator } = createCraft();
 scene.add(craft);
+
+// Velocity / acceleration arrows (L with labels; zoom-scaled)
+const vectorArrows = createVectorArrows();
+scene.add(vectorArrows.group);
+const _craftHeading = new THREE.Vector3(0, 0, 1);
+const _earthVelV = new THREE.Vector3();
+const _moonPosV = new THREE.Vector3();
+const _moonVelV = new THREE.Vector3();
 
 // Staging fallaway + flash (mesh scale matches createCraft)
 const boosterProto = craft.getObjectByName("booster");
@@ -382,6 +391,32 @@ function applyMissionState(u: number): void {
   );
 
   applyAutoSpeed(frame.phase);
+
+  // Craft nose (+Z) in world for thrust-direction accel arrow
+  _craftHeading.set(0, 0, 1).applyQuaternion(craft.quaternion);
+  _earthVelV.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
+  _moonPosV.set(b.moon.x, b.moon.y, b.moon.z);
+  _moonVelV.set(b.moonVel.x, b.moonVel.y, b.moonVel.z);
+  vectorArrows.update(
+    {
+      pos: craftPos,
+      vel: craftVel,
+      heading: _craftHeading,
+      t: frame.t,
+      thrustN: frame.thrustN,
+      burning: frame.burning,
+      staged: frame.staged,
+      fuelBooster: frame.fuelBooster,
+      fuelShip: frame.fuelShip,
+    },
+    {
+      earth: _earthPos,
+      earthVel: _earthVelV,
+      moon: _moonPosV,
+      moonVel: _moonVelV,
+    },
+    camera,
+  );
 
   hud.update({
     phase: frame.phaseLabel,
