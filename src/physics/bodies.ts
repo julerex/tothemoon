@@ -12,23 +12,23 @@ import {
   N_MOON,
   R_MOON,
 } from "./constants";
-import { set, type V3, v3 } from "./vec3";
+import {
+  hasHorizonsEpoch,
+  interpolateHorizons,
+} from "./horizonsEpoch";
+import { len, set, type V3, v3 } from "./vec3";
 
 /**
- * Prescribed body positions in a **heliocentric / solar-system-barycentric
- * theater frame** (SSB ≈ Sun for this app).
+ * Prescribed body positions in a **heliocentric** theater frame (Sun ≈ origin,
+ * ecliptic J2000 XY).
  *
- * Orientation: mean **ecliptic of J2000** (XY = Earth orbital plane, +Z =
- * ecliptic north). True ICRS/ICRF axes are equatorial; this is the usual
- * ecliptic realization of a barycentric solar-system frame (BCRS-like origin,
- * ecliptic axes) so the Sun stays fixed and Earth orbits at ~1 AU — not the
- * inverted EM-barycentric view where the Sun appeared to circle Earth.
+ * Prefer **JPL Horizons (DE441)** samples for the July 2027 window when
+ * `horizons-epoch.json` is present (`scripts/fetch-horizons-epoch.ts`). Falls
+ * back to analytic circular Earth + Keplerian Moon otherwise.
  *
- * - Sun ≈ origin (fixed for theater)
- * - Earth–Moon barycenter on a circular 1 AU ecliptic orbit
- * - Moon: Keplerian ellipse about Earth (a, e, i, Ω, ω)
- * - moonPhase0 = Moon mean anomaly M at t = 0
- * - sunPhase0 = Earth mean ecliptic longitude at t = 0
+ * - Sun fixed at origin
+ * - Earth / Moon from Horizons (or analytic EM bary on 1 AU circle)
+ * - moonPhase0 / sunPhase0 still used by the analytic fallback and mission search
  */
 
 export type BodyState = {
@@ -87,13 +87,32 @@ function eccentricAnomaly(M: number, e: number): number {
 }
 
 /**
- * Moon state relative to Earth in the ecliptic frame (Keplerian).
- * Returns position (km) and velocity (km/s) of Moon w.r.t. Earth.
+ * Moon state relative to Earth in the ecliptic frame.
+ * Uses Horizons samples when available (M0 must be the active moonPhase0);
+ * otherwise Keplerian with elements from constants.
  */
 export function moonRelativeToEarth(
   t: number,
   M0: number = moonPhase0,
 ): { pos: V3; vel: V3; r: number; nu: number; E: number } {
+  // Horizons path only when using the live epoch phase (not probe offsets)
+  if (hasHorizonsEpoch() && Math.abs(M0 - moonPhase0) < 1e-12) {
+    if (
+      interpolateHorizons(t, _earth, _earthVel, _moon, _moonVel)
+    ) {
+      // _moon/_moonVel temporarily hold moonRel from the table
+      const r = len(_moon);
+      const nu = Math.atan2(_moon.y, _moon.x);
+      return {
+        pos: { x: _moon.x, y: _moon.y, z: _moon.z },
+        vel: { x: _moonVel.x, y: _moonVel.y, z: _moonVel.z },
+        r,
+        nu,
+        E: nu, // true anomaly stand-in for diagnostics
+      };
+    }
+  }
+
   const a = A_EM;
   const e = MOON_ECC;
   const i = MOON_INCLINATION;
@@ -170,52 +189,64 @@ export function moonEclipticLongitude(t: number, M0: number = moonPhase0): numbe
 }
 
 export function bodyPositions(t: number, out?: BodyState): BodyState {
-  const rel = moonRelativeToEarth(t);
-  // EM mass split about the Earth–Moon barycenter
-  const kM = 1 / (1 + MASS_RATIO_ME); // m_e / (m_e + m_m)
-  const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME); // m_m / (m_e + m_m)
-
-  // Sun fixed at origin (heliocentric / SSB theater)
+  // Sun fixed at origin (heliocentric theater)
   set(_sun, 0, 0, 0);
 
-  // EM barycenter on a circular 1 AU ecliptic orbit about the Sun
-  const θ = sunPhase0 + N_EARTH_SUN * t;
-  const cosθ = Math.cos(θ);
-  const sinθ = Math.sin(θ);
-  const r = AU;
-  const vOrb = N_EARTH_SUN * r; // circular: v = n a
-  const bx = r * cosθ;
-  const by = r * sinθ;
-  const bz = 0;
-  const bvx = -vOrb * sinθ;
-  const bvy = vOrb * cosθ;
-  const bvz = 0;
+  // Prefer JPL Horizons samples for the July 2027 window
+  if (
+    hasHorizonsEpoch() &&
+    interpolateHorizons(t, _earth, _earthVel, _moon, _moonVel)
+  ) {
+    // _moon/_moonVel hold geocentric Moon; convert to heliocentric
+    _moon.x += _earth.x;
+    _moon.y += _earth.y;
+    _moon.z += _earth.z;
+    _moonVel.x += _earthVel.x;
+    _moonVel.y += _earthVel.y;
+    _moonVel.z += _earthVel.z;
+  } else {
+    // Analytic fallback: circular Earth + Keplerian Moon
+    const rel = moonRelativeToEarth(t);
+    const kM = 1 / (1 + MASS_RATIO_ME);
+    const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME);
 
-  // Earth and Moon about the EM barycenter (same as before, now translated)
-  set(
-    _earth,
-    bx - kE * rel.pos.x,
-    by - kE * rel.pos.y,
-    bz - kE * rel.pos.z,
-  );
-  set(
-    _moon,
-    bx + kM * rel.pos.x,
-    by + kM * rel.pos.y,
-    bz + kM * rel.pos.z,
-  );
-  set(
-    _earthVel,
-    bvx - kE * rel.vel.x,
-    bvy - kE * rel.vel.y,
-    bvz - kE * rel.vel.z,
-  );
-  set(
-    _moonVel,
-    bvx + kM * rel.vel.x,
-    bvy + kM * rel.vel.y,
-    bvz + kM * rel.vel.z,
-  );
+    const θ = sunPhase0 + N_EARTH_SUN * t;
+    const cosθ = Math.cos(θ);
+    const sinθ = Math.sin(θ);
+    const r = AU;
+    const vOrb = N_EARTH_SUN * r;
+    const bx = r * cosθ;
+    const by = r * sinθ;
+    const bz = 0;
+    const bvx = -vOrb * sinθ;
+    const bvy = vOrb * cosθ;
+    const bvz = 0;
+
+    set(
+      _earth,
+      bx - kE * rel.pos.x,
+      by - kE * rel.pos.y,
+      bz - kE * rel.pos.z,
+    );
+    set(
+      _moon,
+      bx + kM * rel.pos.x,
+      by + kM * rel.pos.y,
+      bz + kM * rel.pos.z,
+    );
+    set(
+      _earthVel,
+      bvx - kE * rel.vel.x,
+      bvy - kE * rel.vel.y,
+      bvz - kE * rel.vel.z,
+    );
+    set(
+      _moonVel,
+      bvx + kM * rel.vel.x,
+      bvy + kM * rel.vel.y,
+      bvz + kM * rel.vel.z,
+    );
+  }
 
   if (out) {
     set(out.sun, _sun.x, _sun.y, _sun.z);
@@ -281,9 +312,11 @@ export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
 export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
   const pts: V3[] = [];
   const period = (2 * Math.PI) / N_MOON;
+  // Always use Kepler for the static ribbon (not mission-τ Horizons samples)
+  const m0 = M0 === moonPhase0 ? M0 + 1e-6 : M0;
   for (let i = 0; i <= samples; i++) {
     const t = (i / samples) * period;
-    const rel = moonRelativeToEarth(t, M0);
+    const rel = moonRelativeToEarth(t, m0);
     pts.push({
       x: AU + rel.pos.x,
       y: rel.pos.y,

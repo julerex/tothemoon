@@ -19,6 +19,11 @@ import { ensureAscent, getAscent, resetAscentCache } from "./ascentCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
 import { sunPhase0ForLanding } from "./epoch";
 import {
+  hasHorizonsEpoch,
+  horizonsSource,
+  setMissionLandingT,
+} from "./horizonsEpoch";
+import {
   altitudeEarth,
   altitudeMoon,
   distanceToMoon,
@@ -370,6 +375,14 @@ export function runMission(): MissionResult {
   const baseDv = xfer.tliDv;
   const T = xfer.tof;
 
+  // Map mission time → Horizons absolute epoch (landing = 2027-07-20 12:00)
+  setMissionLandingT(T);
+  if (hasHorizonsEpoch()) {
+    console.info(
+      `[tothemoon] Using ${horizonsSource()} for Earth/Moon (landing τ=0)`,
+    );
+  }
+
   resetAscentCache();
   setEpochPhases(0, T);
   const ascent0 = ensureAscent(0);
@@ -400,10 +413,23 @@ export function runMission(): MissionResult {
 
   // Lead angle for outbound lunar-distance intercept (~3 d), not full apo TOF
   const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
+  const useHorizons = hasHorizonsEpoch();
 
-  // Epoch + Δv search for free n-body close pass (hot TLI ladder)
+  // Analytic: search Moon mean anomaly. Horizons: absolute time is fixed by
+  // DE441 — search launch/landing epoch offset (slides the mission on the table).
   const phaseOffsets: number[] = [];
-  for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
+  if (!useHorizons) {
+    for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
+  } else {
+    phaseOffsets.push(0);
+  }
+  const epochOffsetsS: number[] = [];
+  if (useHorizons) {
+    // ±7 d around design landing map, 12 h steps
+    for (let i = -14; i <= 14; i++) epochOffsetsS.push(i * 12 * 3600);
+  } else {
+    epochOffsetsS.push(0);
+  }
 
   const dvMax = maxTliDv();
   // Prefer design / hotter injects for free-coast reach
@@ -489,37 +515,17 @@ export function runMission(): MissionResult {
   let bestPeriluneT = T;
   let bestREarth = Infinity;
   let bestScore = Infinity;
+  let bestLandingT = T;
   let found = false;
 
-  // Coarse grid: reuse phase-0 ascent (fast); LEO dogleg still aims with `ph`
-  for (const dS of dvScales) {
-    const dv = Math.min(baseDv * dS, dvMax);
-    for (const off of phaseOffsets) {
-      const ph = guess + off;
-      const ev = evalCandidate(dv, ph, false);
-      if (ev.sc < bestScore) {
-        bestScore = ev.sc;
-        bestAlt = ev.alt;
-        bestPeriluneT = ev.t;
-        bestREarth = ev.rE;
-        bestPhase = ph;
-        bestDv = dv;
-      }
-    }
-  }
-
-  // Medium pass: re-ascent so scores match the path flyMission will bake
-  {
-    const seedPhase = bestPhase;
-    const seedDv = bestDv;
-    bestScore = Infinity;
-    for (let i = -20; i <= 20; i++) {
-      const ph = seedPhase + i * 0.05;
-      setEpochPhases(ph, T);
-      ensureAscent(ph);
-      for (const s of [0, -0.012, 0.012]) {
-        const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
-        const ev = evalCandidate(dv, ph, false); // ascent already set for `ph`
+  // Coarse grid: epoch offset (Horizons) and/or Moon phase (analytic) × Δv
+  for (const landOff of epochOffsetsS) {
+    if (useHorizons) setMissionLandingT(T + landOff);
+    for (const dS of dvScales) {
+      const dv = Math.min(baseDv * dS, dvMax);
+      for (const off of phaseOffsets) {
+        const ph = useHorizons ? 0 : guess + off;
+        const ev = evalCandidate(dv, ph, false);
         if (ev.sc < bestScore) {
           bestScore = ev.sc;
           bestAlt = ev.alt;
@@ -527,25 +533,95 @@ export function runMission(): MissionResult {
           bestREarth = ev.rE;
           bestPhase = ph;
           bestDv = dv;
+          bestLandingT = T + landOff;
+        }
+      }
+    }
+  }
+  if (useHorizons) setMissionLandingT(bestLandingT);
+
+  // Medium pass: re-ascent so scores match the path flyMission will bake
+  {
+    const seedPhase = bestPhase;
+    const seedDv = bestDv;
+    const seedLand = bestLandingT;
+    bestScore = Infinity;
+    if (useHorizons) {
+      // Refine epoch ±36 h at 6 h, fixed phase
+      for (let i = -6; i <= 6; i++) {
+        const landT = seedLand + i * 6 * 3600;
+        setMissionLandingT(landT);
+        setEpochPhases(0, T);
+        ensureAscent(0);
+        for (const s of [0, -0.012, 0.012]) {
+          const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
+          const ev = evalCandidate(dv, 0, false);
+          if (ev.sc < bestScore) {
+            bestScore = ev.sc;
+            bestAlt = ev.alt;
+            bestPeriluneT = ev.t;
+            bestREarth = ev.rE;
+            bestPhase = 0;
+            bestDv = dv;
+            bestLandingT = landT;
+          }
+        }
+      }
+      setMissionLandingT(bestLandingT);
+    } else {
+      for (let i = -20; i <= 20; i++) {
+        const ph = seedPhase + i * 0.05;
+        setEpochPhases(ph, T);
+        ensureAscent(ph);
+        for (const s of [0, -0.012, 0.012]) {
+          const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
+          const ev = evalCandidate(dv, ph, false);
+          if (ev.sc < bestScore) {
+            bestScore = ev.sc;
+            bestAlt = ev.alt;
+            bestPeriluneT = ev.t;
+            bestREarth = ev.rE;
+            bestPhase = ph;
+            bestDv = dv;
+          }
         }
       }
     }
   }
 
-  // Coordinate descent refine (phase-consistent ascent)
+  // Coordinate descent refine
   for (let iter = 0; iter < 8; iter++) {
     let improved = false;
-    const dPh = 0.02 / (1 + iter);
-    for (const s of [-2, -1, 1, 2]) {
-      const ph = bestPhase + s * dPh;
-      const ev = evalCandidate(bestDv, ph, true);
-      if (ev.sc < bestScore - 1e-6) {
-        bestScore = ev.sc;
-        bestAlt = ev.alt;
-        bestPeriluneT = ev.t;
-        bestREarth = ev.rE;
-        bestPhase = ph;
-        improved = true;
+    if (useHorizons) {
+      const dT = (3 * 3600) / (1 + iter);
+      for (const s of [-2, -1, 1, 2]) {
+        const landT = bestLandingT + s * dT;
+        setMissionLandingT(landT);
+        const ev = evalCandidate(bestDv, 0, true);
+        if (ev.sc < bestScore - 1e-6) {
+          bestScore = ev.sc;
+          bestAlt = ev.alt;
+          bestPeriluneT = ev.t;
+          bestREarth = ev.rE;
+          bestLandingT = landT;
+          bestPhase = 0;
+          improved = true;
+        }
+      }
+      setMissionLandingT(bestLandingT);
+    } else {
+      const dPh = 0.02 / (1 + iter);
+      for (const s of [-2, -1, 1, 2]) {
+        const ph = bestPhase + s * dPh;
+        const ev = evalCandidate(bestDv, ph, true);
+        if (ev.sc < bestScore - 1e-6) {
+          bestScore = ev.sc;
+          bestAlt = ev.alt;
+          bestPeriluneT = ev.t;
+          bestREarth = ev.rE;
+          bestPhase = ph;
+          improved = true;
+        }
       }
     }
     const dDv = 0.008 / (1 + iter);
@@ -571,6 +647,7 @@ export function runMission(): MissionResult {
   console.info(
     `[tothemoon] Ballistic 4-body probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
       `rEarth=${(bestREarth / A_EM).toFixed(3)}×A_EM phase=${bestPhase.toFixed(3)} ` +
+      `landT=${(bestLandingT / 3600).toFixed(1)}h ` +
       `dv=${bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}) · ` +
       `ra_des≈${Number.isFinite(raDes) ? (raDes / A_EM).toFixed(3) : "∞"}×A_EM · ` +
       `${found ? "close-pass" : "best-effort"}`,
@@ -578,11 +655,16 @@ export function runMission(): MissionResult {
 
   const toa =
     Number.isFinite(bestPeriluneT) && bestPeriluneT > 0 ? bestPeriluneT : T;
+  // Keep best Horizons epoch; rebuild ascent (cache is phase-only, not epoch)
+  setMissionLandingT(bestLandingT);
   setEpochPhases(bestPhase, T);
+  resetAscentCache();
   ensureAscent(bestPhase);
   _leoRelTemplate = computeLeoRel();
 
   const flown = flyMission(bestPhase, bestDv, toa);
+  // After bake, τ = t − durationS so t=durationS is 2027-07-20 12:00
+  setMissionLandingT(flown.durationS);
   setEpochPhases(bestPhase, flown.durationS);
 
   console.info(

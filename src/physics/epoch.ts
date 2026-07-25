@@ -10,8 +10,8 @@
  *   (≈97% illuminated; TheSkyLive ~96.9% on 2027-07-20).
  * - Apparent solar ecliptic longitude ≈ 117.6° (USNO low-precision formula).
  *
- * Matches ecliptic elongation (phase angle) under the Keplerian lunar orbit,
- * not a full JPL DE ephemeris.
+ * Preferred runtime ephemeris: JPL Horizons DE441 samples in
+ * `horizons-epoch.json`. Analytic sunPhase0 / Kepler Moon is the fallback.
  */
 
 import { N_EARTH_SUN } from "./constants";

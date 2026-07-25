@@ -12,6 +12,11 @@ import {
   formatMissionDateUtc,
   sunPhase0ForLanding,
 } from "./physics/epoch";
+import {
+  hasHorizonsEpoch,
+  horizonsSource,
+  setMissionLandingT,
+} from "./physics/horizonsEpoch";
 import { createScene } from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
@@ -55,11 +60,16 @@ const cache = recompute
   ? TrajectoryCache.compute()
   : TrajectoryCache.loadPrecomputed();
 setMoonPhase0(cache.moonPhase0);
-// Align Sun so landing (t = duration) matches 2027-07-20 waning gibbous geometry
+// Mission t = durationS is calendar landing (Horizons τ = 0)
+setMissionLandingT(cache.durationS);
+// Analytic fallback only: align Sun for waning gibbous at landing
 const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
 setSunPhase0(sun0);
 console.info(
-  `[tothemoon] Epoch landing 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · sunPhase0=${sun0.toFixed(4)}`,
+  `[tothemoon] Epoch landing 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
+    (hasHorizonsEpoch()
+      ? `ephemeris=${horizonsSource()}`
+      : `sunPhase0=${sun0.toFixed(4)} (analytic)`),
 );
 
 const renderer = new THREE.WebGLRenderer({

@@ -6,6 +6,7 @@
   "description": "Interactive Three.js Earth→Moon spacecraft mission theater",
   "scripts": {
     "precompute": "tsx scripts/precompute-trajectory.ts",
+    "horizons": "tsx scripts/fetch-horizons-epoch.ts",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/physics/*.test.ts src/mission/*.test.ts",
