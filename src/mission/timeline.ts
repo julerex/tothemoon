@@ -14,23 +14,6 @@ const PHASE_SHORT: Record<PhaseId, string> = {
   impact: "Impact",
 };
 
-/**
- * Suggested playback multipliers by phase so burns stay watchable and
- * multi-day coasts don't feel endless. Used when speed mode is Auto.
- */
-export const PHASE_AUTO_SPEED: Record<PhaseId, number> = {
-  launch: 25,
-  ascent: 40,
-  leo: 200,
-  tli: 50,
-  coast: 2000,
-  approach: 80,
-  braking: 400,
-  descent: 25,
-  landed: 1,
-  impact: 1,
-};
-
 export type PhaseSegment = {
   phase: PhaseId;
   label: string;
@@ -68,10 +51,6 @@ export function buildTimeline(
   const segments = buildSegments(samples, dur);
   const events = buildEvents(samples, segments, dur);
   return { durationS: dur, segments, events };
-}
-
-export function autoSpeedForPhase(phase: PhaseId): number {
-  return PHASE_AUTO_SPEED[phase] ?? 100;
 }
 
 function buildSegments(samples: Sample[], durationS: number): PhaseSegment[] {

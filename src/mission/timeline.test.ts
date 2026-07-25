@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PhaseId, Sample } from "../physics/mission.ts";
 import { v3 } from "../physics/vec3.ts";
-import {
-  autoSpeedForPhase,
-  buildTimeline,
-  PHASE_AUTO_SPEED,
-} from "./timeline.ts";
+import { buildTimeline } from "./timeline.ts";
 
 function sample(
   t: number,
@@ -72,11 +68,5 @@ describe("buildTimeline", () => {
     for (let i = 1; i < tl.events.length; i++) {
       assert.ok(tl.events[i]!.t >= tl.events[i - 1]!.t);
     }
-  });
-
-  it("autoSpeedForPhase slows burns and races coast", () => {
-    assert.ok(autoSpeedForPhase("coast") > autoSpeedForPhase("ascent"));
-    assert.ok(autoSpeedForPhase("ascent") > autoSpeedForPhase("impact"));
-    assert.equal(autoSpeedForPhase("coast"), PHASE_AUTO_SPEED.coast);
   });
 });

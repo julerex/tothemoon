@@ -17,8 +17,8 @@ import {
 
 export type HudHandlers = {
   onPlayToggle: () => void;
-  /** Fixed multiplier, or null when Auto is selected */
-  onSpeedMode: (mode: "auto" | number) => void;
+  /** Playback speed multiplier (1, 10, …) */
+  onSpeedMode: (rate: number) => void;
   /** `,` / `.` — step playback speed down / up through fixed presets */
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
@@ -53,8 +53,6 @@ export type Telemetry = {
   dateUtc: string;
   /** Effective playback speed currently applied to the clock */
   playbackSpeed: number;
-  /** Whether Auto speed is active */
-  autoSpeed: boolean;
   /** True once the craft has landed */
   missionComplete: boolean;
   /** TLI Δv (km/s) for mission-complete stats */
@@ -340,7 +338,7 @@ export function bindHud(
     handlers.onZoomKey("x", false);
   });
 
-  // Initial mode from select (defaults to Auto in HTML)
+  // Initial rate from select (defaults to 1× in HTML)
   handlers.onSpeedMode(parseSpeedMode(speed.value));
 
   if (mcReplay) {
@@ -449,16 +447,13 @@ export function bindHud(
       }
     }
 
-    // Keep Auto selected; show effective rate in the Auto option label
-    if (tel.autoSpeed) {
-      const autoOpt = speed.querySelector<HTMLOptionElement>('option[value="auto"]');
-      if (autoOpt) {
-        autoOpt.textContent = `Auto · ${formatRate(tel.playbackSpeed)}`;
-      }
-      if (speed.value !== "auto") speed.value = "auto";
-    } else {
-      const autoOpt = speed.querySelector<HTMLOptionElement>('option[value="auto"]');
-      if (autoOpt) autoOpt.textContent = "Auto";
+    // Keep the speed select in sync with keyboard nudges
+    const rateStr = String(tel.playbackSpeed);
+    if (
+      speed.value !== rateStr &&
+      speed.querySelector(`option[value="${rateStr}"]`)
+    ) {
+      speed.value = rateStr;
     }
 
     if (!scrubbing) {
@@ -501,9 +496,7 @@ export function bindHud(
     );
     setText(
       mx.playback,
-      tel.autoSpeed
-        ? `Auto · ${formatRate(tel.playbackSpeed)}`
-        : `${formatRate(tel.playbackSpeed)}${tel.playing ? "" : " · paused"}`,
+      `${formatRate(tel.playbackSpeed)}${tel.playing ? "" : " · paused"}`,
     );
     setText(mx.altEarth, formatDistancePrecise(tel.altEarth));
     setText(mx.rEarth, formatDistancePrecise(rEarth));
@@ -552,10 +545,9 @@ function setText(node: HTMLElement | null, text: string): void {
   if (node) node.textContent = text;
 }
 
-function parseSpeedMode(value: string): "auto" | number {
-  if (value === "auto") return "auto";
+function parseSpeedMode(value: string): number {
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : "auto";
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 function renderPhaseMarkers(

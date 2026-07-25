@@ -34,12 +34,8 @@ import { createGroundSky, updateGroundSky } from "./scene/groundSky";
 import { toggleZoomLabels, updateZoomLabels } from "./scene/zoomLabels";
 import { createVectorArrows } from "./scene/vectorArrows";
 import { CameraDirector, type CameraMode } from "./camera/modes";
-import {
-  autoSpeedForPhase,
-  buildTimeline,
-} from "./mission/timeline";
+import { buildTimeline } from "./mission/timeline";
 import { bindHud } from "./ui/hud";
-import type { PhaseId } from "./physics/mission";
 import "./style.css";
 
 const canvasEl = document.querySelector<HTMLCanvasElement>("#c");
@@ -145,19 +141,8 @@ scene.add(landingFx.group);
 
 const clock = new MissionClock();
 const timeline = buildTimeline(cache.samples, cache.durationS);
-/** Auto: phase-driven rates. Fixed: user-picked multiplier. */
-let autoSpeed = true;
-let lastAutoPhase: PhaseId | null = null;
-
-function applyAutoSpeed(phase: PhaseId): void {
-  if (!autoSpeed) return;
-  if (phase === lastAutoPhase) return;
-  lastAutoPhase = phase;
-  clock.setSpeed(autoSpeedForPhase(phase));
-}
-
-// Default until HUD binds (matches Auto · ascent-ish start)
-clock.setSpeed(autoSpeedForPhase("launch"));
+// Default real-time mission pace until the HUD binds the speed select
+clock.setSpeed(1);
 
 const craftPos = new THREE.Vector3();
 const craftVel = new THREE.Vector3();
@@ -203,22 +188,11 @@ function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
 
 const hud = bindHud(clock, timeline, {
   onPlayToggle: () => clock.toggle(),
-  onSpeedMode: (mode) => {
-    if (mode === "auto") {
-      autoSpeed = true;
-      lastAutoPhase = null; // force re-apply for current phase
-      const frame = cache.sampleAtProgress(clock.t);
-      applyAutoSpeed(frame.phase);
-    } else {
-      autoSpeed = false;
-      lastAutoPhase = null;
-      clock.setSpeed(mode);
-    }
+  onSpeedMode: (rate) => {
+    clock.setSpeed(rate);
   },
   onSpeedNudge: (dir) => {
     const next = nudgePlaybackSpeed(clock.speed, dir);
-    autoSpeed = false;
-    lastAutoPhase = null;
     clock.setSpeed(next);
     return next;
   },
@@ -408,8 +382,6 @@ function applyMissionState(u: number): void {
     craftVel.z - b.moonVel.z,
   );
 
-  applyAutoSpeed(frame.phase);
-
   // Craft nose (+Z) in world for thrust-direction accel arrow
   _craftHeading.set(0, 0, 1).applyQuaternion(craft.quaternion);
   _earthVelV.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
@@ -450,7 +422,6 @@ function applyMissionState(u: number): void {
     playing: clock.playing,
     dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
     playbackSpeed: clock.speed,
-    autoSpeed,
     missionComplete:
       frame.phase === "landed" ||
       frame.phase === "impact" ||
