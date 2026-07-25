@@ -7,6 +7,7 @@ import { starbasePadState } from "../physics/earthFrame";
 /**
  * Focus preset — camera stays free; these only choose what to track.
  * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
+ * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
  */
 export type CameraMode =
   | "free"
@@ -14,7 +15,8 @@ export type CameraMode =
   | "earth"
   | "chase"
   | "moon"
-  | "starbase";
+  | "starbase"
+  | "fin";
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
@@ -62,7 +64,11 @@ export class CameraDirector {
   private zoomZ = false;
   private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
+  private craft: THREE.Object3D | null = null;
   private simTime = 0;
+  private readonly finPos = new THREE.Vector3();
+  private readonly finLook = new THREE.Vector3();
+  private readonly finUp = new THREE.Vector3();
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -79,6 +85,11 @@ export class CameraDirector {
     this.applyClipPlanes();
     this.camera.updateProjectionMatrix();
     this.controls.update();
+  }
+
+  /** Craft root (for fin-cam attachment). Call once after createCraft. */
+  setCraft(craft: THREE.Object3D): void {
+    this.craft = craft;
   }
 
   /**
@@ -134,14 +145,25 @@ export class CameraDirector {
 
   /**
    * Switch focus target while preserving current zoom (distance to target)
-   * and view direction.
+   * and view direction. Fin mode snaps to the Starship forward-fin mount.
    */
   setMode(mode: CameraMode): void {
     if (mode === "free") {
       this.focus = "free";
+      this.controls.enabled = true;
       this.applyClipPlanes();
       return;
     }
+
+    if (mode === "fin") {
+      this.focus = "fin";
+      this.controls.enabled = false;
+      this.applyClipPlanes();
+      this.applyFinCam();
+      return;
+    }
+
+    this.controls.enabled = true;
 
     const dist = Math.max(
       this.controls.minDistance,
@@ -192,6 +214,7 @@ export class CameraDirector {
     else this.panD = down;
     if (down && this.focus !== "free") {
       this.focus = "free";
+      this.controls.enabled = true;
       this.applyClipPlanes();
     }
     return this.focus;
@@ -209,7 +232,11 @@ export class CameraDirector {
     this.controls.maxDistance = AU * 3;
     this.controls.minDistance = this.focus === "sun" ? SUN_MIN_DIST : 0.05;
     this.camera.near =
-      this.focus === "chase" || this.focus === "starbase" ? 0.001 : 0.1;
+      this.focus === "chase" ||
+      this.focus === "starbase" ||
+      this.focus === "fin"
+        ? 0.0002
+        : 0.1;
     this.camera.far = FAR_SOLAR;
     this.camera.updateProjectionMatrix();
   }
@@ -219,6 +246,7 @@ export class CameraDirector {
 
     switch (mode) {
       case "free":
+      case "fin":
         break;
 
       case "sun":
@@ -245,9 +273,33 @@ export class CameraDirector {
     }
   }
 
+  /**
+   * Lock camera to the Starship starboard forward flap, looking aft at the
+   * engine bells (craft +Z = nose, −Z = engines).
+   */
+  private applyFinCam(): void {
+    if (!this.craft) return;
+    const mount = this.craft.getObjectByName("fin-cam");
+    const look = this.craft.getObjectByName("fin-cam-look");
+    if (!mount || !look) return;
+
+    this.craft.updateMatrixWorld(true);
+    mount.getWorldPosition(this.finPos);
+    look.getWorldPosition(this.finLook);
+    // Craft local +Y as camera up (flap plane / radial-ish when upright)
+    this.finUp.set(0, 1, 0).transformDirection(this.craft.matrixWorld);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.copy(ECLIPTIC_NORTH);
+
+    this.camera.position.copy(this.finPos);
+    this.camera.up.copy(this.finUp);
+    this.camera.lookAt(this.finLook);
+    this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
+  }
+
   /** Keep target on the focused body; slide the camera with it. */
   private trackFocus(): void {
-    if (this.focus === "free") return;
+    if (this.focus === "free" || this.focus === "fin") return;
 
     this.prevTarget.copy(this.controls.target);
     this.computeTarget(this.focus, this.desiredTarget);
@@ -366,6 +418,12 @@ export class CameraDirector {
   ): void {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
+
+    // Fin mount is fully locked to the craft; skip free orbit / pan / zoom.
+    if (this.focus === "fin") {
+      this.applyFinCam();
+      return;
+    }
 
     this.trackFocus();
     this.applyPan(dt);

@@ -260,6 +260,9 @@ export function bindHud(
     } else if (e.key === "5") {
       handlers.onCamera("starbase");
       setActiveCamera("starbase");
+    } else if (e.key === "6") {
+      handlers.onCamera("fin");
+      setActiveCamera("fin");
     } else if (e.key === "q" || e.key === "Q") {
       setActiveCamera(handlers.onOrbitKey("q", true));
     } else if (e.key === "e" || e.key === "E") {

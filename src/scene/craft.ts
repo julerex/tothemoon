@@ -204,6 +204,18 @@ export function createCraft(): {
     hinge.position.set(side * 0.22, 0, 0.65);
     ship.add(hinge);
   }
+
+  // Fin-cam mount: starboard forward flap, looking aft toward engines (−Z).
+  // Named for CameraDirector mode "fin" (key 6).
+  const finCam = new THREE.Object3D();
+  finCam.name = "fin-cam";
+  finCam.position.set(0.32, 0.06, 0.55);
+  ship.add(finCam);
+  // Look-at anchor near the ship Raptor bells
+  const finLook = new THREE.Object3D();
+  finLook.name = "fin-cam-look";
+  finLook.position.set(0, 0, -0.72);
+  ship.add(finLook);
   // Aft flaps (larger)
   for (const side of [-1, 1]) {
     const flap = new THREE.Mesh(

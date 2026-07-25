@@ -118,6 +118,7 @@ function toggleOrbits(): boolean {
 
 const { group: craft, locator } = createCraft();
 scene.add(craft);
+director.setCraft(craft);
 
 // Velocity / acceleration arrows (L with labels; zoom-scaled)
 const vectorArrows = createVectorArrows();
