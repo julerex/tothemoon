@@ -455,6 +455,51 @@ input[type="range"] {
   opacity: 0;
 }
 
+/* Camera mode switch toast (keys 1–6 / free pan) */
+.cam-toast {
+  pointer-events: none;
+  position: absolute;
+  top: 1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 10rem;
+  max-width: min(20rem, 90vw);
+  padding: 0.55rem 1rem 0.6rem;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid rgba(126, 200, 255, 0.4);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 6;
+  opacity: 0;
+}
+
+.cam-toast.cam-toast-in {
+  animation: callout-in 0.28s ease forwards;
+}
+
+.cam-toast.cam-toast-out {
+  animation: callout-out 0.28s ease forwards;
+}
+
+.cam-toast-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+.cam-toast-detail {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .callout.callout-in {
   animation: callout-in 0.35s ease forwards;
 }
@@ -753,6 +798,10 @@ kbd {
 
   .callout {
     top: 3.5rem;
+  }
+
+  .cam-toast {
+    top: 0.85rem;
   }
 
   .keymap-body {

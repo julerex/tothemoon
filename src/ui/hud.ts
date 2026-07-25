@@ -99,6 +99,9 @@ export function bindHud(
   const callout = document.querySelector<HTMLElement>("#callout");
   const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
   const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
+  const camToast = document.querySelector<HTMLElement>("#cam-toast");
+  const camToastTitle = document.querySelector<HTMLElement>("#cam-toast-title");
+  const camToastDetail = document.querySelector<HTMLElement>("#cam-toast-detail");
   const completeEl = document.querySelector<HTMLElement>("#mission-complete");
   const mcDuration = document.querySelector<HTMLElement>("#mc-duration");
   const mcTli = document.querySelector<HTMLElement>("#mc-tlidv");
@@ -143,10 +146,12 @@ export function bindHud(
   /** Events already shown this pass (reset when scrubbing backward). */
   const firedEvents = new Set<string>();
   let calloutTimer: ReturnType<typeof setTimeout> | null = null;
+  let camToastTimer: ReturnType<typeof setTimeout> | null = null;
   let completeShown = false;
   let keymapOpen = false;
   let metricsOpen = false;
   let hudVisible = true;
+  let lastCamMode: CameraMode = "earth";
 
   function setHudVisible(visible: boolean): void {
     hudVisible = visible;
@@ -253,17 +258,17 @@ export function bindHud(
       e.preventDefault();
       handlers.onPlayToggle();
     } else if (e.key === "1") {
-      handlers.onCamera("sun");
+      switchCamera("sun");
     } else if (e.key === "2") {
-      handlers.onCamera("earth");
+      switchCamera("earth");
     } else if (e.key === "3") {
-      handlers.onCamera("moon");
+      switchCamera("moon");
     } else if (e.key === "4") {
-      handlers.onCamera("chase");
+      switchCamera("chase");
     } else if (e.key === "5") {
-      handlers.onCamera("starbase");
+      switchCamera("starbase");
     } else if (e.key === "6") {
-      handlers.onCamera("fin");
+      switchCamera("fin");
     } else if (e.key === "q" || e.key === "Q") {
       handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
@@ -273,13 +278,13 @@ export function bindHud(
     } else if (e.key === "f" || e.key === "F") {
       handlers.onOrbitKey("f", true);
     } else if (e.key === "w" || e.key === "W") {
-      handlers.onPanKey("w", true);
+      noteCameraMode(handlers.onPanKey("w", true));
     } else if (e.key === "a" || e.key === "A") {
-      handlers.onPanKey("a", true);
+      noteCameraMode(handlers.onPanKey("a", true));
     } else if (e.key === "s" || e.key === "S") {
-      handlers.onPanKey("s", true);
+      noteCameraMode(handlers.onPanKey("s", true));
     } else if (e.key === "d" || e.key === "D") {
-      handlers.onPanKey("d", true);
+      noteCameraMode(handlers.onPanKey("d", true));
     } else if (e.key === "z" || e.key === "Z") {
       handlers.onZoomKey("z", true);
     } else if (e.key === "x" || e.key === "X") {
@@ -374,6 +379,55 @@ export function bindHud(
         callout.classList.remove("callout-out");
       }, 320);
     }, CALLOUT_MS);
+  }
+
+  const CAM_TOAST_MS = 1600;
+
+  const CAMERA_LABELS: Record<
+    CameraMode,
+    { title: string; detail: string }
+  > = {
+    free: { title: "Free camera", detail: "WASD pan · drag to look" },
+    sun: { title: "Sun", detail: "Focus · key 1" },
+    earth: { title: "Earth", detail: "Focus · key 2" },
+    moon: { title: "Moon", detail: "Focus · key 3" },
+    chase: { title: "Starship", detail: "Chase · key 4" },
+    starbase: { title: "Starbase", detail: "Pad · key 5" },
+    fin: { title: "Ship fin", detail: "Aft engines · key 6" },
+  };
+
+  function showCameraToast(mode: CameraMode): void {
+    if (!camToast || !camToastTitle) return;
+    const info = CAMERA_LABELS[mode];
+    camToastTitle.textContent = info.title;
+    if (camToastDetail) {
+      camToastDetail.textContent = info.detail;
+      camToastDetail.hidden = !info.detail;
+    }
+    camToast.hidden = false;
+    camToast.classList.remove("cam-toast-out");
+    void camToast.offsetWidth;
+    camToast.classList.add("cam-toast-in");
+    if (camToastTimer) clearTimeout(camToastTimer);
+    camToastTimer = setTimeout(() => {
+      camToast.classList.remove("cam-toast-in");
+      camToast.classList.add("cam-toast-out");
+      camToastTimer = setTimeout(() => {
+        camToast.hidden = true;
+        camToast.classList.remove("cam-toast-out");
+      }, 300);
+    }, CAM_TOAST_MS);
+  }
+
+  function noteCameraMode(mode: CameraMode): void {
+    if (mode === lastCamMode) return;
+    lastCamMode = mode;
+    showCameraToast(mode);
+  }
+
+  function switchCamera(mode: CameraMode): void {
+    handlers.onCamera(mode);
+    noteCameraMode(mode);
   }
 
   function maybeFireEvents(missionT: number, playing: boolean): void {
