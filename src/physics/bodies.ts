@@ -250,3 +250,23 @@ export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
   }
   return pts;
 }
+
+/**
+ * Earth's heliocentric orbit as a circle of radius AU in the ecliptic (XY).
+ *
+ * Theater frame is EM-barycentric: Earth sits near the origin and the Sun
+ * travels this ring, so the path is the relative Earth–Sun orbit (mean
+ * separation 1 AU) drawn about the barycenter.
+ */
+export function earthOrbitPathPoints(samples = 256): V3[] {
+  const pts: V3[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const θ = (i / samples) * 2 * Math.PI;
+    pts.push({
+      x: AU * Math.cos(θ),
+      y: AU * Math.sin(θ),
+      z: 0,
+    });
+  }
+  return pts;
+}

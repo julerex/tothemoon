@@ -1,13 +1,13 @@
 import * as THREE from "three";
 import { A_EM, AU } from "../physics/constants";
-import { moonOrbitPathPoints } from "../physics/bodies";
+import { earthOrbitPathPoints, moonOrbitPathPoints } from "../physics/bodies";
 import { createFatLine } from "./fatLines";
 import { makeStarTexture } from "./textures";
 
 export type SceneBundle = {
   scene: THREE.Scene;
   sunLight: THREE.DirectionalLight;
-  /** Ecliptic grids + Moon path — toggle with O */
+  /** Ecliptic grids + Earth/Moon orbit paths — toggle with O */
   orbitGroup: THREE.Group;
 };
 
@@ -57,6 +57,22 @@ function createMoonOrbitPath(): THREE.Object3D {
     linewidth: 2.75,
   });
   line.name = "moon-orbit-path";
+  return line;
+}
+
+/**
+ * Earth’s orbit around the Sun — 1 AU ring in the ecliptic (warm gold so it
+ * reads apart from the cooler Moon path).
+ */
+function createEarthOrbitPath(): THREE.Object3D {
+  const pts = earthOrbitPathPoints(256);
+  const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+  const line = createFatLine(vecs, {
+    color: 0xe8b86d,
+    opacity: 0.5,
+    linewidth: 2.5,
+  });
+  line.name = "earth-orbit-path";
   return line;
 }
 
@@ -117,11 +133,12 @@ export function createScene(): SceneBundle {
   scene.background = new THREE.Color(0x010208);
   scene.add(createStarDome());
 
-  // Orbit overlays (ecliptic grids + Moon path) — O toggles visibility
+  // Orbit overlays (ecliptic grids + Earth/Moon paths) — O toggles visibility
   const orbitGroup = new THREE.Group();
   orbitGroup.name = "orbit-overlays";
   orbitGroup.add(createEclipticGridTowardSun());
   orbitGroup.add(createEclipticGridNear());
+  orbitGroup.add(createEarthOrbitPath());
   orbitGroup.add(createMoonOrbitPath());
   scene.add(orbitGroup);
 
