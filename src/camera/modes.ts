@@ -6,7 +6,7 @@ import { starbasePadState } from "../physics/earthFrame";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
- * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
+ * `"free"` is internal (W/S pan drops tracking); not shown in the UI.
  * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
  */
 export type CameraMode =
@@ -23,9 +23,9 @@ const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 /** OrbitControls maps camera.up → +Y internally. */
 const ORBIT_Y_UP = new THREE.Vector3(0, 1, 0);
 
-/** Q/E yaw and R/F pitch rate around the focus (rad/s). */
+/** A/D, Q/E, R/F orbit rates around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
-/** WASD pan rate as a fraction of focus distance per second. */
+/** W/S pan rate as a fraction of focus distance per second. */
 const PAN_DIST_PER_S = 0.9;
 /** Floor so pan still moves when nearly on top of the target (km/s). */
 const PAN_MIN_SPEED = R_EARTH * 0.4;
@@ -57,10 +57,11 @@ export class CameraDirector {
   private orbitE = false;
   private orbitR = false;
   private orbitF = false;
+  /** A/D — camera-relative orbit left / right around focus. */
+  private orbitA = false;
+  private orbitD = false;
   private panW = false;
-  private panA = false;
   private panS = false;
-  private panD = false;
   private zoomZ = false;
   private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
@@ -196,22 +197,28 @@ export class CameraDirector {
   }
 
   /**
-   * Q/E yaw left/right, R/F pitch up/down around the focus (hold).
+   * Orbit hold keys around the focus:
+   * - A/D — camera-relative revolve left / right (about camera up)
+   * - Q/E — ecliptic turntable yaw
+   * - R/F — pitch about camera right
    */
-  setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
+  setOrbitKey(
+    key: "q" | "e" | "r" | "f" | "a" | "d",
+    down: boolean,
+  ): CameraMode {
     if (key === "q") this.orbitQ = down;
     else if (key === "e") this.orbitE = down;
     else if (key === "r") this.orbitR = down;
-    else this.orbitF = down;
+    else if (key === "f") this.orbitF = down;
+    else if (key === "a") this.orbitA = down;
+    else this.orbitD = down;
     return this.focus;
   }
 
-  /** WASD hold state — pan; drops body tracking so the slide sticks. */
-  setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
+  /** W/S pan forward/back; drops body tracking so the slide sticks. */
+  setPanKey(key: "w" | "s", down: boolean): CameraMode {
     if (key === "w") this.panW = down;
-    else if (key === "a") this.panA = down;
-    else if (key === "s") this.panS = down;
-    else this.panD = down;
+    else this.panS = down;
     if (down && this.focus !== "free") {
       this.focus = "free";
       this.controls.enabled = true;
@@ -309,18 +316,38 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    const yaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
+    // A/D: screen-left / screen-right revolve (camera.up axis)
+    const camYaw = (this.orbitD ? 1 : 0) - (this.orbitA ? 1 : 0);
+    // Q/E: ecliptic turntable
+    const eclYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
-    if ((yaw === 0 && pitch === 0) || dt <= 0) return;
+    if ((camYaw === 0 && eclYaw === 0 && pitch === 0) || dt <= 0) return;
 
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
-    if (yaw !== 0) {
+    if (camYaw !== 0) {
+      // Revolve about the camera's up so A always orbits left on screen,
+      // D always right — independent of ecliptic tilt / upside-down views.
+      this.camera.updateMatrixWorld();
+      this.tmp.copy(this.camera.up);
+      if (this.tmp.lengthSq() > 1e-12) {
+        this.tmp.normalize();
+        // +camYaw (D) → positive RH rotation about up → camera moves right
+        this.orbitQuat.setFromAxisAngle(
+          this.tmp,
+          camYaw * ORBIT_RAD_PER_S * dt,
+        );
+        this.orbitOffset.applyQuaternion(this.orbitQuat);
+        // up is the rotation axis — unchanged
+      }
+    }
+
+    if (eclYaw !== 0) {
       // Turntable yaw about ecliptic north so elevation vs the orbital
       // plane (and look-direction angle to that plane) stays fixed.
       this.orbitQuat.setFromAxisAngle(
         ECLIPTIC_NORTH,
-        yaw * ORBIT_RAD_PER_S * dt,
+        eclYaw * ORBIT_RAD_PER_S * dt,
       );
       this.orbitOffset.applyQuaternion(this.orbitQuat);
       this.camera.up.applyQuaternion(this.orbitQuat).normalize();
@@ -361,12 +388,11 @@ export class CameraDirector {
 
   /**
    * Slide camera + target in the ecliptic / orbital plane (XY, ⊥ +Z).
-   * W/S along look projected onto that plane; A/D along in-plane right.
+   * W/S along look projected onto that plane (A/D are orbit, not pan).
    */
   private applyPan(dt: number): void {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
-    const right = (this.panA ? 1 : 0) - (this.panD ? 1 : 0);
-    if ((fwd === 0 && right === 0) || dt <= 0) return;
+    if (fwd === 0 || dt <= 0) return;
 
     const dist = this.camera.position.distanceTo(this.controls.target);
     const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
@@ -382,12 +408,9 @@ export class CameraDirector {
       this.tmp.set(1, 0, 0);
     }
     this.tmp.normalize();
-    // In-plane right = ecliptic north × forward
-    this.panRight.crossVectors(ECLIPTIC_NORTH, this.tmp).normalize();
 
     this.panOffset.set(0, 0, 0);
     this.panOffset.addScaledVector(this.tmp, fwd * speed * dt);
-    this.panOffset.addScaledVector(this.panRight, right * speed * dt);
     this.camera.position.add(this.panOffset);
     this.controls.target.add(this.panOffset);
   }
@@ -428,8 +451,8 @@ export class CameraDirector {
     this.trackFocus();
     this.applyPan(dt);
     this.applyZoom(dt);
-    // OrbitControls first (mouse / damping), then Q/E/R/F so keyboard
-    // turntable yaw about ecliptic north is not overwritten.
+    // OrbitControls first (mouse / damping), then A/D/Q/E/R/F so keyboard
+    // orbit is not overwritten by damping.
     this.controls.update();
     this.applyOrbit(dt);
   }

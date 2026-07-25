@@ -23,10 +23,13 @@ export type HudHandlers = {
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
-  /** Q/E yaw, R/F pitch around focus (hold) */
-  onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
-  /** WASD — pan forward/left/back/right (hold) */
-  onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
+  /** A/D camera-orbit, Q/E ecliptic yaw, R/F pitch around focus (hold) */
+  onOrbitKey: (
+    key: "q" | "e" | "r" | "f" | "a" | "d",
+    down: boolean,
+  ) => CameraMode;
+  /** W/S — pan forward/back (hold) */
+  onPanKey: (key: "w" | "s", down: boolean) => CameraMode;
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
   /** L — toggle scene labels (poles, Starbase, …) */
@@ -271,14 +274,14 @@ export function bindHud(
       setActiveCamera(handlers.onOrbitKey("r", true));
     } else if (e.key === "f" || e.key === "F") {
       setActiveCamera(handlers.onOrbitKey("f", true));
+    } else if (e.key === "a" || e.key === "A") {
+      setActiveCamera(handlers.onOrbitKey("a", true));
+    } else if (e.key === "d" || e.key === "D") {
+      setActiveCamera(handlers.onOrbitKey("d", true));
     } else if (e.key === "w" || e.key === "W") {
       setActiveCamera(handlers.onPanKey("w", true));
-    } else if (e.key === "a" || e.key === "A") {
-      setActiveCamera(handlers.onPanKey("a", true));
     } else if (e.key === "s" || e.key === "S") {
       setActiveCamera(handlers.onPanKey("s", true));
-    } else if (e.key === "d" || e.key === "D") {
-      setActiveCamera(handlers.onPanKey("d", true));
     } else if (e.key === "z" || e.key === "Z") {
       setActiveCamera(handlers.onZoomKey("z", true));
     } else if (e.key === "x" || e.key === "X") {
@@ -309,14 +312,14 @@ export function bindHud(
       handlers.onOrbitKey("r", false);
     } else if (e.key === "f" || e.key === "F") {
       handlers.onOrbitKey("f", false);
+    } else if (e.key === "a" || e.key === "A") {
+      handlers.onOrbitKey("a", false);
+    } else if (e.key === "d" || e.key === "D") {
+      handlers.onOrbitKey("d", false);
     } else if (e.key === "w" || e.key === "W") {
       handlers.onPanKey("w", false);
-    } else if (e.key === "a" || e.key === "A") {
-      handlers.onPanKey("a", false);
     } else if (e.key === "s" || e.key === "S") {
       handlers.onPanKey("s", false);
-    } else if (e.key === "d" || e.key === "D") {
-      handlers.onPanKey("d", false);
     } else if (e.key === "z" || e.key === "Z") {
       handlers.onZoomKey("z", false);
     } else if (e.key === "x" || e.key === "X") {
@@ -327,12 +330,12 @@ export function bindHud(
   window.addEventListener("blur", () => {
     handlers.onOrbitKey("q", false);
     handlers.onOrbitKey("e", false);
+    handlers.onOrbitKey("a", false);
+    handlers.onOrbitKey("d", false);
     handlers.onOrbitKey("r", false);
     handlers.onOrbitKey("f", false);
     handlers.onPanKey("w", false);
-    handlers.onPanKey("a", false);
     handlers.onPanKey("s", false);
-    handlers.onPanKey("d", false);
     handlers.onZoomKey("z", false);
     handlers.onZoomKey("x", false);
   });
