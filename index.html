@@ -15,12 +15,12 @@
       <canvas id="c"></canvas>
 
       <div id="hud" aria-label="Mission controls">
-        <header class="hud-header">
+        <header class="hud-header hud-chrome">
           <h1>Starbase → Moon</h1>
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
 
-        <section class="panel transport" aria-label="Playback">
+        <section class="panel transport hud-chrome" aria-label="Playback">
           <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
             Play
           </button>
@@ -60,7 +60,7 @@
 
         <div
           id="callout"
-          class="callout"
+          class="callout hud-chrome"
           role="status"
           aria-live="polite"
           hidden
@@ -69,7 +69,7 @@
           <div class="callout-detail" id="callout-detail"></div>
         </div>
 
-        <section class="panel telemetry" aria-live="polite">
+        <section class="panel telemetry hud-chrome" aria-live="polite">
           <div><span class="label">Phase</span> <span id="phase">—</span></div>
           <div><span class="label">Date</span> <span id="date">—</span></div>
           <div><span class="label">Time</span> <span id="time">0h 00m</span></div>
@@ -96,7 +96,7 @@
 
         <div
           id="mission-complete"
-          class="mission-complete panel"
+          class="mission-complete panel hud-chrome"
           hidden
           role="status"
           aria-live="polite"
@@ -184,6 +184,7 @@
               <section class="keymap-section">
                 <h3>Overlays</h3>
                 <dl>
+                  <div><dt><kbd>H</kbd></dt><dd>Toggle HUD chrome</dd></div>
                   <div><dt><kbd>L</kbd></dt><dd>Toggle labels</dd></div>
                   <div><dt><kbd>O</kbd></dt><dd>Orbits / SOI / trail / v·a arrows</dd></div>
                   <div><dt>Hover arrow</dt><dd>Show v or a value</dd></div>
@@ -273,7 +274,7 @@
           </div>
         </div>
 
-        <div class="corner-meta">
+        <div class="corner-meta hud-chrome">
           <p class="copyright">© Julian le Roux 2026</p>
           <a
             class="source-link"

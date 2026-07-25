@@ -110,6 +110,7 @@ export function bindHud(
   const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
   const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
   const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
+  const hudRoot = document.querySelector<HTMLElement>("#hud");
   const keymapEl = document.querySelector<HTMLElement>("#keymap");
   const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
   const metricsEl = document.querySelector<HTMLElement>("#metrics");
@@ -150,6 +151,19 @@ export function bindHud(
   let completeShown = false;
   let keymapOpen = false;
   let metricsOpen = false;
+  let hudVisible = true;
+
+  function setHudVisible(visible: boolean): void {
+    hudVisible = visible;
+    if (hudRoot) {
+      hudRoot.classList.toggle("hud-hidden", !visible);
+      hudRoot.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
+  }
+
+  function toggleHud(): void {
+    setHudVisible(!hudVisible);
+  }
 
   function setKeymapOpen(open: boolean): void {
     keymapOpen = open;
@@ -217,6 +231,11 @@ export function bindHud(
       t instanceof HTMLSelectElement ||
       t instanceof HTMLTextAreaElement
     ) {
+      return;
+    }
+    if (e.key === "h" || e.key === "H") {
+      e.preventDefault();
+      toggleHud();
       return;
     }
     if (e.key === "k" || e.key === "K") {
