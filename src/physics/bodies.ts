@@ -13,10 +13,14 @@ import {
   R_MOON,
 } from "./constants";
 import {
+  getMissionLandingT,
   hasHorizonsEpoch,
   interpolateHorizons,
 } from "./horizonsEpoch";
 import { len, set, type V3, v3 } from "./vec3";
+
+/** Earth orbital eccentricity (approx IAU) — used for the gold orbit ribbon. */
+const EARTH_ORB_E = 0.016_708_6;
 
 /**
  * Prescribed body positions in a **heliocentric** theater frame (Sun ≈ origin,
@@ -305,33 +309,105 @@ export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
 }
 
 /**
+ * Heliocentric Earth position used as the origin for the static Moon-orbit
+ * ribbon. Prefer Horizons at the active landing map (τ=0); else analytic AU.
+ */
+function earthAnchorForOrbitRibbon(): V3 {
+  const ep = v3();
+  const ev = v3();
+  const mp = v3();
+  const mv = v3();
+  // τ = t − landT = 0 → mission t = landT
+  const tLand = getMissionLandingT();
+  if (hasHorizonsEpoch() && interpolateHorizons(tLand, ep, ev, mp, mv)) {
+    return { x: ep.x, y: ep.y, z: ep.z };
+  }
+  // Analytic circular fallback
+  const θ = sunPhase0;
+  return { x: AU * Math.cos(θ), y: AU * Math.sin(θ), z: 0 };
+}
+
+/**
+ * Longitude of perihelion ϖ (rad) for the Earth orbit ribbon.
+ * Fitted so the ellipse passes through Horizons Earth near landing (July ≈
+ * aphelion). Falls back to the classic ~102.9° value.
+ */
+function earthPerihelionLongitude(): number {
+  const ep = v3();
+  const ev = v3();
+  const mp = v3();
+  const mv = v3();
+  const tLand = getMissionLandingT();
+  if (hasHorizonsEpoch() && interpolateHorizons(tLand, ep, ev, mp, mv)) {
+    const a = AU;
+    const e = EARTH_ORB_E;
+    const p = a * (1 - e * e);
+    const r = Math.hypot(ep.x, ep.y, ep.z);
+    let cosNu = (p / r - 1) / e;
+    cosNu = Math.max(-1, Math.min(1, cosNu));
+    const nu = Math.acos(cosNu); // magnitude; July is near aphelion (ν≈π)
+    const lon = Math.atan2(ep.y, ep.x);
+    // Choose sign of ν that places perihelion near the classical ~103°
+    const ϖPlus = lon - nu;
+    const ϖMinus = lon + nu;
+    const classic = (102.9 * Math.PI) / 180;
+    const wrap = (a: number) =>
+      ((((a - classic) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI)) -
+      Math.PI;
+    return Math.abs(wrap(ϖMinus)) < Math.abs(wrap(ϖPlus)) ? ϖMinus : ϖPlus;
+  }
+  return (102.9 * Math.PI) / 180;
+}
+
+/**
  * Sample the Moon’s path about Earth for orbit visualization (one sidereal
- * month). Drawn around Earth’s mean heliocentric position (AU, 0, 0) so the
- * small lunar loop sits on the Earth orbit ring.
+ * month). Centered on the real heliocentric Earth (Horizons or analytic),
+ * not a fixed (AU, 0, 0) — so the small loop sits under the Earth mesh.
  */
 export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
   const pts: V3[] = [];
   const period = (2 * Math.PI) / N_MOON;
+  const anchor = earthAnchorForOrbitRibbon();
   // Always use Kepler for the static ribbon (not mission-τ Horizons samples)
   const m0 = M0 === moonPhase0 ? M0 + 1e-6 : M0;
   for (let i = 0; i <= samples; i++) {
     const t = (i / samples) * period;
     const rel = moonRelativeToEarth(t, m0);
     pts.push({
-      x: AU + rel.pos.x,
-      y: rel.pos.y,
-      z: rel.pos.z,
+      x: anchor.x + rel.pos.x,
+      y: anchor.y + rel.pos.y,
+      z: anchor.z + rel.pos.z,
     });
   }
   return pts;
 }
 
 /**
- * Earth’s heliocentric orbit — circle of radius AU about the Sun (origin)
- * in the ecliptic (XY).
+ * Earth’s heliocentric orbit about the Sun (origin) in the ecliptic (XY).
+ *
+ * With Horizons: eccentric ellipse (e≈0.0167) with ϖ fitted so July DE441
+ * Earth sits on the gold ring (circular 1 AU is ~2.4e6 km low at aphelion).
+ * Analytic fallback: circle of radius AU.
  */
 export function earthOrbitPathPoints(samples = 256): V3[] {
   const pts: V3[] = [];
+  if (hasHorizonsEpoch()) {
+    const a = AU;
+    const e = EARTH_ORB_E;
+    const p = a * (1 - e * e);
+    const ϖ = earthPerihelionLongitude();
+    for (let i = 0; i <= samples; i++) {
+      const ν = (i / samples) * 2 * Math.PI;
+      const r = p / (1 + e * Math.cos(ν));
+      const lon = ϖ + ν;
+      pts.push({
+        x: r * Math.cos(lon),
+        y: r * Math.sin(lon),
+        z: 0,
+      });
+    }
+    return pts;
+  }
   for (let i = 0; i <= samples; i++) {
     const θ = (i / samples) * 2 * Math.PI;
     pts.push({

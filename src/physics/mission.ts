@@ -425,8 +425,9 @@ export function runMission(): MissionResult {
   }
   const epochOffsetsS: number[] = [];
   if (useHorizons) {
-    // ±7 d around design landing map, 12 h steps
-    for (let i = -14; i <= 14; i++) epochOffsetsS.push(i * 12 * 3600);
+    // ±10 d around design landing map, 12 h steps. Coarse pass rebuilds
+    // LEO per offset so dogleg/TLI aim match DE441 Moon geometry.
+    for (let i = -20; i <= 20; i++) epochOffsetsS.push(i * 12 * 3600);
   } else {
     epochOffsetsS.push(0);
   }
@@ -518,9 +519,16 @@ export function runMission(): MissionResult {
   let bestLandingT = T;
   let found = false;
 
-  // Coarse grid: epoch offset (Horizons) and/or Moon phase (analytic) × Δv
+  // Coarse grid: epoch offset (Horizons) and/or Moon phase (analytic) × Δv.
+  // Horizons: rebuild ascent+LEO at every epoch so the transfer plane aims at
+  // the DE441 Moon (stale LEO from a fixed landT systematically missed).
   for (const landOff of epochOffsetsS) {
-    if (useHorizons) setMissionLandingT(T + landOff);
+    if (useHorizons) {
+      setMissionLandingT(T + landOff);
+      setEpochPhases(0, T);
+      ensureAscent(0);
+      _leoRelTemplate = computeLeoRel();
+    }
     for (const dS of dvScales) {
       const dv = Math.min(baseDv * dS, dvMax);
       for (const off of phaseOffsets) {
@@ -547,13 +555,14 @@ export function runMission(): MissionResult {
     const seedLand = bestLandingT;
     bestScore = Infinity;
     if (useHorizons) {
-      // Refine epoch ±36 h at 6 h, fixed phase
-      for (let i = -6; i <= 6; i++) {
-        const landT = seedLand + i * 6 * 3600;
+      // Refine epoch ±48 h at 4 h, rebuild LEO each step
+      for (let i = -12; i <= 12; i++) {
+        const landT = seedLand + i * 4 * 3600;
         setMissionLandingT(landT);
         setEpochPhases(0, T);
         ensureAscent(0);
-        for (const s of [0, -0.012, 0.012]) {
+        _leoRelTemplate = computeLeoRel();
+        for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
           const ev = evalCandidate(dv, 0, false);
           if (ev.sc < bestScore) {
@@ -573,6 +582,7 @@ export function runMission(): MissionResult {
         const ph = seedPhase + i * 0.05;
         setEpochPhases(ph, T);
         ensureAscent(ph);
+        _leoRelTemplate = computeLeoRel();
         for (const s of [0, -0.012, 0.012]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
           const ev = evalCandidate(dv, ph, false);
@@ -589,7 +599,7 @@ export function runMission(): MissionResult {
     }
   }
 
-  // Coordinate descent refine
+  // Coordinate descent refine (rebuild LEO when epoch or phase changes)
   for (let iter = 0; iter < 8; iter++) {
     let improved = false;
     if (useHorizons) {
@@ -597,7 +607,10 @@ export function runMission(): MissionResult {
       for (const s of [-2, -1, 1, 2]) {
         const landT = bestLandingT + s * dT;
         setMissionLandingT(landT);
-        const ev = evalCandidate(bestDv, 0, true);
+        setEpochPhases(0, T);
+        ensureAscent(0);
+        _leoRelTemplate = computeLeoRel();
+        const ev = evalCandidate(bestDv, 0, false);
         if (ev.sc < bestScore - 1e-6) {
           bestScore = ev.sc;
           bestAlt = ev.alt;
@@ -609,6 +622,9 @@ export function runMission(): MissionResult {
         }
       }
       setMissionLandingT(bestLandingT);
+      setEpochPhases(0, T);
+      ensureAscent(0);
+      _leoRelTemplate = computeLeoRel();
     } else {
       const dPh = 0.02 / (1 + iter);
       for (const s of [-2, -1, 1, 2]) {

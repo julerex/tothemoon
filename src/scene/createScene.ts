@@ -61,10 +61,11 @@ function createMoonOrbitPath(): THREE.Object3D {
 }
 
 /**
- * Earth’s orbit around the Sun (origin) — 1 AU ecliptic ring (warm gold).
+ * Earth’s orbit around the Sun (origin) — eccentric ecliptic ring (warm gold).
+ * Path comes from bodies.earthOrbitPathPoints (Horizons-fitted ellipse).
  */
 function createEarthOrbitPath(): THREE.Object3D {
-  const pts = earthOrbitPathPoints(256);
+  const pts = earthOrbitPathPoints(360);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   const line = createFatLine(vecs, {
     color: 0xe8b86d,

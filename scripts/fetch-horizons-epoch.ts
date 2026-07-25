@@ -15,8 +15,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(__dirname, "../src/data/horizons-epoch.json");
 
 const JD_LANDING = 2_461_607.0; // 2027-07-20 12:00 TDB
-const START = "2027-07-06";
-const STOP = "2027-07-22";
+// Wide enough for free-coast TOF (~7 d) + epoch search (±10 d) + margin
+const START = "2027-06-20";
+const STOP = "2027-08-10";
 const STEP = "6%20h";
 
 async function fetchHorizons(cmd: string, center: string): Promise<string> {
