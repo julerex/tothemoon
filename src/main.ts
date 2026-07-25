@@ -101,9 +101,18 @@ const craftTrail = createTrailFromPoints(trailPts);
 // Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
 orbitGroup.add(craftTrail);
 
-/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI). */
+/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI, v/a). */
 const orbitExtras: THREE.Object3D[] = [bodies.moonSoi];
 if (groundTrack) orbitExtras.push(groundTrack);
+
+const { group: craft, locator } = createCraft();
+scene.add(craft);
+director.setCraft(craft);
+
+// Velocity / acceleration arrows (O with orbits; labels on hover only)
+const vectorArrows = createVectorArrows();
+scene.add(vectorArrows.group);
+orbitExtras.push(vectorArrows.group);
 
 let orbitsVisible = true;
 function setOrbitsVisible(visible: boolean): void {
@@ -115,14 +124,6 @@ function toggleOrbits(): boolean {
   setOrbitsVisible(!orbitsVisible);
   return orbitsVisible;
 }
-
-const { group: craft, locator } = createCraft();
-scene.add(craft);
-director.setCraft(craft);
-
-// Velocity / acceleration arrows (L with labels; zoom-scaled)
-const vectorArrows = createVectorArrows();
-scene.add(vectorArrows.group);
 const _craftHeading = new THREE.Vector3(0, 0, 1);
 const _earthVelV = new THREE.Vector3();
 const _moonPosV = new THREE.Vector3();
@@ -232,6 +233,14 @@ const hud = bindHud(clock, timeline, {
   onToggleOrbits: () => {
     toggleOrbits();
   },
+});
+
+// Hover labels on v/a arrows (when orbit overlays are visible)
+canvas.addEventListener("pointermove", (e) => {
+  vectorArrows.setPointer(e, camera, canvas);
+});
+canvas.addEventListener("pointerleave", () => {
+  vectorArrows.setPointer(null, camera, canvas);
 });
 
 /**
