@@ -547,7 +547,8 @@ function setText(node: HTMLElement | null, text: string): void {
 
 function parseSpeedMode(value: string): number {
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  if (!Number.isFinite(n) || n === 0) return 1;
+  return n;
 }
 
 function renderPhaseMarkers(
@@ -607,9 +608,11 @@ function renderPhaseMarkers(
 }
 
 function formatRate(speed: number): string {
-  if (speed >= 100) return `${Math.round(speed)}×`;
-  if (speed >= 10) return `${Math.round(speed)}×`;
-  return `${speed.toFixed(0)}×`;
+  const sign = speed < 0 ? "−" : "";
+  const mag = Math.abs(speed);
+  if (mag >= 100) return `${sign}${Math.round(mag)}×`;
+  if (mag >= 10) return `${sign}${Math.round(mag)}×`;
+  return `${sign}${mag.toFixed(0)}×`;
 }
 
 function formatMissionTime(seconds: number): string {

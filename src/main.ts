@@ -169,10 +169,16 @@ _omega.multiplyScalar(EARTH_SPIN_RATE);
  */
 const AIR_VEL_ATTITUDE_MIN = 0.04;
 
-/** Fixed playback rates offered in the HUD (and nudged by `,` / `.`). */
-const SPEED_STEPS = [1, 10, 50, 100, 500, 1000, 2000] as const;
+/**
+ * Playback rates offered in the HUD / nudged by `,` (slower / reverse) and
+ * `.` (faster / forward). Includes negative reverse rates.
+ */
+const SPEED_STEPS = [
+  -2000, -1000, -500, -100, -50, -10, -1, 1, 10, 50, 100, 500, 1000, 2000,
+] as const;
 
 function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
+  // Find nearest step at or "beyond" current in the nudge direction
   if (dir > 0) {
     for (const step of SPEED_STEPS) {
       if (step > current + 1e-9) return step;
