@@ -58,9 +58,10 @@ export const TRANSFER_PLANE_NORTH_BIAS = 0.32;
 
 /**
  * Advance the line of apsides (rad) about the transfer normal (RH rule).
- * Positive = prograde / anticlockwise from northern view.
+ * Positive = prograde / anticlockwise from northern view — delays TLI along
+ * the LEO arc so free coast crosses the lunar SOI near the Moon’s orbit.
  */
-export const APSIS_CCW_BIAS_RAD = 0.4; // ~23°
+export const APSIS_CCW_BIAS_RAD = 0.55; // ~31.5°
 
 /**
  * Hot free-coast TLI (super-Hohmann).

@@ -13,6 +13,7 @@ import {
   LEO_RADIUS,
   N_MOON,
   R_MOON,
+  SOI_MOON_KM,
 } from "./constants";
 import { ensureAscent, getAscent, resetAscentCache } from "./ascentCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
@@ -397,7 +398,8 @@ export function runMission(): MissionResult {
   _leoRelTemplate = computeLeoRel();
   const tTli0 = _leoRelTemplate.t;
 
-  const guess = Math.PI - N_MOON * (T + tTli0);
+  // Lead angle for outbound lunar-distance intercept (~3 d), not full apo TOF
+  const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
 
   // Epoch + Δv search for free n-body close pass (hot TLI ladder)
   const phaseOffsets: number[] = [];
@@ -411,9 +413,16 @@ export function runMission(): MissionResult {
 
   const INTERCEPT_ALT = 80_000;
   const IDEAL_PERILUNE = 8_000;
-  const IDEAL_TOA = T;
-  const TOA_MIN = T * 0.65;
-  const TOA_MAX = T * 1.4;
+  /**
+   * Hot free-coast meets the Moon on the *outbound* leg near lunar distance
+   * (~3 d), not at design apogee TOF (~T). Prefer that window so the craft
+   * crosses the lunar SOI when it flies past the Moon’s orbit.
+   */
+  const IDEAL_TOA = 72 * 3600;
+  const TOA_MIN = 48 * 3600;
+  const TOA_MAX = 120 * 3600;
+  /** Lunar altitude at the SOI shell (theater overlay). */
+  const SOI_ALT = SOI_MOON_KM - R_MOON;
 
   function periluneScore(
     alt: number,
@@ -430,29 +439,40 @@ export function runMission(): MissionResult {
           (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 10 : 0) +
           (alt > 150_000 ? (alt - 150_000) * 8 : 0);
     const dtH = (periluneT - IDEAL_TOA) / 3600;
-    const timeTerm = dtH * dtH * 40;
+    const timeTerm = dtH * dtH * 12;
     const rErr = Math.abs(rEarth - A_EM) / 1000;
     const rTerm = rErr * rErr * 25;
     const windowPen =
       periluneT < TOA_MIN
-        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 80
+        ? ((TOA_MIN - periluneT) / 3600) ** 2 * 40
         : periluneT > TOA_MAX
-          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 80
+          ? ((periluneT - TOA_MAX) / 3600) ** 2 * 40
           : 0;
     const nearLunar =
       rEarth > A_EM * 0.75 && rEarth < A_EM * 1.2
         ? 0
         : ((rEarth - A_EM) / 1000) ** 2 * 50;
-    return altTerm + timeTerm + rTerm + windowPen + nearLunar;
+    // Reward SOI entry so the trail punches the Moon SOI shell near A_EM
+    const soiTerm = alt < SOI_ALT ? -80_000 : (alt - SOI_ALT) * 1.5;
+    return altTerm + timeTerm + rTerm + windowPen + nearLunar + soiTerm;
   }
 
-  function evalCandidate(dv: number, ph: number): {
+  /**
+   * Score a (Δv, moon-phase) pair. `reAscent` rebuilds LEO under that phase so
+   * the probe matches flyMission (ascent is weakly barycenter-coupled).
+   */
+  function evalCandidate(
+    dv: number,
+    ph: number,
+    reAscent = false,
+  ): {
     sc: number;
     alt: number;
     t: number;
     rE: number;
   } {
     setEpochPhases(ph, T);
+    if (reAscent) ensureAscent(ph);
     _leoRelTemplate = computeLeoRel();
     const pr = probePerilune(dv);
     return {
@@ -471,11 +491,12 @@ export function runMission(): MissionResult {
   let bestScore = Infinity;
   let found = false;
 
+  // Coarse grid: reuse phase-0 ascent (fast); LEO dogleg still aims with `ph`
   for (const dS of dvScales) {
     const dv = Math.min(baseDv * dS, dvMax);
     for (const off of phaseOffsets) {
       const ph = guess + off;
-      const ev = evalCandidate(dv, ph);
+      const ev = evalCandidate(dv, ph, false);
       if (ev.sc < bestScore) {
         bestScore = ev.sc;
         bestAlt = ev.alt;
@@ -487,13 +508,37 @@ export function runMission(): MissionResult {
     }
   }
 
-  // Coordinate descent refine (phase, then Δv)
+  // Medium pass: re-ascent so scores match the path flyMission will bake
+  {
+    const seedPhase = bestPhase;
+    const seedDv = bestDv;
+    bestScore = Infinity;
+    for (let i = -20; i <= 20; i++) {
+      const ph = seedPhase + i * 0.05;
+      setEpochPhases(ph, T);
+      ensureAscent(ph);
+      for (const s of [0, -0.012, 0.012]) {
+        const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
+        const ev = evalCandidate(dv, ph, false); // ascent already set for `ph`
+        if (ev.sc < bestScore) {
+          bestScore = ev.sc;
+          bestAlt = ev.alt;
+          bestPeriluneT = ev.t;
+          bestREarth = ev.rE;
+          bestPhase = ph;
+          bestDv = dv;
+        }
+      }
+    }
+  }
+
+  // Coordinate descent refine (phase-consistent ascent)
   for (let iter = 0; iter < 8; iter++) {
     let improved = false;
     const dPh = 0.02 / (1 + iter);
     for (const s of [-2, -1, 1, 2]) {
       const ph = bestPhase + s * dPh;
-      const ev = evalCandidate(bestDv, ph);
+      const ev = evalCandidate(bestDv, ph, true);
       if (ev.sc < bestScore - 1e-6) {
         bestScore = ev.sc;
         bestAlt = ev.alt;
@@ -507,7 +552,7 @@ export function runMission(): MissionResult {
     for (const s of [-2, -1, 1, 2]) {
       // Never cool below design (sub-lunar apo → early Earth return)
       const dv = Math.min(dvMax, Math.max(baseDv * 0.999, bestDv + s * dDv));
-      const ev = evalCandidate(dv, bestPhase);
+      const ev = evalCandidate(dv, bestPhase, true);
       if (ev.sc < bestScore - 1e-6) {
         bestScore = ev.sc;
         bestAlt = ev.alt;
@@ -534,7 +579,6 @@ export function runMission(): MissionResult {
   const toa =
     Number.isFinite(bestPeriluneT) && bestPeriluneT > 0 ? bestPeriluneT : T;
   setEpochPhases(bestPhase, T);
-  resetAscentCache();
   ensureAscent(bestPhase);
   _leoRelTemplate = computeLeoRel();
 
