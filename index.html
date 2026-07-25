@@ -20,49 +20,60 @@
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
 
-        <section class="panel transport hud-chrome" aria-label="Playback">
-          <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
-            Play
-          </button>
-          <label class="speed">
-            Speed
-            <select id="speed" aria-label="Playback speed">
-              <option value="-2000">−2000×</option>
-              <option value="-1000">−1000×</option>
-              <option value="-500">−500×</option>
-              <option value="-100">−100×</option>
-              <option value="-50">−50×</option>
-              <option value="-10">−10×</option>
-              <option value="-1">−1×</option>
-              <option value="1" selected>1×</option>
-              <option value="10">10×</option>
-              <option value="50">50×</option>
-              <option value="100">100×</option>
-              <option value="500">500×</option>
-              <option value="1000">1000×</option>
-              <option value="2000">2000×</option>
-            </select>
-          </label>
-          <div class="scrubber">
-            <span class="scrubber-label">Mission</span>
-            <div class="scrub-wrap">
-              <div
-                class="scrub-markers"
-                id="scrub-markers"
-                aria-hidden="true"
-              ></div>
-              <input
-                type="range"
-                id="scrub"
-                min="0"
-                max="1000"
-                value="0"
-                step="1"
-                aria-label="Mission progress"
-              />
+        <div class="bottom-bar hud-chrome">
+          <section class="panel transport" aria-label="Playback">
+            <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
+              Play
+            </button>
+            <label class="speed">
+              Speed
+              <select id="speed" aria-label="Playback speed">
+                <option value="-2000">−2000×</option>
+                <option value="-1000">−1000×</option>
+                <option value="-500">−500×</option>
+                <option value="-100">−100×</option>
+                <option value="-50">−50×</option>
+                <option value="-10">−10×</option>
+                <option value="-1">−1×</option>
+                <option value="1" selected>1×</option>
+                <option value="10">10×</option>
+                <option value="50">50×</option>
+                <option value="100">100×</option>
+                <option value="500">500×</option>
+                <option value="1000">1000×</option>
+                <option value="2000">2000×</option>
+              </select>
+            </label>
+            <div class="scrubber">
+              <span class="scrubber-label">Mission</span>
+              <div class="scrub-wrap">
+                <div
+                  class="scrub-markers"
+                  id="scrub-markers"
+                  aria-hidden="true"
+                ></div>
+                <input
+                  type="range"
+                  id="scrub"
+                  min="0"
+                  max="1000"
+                  value="0"
+                  step="1"
+                  aria-label="Mission progress"
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+          <p class="footer-hints" aria-label="Keyboard shortcuts">
+            <span><kbd>K</kbd> keymap</span>
+            <span class="footer-sep" aria-hidden="true">·</span>
+            <span><kbd>M</kbd> metrics</span>
+            <span class="footer-sep" aria-hidden="true">·</span>
+            <span><kbd>H</kbd> hide HUD</span>
+            <span class="footer-sep" aria-hidden="true">·</span>
+            <span><kbd>Space</kbd> play/pause</span>
+          </p>
+        </div>
 
         <div
           id="callout"

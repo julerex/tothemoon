@@ -93,30 +93,69 @@ body {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
+/* Full-width strip at the bottom: transport + shortcut hints */
+.bottom-bar {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  margin-left: -1.1rem;
+  margin-right: -1.1rem;
+  margin-bottom: -0.85rem;
+  width: calc(100% + 2.2rem);
+  max-width: none;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
 .transport {
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-end;
   gap: 0.65rem 0.9rem;
-  padding: 0.55rem 1.1rem 0.7rem;
-  /* Span full viewport width (break out of #hud side padding) */
-  width: calc(100% + 2.2rem);
+  padding: 0.55rem 1.1rem 0.55rem;
+  width: 100%;
   max-width: none;
-  margin-top: auto;
-  margin-left: -1.1rem;
-  margin-right: -1.1rem;
-  margin-bottom: -0.85rem;
+  margin: 0;
   box-sizing: border-box;
   border-radius: var(--radius) var(--radius) 0 0;
   border-left: none;
   border-right: none;
-  border-bottom: none;
+  border-bottom: 1px solid var(--panel-border);
+  pointer-events: auto;
+}
+
+.footer-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.55rem;
+  margin: 0;
+  padding: 0.35rem 1.1rem 0.4rem;
+  background: rgba(8, 12, 22, 0.88);
+  border-top: 1px solid rgba(140, 180, 255, 0.1);
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.footer-hints kbd {
+  font-size: 0.62rem;
+  padding: 0.05em 0.32em;
+  min-width: 0.95em;
+}
+
+.footer-sep {
+  opacity: 0.45;
+  user-select: none;
 }
 
 .telemetry {
   position: absolute;
-  /* Sit above the full-width mission scrubber bar */
-  bottom: 4.75rem;
+  /* Sit above the full-width bottom bar (transport + hints) */
+  bottom: 6.25rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -645,8 +684,8 @@ kbd {
 .corner-meta {
   position: absolute;
   right: 1.1rem;
-  /* Above full-width transport bar */
-  bottom: 4.35rem;
+  /* Above full-width bottom bar */
+  bottom: 5.85rem;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -686,7 +725,7 @@ kbd {
 
 @media (max-width: 640px) {
   .telemetry {
-    bottom: 5.5rem;
+    bottom: 7.25rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
@@ -706,6 +745,12 @@ kbd {
     display: none;
   }
 
+  .footer-hints {
+    gap: 0.25rem 0.4rem;
+    padding: 0.3rem 0.75rem 0.35rem;
+    font-size: 0.62rem;
+  }
+
   .callout {
     top: 3.5rem;
   }
@@ -720,7 +765,7 @@ kbd {
 
   .corner-meta {
     right: 0.75rem;
-    bottom: 5.1rem;
+    bottom: 6.85rem;
     max-width: calc(100% - 1.5rem);
   }
 
