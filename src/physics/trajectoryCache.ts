@@ -37,6 +37,7 @@ type PackedTrajectory = {
   moonPhase0: number;
   tliDv: number;
   durationS: number;
+  horizonsLandingT?: number;
   ok: boolean;
   message: string;
   samples: Array<{
@@ -71,6 +72,7 @@ function unpack(packed: PackedTrajectory): MissionResult {
     moonPhase0: packed.moonPhase0,
     tliDv: packed.tliDv,
     durationS: packed.durationS,
+    horizonsLandingT: packed.horizonsLandingT,
     ok: packed.ok,
     message: packed.message,
     minMoonAlt: computeMinMoonAlt(samples),
@@ -125,6 +127,8 @@ export class TrajectoryCache {
   readonly moonPhase0: number;
   readonly tliDv: number;
   readonly minMoonAlt: number;
+  /** Horizons τ=0 mission time used when samples were baked. */
+  readonly horizonsLandingT: number;
 
   constructor(result: MissionResult) {
     this.samples = result.samples;
@@ -133,6 +137,10 @@ export class TrajectoryCache {
     this.message = result.message;
     this.moonPhase0 = result.moonPhase0;
     this.tliDv = result.tliDv;
+    this.horizonsLandingT =
+      result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
+        ? result.horizonsLandingT
+        : this.durationS;
     this.minMoonAlt =
       result.minMoonAlt > 0 && Number.isFinite(result.minMoonAlt)
         ? result.minMoonAlt

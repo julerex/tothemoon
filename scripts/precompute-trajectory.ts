@@ -35,6 +35,8 @@ export type PackedTrajectory = {
   moonPhase0: number;
   tliDv: number;
   durationS: number;
+  /** Mission t at Horizons τ=0 during bake (must match runtime setMissionLandingT). */
+  horizonsLandingT?: number;
   ok: boolean;
   message: string;
   minMoonAlt: number;
@@ -48,6 +50,7 @@ function pack(result: MissionResult): PackedTrajectory {
     moonPhase0: result.moonPhase0,
     tliDv: result.tliDv,
     durationS: result.durationS,
+    horizonsLandingT: result.horizonsLandingT,
     ok: result.ok,
     message: result.message,
     minMoonAlt: result.minMoonAlt,

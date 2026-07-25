@@ -60,15 +60,15 @@ const cache = recompute
   ? TrajectoryCache.compute()
   : TrajectoryCache.loadPrecomputed();
 setMoonPhase0(cache.moonPhase0);
-// Mission t = durationS is calendar landing (Horizons τ = 0)
-setMissionLandingT(cache.durationS);
+// Must match the map used while baking craft samples (not always durationS)
+setMissionLandingT(cache.horizonsLandingT);
 // Analytic fallback only: align Sun for waning gibbous at landing
 const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
 setSunPhase0(sun0);
 console.info(
   `[tothemoon] Epoch landing 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
     (hasHorizonsEpoch()
-      ? `ephemeris=${horizonsSource()}`
+      ? `ephemeris=${horizonsSource()} · landT=${(cache.horizonsLandingT / 3600).toFixed(1)}h`
       : `sunPhase0=${sun0.toFixed(4)} (analytic)`),
 );
 

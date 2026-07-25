@@ -662,13 +662,17 @@ export function runMission(): MissionResult {
   ensureAscent(bestPhase);
   _leoRelTemplate = computeLeoRel();
 
+  setMissionLandingT(bestLandingT);
   const flown = flyMission(bestPhase, bestDv, toa);
-  // After bake, τ = t − durationS so t=durationS is 2027-07-20 12:00
-  setMissionLandingT(flown.durationS);
+  // Keep the same Horizons map used while integrating — do not remap to
+  // durationS (that would move Earth under fixed craft samples).
+  setMissionLandingT(bestLandingT);
   setEpochPhases(bestPhase, flown.durationS);
 
   console.info(
     `[tothemoon] ${flown.message} · duration=${(flown.durationS / 3600).toFixed(1)}h · samples=${flown.samples.length}`,
   );
-  return downsample(flown);
+  const out = downsample(flown);
+  out.horizonsLandingT = bestLandingT;
+  return out;
 }

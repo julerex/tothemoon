@@ -37,6 +37,11 @@ export type MissionResult = {
   minMoonAlt: number;
   ok: boolean;
   message: string;
+  /**
+   * Mission time t used as Horizons τ=0 while baking samples. Playback must
+   * call setMissionLandingT with this value so Earth/Moon stay under the craft.
+   */
+  horizonsLandingT?: number;
   /** Max |r_N-body − r_Kepler| (km) on the TLI coast, if computed */
   keplerRefMaxDevKm?: number;
   /** Discrete midcourse corrections executed during coast */
