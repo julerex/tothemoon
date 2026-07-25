@@ -88,13 +88,22 @@ body {
 
 .transport {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
   gap: 0.65rem 0.9rem;
-  padding: 0.65rem 0.8rem 0.75rem;
-  width: fit-content;
-  max-width: min(100%, 42rem);
+  padding: 0.55rem 1.1rem 0.7rem;
+  /* Span full viewport width (break out of #hud side padding) */
+  width: calc(100% + 2.2rem);
+  max-width: none;
   margin-top: auto;
+  margin-left: -1.1rem;
+  margin-right: -1.1rem;
+  margin-bottom: -0.85rem;
+  box-sizing: border-box;
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
 }
 
 .cameras {
@@ -131,7 +140,8 @@ body {
 
 .telemetry {
   position: absolute;
-  bottom: 1.85rem;
+  /* Sit above the full-width mission scrubber bar */
+  bottom: 4.75rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -319,8 +329,9 @@ select {
 }
 
 .scrubber {
-  flex: 1 1 14rem;
-  min-width: 12rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
   align-items: flex-end;
   gap: 0.35rem 0.5rem;
 }
@@ -332,9 +343,15 @@ select {
 
 .scrub-wrap {
   position: relative;
-  flex: 1;
-  min-width: 8rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
   padding-top: 1.05rem;
+}
+
+#scrub {
+  width: 100%;
+  min-width: 0;
 }
 
 .scrub-markers {
@@ -399,7 +416,7 @@ input[type="range"] {
   flex: 1;
   accent-color: var(--accent);
   width: 100%;
-  min-width: 6rem;
+  min-width: 0;
   margin: 0;
 }
 
@@ -653,7 +670,8 @@ kbd {
 .source-link {
   position: absolute;
   right: 1.1rem;
-  bottom: 0.4rem;
+  /* Above full-width transport bar */
+  bottom: 4.35rem;
   z-index: 2;
   margin: 0;
   font-size: 0.68rem;
@@ -675,19 +693,25 @@ kbd {
 @media (max-width: 640px) {
   .cameras {
     top: auto;
-    bottom: 7.5rem;
+    bottom: 8.25rem;
     right: 0.75rem;
   }
 
   .telemetry {
-    bottom: 1.65rem;
+    bottom: 5.5rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
   }
 
   .transport {
-    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.65rem;
+  }
+
+  .scrubber {
+    flex: 1 1 100%;
+    order: 3;
   }
 
   .scrub-lab {
@@ -708,7 +732,7 @@ kbd {
 
   .source-link {
     right: 0.75rem;
-    bottom: 0.35rem;
+    bottom: 5.1rem;
     font-size: 0.62rem;
     max-width: calc(100% - 1.5rem);
     overflow: hidden;
