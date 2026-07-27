@@ -18,43 +18,86 @@ import { createFatLine } from "./fatLines";
  * Starbase pad (Earth-fixed mesh-local) + ascent ground-track on the globe.
  * Pad is parented under the spinning Earth mesh so it co-rotates correctly.
  *
- * Liftoff FX (flame trench, deluge steam, pad light) update from mission time
- * so scrubbing stays deterministic.
+ * Dual scale:
+ *  - True-scale OLM + Mechazilla + thin apron for Ship cam (stack is 9 m / ~123 m)
+ *  - Large thin annular landmark for Earth cam (never a solid disc through the rocket)
+ *
+ * Pad origin matches craft engines at t≈0 (R_EARTH + pad altitude). Local +Y = up.
+ * Liftoff FX update from mission time so scrubbing stays deterministic.
  */
 export function createStarbasePad(): THREE.Group {
   const pad = new THREE.Group();
   pad.name = "starbase-pad";
 
+  // Match main.ts near-Earth surface clamp (R_EARTH + 0.05) so the stack sits
+  // on the OLM rather than under a floating deck.
+  const padAlt = Math.max(STARBASE_ALT, 0.05);
   const local = geodeticToMeshLocal(
     STARBASE_LAT,
     STARBASE_LON,
-    R_EARTH + STARBASE_ALT + 0.4,
+    R_EARTH + padAlt,
   );
   pad.position.set(local.x, local.y, local.z);
 
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
 
-  const deck = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.8, 3.2, 0.35, 24),
+  // --- Earth-cam landmark: thin annulus around the complex (hole for stack) ---
+  const landmarkMat = new THREE.MeshStandardMaterial({
+    color: 0x3a3f48,
+    metalness: 0.35,
+    roughness: 0.72,
+    // Slight lift off the globe via geometry; polygon offset fights z-fight
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  // RingGeometry is in XY; rotate to horizontal XZ. Inner hole clears ~150 m.
+  const landmarkRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.15, 2.6, 64, 1),
+    landmarkMat,
+  );
+  landmarkRing.rotation.x = -Math.PI / 2;
+  landmarkRing.position.y = -0.008;
+  landmarkRing.name = "pad-landmark-ring";
+  pad.add(landmarkRing);
+
+  // Soft outer apron rim (reads from LEO)
+  const landmarkRim = new THREE.Mesh(
+    new THREE.TorusGeometry(2.55, 0.035, 8, 64),
     new THREE.MeshStandardMaterial({
-      color: 0x3a3f48,
+      color: 0x4a5058,
       metalness: 0.4,
       roughness: 0.65,
     }),
   );
-  pad.add(deck);
+  landmarkRim.rotation.x = Math.PI / 2;
+  landmarkRim.position.y = -0.004;
+  pad.add(landmarkRim);
 
-  // Flame trench / water deluge channel
+  // --- True-scale close-up apron under the stack ---
+  const apron = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.045, 0.05, 0.004, 24),
+    new THREE.MeshStandardMaterial({
+      color: 0x5a6068,
+      metalness: 0.45,
+      roughness: 0.6,
+    }),
+  );
+  // Top of apron at y≈0 (engine plane / OLM deck)
+  apron.position.y = -0.002;
+  pad.add(apron);
+
+  // Flame trench / water deluge channel (true-scale-ish under OLM)
   const trench = new THREE.Mesh(
-    new THREE.BoxGeometry(1.4, 0.22, 5.2),
+    new THREE.BoxGeometry(0.018, 0.006, 0.055),
     new THREE.MeshStandardMaterial({
       color: 0x1a1c20,
       metalness: 0.3,
       roughness: 0.8,
     }),
   );
-  trench.position.y = 0.15;
+  trench.position.y = -0.006;
   pad.add(trench);
 
   // Flame sheet inside the trench (additive; opacity driven by update)
@@ -66,14 +109,14 @@ export function createStarbasePad(): THREE.Group {
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
-  const flame = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 4.6), flameMat);
-  flame.position.y = 0.55;
+  const flame = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.03, 0.05), flameMat);
+  flame.position.y = 0.008;
   flame.name = "pad-flame";
   flame.visible = false;
   flame.userData.mat = flameMat;
   pad.add(flame);
 
-  // Secondary taller flame tongues (read from Earth cam)
+  // Secondary flame tongues (still theatrical, but stack-scale)
   const tongueMat = new THREE.MeshBasicMaterial({
     color: 0xffcc66,
     transparent: true,
@@ -85,18 +128,18 @@ export function createStarbasePad(): THREE.Group {
   const tongues = new THREE.Group();
   tongues.name = "pad-flame-tongues";
   tongues.visible = false;
-  for (const z of [-1.4, -0.4, 0.5, 1.4]) {
+  for (const z of [-0.018, -0.006, 0.006, 0.018]) {
     const tongue = new THREE.Mesh(
-      new THREE.ConeGeometry(0.35, 2.2, 10, 1, true),
+      new THREE.ConeGeometry(0.008, 0.06, 10, 1, true),
       tongueMat,
     );
-    tongue.position.set(0, 1.3, z);
+    tongue.position.set(0, 0.025, z);
     tongues.add(tongue);
   }
   tongues.userData.mat = tongueMat;
   pad.add(tongues);
 
-  // Deluge steam billows (sprites)
+  // Deluge steam billows (sprites) — around trench, not through the stack
   const steamGroup = new THREE.Group();
   steamGroup.name = "pad-steam";
   steamGroup.visible = false;
@@ -112,54 +155,41 @@ export function createStarbasePad(): THREE.Group {
         blending: THREE.AdditiveBlending,
       }),
     );
-    sprite.position.set(Math.cos(ang) * 2.2, 1.2, Math.sin(ang) * 2.2);
-    sprite.scale.setScalar(4);
+    sprite.position.set(Math.cos(ang) * 0.04, 0.02, Math.sin(ang) * 0.04);
+    sprite.scale.setScalar(0.08);
     sprite.userData.baseAng = ang;
     sprite.userData.phase = i * 0.9;
     steamGroup.add(sprite);
   }
   pad.add(steamGroup);
 
-  // Pad exhaust illumination (mesh-local km scale for theater landmark)
-  const padLight = new THREE.PointLight(0xff8844, 0, 40, 2);
+  // Pad exhaust illumination (close-in Ship cam)
+  const padLight = new THREE.PointLight(0xff8844, 0, 0.8, 2);
   padLight.name = "pad-light";
-  padLight.position.set(0, 3, 0);
+  padLight.position.set(0, 0.04, 0);
   pad.add(padLight);
 
-  // True-scale Mechazilla (OLIT) next to the 9 m stack for Ship-cam fidelity.
-  // Pad deck / steam stay oversized as Earth-cam landmarks.
+  // True-scale Mechazilla + OLM (engines sit on OLM at y≈0)
   pad.add(createMechazillaTower());
 
-  // Soft oversized tower ghost for Earth-cam landmark (very transparent)
-  const landmarkTower = new THREE.Mesh(
-    new THREE.BoxGeometry(0.35, 8, 0.35),
-    new THREE.MeshBasicMaterial({
-      color: 0xb0b4bc,
-      transparent: true,
-      opacity: 0.12,
-      depthWrite: false,
-    }),
-  );
-  landmarkTower.position.set(1.6, 4.2, 0);
-  landmarkTower.name = "tower-landmark";
-  pad.add(landmarkTower);
-
+  // Beacon on tower peak (true-scale); glow sprite remains Earth-cam landmark
   const beacon = new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 12, 10),
+    new THREE.SphereGeometry(0.003, 10, 8),
     new THREE.MeshBasicMaterial({
       color: 0xff5533,
       transparent: true,
       opacity: 0.95,
     }),
   );
-  beacon.position.set(0, 0.6, 0);
+  // Tower height ~146 m, offset ~22 m in +X
+  beacon.position.set(0.022, 0.152, 0);
   beacon.name = "pad-beacon";
   pad.add(beacon);
 
   const glow = makePadGlowSprite();
   glow.name = "pad-glow";
-  glow.position.set(0, 1.5, 0);
-  glow.scale.setScalar(80);
+  glow.position.set(0, 0.02, 0);
+  glow.scale.setScalar(40);
   pad.add(glow);
 
   return pad;
@@ -214,47 +244,45 @@ export function updateStarbaseLaunchFx(
 
   const steam = pad.getObjectByName("pad-steam");
   if (steam) {
-    // Steam hangs a bit longer than hard flame
+    // Steam hangs a bit longer than hard flame (true-scale around OLM)
     const steamStr =
       state.burning && state.altEarth < 35 && state.missionT < 180
         ? THREE.MathUtils.clamp(1 - state.altEarth / 30, 0, 1) *
           (state.phase === "launch" || state.phase === "ascent" ? 1 : 0)
         : 0;
     steam.visible = steamStr > 0.03;
-    let i = 0;
     steam.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
       const mat = obj.material as THREE.SpriteMaterial;
       const phase = (obj.userData.phase as number) ?? 0;
       const wobble = 0.85 + 0.15 * Math.sin(t * 3.1 + phase);
-      mat.opacity = 0.22 * steamStr * wobble;
-      const grow = 3.5 + steamStr * 5 + 0.8 * Math.sin(t * 2.2 + phase);
+      mat.opacity = 0.35 * steamStr * wobble;
+      // ~40–120 m puffs around the trench
+      const grow = 0.05 + steamStr * 0.08 + 0.015 * Math.sin(t * 2.2 + phase);
       obj.scale.setScalar(grow);
       const ang = (obj.userData.baseAng as number) ?? 0;
-      const r = 2.0 + steamStr * 1.5 + 0.3 * Math.sin(t * 1.7 + phase);
+      const r = 0.035 + steamStr * 0.04 + 0.008 * Math.sin(t * 1.7 + phase);
       obj.position.set(
         Math.cos(ang + t * 0.05) * r,
-        1.0 + steamStr * 2.5 + 0.4 * Math.sin(t * 2.5 + phase),
+        0.015 + steamStr * 0.04 + 0.008 * Math.sin(t * 2.5 + phase),
         Math.sin(ang + t * 0.05) * r,
       );
-      i++;
     });
-    void i;
   }
 
   const light = pad.getObjectByName("pad-light") as THREE.PointLight | undefined;
   if (light) {
-    light.intensity = 12 * strength;
-    light.distance = 25 + 20 * strength;
+    light.intensity = 4 * strength;
+    light.distance = 0.5 + 0.6 * strength;
   }
 
   const glow = pad.getObjectByName("pad-glow") as THREE.Sprite | undefined;
   if (glow) {
     const mat = glow.material as THREE.SpriteMaterial;
-    // Keep a dim always-on landmark; bloom when engines light
-    const base = 0.35;
-    mat.opacity = base + 0.65 * strength;
-    const s = 70 + 50 * strength;
+    // Dim always-on Earth-cam landmark; bloom when engines light
+    const base = 0.3;
+    mat.opacity = base + 0.55 * strength;
+    const s = 35 + 25 * strength;
     glow.scale.setScalar(s);
   }
 }
@@ -349,7 +377,8 @@ function createMechazillaTower(): THREE.Group {
   const COL = 0.0016; // column thickness ~1.6 m
   // Offset from pad center: clear of 9 m stack + OLM lip (~22 m)
   const OX = 0.022;
-  const OY0 = 0.01; // base above deck
+  // Apron top is y≈0; tower base sits on the steel deck
+  const OY0 = 0.0;
 
   const steel = new THREE.MeshStandardMaterial({
     color: 0xb4b8c0,
