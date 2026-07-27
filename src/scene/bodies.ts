@@ -5,7 +5,6 @@ import {
   R_EARTH,
   R_MOON,
   R_SUN,
-  SOI_MOON_KM,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import { EARTH_SPIN0, EARTH_SPIN_RATE } from "../physics/earthFrame";
@@ -30,32 +29,11 @@ export type Bodies = {
   earthGroup: THREE.Group;
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
-  /** Laplace SOI shell (parented to moonGroup); toggled with orbits (O). */
-  moonSoi: THREE.Mesh;
   /** Far-range green locator (same on-screen size as craft red dot). */
   earthLocator: THREE.Sprite;
   /** Far-range light-blue locator. */
   moonLocator: THREE.Sprite;
 };
-
-/** Translucent sphere of influence shell (Laplace SOI). */
-function createSoiShell(radiusKm: number, name: string): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(radiusKm, 48, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0xff3344,
-      transparent: true,
-      opacity: 0.12,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      blending: THREE.NormalBlending,
-    }),
-  );
-  mesh.name = name;
-  mesh.renderOrder = -1;
-  mesh.frustumCulled = false;
-  return mesh;
-}
 
 /** Lunar north in the ecliptic frame (small tilt from +Z). */
 const _moonNorth = new THREE.Vector3(
@@ -314,10 +292,6 @@ export function createBodies(): Bodies {
   );
   moonAxis.add(moon);
 
-  // Moon gravitational sphere of influence (Laplace) — co-moves with the Moon
-  const moonSoi = createSoiShell(SOI_MOON_KM, "moon-soi");
-  moonGroup.add(moonSoi);
-
   // Far-range locators (shown when the disc is sub-pixel / too small to read)
   const earthLocator = createLocatorSprite(
     "#22c55e",
@@ -361,7 +335,6 @@ export function createBodies(): Bodies {
     moon,
     moonAxis,
     sun,
-    moonSoi,
     earthLocator,
     moonLocator,
   });
@@ -375,7 +348,6 @@ export function createBodies(): Bodies {
     earthGroup,
     moonGroup,
     sunGroup,
-    moonSoi,
     earthLocator,
     moonLocator,
   };

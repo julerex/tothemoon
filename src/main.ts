@@ -120,8 +120,8 @@ orbitGroup.add(moonPathSim);
 const moonRelOrbit = createMoonRelativeOrbit(0);
 bodies.earthGroup.add(moonRelOrbit);
 
-/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI, v/a, Moon ring). */
-const orbitExtras: THREE.Object3D[] = [bodies.moonSoi, moonRelOrbit];
+/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, v/a, Moon ring). */
+const orbitExtras: THREE.Object3D[] = [moonRelOrbit];
 if (groundTrack) orbitExtras.push(groundTrack);
 
 const { group: craft, locator } = createCraft();
