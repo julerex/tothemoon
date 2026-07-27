@@ -93,7 +93,7 @@ body {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
-/* Full-width strip at the bottom: transport + meta + shortcut hints */
+/* Full-width strip at the bottom: transport + footer (hints | meta) */
 .bottom-bar {
   display: flex;
   flex-direction: column;
@@ -124,21 +124,33 @@ body {
   pointer-events: auto;
 }
 
-.footer-hints {
+/* One row: keyboard hints left, copyright + source right */
+.footer-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 0.35rem 0.55rem;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
   margin: 0;
   padding: 0.35rem 1.1rem 0.4rem;
   background: rgba(8, 12, 22, 0.88);
   border-top: 1px solid rgba(140, 180, 255, 0.1);
+}
+
+.footer-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem 0.55rem;
+  margin: 0;
+  padding: 0;
   font-size: 0.68rem;
   color: var(--muted);
   letter-spacing: 0.02em;
   pointer-events: none;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  min-width: 0;
 }
 
 .footer-hints kbd {
@@ -154,8 +166,8 @@ body {
 
 .telemetry {
   position: absolute;
-  /* Sit above the full-width bottom bar (transport + meta + hints) */
-  bottom: 7.5rem;
+  /* Sit above the full-width bottom bar (transport + footer row) */
+  bottom: 6.25rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -726,18 +738,17 @@ kbd {
   letter-spacing: 0.02em;
 }
 
-/* Copyright + source sit under the mission scrubber in the bottom bar */
+/* Copyright + source: right side of the footer row */
 .corner-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.2rem 0.65rem;
-  margin: 0;
-  padding: 0.28rem 1.1rem 0.32rem;
-  background: rgba(8, 12, 22, 0.88);
-  border-top: 1px solid rgba(140, 180, 255, 0.08);
+  margin: 0 0 0 auto;
+  padding: 0;
   pointer-events: none;
+  text-align: right;
 }
 
 .copyright {
@@ -771,7 +782,7 @@ kbd {
 
 @media (max-width: 640px) {
   .telemetry {
-    bottom: 8.75rem;
+    bottom: 7.25rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
@@ -791,9 +802,13 @@ kbd {
     display: none;
   }
 
+  .footer-row {
+    padding: 0.3rem 0.75rem 0.35rem;
+    gap: 0.25rem 0.5rem;
+  }
+
   .footer-hints {
     gap: 0.25rem 0.4rem;
-    padding: 0.3rem 0.75rem 0.35rem;
     font-size: 0.62rem;
   }
 
@@ -814,8 +829,7 @@ kbd {
   }
 
   .corner-meta {
-    padding: 0.22rem 0.75rem 0.28rem;
-    gap: 0.15rem 0.5rem;
+    gap: 0.15rem 0.45rem;
   }
 
   .copyright,
@@ -824,7 +838,7 @@ kbd {
   }
 
   .source-link {
-    max-width: min(100%, 18rem);
+    max-width: min(100%, 14rem);
     overflow: hidden;
     text-overflow: ellipsis;
   }
