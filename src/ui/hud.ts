@@ -23,6 +23,11 @@ export type HudHandlers = {
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
+  /**
+   * Focus + size-relative zoom (double-tap number keys).
+   * Falls back to onCamera when omitted.
+   */
+  onCameraFrame?: (mode: CameraMode) => void;
   /** Q/E ecliptic-azimuth orbit, R/F pitch around focus (hold) */
   onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
   /** WASD — pan (hold) */
@@ -258,17 +263,17 @@ export function bindHud(
       e.preventDefault();
       handlers.onPlayToggle();
     } else if (e.key === "1") {
-      switchCamera("sun");
+      handleCameraKey("sun", "1");
     } else if (e.key === "2") {
-      switchCamera("earth");
+      handleCameraKey("earth", "2");
     } else if (e.key === "3") {
-      switchCamera("moon");
+      handleCameraKey("moon", "3");
     } else if (e.key === "4") {
-      switchCamera("chase");
+      handleCameraKey("chase", "4");
     } else if (e.key === "5") {
-      switchCamera("starbase");
+      handleCameraKey("starbase", "5");
     } else if (e.key === "6") {
-      switchCamera("fin");
+      handleCameraKey("fin", "6");
     } else if (e.key === "q" || e.key === "Q") {
       handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
@@ -388,21 +393,34 @@ export function bindHud(
     { title: string; detail: string }
   > = {
     free: { title: "Free camera", detail: "WASD pan · drag to look" },
-    sun: { title: "Sun", detail: "Focus · key 1" },
-    earth: { title: "Earth", detail: "Focus · key 2" },
-    moon: { title: "Moon", detail: "Focus · key 3" },
-    chase: { title: "Starship", detail: "Chase · key 4" },
-    starbase: { title: "Starbase", detail: "Pad · key 5" },
+    sun: { title: "Sun", detail: "Focus · key 1 · double-tap to frame" },
+    earth: { title: "Earth", detail: "Focus · key 2 · double-tap to frame" },
+    moon: { title: "Moon", detail: "Focus · key 3 · double-tap to frame" },
+    chase: {
+      title: "Starship",
+      detail: "Chase · key 4 · double-tap to frame",
+    },
+    starbase: {
+      title: "Starbase",
+      detail: "Pad · key 5 · double-tap to frame",
+    },
     fin: { title: "Ship fin", detail: "Aft engines · key 6" },
   };
 
-  function showCameraToast(mode: CameraMode): void {
+  /** Double-tap window for number-key frame zoom (ms). */
+  const CAM_DOUBLE_TAP_MS = 380;
+  let lastCamKey: string | null = null;
+  let lastCamKeyT = 0;
+
+  function showCameraToast(mode: CameraMode, framed = false): void {
     if (!camToast || !camToastTitle) return;
     const info = CAMERA_LABELS[mode];
-    camToastTitle.textContent = info.title;
+    camToastTitle.textContent = framed ? `${info.title} · framed` : info.title;
     if (camToastDetail) {
-      camToastDetail.textContent = info.detail;
-      camToastDetail.hidden = !info.detail;
+      camToastDetail.textContent = framed
+        ? "Zoom matched to object size"
+        : info.detail;
+      camToastDetail.hidden = false;
     }
     camToast.hidden = false;
     camToast.classList.remove("cam-toast-out");
@@ -427,7 +445,29 @@ export function bindHud(
 
   function switchCamera(mode: CameraMode): void {
     handlers.onCamera(mode);
-    noteCameraMode(mode);
+    lastCamMode = mode;
+    showCameraToast(mode, false);
+  }
+
+  /** Focus + size-relative zoom (double-tap 1–6). */
+  function frameCamera(mode: CameraMode): void {
+    if (handlers.onCameraFrame) handlers.onCameraFrame(mode);
+    else handlers.onCamera(mode);
+    lastCamMode = mode;
+    showCameraToast(mode, true);
+  }
+
+  /**
+   * Single tap: switch focus (keep zoom). Double-tap same key: frame object.
+   */
+  function handleCameraKey(mode: CameraMode, key: string): void {
+    const now = performance.now();
+    const isDouble =
+      lastCamKey === key && now - lastCamKeyT <= CAM_DOUBLE_TAP_MS;
+    lastCamKey = key;
+    lastCamKeyT = now;
+    if (isDouble) frameCamera(mode);
+    else switchCamera(mode);
   }
 
   function maybeFireEvents(missionT: number, playing: boolean): void {

@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AU, R_EARTH, R_SUN } from "../physics/constants";
+import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import { starbasePadState } from "../physics/earthFrame";
+import { craftLengthKm } from "../scene/craft";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -154,6 +155,22 @@ export class CameraDirector {
    * and view direction. Fin mode snaps to the Starship forward-fin mount.
    */
   setMode(mode: CameraMode): void {
+    this.applyFocus(mode, /* frame */ false);
+  }
+
+  /**
+   * Focus on a body/object and zoom so it fills a comfortable fraction of the
+   * view (distance scales with object size). Double-tap number keys use this.
+   */
+  frameMode(mode: CameraMode): void {
+    this.applyFocus(mode, /* frame */ true);
+  }
+
+  /**
+   * @param frame when true, set distance from characteristic size; when false,
+   *   keep the current camera–target distance (with a Sun minimum pull-back).
+   */
+  private applyFocus(mode: CameraMode, frame: boolean): void {
     if (mode === "free") {
       this.focus = "free";
       this.controls.enabled = true;
@@ -171,7 +188,7 @@ export class CameraDirector {
 
     this.controls.enabled = true;
 
-    const dist = Math.max(
+    const prevDist = Math.max(
       this.controls.minDistance,
       Math.min(
         this.controls.maxDistance,
@@ -191,16 +208,61 @@ export class CameraDirector {
     this.computeTarget(mode, this.desiredTarget);
     this.controls.target.copy(this.desiredTarget);
 
-    // Cislunar zooms are tiny next to the Sun — pull back so the disc frames.
-    const framedDist =
-      mode === "sun" ? Math.max(dist, SUN_DEFAULT_DIST) : dist;
+    let dist: number;
+    if (frame) {
+      dist = this.frameDistanceFor(mode);
+    } else if (mode === "sun") {
+      // Cislunar zooms are tiny next to the Sun — pull back so the disc frames.
+      dist = Math.max(prevDist, SUN_DEFAULT_DIST);
+    } else {
+      dist = prevDist;
+    }
+
+    dist = Math.max(
+      this.controls.minDistance,
+      Math.min(this.controls.maxDistance, dist),
+    );
     this.camera.position
       .copy(this.desiredTarget)
-      .addScaledVector(this.tmp, framedDist);
+      .addScaledVector(this.tmp, dist);
     // Keep current up (may be tumbled) so focus switch does not reset pitch
     this.camera.lookAt(this.controls.target);
     this.syncOrbitControlsUp();
     this.controls.update();
+  }
+
+  /**
+   * Orbit distance so a sphere of `radiusKm` fills ~`fill` of the vertical FOV
+   * (diameter). Works for bodies and for half-length of elongated craft.
+   */
+  private distanceForRadius(radiusKm: number, fill = 0.62): number {
+    const halfAngle =
+      THREE.MathUtils.degToRad(this.camera.fov) * fill * 0.5;
+    return radiusKm / Math.tan(Math.max(halfAngle, 1e-4));
+  }
+
+  /** Characteristic framing distance (km) for each focus target. */
+  private frameDistanceFor(mode: CameraMode): number {
+    switch (mode) {
+      case "sun":
+        return this.distanceForRadius(R_SUN, 0.7);
+      case "earth":
+        return this.distanceForRadius(R_EARTH, 0.65);
+      case "moon":
+        return this.distanceForRadius(R_MOON, 0.65);
+      case "chase": {
+        // Full stack length as “diameter”; slightly longer lens for readability
+        const len = craftLengthKm(false);
+        return this.distanceForRadius(len * 0.5, 0.45);
+      }
+      case "starbase":
+        // Tower ~146 m + stack — frame the pad complex, not the whole Earth
+        return this.distanceForRadius(0.12, 0.5);
+      case "fin":
+      case "free":
+      default:
+        return this.getFocusDistance();
+    }
   }
 
   /**

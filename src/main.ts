@@ -228,6 +228,7 @@ const hud = bindHud(clock, timeline, {
   },
   onScrub: (t) => clock.seek(t),
   onCamera: (mode: CameraMode) => director.setMode(mode),
+  onCameraFrame: (mode: CameraMode) => director.frameMode(mode),
   onOrbitKey: (key, down) => director.setOrbitKey(key, down),
   onPanKey: (key, down) => director.setPanKey(key, down),
   onZoomKey: (key, down) => director.setZoomKey(key, down),
