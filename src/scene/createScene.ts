@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { A_EM, AU } from "../physics/constants";
+import { A_EM, AU, EARTH_OBLIQUITY } from "../physics/constants";
 import {
   earthOrbitPathPoints,
   moonPathThroughSim,
@@ -117,12 +117,44 @@ function createEarthOrbitPath(): THREE.Object3D {
   return line;
 }
 
-/** Apply NASA SVS equirectangular star map (RA increases left → flip S). */
+/**
+ * NASA SVS Deep Star Maps 2020 — celestial plate carrée (ICRF/J2000).
+ * Map is centered at RA 0h with RA increasing to the left of the image.
+ *
+ * Three.js SphereGeometry already matches that layout without a U flip when
+ * +Y is celestial north and +X is RA 0h (equinox):
+ *   u = 0.5 − RA/360,  v = (90° − Dec)/180
+ * (geometry u=0.5 → mesh +X; v=0 → mesh +Y).
+ */
 function applySkyMap(texture: THREE.Texture): void {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
-  texture.repeat.x = -1;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  // No S flip — the previous repeat.x = -1 was wrong once the dome is
+  // rotated into the ecliptic frame (it put the galactic center ~60° north).
+  texture.repeat.set(1, 1);
+  texture.offset.set(0, 0);
   texture.needsUpdate = true;
+}
+
+/**
+ * Map mesh-local equatorial frame → theater ecliptic J2000 (Horizons).
+ *
+ * SphereGeometry local: +Y = celestial north, +X = RA 0h, +Z = RA 6h.
+ * Theater: +Z = ecliptic north, +X = vernal equinox (same as Horizons ecliptic).
+ * Equatorial → ecliptic is a rotation by obliquity about +X after swapping
+ * mesh axes (mesh Y,Z) ↔ (eq Z,Y).
+ */
+function orientStarDomeToEcliptic(stars: THREE.Mesh): void {
+  const ε = EARTH_OBLIQUITY;
+  const s = Math.sin(ε);
+  const c = Math.cos(ε);
+  // Row-major: p_ecl = M · p_mesh
+  //   x_ecl = x_mesh
+  //   y_ecl = sinε · y_mesh + cosε · z_mesh
+  //   z_ecl = cosε · y_mesh − sinε · z_mesh
+  const m = new THREE.Matrix4().set(1, 0, 0, 0, 0, s, c, 0, 0, c, -s, 0, 0, 0, 0, 1);
+  stars.quaternion.setFromRotationMatrix(m);
 }
 
 /**
@@ -142,6 +174,8 @@ function createStarDome(): THREE.Mesh {
     new THREE.SphereGeometry(AU * 2.2, 64, 48),
     mat,
   );
+  stars.name = "star-dome";
+  orientStarDomeToEcliptic(stars);
 
   const fallback = () => {
     const starMap = new THREE.CanvasTexture(makeStarTexture(1024));
