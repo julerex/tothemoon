@@ -126,56 +126,23 @@ export function createStarbasePad(): THREE.Group {
   padLight.position.set(0, 3, 0);
   pad.add(padLight);
 
-  const tower = new THREE.Mesh(
-    new THREE.BoxGeometry(0.55, 12, 0.55),
-    new THREE.MeshStandardMaterial({
-      color: 0xb8bcc4,
-      metalness: 0.7,
-      roughness: 0.35,
+  // True-scale Mechazilla (OLIT) next to the 9 m stack for Ship-cam fidelity.
+  // Pad deck / steam stay oversized as Earth-cam landmarks.
+  pad.add(createMechazillaTower());
+
+  // Soft oversized tower ghost for Earth-cam landmark (very transparent)
+  const landmarkTower = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35, 8, 0.35),
+    new THREE.MeshBasicMaterial({
+      color: 0xb0b4bc,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
     }),
   );
-  tower.position.set(2.2, 6.2, 0);
-  pad.add(tower);
-
-  // Tower cross-members (readability in Ship cam near pad)
-  for (const h of [3, 6, 9]) {
-    const cross = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.12, 0.12),
-      new THREE.MeshStandardMaterial({
-        color: 0x9aa0a8,
-        metalness: 0.65,
-        roughness: 0.4,
-      }),
-    );
-    cross.position.set(2.2, h, 0);
-    pad.add(cross);
-  }
-
-  const arm = new THREE.Mesh(
-    new THREE.BoxGeometry(3.5, 0.35, 0.35),
-    new THREE.MeshStandardMaterial({
-      color: 0x9aa0a8,
-      metalness: 0.65,
-      roughness: 0.4,
-    }),
-  );
-  arm.position.set(0.6, 10.5, 0);
-  pad.add(arm);
-
-  // Chopsticks (paired arms) — theater silhouettes
-  for (const side of [-1, 1]) {
-    const stick = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.22, 4.5),
-      new THREE.MeshStandardMaterial({
-        color: 0xa8aeb6,
-        metalness: 0.7,
-        roughness: 0.38,
-      }),
-    );
-    stick.position.set(0.4, 8.5, side * 1.1);
-    stick.rotation.x = side * 0.08;
-    pad.add(stick);
-  }
+  landmarkTower.position.set(1.6, 4.2, 0);
+  landmarkTower.name = "tower-landmark";
+  pad.add(landmarkTower);
 
   const beacon = new THREE.Mesh(
     new THREE.SphereGeometry(0.45, 12, 10),
@@ -365,6 +332,247 @@ function makePadGlowSprite(): THREE.Sprite {
       blending: THREE.AdditiveBlending,
     }),
   );
+}
+
+/**
+ * True-scale Orbital Launch Integration Tower (Mechazilla).
+ * Scene units = km. ~146 m tall, ~14 m face, chopsticks + QD arm silhouette.
+ * Stack is 9 m diameter / ~123 m tall — tower stands just clear of the OLM.
+ */
+function createMechazillaTower(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "mechazilla";
+
+  // Real-ish meters → km
+  const H = 0.146; // tower height
+  const FACE = 0.014; // ~14 m square face
+  const COL = 0.0016; // column thickness ~1.6 m
+  // Offset from pad center: clear of 9 m stack + OLM lip (~22 m)
+  const OX = 0.022;
+  const OY0 = 0.01; // base above deck
+
+  const steel = new THREE.MeshStandardMaterial({
+    color: 0xb4b8c0,
+    metalness: 0.72,
+    roughness: 0.38,
+  });
+  const steelDark = new THREE.MeshStandardMaterial({
+    color: 0x7a8088,
+    metalness: 0.65,
+    roughness: 0.45,
+  });
+  const steelBright = new THREE.MeshStandardMaterial({
+    color: 0xc8ccd2,
+    metalness: 0.78,
+    roughness: 0.32,
+  });
+  const accent = new THREE.MeshStandardMaterial({
+    color: 0x5a6068,
+    metalness: 0.55,
+    roughness: 0.5,
+  });
+
+  // Four corner columns (lattice spine)
+  const half = FACE * 0.5;
+  const corners: [number, number][] = [
+    [-half, -half],
+    [half, -half],
+    [-half, half],
+    [half, half],
+  ];
+  for (const [cx, cz] of corners) {
+    const col = new THREE.Mesh(
+      new THREE.BoxGeometry(COL, H, COL),
+      steel,
+    );
+    col.position.set(OX + cx, OY0 + H * 0.5, cz);
+    g.add(col);
+  }
+
+  // Horizontal ring beams every ~12 m
+  const nRings = 12;
+  for (let i = 1; i <= nRings; i++) {
+    const y = OY0 + (i / nRings) * H * 0.96;
+    // X-facing faces
+    for (const z of [-half, half]) {
+      const beam = new THREE.Mesh(
+        new THREE.BoxGeometry(FACE, COL * 0.7, COL * 0.65),
+        steelDark,
+      );
+      beam.position.set(OX, y, z);
+      g.add(beam);
+    }
+    // Z-facing faces
+    for (const x of [-half, half]) {
+      const beam = new THREE.Mesh(
+        new THREE.BoxGeometry(COL * 0.65, COL * 0.7, FACE),
+        steelDark,
+      );
+      beam.position.set(OX + x, y, 0);
+      g.add(beam);
+    }
+  }
+
+  // Diagonal X-bracing on pad-facing and flank faces
+  addTowerBracing(g, OX, OY0, H, FACE, COL, nRings, accent);
+
+  // Elevator / rail trunk on pad-facing side
+  const rail = new THREE.Mesh(
+    new THREE.BoxGeometry(COL * 1.2, H * 0.92, COL * 2.2),
+    steelBright,
+  );
+  rail.position.set(OX - half - COL * 0.4, OY0 + H * 0.48, 0);
+  g.add(rail);
+
+  // Peak sheave / crane head
+  const peak = new THREE.Mesh(
+    new THREE.BoxGeometry(FACE * 1.15, 0.008, FACE * 1.15),
+    steelBright,
+  );
+  peak.position.set(OX, OY0 + H + 0.002, 0);
+  g.add(peak);
+  const sheave = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.004, 0.004, FACE * 0.7, 10),
+    steelDark,
+  );
+  sheave.rotation.z = Math.PI / 2;
+  sheave.position.set(OX - half * 0.3, OY0 + H + 0.006, 0);
+  g.add(sheave);
+
+  // Chopstick carriage (rides rails) — open for stacked vehicle
+  // Catch height ~ mid-upper booster when returning (~70–85 m); prelaunch open beside stack
+  const carryY = OY0 + 0.078; // ~78 m
+  const carriage = new THREE.Mesh(
+    new THREE.BoxGeometry(FACE * 1.25, 0.01, FACE * 1.4),
+    steelDark,
+  );
+  carriage.position.set(OX, carryY, 0);
+  g.add(carriage);
+
+  // Chopsticks: two long arms reaching toward / around the stack (open)
+  // Arm length ~22 m each side; stacked open width clears 9 m vehicle
+  const armLen = 0.024;
+  const armSq = 0.0022;
+  for (const side of [-1, 1] as const) {
+    const stick = new THREE.Group();
+    const beam = new THREE.Mesh(
+      new THREE.BoxGeometry(armLen, armSq, armSq * 1.4),
+      steelBright,
+    );
+    // Extend from tower toward −X (pad center / stack)
+    beam.position.set(-armLen * 0.5, 0, 0);
+    stick.add(beam);
+    // Inner "finger" / rack
+    const finger = new THREE.Mesh(
+      new THREE.BoxGeometry(0.006, armSq * 1.3, armSq * 2.2),
+      steel,
+    );
+    finger.position.set(-armLen + 0.002, 0, 0);
+    stick.add(finger);
+    // Cross tooth near tip
+    const tooth = new THREE.Mesh(
+      new THREE.BoxGeometry(0.003, armSq * 0.9, 0.01),
+      accent,
+    );
+    tooth.position.set(-armLen + 0.005, 0, 0);
+    stick.add(tooth);
+
+    stick.position.set(
+      OX - half,
+      carryY + 0.004,
+      side * 0.012, // ~12 m half-gap when open
+    );
+    // Slight inward angle (open but ready)
+    stick.rotation.y = side * 0.04;
+    g.add(stick);
+  }
+
+  // Ship QD / propellant transfer boom (higher, reaches ship mid-barrel)
+  // Ship mid ~ 71 + 26 ≈ 97 m
+  const qdY = OY0 + 0.098;
+  const qd = new THREE.Group();
+  const qdBoom = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, 0.0018, 0.0018),
+    steel,
+  );
+  qdBoom.position.set(-0.01, 0, 0);
+  qd.add(qdBoom);
+  const qdHead = new THREE.Mesh(
+    new THREE.BoxGeometry(0.004, 0.004, 0.004),
+    steelDark,
+  );
+  qdHead.position.set(-0.021, 0, 0);
+  qd.add(qdHead);
+  qd.position.set(OX - half, qdY, 0.004);
+  g.add(qd);
+
+  // OLM lip / hold-down ring under the stack (true-scale cue)
+  const olm = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20),
+    steelDark,
+  );
+  olm.position.set(0, OY0 + 0.002, 0);
+  g.add(olm);
+
+  // Six OLM legs (stubby)
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2;
+    const leg = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0025, 0.008, 0.0025),
+      accent,
+    );
+    leg.position.set(Math.cos(ang) * 0.011, OY0 + 0.004, Math.sin(ang) * 0.011);
+    g.add(leg);
+  }
+
+  return g;
+}
+
+/** X-brace panels on Mechazilla faces (skips over-dense mid rings). */
+function addTowerBracing(
+  g: THREE.Group,
+  ox: number,
+  y0: number,
+  h: number,
+  face: number,
+  col: number,
+  nRings: number,
+  mat: THREE.Material,
+): void {
+  const half = face * 0.5;
+  for (let i = 0; i < nRings - 1; i += 1) {
+    if (i % 2 === 1) continue; // every other bay
+    const ya = y0 + ((i + 0.12) / nRings) * h * 0.96;
+    const yb = y0 + ((i + 0.88) / nRings) * h * 0.96;
+    const midY = (ya + yb) * 0.5;
+    const segH = yb - ya;
+    const len = Math.hypot(face, segH);
+    const tilt = Math.atan2(face, segH);
+
+    // Pad-facing face (constant x = ox - half): braces in YZ
+    for (const flip of [-1, 1]) {
+      const b = new THREE.Mesh(
+        new THREE.BoxGeometry(col * 0.35, len, col * 0.35),
+        mat,
+      );
+      b.position.set(ox - half, midY, 0);
+      b.rotation.x = flip * tilt;
+      g.add(b);
+    }
+
+    // Side faces (constant z = ±half): braces in XY
+    for (const z of [-half, half]) {
+      for (const flip of [-1, 1]) {
+        const b = new THREE.Mesh(
+          new THREE.BoxGeometry(col * 0.35, len, col * 0.35),
+          mat,
+        );
+        b.position.set(ox, midY, z);
+        b.rotation.z = flip * tilt;
+        g.add(b);
+      }
+    }
+  }
 }
 
 function makeSteamTexture(): THREE.CanvasTexture {

@@ -25,6 +25,7 @@ import {
 } from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
+  CRAFT_MESH_SCALE,
   createCraft,
   craftLengthKm,
   updateCraftVisuals,
@@ -149,7 +150,7 @@ const _moonVelV = new THREE.Vector3();
 
 // Staging fallaway + flash (mesh scale matches createCraft)
 const boosterProto = craft.getObjectByName("booster");
-const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), 0.04);
+const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
 const stageEvent = findStageEvent(cache.samples);
 stagingFx.setStageEvent(stageEvent);
 const stageT = stageEvent?.t ?? null;

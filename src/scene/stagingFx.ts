@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { MU_EARTH, R_EARTH } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import { CRAFT_MESH_SCALE } from "./craft";
 
 /** Mission seconds the free-flying booster remains visible. */
 const FALLAWAY_S = 90;
@@ -36,7 +37,7 @@ export class StagingFx {
   private readonly up = new THREE.Vector3(0, 1, 0);
   private stage: StageEvent | null = null;
 
-  constructor(boosterPrototype: THREE.Object3D, meshScale = 0.04) {
+  constructor(boosterPrototype: THREE.Object3D, meshScale = CRAFT_MESH_SCALE) {
     this.booster = boosterPrototype.clone(true) as THREE.Group;
     this.booster.name = "booster-detached";
     this.booster.visible = false;
