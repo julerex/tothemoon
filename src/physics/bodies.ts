@@ -7,7 +7,9 @@ import {
   MOON_INCLINATION,
   MOON_NODE,
   MOON_OBLIQUITY,
+  MU_EARTH,
   MU_EM_ORB,
+  MU_MOON,
   N_EARTH_SUN,
   N_MOON,
   R_MOON,
@@ -17,7 +19,11 @@ import {
   hasHorizonsEpoch,
   interpolateHorizons,
 } from "./horizonsEpoch";
-import { len, set, type V3, v3 } from "./vec3";
+import { keplerRvAt, rvToKepler } from "./kepler";
+import { cross, len, set, type V3, v3 } from "./vec3";
+
+/** Two-body μ for Earth–Moon relative motion (osculating ring). */
+const MU_EM_REL = MU_EARTH + MU_MOON;
 
 /** Earth orbital eccentricity (approx IAU) — used for the green orbit ribbon. */
 const EARTH_ORB_E = 0.016_708_6;
@@ -356,33 +362,88 @@ export function moonPathThroughSim(durationS: number, samples = 512): V3[] {
   return pts;
 }
 
+const _oscR = v3();
+const _oscV = v3();
+const _circE1 = v3();
+const _circE2 = v3();
+const _circH = v3();
+
 /**
- * Mean lunar orbit as a circle of radius A_EM in the lunar orbital plane
- * (inclination + node from constants). Earth-relative positions — parent the
- * line under the Earth group so it co-moves with Earth.
+ * Closed Earth-relative orbit through the Moon at time `t`.
+ *
+ * Uses the osculating two-body ellipse from the current geocentric r,v
+ * (always intersects the Moon). If the state is unbound or degenerate,
+ * falls back to a circle of radius |r| in the r×v plane (also through Moon).
+ * Parent under the Earth group so the ring co-moves with Earth.
  */
-export function moonRelativeOrbitCirclePoints(samples = 256): V3[] {
+export function osculatingMoonOrbitPoints(t: number, samples = 256): V3[] {
+  const rel = moonRelativeToEarth(t);
+  const n = Math.max(8, samples);
+  const R = len(rel.pos);
+  const V = len(rel.vel);
+  if (!(R > 1e-6) || !(V > 1e-12)) {
+    return circleThroughMoon(rel.pos, rel.vel, n);
+  }
+
+  const energy = 0.5 * V * V - MU_EM_REL / R;
+  // Bound ellipse only
+  if (energy >= 0) {
+    return circleThroughMoon(rel.pos, rel.vel, n);
+  }
+
+  const orb = rvToKepler(rel.pos, rel.vel, MU_EM_REL, t);
+  if (!(orb.a > 0) || !(orb.e < 1) || !Number.isFinite(orb.a)) {
+    return circleThroughMoon(rel.pos, rel.vel, n);
+  }
+
+  const period = (2 * Math.PI) * Math.sqrt((orb.a * orb.a * orb.a) / MU_EM_REL);
+  if (!(period > 0) || !Number.isFinite(period)) {
+    return circleThroughMoon(rel.pos, rel.vel, n);
+  }
+
   const pts: V3[] = [];
-  const a = A_EM;
-  const i = MOON_INCLINATION;
-  const Ω = MOON_NODE;
-  const cosΩ = Math.cos(Ω);
-  const sinΩ = Math.sin(Ω);
-  const cosi = Math.cos(i);
-  const sini = Math.sin(i);
-  const n = Math.max(3, samples);
   for (let k = 0; k <= n; k++) {
-    const θ = (k / n) * 2 * Math.PI;
-    // Orbital plane: (a cos θ, a sin θ, 0) → ecliptic via R_z(Ω) R_x(i)
-    const x1 = a * Math.cos(θ);
-    const y1 = a * Math.sin(θ);
-    const x2 = x1;
-    const y2 = y1 * cosi;
-    const z2 = y1 * sini;
+    const tk = t + (k / n) * period;
+    keplerRvAt(orb, tk, _oscR, _oscV);
+    pts.push({ x: _oscR.x, y: _oscR.y, z: _oscR.z });
+  }
+  return pts;
+}
+
+/** Circle of radius |r| in the plane of r×v, starting at the Moon. */
+function circleThroughMoon(pos: V3, vel: V3, samples: number): V3[] {
+  const r = len(pos);
+  const pts: V3[] = [];
+  if (!(r > 1e-6)) {
+    for (let k = 0; k <= samples; k++) pts.push({ x: 0, y: 0, z: 0 });
+    return pts;
+  }
+
+  set(_circE1, pos.x / r, pos.y / r, pos.z / r);
+  cross(_circH, pos, vel);
+  const hLen = len(_circH);
+  if (hLen < 1e-12) {
+    // Degenerate velocity — pick any perpendicular
+    if (Math.abs(_circE1.z) < 0.9) set(_circH, 0, 0, 1);
+    else set(_circH, 1, 0, 0);
+  }
+  // e2 = ĥ × e1 — completes RH basis in orbital plane
+  cross(_circE2, _circH, _circE1);
+  const e2Len = len(_circE2);
+  if (e2Len < 1e-12) {
+    set(_circE2, -_circE1.y, _circE1.x, 0);
+  } else {
+    set(_circE2, _circE2.x / e2Len, _circE2.y / e2Len, _circE2.z / e2Len);
+  }
+
+  for (let k = 0; k <= samples; k++) {
+    const θ = (k / samples) * 2 * Math.PI;
+    const c = Math.cos(θ);
+    const s = Math.sin(θ);
     pts.push({
-      x: cosΩ * x2 - sinΩ * y2,
-      y: sinΩ * x2 + cosΩ * y2,
-      z: z2,
+      x: r * (_circE1.x * c + _circE2.x * s),
+      y: r * (_circE1.y * c + _circE2.y * s),
+      z: r * (_circE1.z * c + _circE2.z * s),
     });
   }
   return pts;

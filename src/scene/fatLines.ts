@@ -59,6 +59,23 @@ export function createFatLine(
   return line;
 }
 
+/** Rewrite a fat line’s vertices (same sample count preferred) and refresh dashes. */
+export function updateFatLinePositions(
+  line: Line2,
+  points: THREE.Vector3[],
+): void {
+  const positions = new Float32Array(points.length * 3);
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]!;
+    positions[i * 3] = p.x;
+    positions[i * 3 + 1] = p.y;
+    positions[i * 3 + 2] = p.z;
+  }
+  const geom = line.geometry as LineGeometry;
+  geom.setPositions(positions);
+  line.computeLineDistances();
+}
+
 /** Keep LineMaterial resolution in sync with the canvas (required for correct width). */
 export function updateFatLineResolutions(
   root: THREE.Object3D,

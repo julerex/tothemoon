@@ -19,8 +19,9 @@ import {
 } from "./physics/horizonsEpoch";
 import {
   createMoonPathThroughSim,
-  createMoonRelativeOrbitCircle,
+  createMoonRelativeOrbit,
   createScene,
+  updateMoonRelativeOrbit,
 } from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
@@ -111,11 +112,11 @@ const craftTrail = createTrailFromPoints(trailPts);
 // Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
 orbitGroup.add(craftTrail);
 
-// Moon: solid blue trail of actual location over the mission; dotted blue mean
-// orbit circle parented to Earth so it tracks with the planet.
+// Moon: solid blue trail of actual location over the mission; dotted blue
+// osculating orbit (through the Moon) parented to Earth so it co-moves.
 const moonPathSim = createMoonPathThroughSim(cache.durationS);
 orbitGroup.add(moonPathSim);
-const moonRelOrbit = createMoonRelativeOrbitCircle();
+const moonRelOrbit = createMoonRelativeOrbit(0);
 bodies.earthGroup.add(moonRelOrbit);
 
 /** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI, v/a, Moon ring). */
@@ -362,6 +363,8 @@ function applyMissionState(u: number): void {
     altMoon: frame.altMoon,
   });
   updateBodies(frame.t, bodies);
+  // Osculating Earth–Moon ring — always intersects the Moon at this epoch
+  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);
 
   // Sun light from ephemeris (direction only — avoid AU-scale light positions)
   sunLight.position.set(

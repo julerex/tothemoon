@@ -3,10 +3,11 @@ import { A_EM, AU } from "../physics/constants";
 import {
   earthOrbitPathPoints,
   moonPathThroughSim,
-  moonRelativeOrbitCirclePoints,
+  osculatingMoonOrbitPoints,
 } from "../physics/bodies";
-import { createFatLine } from "./fatLines";
+import { createFatLine, updateFatLinePositions } from "./fatLines";
 import { makeStarTexture } from "./textures";
+import type { Line2 } from "three/addons/lines/Line2.js";
 
 export type SceneBundle = {
   scene: THREE.Scene;
@@ -70,14 +71,17 @@ export function createMoonPathThroughSim(
   return line;
 }
 
+const MOON_REL_ORBIT_SAMPLES = 256;
+
 /**
- * Mean lunar orbit circle in the lunar plane (Earth-relative). Parent under
- * the Earth group so the ring co-moves with Earth.
+ * Osculating lunar orbit (Earth-relative dashed ring). Parent under the Earth
+ * group; call {@link updateMoonRelativeOrbit} each frame so it stays through
+ * the Moon as r,v change.
  */
-export function createMoonRelativeOrbitCircle(): THREE.Object3D {
-  const pts = moonRelativeOrbitCirclePoints(256);
+export function createMoonRelativeOrbit(t0 = 0): Line2 {
+  const pts = osculatingMoonOrbitPoints(t0, MOON_REL_ORBIT_SAMPLES);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  // Path length ~ 2π·A_EM ≈ 2.4e6 km — dash/gap in km along the path
+  // Path length ~ 2π·a ≈ 2.4e6 km — dash/gap in km along the path
   const line = createFatLine(vecs, {
     color: 0x4aa3ff,
     opacity: 0.55,
@@ -88,6 +92,13 @@ export function createMoonRelativeOrbitCircle(): THREE.Object3D {
   });
   line.name = "moon-relative-orbit";
   return line;
+}
+
+/** Refresh the Earth-relative ring from the osculating state at mission time t. */
+export function updateMoonRelativeOrbit(line: Line2, t: number): void {
+  const pts = osculatingMoonOrbitPoints(t, MOON_REL_ORBIT_SAMPLES);
+  const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+  updateFatLinePositions(line, vecs);
 }
 
 /**
