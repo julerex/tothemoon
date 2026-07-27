@@ -80,6 +80,12 @@ export class CameraDirector {
     this.controls.minDistance = 0.05;
     this.controls.maxDistance = AU * 3;
     this.controls.enabled = true;
+    // Fixed ecliptic-up basis: no roll from mouse spherical orbit.
+    // Nudge polar limits off the poles so OrbitControls does not flip.
+    this.controls.minPolarAngle = 1e-3;
+    this.controls.maxPolarAngle = Math.PI - 1e-3;
+    this.camera.up.copy(ECLIPTIC_NORTH);
+    this.syncOrbitControlsUp();
 
     this.applyEarthOpeningShot();
     this.applyClipPlanes();
@@ -191,14 +197,14 @@ export class CameraDirector {
     this.camera.position
       .copy(this.desiredTarget)
       .addScaledVector(this.tmp, framedDist);
-    this.camera.lookAt(this.controls.target);
+    this.enforceNoRoll();
     this.controls.update();
   }
 
   /**
    * Orbit hold keys around the focus:
-   * - Q/E — azimuth revolve about ecliptic north (keeps elevation vs Earth’s
-   *   orbital plane); R/F still pitch about camera right
+   * - Q/E — azimuth about ecliptic north (fixed elevation to orbital plane)
+   * - R/F — pitch about camera-right (no roll; up stays ecliptic north)
    */
   setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
     if (key === "q") this.orbitQ = down;
@@ -311,7 +317,7 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    // Q/E: azimuth about ecliptic north; R/F: pitch about camera right
+    // Q/E: azimuth about ecliptic north; R/F: pitch about screen-right
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
     if ((camYaw === 0 && pitch === 0) || dt <= 0) return;
@@ -319,42 +325,74 @@ export class CameraDirector {
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
     if (camYaw !== 0) {
-      // Revolve about ecliptic / Earth's orbital-plane normal (+Z). Keeps the
-      // camera's elevation angle to that plane fixed while circling the focus.
-      // Roll camera.up with the same rotation so R/F pitch attitude is preserved.
-      // +camYaw (E) → RH about +Z (matches upright screen-right when up≈+Z).
+      // Revolve about ecliptic north — elevation to the orbital plane fixed.
+      // camera.up stays ecliptic north (no roll).
       this.orbitQuat.setFromAxisAngle(
         ECLIPTIC_NORTH,
         camYaw * ORBIT_RAD_PER_S * dt,
       );
       this.orbitOffset.applyQuaternion(this.orbitQuat);
-      this.camera.up.applyQuaternion(this.orbitQuat).normalize();
-      this.syncOrbitControlsUp();
     }
 
     if (pitch !== 0) {
-      // Pitch around camera right, and tumble `up` with it so we can go
-      // smoothly upside-down without OrbitControls' polar singularity snap.
-      this.camera.updateMatrixWorld();
-      this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
-      if (this.panRight.lengthSq() > 1e-12) {
+      // Pitch about ecliptic-level right (north × offset) — does not roll.
+      this.panRight.crossVectors(ECLIPTIC_NORTH, this.orbitOffset);
+      if (this.panRight.lengthSq() < 1e-12) {
+        // Offset along the pole — any in-plane axis works for a tiny step
+        this.panRight.set(1, 0, 0);
+      } else {
         this.panRight.normalize();
-        // Negative so R (pitch +) lifts the camera toward +up
-        this.orbitQuat.setFromAxisAngle(
-          this.panRight,
-          -pitch * ORBIT_RAD_PER_S * dt,
-        );
-        this.orbitOffset.applyQuaternion(this.orbitQuat);
-        this.camera.up.applyQuaternion(this.orbitQuat).normalize();
-        this.syncOrbitControlsUp();
       }
+      // Negative so R (pitch +) lifts the camera toward +ecliptic north
+      this.orbitQuat.setFromAxisAngle(
+        this.panRight,
+        -pitch * ORBIT_RAD_PER_S * dt,
+      );
+      this.orbitOffset.applyQuaternion(this.orbitQuat);
+      // Same pole guard as OrbitControls min/maxPolarAngle — no flip / roll snap
+      this.clampOffsetPolar();
     }
 
     this.camera.position.copy(this.controls.target).add(this.orbitOffset);
+    this.enforceNoRoll();
+  }
+
+  /** Keep offset polar angle in (ε, π−ε) from ecliptic north. */
+  private clampOffsetPolar(): void {
+    const dist = this.orbitOffset.length();
+    if (dist < 1e-12) return;
+    const minSin = Math.sin(1e-3); // horizontal component floor
+    this.tmp.copy(this.orbitOffset);
+    this.tmp.addScaledVector(
+      ECLIPTIC_NORTH,
+      -this.tmp.dot(ECLIPTIC_NORTH),
+    );
+    let horiz = this.tmp.length();
+    const z = this.orbitOffset.dot(ECLIPTIC_NORTH);
+    if (horiz < dist * minSin) {
+      // Near pole: push slightly off-axis along previous horizontal (or +X)
+      if (horiz < 1e-18) this.tmp.set(1, 0, 0);
+      else this.tmp.multiplyScalar(1 / horiz);
+      horiz = dist * minSin;
+      const zClamped = Math.sign(z || 1) * Math.sqrt(Math.max(0, dist * dist - horiz * horiz));
+      this.orbitOffset
+        .copy(this.tmp)
+        .multiplyScalar(horiz)
+        .addScaledVector(ECLIPTIC_NORTH, zClamped);
+    }
+  }
+
+  /**
+   * Force zero roll for free orbit: up = ecliptic north, look at focus.
+   * Called after mouse OrbitControls and keyboard orbit so neither can bank.
+   */
+  private enforceNoRoll(): void {
+    this.camera.up.copy(ECLIPTIC_NORTH);
+    this.syncOrbitControlsUp();
     this.camera.lookAt(this.controls.target);
   }
 
-  /** Keep OrbitControls' internal up-basis in sync after tumbling camera.up. */
+  /** Keep OrbitControls' internal up-basis locked to ecliptic north. */
   private syncOrbitControlsUp(): void {
     const c = this.controls as OrbitControls & {
       _quat: THREE.Quaternion;
@@ -434,8 +472,9 @@ export class CameraDirector {
     this.applyPan(dt);
     this.applyZoom(dt);
     // OrbitControls first (mouse / damping), then Q/E/R/F so keyboard
-    // orbit is not overwritten by damping.
+    // orbit is not overwritten by damping. Strip any residual roll after both.
     this.controls.update();
     this.applyOrbit(dt);
+    this.enforceNoRoll();
   }
 }
