@@ -23,7 +23,7 @@ export type HudHandlers = {
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
-  /** Q/E camera-orbit left/right, R/F pitch around focus (hold) */
+  /** Q/E ecliptic-azimuth orbit, R/F pitch around focus (hold) */
   onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
   /** WASD — pan (hold) */
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;

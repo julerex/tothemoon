@@ -197,8 +197,8 @@ export class CameraDirector {
 
   /**
    * Orbit hold keys around the focus:
-   * - Q/E — camera-relative revolve left / right (about camera up)
-   * - R/F — pitch about camera right
+   * - Q/E — azimuth revolve about ecliptic north (keeps elevation vs Earth’s
+   *   orbital plane); R/F still pitch about camera right
    */
   setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
     if (key === "q") this.orbitQ = down;
@@ -311,7 +311,7 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    // Q/E: screen-left / screen-right revolve (camera.up axis)
+    // Q/E: azimuth about ecliptic north; R/F: pitch about camera right
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
     if ((camYaw === 0 && pitch === 0) || dt <= 0) return;
@@ -319,20 +319,17 @@ export class CameraDirector {
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
     if (camYaw !== 0) {
-      // Revolve about the camera's up so Q always orbits left on screen,
-      // E always right — independent of ecliptic tilt / upside-down views.
-      this.camera.updateMatrixWorld();
-      this.tmp.copy(this.camera.up);
-      if (this.tmp.lengthSq() > 1e-12) {
-        this.tmp.normalize();
-        // +camYaw (E) → positive RH rotation about up → camera moves right
-        this.orbitQuat.setFromAxisAngle(
-          this.tmp,
-          camYaw * ORBIT_RAD_PER_S * dt,
-        );
-        this.orbitOffset.applyQuaternion(this.orbitQuat);
-        // up is the rotation axis — unchanged
-      }
+      // Revolve about ecliptic / Earth's orbital-plane normal (+Z). Keeps the
+      // camera's elevation angle to that plane fixed while circling the focus.
+      // Roll camera.up with the same rotation so R/F pitch attitude is preserved.
+      // +camYaw (E) → RH about +Z (matches upright screen-right when up≈+Z).
+      this.orbitQuat.setFromAxisAngle(
+        ECLIPTIC_NORTH,
+        camYaw * ORBIT_RAD_PER_S * dt,
+      );
+      this.orbitOffset.applyQuaternion(this.orbitQuat);
+      this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+      this.syncOrbitControlsUp();
     }
 
     if (pitch !== 0) {
