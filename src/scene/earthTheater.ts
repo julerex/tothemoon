@@ -100,25 +100,25 @@ export function createStarbasePad(): THREE.Group {
   trench.position.y = -0.006;
   pad.add(trench);
 
-  // Flame sheet inside the trench (additive; opacity driven by update)
+  // Flame sheet in the trench — cool methane/orange, not pure yellow
   const flameMat = new THREE.MeshBasicMaterial({
-    color: 0xff7a30,
+    color: 0xff8a48,
     transparent: true,
     opacity: 0,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
-  const flame = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.03, 0.05), flameMat);
-  flame.position.y = 0.008;
+  const flame = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.028, 0.05), flameMat);
+  flame.position.y = 0.006;
   flame.name = "pad-flame";
   flame.visible = false;
   flame.userData.mat = flameMat;
   pad.add(flame);
 
-  // Secondary flame tongues (still theatrical, but stack-scale)
+  // Secondary flame tongues (stack-scale, muted)
   const tongueMat = new THREE.MeshBasicMaterial({
-    color: 0xffcc66,
+    color: 0xffa060,
     transparent: true,
     opacity: 0,
     depthWrite: false,
@@ -128,18 +128,18 @@ export function createStarbasePad(): THREE.Group {
   const tongues = new THREE.Group();
   tongues.name = "pad-flame-tongues";
   tongues.visible = false;
-  for (const z of [-0.018, -0.006, 0.006, 0.018]) {
+  for (const z of [-0.016, -0.005, 0.005, 0.016]) {
     const tongue = new THREE.Mesh(
-      new THREE.ConeGeometry(0.008, 0.06, 10, 1, true),
+      new THREE.ConeGeometry(0.007, 0.05, 10, 1, true),
       tongueMat,
     );
-    tongue.position.set(0, 0.025, z);
+    tongue.position.set(0, 0.02, z);
     tongues.add(tongue);
   }
   tongues.userData.mat = tongueMat;
   pad.add(tongues);
 
-  // Deluge steam billows (sprites) — around trench, not through the stack
+  // Deluge steam — normal blend (additive reads as yellow haze against the sun)
   const steamGroup = new THREE.Group();
   steamGroup.name = "pad-steam";
   steamGroup.visible = false;
@@ -152,7 +152,8 @@ export function createStarbasePad(): THREE.Group {
         transparent: true,
         opacity: 0,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
+        color: 0xd8dde4,
       }),
     );
     sprite.position.set(Math.cos(ang) * 0.04, 0.02, Math.sin(ang) * 0.04);
@@ -163,16 +164,15 @@ export function createStarbasePad(): THREE.Group {
   }
   pad.add(steamGroup);
 
-  // Pad exhaust illumination (close-in Ship cam)
-  const padLight = new THREE.PointLight(0xff8844, 0, 0.8, 2);
-  padLight.name = "pad-light";
-  padLight.position.set(0, 0.04, 0);
-  pad.add(padLight);
-
   // True-scale Mechazilla + OLM (engines sit on OLM at y≈0)
   pad.add(createMechazillaTower());
 
-  // Beacon on tower peak (true-scale); glow sprite remains Earth-cam landmark
+  // --- Pad lighting (floods + plume fill) ---
+  // Cool metal-halide floodlights for night ops; warm plume fill when burning.
+  const lights = createPadLights();
+  pad.add(lights);
+
+  // Beacon on tower peak
   const beacon = new THREE.Mesh(
     new THREE.SphereGeometry(0.003, 10, 8),
     new THREE.MeshBasicMaterial({
@@ -181,18 +181,89 @@ export function createStarbasePad(): THREE.Group {
       opacity: 0.95,
     }),
   );
-  // Tower height ~146 m, offset ~22 m in +X
   beacon.position.set(0.022, 0.152, 0);
   beacon.name = "pad-beacon";
   pad.add(beacon);
 
-  const glow = makePadGlowSprite();
-  glow.name = "pad-glow";
-  glow.position.set(0, 0.02, 0);
-  glow.scale.setScalar(40);
-  pad.add(glow);
+  // Tight ground bloom only while engines fire (no always-on yellow landmark)
+  const groundBloom = makeGroundBloomSprite();
+  groundBloom.name = "pad-ground-bloom";
+  groundBloom.position.set(0, 0.01, 0);
+  groundBloom.scale.setScalar(0.12);
+  groundBloom.visible = false;
+  pad.add(groundBloom);
 
   return pad;
+}
+
+/** Cool-white flood + warm plume fill under the stack. */
+function createPadLights(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "pad-lights";
+
+  // Tower floodlights aimed at the stack (cool white)
+  const floodTargets: { pos: [number, number, number]; look: [number, number, number] }[] = [
+    { pos: [0.018, 0.09, 0.012], look: [0, 0.055, 0] }, // mid tower → stack mid
+    { pos: [0.018, 0.055, -0.012], look: [0, 0.04, 0] }, // lower tower → booster
+    { pos: [0.012, 0.12, 0], look: [0, 0.09, 0] }, // upper → ship
+  ];
+  for (let i = 0; i < floodTargets.length; i++) {
+    const f = floodTargets[i]!;
+    const spot = new THREE.SpotLight(
+      0xe8f0ff,
+      0,
+      0.35, // ~350 m reach
+      Math.PI / 5.5,
+      0.45,
+      1.6,
+    );
+    spot.name = `pad-flood-${i}`;
+    spot.position.set(f.pos[0], f.pos[1], f.pos[2]);
+    spot.target.position.set(f.look[0], f.look[1], f.look[2]);
+    g.add(spot);
+    g.add(spot.target);
+
+    // Small emissive fixture so floods read as real lamps
+    const fixture = new THREE.Mesh(
+      new THREE.BoxGeometry(0.002, 0.0015, 0.002),
+      new THREE.MeshStandardMaterial({
+        color: 0x8890a0,
+        emissive: 0xc8d4e8,
+        emissiveIntensity: 0.35,
+        metalness: 0.6,
+        roughness: 0.4,
+      }),
+    );
+    fixture.position.copy(spot.position);
+    fixture.name = `pad-flood-fixture-${i}`;
+    g.add(fixture);
+  }
+
+  // Soft fill under / around the stack (cool at night, warm when burning)
+  const fill = new THREE.PointLight(0xdde6f4, 0, 0.28, 1.8);
+  fill.name = "pad-fill";
+  fill.position.set(0, 0.03, 0);
+  g.add(fill);
+
+  // Plume-only warm fill at engine plane (tight, no multi-km wash)
+  const plume = new THREE.PointLight(0xff9a58, 0, 0.22, 2);
+  plume.name = "pad-plume-light";
+  plume.position.set(0, 0.008, 0);
+  g.add(plume);
+
+  // OLM ring of tiny work lights (emissive dots)
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const lamp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.0006, 6, 4),
+      new THREE.MeshBasicMaterial({ color: 0xf0f4ff }),
+    );
+    lamp.position.set(Math.cos(ang) * 0.013, 0.003, Math.sin(ang) * 0.013);
+    lamp.name = `pad-olm-lamp-${i}`;
+    g.add(lamp);
+  }
+
+  return g;
 }
 
 export type LaunchPadFxState = {
@@ -201,11 +272,16 @@ export type LaunchPadFxState = {
   burning: boolean;
   /** Altitude above Earth surface (km) */
   altEarth: number;
+  /**
+   * Sun elevation factor at Starbase: 1 = high day, 0 = civil twilight,
+   * negative ≈ night. From sun·localUp.
+   */
+  sunElev?: number;
 };
 
 /**
- * Drive flame trench, deluge steam, and pad light from mission state.
- * Active mainly during launch / early ascent under thrust; scrub-safe.
+ * Drive flame trench, deluge steam, and pad lighting from mission state.
+ * Day/night flood balance uses `sunElev`; scrub-safe.
  */
 export function updateStarbaseLaunchFx(
   pad: THREE.Object3D,
@@ -214,32 +290,41 @@ export function updateStarbaseLaunchFx(
   const onPadPhase =
     state.phase === "launch" ||
     (state.phase === "ascent" && state.altEarth < 25);
+  const nearPad =
+    state.phase === "launch" ||
+    (state.phase === "ascent" && state.altEarth < 8) ||
+    (state.missionT >= 0 && state.missionT < 30 && state.altEarth < 2);
   const active = state.burning && onPadPhase && state.missionT >= 0;
 
   // Intensity falls with altitude and fades after leaving thick atmosphere theater
   const altFade = THREE.MathUtils.clamp(1 - state.altEarth / 18, 0, 1);
   const t = state.missionT;
   const flicker =
-    0.88 +
-    0.08 * Math.sin(t * 41.2) +
+    0.9 +
+    0.06 * Math.sin(t * 41.2) +
     0.04 * Math.sin(t * 77.5 + 0.7);
   const strength = active ? altFade * flicker : 0;
+
+  // Day factor: 1 midday, 0 deep night (soft twilight band)
+  const elev = state.sunElev ?? 0.4;
+  const day = THREE.MathUtils.smoothstep(elev, -0.08, 0.22);
+  const night = 1 - day;
 
   const flame = pad.getObjectByName("pad-flame") as THREE.Mesh | undefined;
   if (flame) {
     const mat = (flame.userData.mat as THREE.MeshBasicMaterial) ??
       (flame.material as THREE.MeshBasicMaterial);
     flame.visible = strength > 0.02;
-    mat.opacity = 0.55 * strength;
-    flame.scale.set(1, 0.7 + 0.6 * strength, 1);
+    mat.opacity = 0.4 * strength;
+    flame.scale.set(1, 0.7 + 0.5 * strength, 1);
   }
 
   const tongues = pad.getObjectByName("pad-flame-tongues");
   if (tongues) {
-    tongues.visible = strength > 0.04;
+    tongues.visible = strength > 0.05;
     const mat = tongues.userData.mat as THREE.MeshBasicMaterial | undefined;
-    if (mat) mat.opacity = 0.4 * strength;
-    tongues.scale.set(1, 0.6 + 0.9 * strength, 1);
+    if (mat) mat.opacity = 0.28 * strength;
+    tongues.scale.set(1, 0.6 + 0.7 * strength, 1);
   }
 
   const steam = pad.getObjectByName("pad-steam");
@@ -256,8 +341,8 @@ export function updateStarbaseLaunchFx(
       const mat = obj.material as THREE.SpriteMaterial;
       const phase = (obj.userData.phase as number) ?? 0;
       const wobble = 0.85 + 0.15 * Math.sin(t * 3.1 + phase);
-      mat.opacity = 0.35 * steamStr * wobble;
-      // ~40–120 m puffs around the trench
+      // Slightly brighter steam at night (backlit by floods / plume)
+      mat.opacity = (0.22 + 0.12 * night) * steamStr * wobble;
       const grow = 0.05 + steamStr * 0.08 + 0.015 * Math.sin(t * 2.2 + phase);
       obj.scale.setScalar(grow);
       const ang = (obj.userData.baseAng as number) ?? 0;
@@ -270,20 +355,74 @@ export function updateStarbaseLaunchFx(
     });
   }
 
-  const light = pad.getObjectByName("pad-light") as THREE.PointLight | undefined;
-  if (light) {
-    light.intensity = 4 * strength;
-    light.distance = 0.5 + 0.6 * strength;
+  // Floodlights: strong at night on pad, dim day fill; drop once stack is gone
+  const padOps =
+    nearPad || (state.phase === "launch" && state.missionT < 120);
+  const floodBase = padOps ? 0.15 * day + 1.15 * night : 0;
+  for (let i = 0; i < 3; i++) {
+    const spot = pad.getObjectByName(`pad-flood-${i}`) as
+      | THREE.SpotLight
+      | undefined;
+    if (!spot) continue;
+    // Dim slightly while plume is roaring (avoid double-wash)
+    const plumeDim = 1 - 0.35 * strength;
+    spot.intensity = floodBase * plumeDim * (0.85 + 0.15 * (i === 0 ? 1 : 0.75));
+    spot.distance = 0.28 + 0.1 * night;
   }
 
-  const glow = pad.getObjectByName("pad-glow") as THREE.Sprite | undefined;
-  if (glow) {
-    const mat = glow.material as THREE.SpriteMaterial;
-    // Dim always-on Earth-cam landmark; bloom when engines light
-    const base = 0.3;
-    mat.opacity = base + 0.55 * strength;
-    const s = 35 + 25 * strength;
-    glow.scale.setScalar(s);
+  // Cool ambient fill around the complex
+  const fill = pad.getObjectByName("pad-fill") as THREE.PointLight | undefined;
+  if (fill) {
+    fill.intensity = padOps ? 0.08 * day + 0.55 * night * (1 - 0.4 * strength) : 0;
+    fill.color.setHex(strength > 0.1 ? 0xffe0c8 : 0xdde6f4);
+    fill.distance = 0.22 + 0.08 * night;
+  }
+
+  // Warm plume light — tight under engines only while burning
+  const plume = pad.getObjectByName("pad-plume-light") as
+    | THREE.PointLight
+    | undefined;
+  if (plume) {
+    plume.intensity = 2.2 * strength;
+    plume.distance = 0.14 + 0.1 * strength;
+    plume.color.setRGB(1, 0.55 + 0.1 * flicker, 0.28);
+  }
+
+  // Fixture emissives track flood intensity
+  for (let i = 0; i < 3; i++) {
+    const fixture = pad.getObjectByName(`pad-flood-fixture-${i}`) as
+      | THREE.Mesh
+      | undefined;
+    if (!fixture) continue;
+    const mat = fixture.material as THREE.MeshStandardMaterial;
+    mat.emissiveIntensity = 0.15 + floodBase * 1.4;
+  }
+
+  // OLM lamps: on for pad ops, brighter at night
+  for (let i = 0; i < 8; i++) {
+    const lamp = pad.getObjectByName(`pad-olm-lamp-${i}`) as
+      | THREE.Mesh
+      | undefined;
+    if (!lamp) continue;
+    lamp.visible = padOps;
+    const mat = lamp.material as THREE.MeshBasicMaterial;
+    mat.opacity = 1;
+    mat.color.setHex(padOps ? (night > 0.5 ? 0xf4f8ff : 0xc8d0dc) : 0x444444);
+  }
+
+  // Tight ground bloom only under plume (no multi-km yellow disc)
+  const bloom = pad.getObjectByName("pad-ground-bloom") as
+    | THREE.Sprite
+    | undefined;
+  if (bloom) {
+    const show = strength > 0.04;
+    bloom.visible = show;
+    if (show) {
+      const mat = bloom.material as THREE.SpriteMaterial;
+      mat.opacity = 0.35 * strength * flicker;
+      const s = 0.08 + 0.1 * strength;
+      bloom.scale.set(s, s, 1);
+    }
   }
 }
 
@@ -338,15 +477,17 @@ export function createAscentGroundTrack(
   return line;
 }
 
-function makePadGlowSprite(): THREE.Sprite {
+/** Tight warm bloom under the plume (true-scale; only while burning). */
+function makeGroundBloomSprite(): THREE.Sprite {
   const size = 64;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
-  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-  g.addColorStop(0, "rgba(255, 120, 60, 1)");
-  g.addColorStop(0.35, "rgba(255, 80, 40, 0.55)");
+  const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 30);
+  g.addColorStop(0, "rgba(255, 200, 140, 0.9)");
+  g.addColorStop(0.3, "rgba(255, 120, 60, 0.35)");
+  g.addColorStop(0.65, "rgba(255, 80, 40, 0.08)");
   g.addColorStop(1, "rgba(255, 60, 30, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
@@ -357,6 +498,7 @@ function makePadGlowSprite(): THREE.Sprite {
       map,
       transparent: true,
       depthWrite: false,
+      depthTest: true,
       blending: THREE.AdditiveBlending,
     }),
   );

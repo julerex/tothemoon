@@ -514,8 +514,9 @@ export function createCraft(): {
 
   mesh.add(booster);
 
-  // Exhaust point light (mesh-local; scaled with stack → reaches pad close-in)
-  const exhaustLight = new THREE.PointLight(0xffa050, 0, 18, 2);
+  // Exhaust point light — distance is world km (parent scale does not apply).
+  // Tight plume fill for pad/ship cam; not a multi-km yellow wash.
+  const exhaustLight = new THREE.PointLight(0xff9a58, 0, 0.35, 2);
   exhaustLight.name = "exhaust-light";
   exhaustLight.position.set(0, 0, -0.08);
   mesh.add(exhaustLight);
@@ -625,11 +626,12 @@ function makeExhaustGlowSprite(): THREE.Sprite {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
+  // Soft core, muted orange rim — avoid pure yellow wash
   const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 30);
-  g.addColorStop(0, "rgba(255, 240, 200, 1)");
-  g.addColorStop(0.25, "rgba(255, 160, 60, 0.7)");
-  g.addColorStop(0.55, "rgba(255, 80, 30, 0.25)");
-  g.addColorStop(1, "rgba(255, 40, 10, 0)");
+  g.addColorStop(0, "rgba(255, 220, 180, 0.85)");
+  g.addColorStop(0.22, "rgba(255, 140, 70, 0.45)");
+  g.addColorStop(0.5, "rgba(255, 90, 40, 0.12)");
+  g.addColorStop(1, "rgba(255, 50, 20, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   const map = new THREE.CanvasTexture(canvas);
@@ -981,36 +983,38 @@ export function updateCraftVisuals(
     exhaustGlow.visible = showBoost || hotPost > 0.05;
     if (showBoost) {
       const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF);
-      const s = (0.8 + 1.0 * u) * flicker;
+      // Mesh units × CRAFT_MESH_SCALE → keep bloom ~engine-bell scale
+      const s = (0.35 + 0.45 * u) * flicker;
       exhaustGlow.scale.set(s, s, 1);
       const mat = (exhaustGlow as THREE.Sprite).material as THREE.SpriteMaterial;
-      mat.opacity = (0.55 + 0.4 * u) * flicker;
+      mat.opacity = (0.35 + 0.3 * u) * flicker;
       // Booster-local: engines at z≈0
-      exhaustGlow.position.z = -0.12 - 0.08 * u;
+      exhaustGlow.position.z = -0.1 - 0.06 * u;
     }
   }
 
   if (exhaustLight) {
+    // Distance is world km (not mesh units). Keep plume fill local to the stack.
     if (showBoost && hotPre < 0.85) {
       const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF);
       // Blend toward ship-blue as hot-stage ship lights
       const mix = hotPre;
-      exhaustLight.intensity = (4.5 + 8 * u) * flicker * (1 + 0.25 * mix);
+      exhaustLight.intensity = (1.8 + 2.4 * u) * flicker * (1 + 0.2 * mix);
       exhaustLight.color.setRGB(
         THREE.MathUtils.lerp(1, 0.53, mix),
-        THREE.MathUtils.lerp(0.63, 0.8, mix),
-        THREE.MathUtils.lerp(0.31, 1, mix),
+        THREE.MathUtils.lerp(0.58, 0.8, mix),
+        THREE.MathUtils.lerp(0.32, 1, mix),
       );
-      exhaustLight.distance = 14 + 10 * u;
+      exhaustLight.distance = 0.18 + 0.22 * u;
       // Mesh stack frame: booster engines at 0, ship engines at BOOST_H
       exhaustLight.position.set(0, 0, -0.05 + mix * BOOST_H * 0.5);
     } else if (showShip || hotPre > 0) {
       const u = state.staged
         ? Math.min(1, state.thrustN / SHIP_THRUST_REF)
         : 0.35 + 0.55 * hotPre;
-      exhaustLight.intensity = (1.2 + 3.5 * u) * flicker;
+      exhaustLight.intensity = (0.6 + 1.4 * u) * flicker;
       exhaustLight.color.setHex(0x88ccff);
-      exhaustLight.distance = 8 + 6 * u;
+      exhaustLight.distance = 0.12 + 0.15 * u;
       // After stage ship is re-centered to z=0; while stacked engines at BOOST_H
       exhaustLight.position.set(0, 0, state.staged ? -0.02 : BOOST_H - 0.02);
     } else {

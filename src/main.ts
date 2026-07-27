@@ -181,6 +181,7 @@ const _omega = new THREE.Vector3();
 const _spinVel = new THREE.Vector3();
 const _airVel = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
+const _padWorld = new THREE.Vector3();
 /** Earth north pole (fixed); spin ω = pole × EARTH_SPIN_RATE. */
 earthNorthPole(_omega);
 _omega.multiplyScalar(EARTH_SPIN_RATE);
@@ -351,11 +352,24 @@ function applyMissionState(u: number): void {
     altEarth: frame.altEarth,
     phase: frame.phase,
   });
+  // Sun elevation at Starbase (for night floodlights / day fill)
+  starbasePad.getWorldPosition(_padWorld);
+  const sunDx = b.sun.x - b.earth.x;
+  const sunDy = b.sun.y - b.earth.y;
+  const sunDz = b.sun.z - b.earth.z;
+  const sunLen = Math.hypot(sunDx, sunDy, sunDz) || 1;
+  const padUpX = _padWorld.x - b.earth.x;
+  const padUpY = _padWorld.y - b.earth.y;
+  const padUpZ = _padWorld.z - b.earth.z;
+  const upLen = Math.hypot(padUpX, padUpY, padUpZ) || 1;
+  const sunElev =
+    (sunDx * padUpX + sunDy * padUpY + sunDz * padUpZ) / (sunLen * upLen);
   updateStarbaseLaunchFx(starbasePad, {
     missionT: frame.t,
     phase: frame.phase,
     burning: frame.burning,
     altEarth: frame.altEarth,
+    sunElev,
   });
   stagingFx.update(frame.t, craftPos, craft.quaternion);
   landingFx.update(frame.t, craftPos, {
