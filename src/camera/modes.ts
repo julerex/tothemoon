@@ -80,8 +80,8 @@ export class CameraDirector {
     this.controls.minDistance = 0.05;
     this.controls.maxDistance = AU * 3;
     this.controls.enabled = true;
-    // Fixed ecliptic-up basis: no roll from mouse spherical orbit.
-    // Nudge polar limits off the poles so OrbitControls does not flip.
+    // Spherical mouse orbit uses camera.up as the pole (no view-axis roll).
+    // R/F may tumble that up; keep a tiny gap at the poles to avoid flips.
     this.controls.minPolarAngle = 1e-3;
     this.controls.maxPolarAngle = Math.PI - 1e-3;
     this.camera.up.copy(ECLIPTIC_NORTH);
@@ -197,14 +197,17 @@ export class CameraDirector {
     this.camera.position
       .copy(this.desiredTarget)
       .addScaledVector(this.tmp, framedDist);
-    this.enforceNoRoll();
+    // Keep current up (may be tumbled) so focus switch does not reset pitch
+    this.camera.lookAt(this.controls.target);
+    this.syncOrbitControlsUp();
     this.controls.update();
   }
 
   /**
    * Orbit hold keys around the focus:
-   * - Q/E — azimuth about ecliptic north (fixed elevation to orbital plane)
-   * - R/F — pitch about camera-right (no roll; up stays ecliptic north)
+   * - Q/E — azimuth about ecliptic north (fixed elevation to orbital plane);
+   *   tumbles up with the same rotation so pitch attitude is kept
+   * - R/F — pitch about camera-right, tumbling up (allows upside-down)
    */
   setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
     if (key === "q") this.orbitQ = down;
@@ -317,7 +320,7 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    // Q/E: azimuth about ecliptic north; R/F: pitch about screen-right
+    // Q/E: azimuth about ecliptic north; R/F: pitch about camera-right (tumble)
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
     if ((camYaw === 0 && pitch === 0) || dt <= 0) return;
@@ -326,73 +329,40 @@ export class CameraDirector {
 
     if (camYaw !== 0) {
       // Revolve about ecliptic north — elevation to the orbital plane fixed.
-      // camera.up stays ecliptic north (no roll).
+      // Carry camera.up with the same spin so any R/F tumble is preserved
+      // (without that, Q/E would bank the horizon).
       this.orbitQuat.setFromAxisAngle(
         ECLIPTIC_NORTH,
         camYaw * ORBIT_RAD_PER_S * dt,
       );
       this.orbitOffset.applyQuaternion(this.orbitQuat);
+      this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+      this.syncOrbitControlsUp();
     }
 
     if (pitch !== 0) {
-      // Pitch about ecliptic-level right (north × offset) — does not roll.
-      this.panRight.crossVectors(ECLIPTIC_NORTH, this.orbitOffset);
-      if (this.panRight.lengthSq() < 1e-12) {
-        // Offset along the pole — any in-plane axis works for a tiny step
-        this.panRight.set(1, 0, 0);
-      } else {
+      // Pitch about camera right and tumble `up` with it so R/F can go
+      // smoothly over the poles without OrbitControls' polar snap.
+      this.camera.updateMatrixWorld();
+      this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+      if (this.panRight.lengthSq() > 1e-12) {
         this.panRight.normalize();
+        // Negative so R (pitch +) lifts the camera toward +up
+        this.orbitQuat.setFromAxisAngle(
+          this.panRight,
+          -pitch * ORBIT_RAD_PER_S * dt,
+        );
+        this.orbitOffset.applyQuaternion(this.orbitQuat);
+        this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+        this.syncOrbitControlsUp();
       }
-      // Negative so R (pitch +) lifts the camera toward +ecliptic north
-      this.orbitQuat.setFromAxisAngle(
-        this.panRight,
-        -pitch * ORBIT_RAD_PER_S * dt,
-      );
-      this.orbitOffset.applyQuaternion(this.orbitQuat);
-      // Same pole guard as OrbitControls min/maxPolarAngle — no flip / roll snap
-      this.clampOffsetPolar();
     }
 
     this.camera.position.copy(this.controls.target).add(this.orbitOffset);
-    this.enforceNoRoll();
-  }
-
-  /** Keep offset polar angle in (ε, π−ε) from ecliptic north. */
-  private clampOffsetPolar(): void {
-    const dist = this.orbitOffset.length();
-    if (dist < 1e-12) return;
-    const minSin = Math.sin(1e-3); // horizontal component floor
-    this.tmp.copy(this.orbitOffset);
-    this.tmp.addScaledVector(
-      ECLIPTIC_NORTH,
-      -this.tmp.dot(ECLIPTIC_NORTH),
-    );
-    let horiz = this.tmp.length();
-    const z = this.orbitOffset.dot(ECLIPTIC_NORTH);
-    if (horiz < dist * minSin) {
-      // Near pole: push slightly off-axis along previous horizontal (or +X)
-      if (horiz < 1e-18) this.tmp.set(1, 0, 0);
-      else this.tmp.multiplyScalar(1 / horiz);
-      horiz = dist * minSin;
-      const zClamped = Math.sign(z || 1) * Math.sqrt(Math.max(0, dist * dist - horiz * horiz));
-      this.orbitOffset
-        .copy(this.tmp)
-        .multiplyScalar(horiz)
-        .addScaledVector(ECLIPTIC_NORTH, zClamped);
-    }
-  }
-
-  /**
-   * Force zero roll for free orbit: up = ecliptic north, look at focus.
-   * Called after mouse OrbitControls and keyboard orbit so neither can bank.
-   */
-  private enforceNoRoll(): void {
-    this.camera.up.copy(ECLIPTIC_NORTH);
-    this.syncOrbitControlsUp();
     this.camera.lookAt(this.controls.target);
   }
 
-  /** Keep OrbitControls' internal up-basis locked to ecliptic north. */
+  /** Keep OrbitControls' internal up-basis in sync after tumbling camera.up. */
   private syncOrbitControlsUp(): void {
     const c = this.controls as OrbitControls & {
       _quat: THREE.Quaternion;
@@ -472,9 +442,9 @@ export class CameraDirector {
     this.applyPan(dt);
     this.applyZoom(dt);
     // OrbitControls first (mouse / damping), then Q/E/R/F so keyboard
-    // orbit is not overwritten by damping. Strip any residual roll after both.
+    // orbit is not overwritten by damping. Mouse uses spherical coords about
+    // camera.up (no view-axis roll); R/F may tumble that up.
     this.controls.update();
     this.applyOrbit(dt);
-    this.enforceNoRoll();
   }
 }
