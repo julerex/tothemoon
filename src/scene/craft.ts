@@ -292,35 +292,6 @@ export function createCraft(): {
   }
   ship.add(shipBells);
 
-  // Multi-layer ship plume (blue-white Raptor vacuum look)
-  const shipPlume = makePlumeGroup("plume-ship", [
-    {
-      r: R * 1.1,
-      h: 0.55,
-      z: engZ - 0.35,
-      color: 0x4a9fff,
-      opacity: 0.22,
-      name: "outer",
-    },
-    {
-      r: R * 0.65,
-      h: 0.45,
-      z: engZ - 0.3,
-      color: 0x9ad4ff,
-      opacity: 0.4,
-      name: "mid",
-    },
-    {
-      r: R * 0.28,
-      h: 0.3,
-      z: engZ - 0.22,
-      color: 0xe8f4ff,
-      opacity: 0.7,
-      name: "core",
-    },
-  ]);
-  ship.add(shipPlume);
-
   // Stacked default: ship engines on booster interstage
   ship.position.z = BOOST_H;
   ship.userData.stackedZ = BOOST_H;
@@ -477,34 +448,7 @@ export function createCraft(): {
   }
   booster.add(boostBells);
 
-  const boostPlume = makePlumeGroup("plume-booster", [
-    {
-      r: R * 2.2,
-      h: 1.0,
-      z: bellZ - 0.55,
-      color: 0xff6a28,
-      opacity: 0.28,
-      name: "outer",
-    },
-    {
-      r: R * 1.45,
-      h: 0.8,
-      z: bellZ - 0.45,
-      color: 0xffb060,
-      opacity: 0.45,
-      name: "mid",
-    },
-    {
-      r: R * 0.65,
-      h: 0.55,
-      z: bellZ - 0.32,
-      color: 0xfff0d0,
-      opacity: 0.75,
-      name: "core",
-    },
-  ]);
-  booster.add(boostPlume);
-
+  // No geometric exhaust cones — burn state is read via light / soft glow only.
   const exhaustGlow = makeExhaustGlowSprite();
   exhaustGlow.name = "exhaust-glow";
   exhaustGlow.position.z = bellZ - 0.25;
@@ -583,40 +527,6 @@ function makeBell(
   rim.position.z = -h * 0.5;
   g.add(rim);
   g.position.set(x, y, z);
-  return g;
-}
-
-type PlumeLayerSpec = {
-  r: number;
-  h: number;
-  z: number;
-  color: number;
-  opacity: number;
-  name: string;
-};
-
-function makePlumeGroup(name: string, layers: PlumeLayerSpec[]): THREE.Group {
-  const g = new THREE.Group();
-  g.name = name;
-  g.visible = false;
-  for (const L of layers) {
-    const mat = new THREE.MeshBasicMaterial({
-      color: L.color,
-      transparent: true,
-      opacity: L.opacity,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-    });
-    // Cone tip at origin by default; point aft (−Z) with base near engines
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(L.r, L.h, 16, 1, true), mat);
-    cone.rotation.x = Math.PI / 2;
-    // After rot.x=π/2, cone axis → −Z; center of cone is at local origin of mesh
-    cone.position.z = L.z;
-    cone.name = `${name}-${L.name}`;
-    cone.userData.baseOpacity = L.opacity;
-    g.add(cone);
-  }
   return g;
 }
 
@@ -857,25 +767,6 @@ function thrustFlicker(missionT: number): number {
   );
 }
 
-function setPlumeScale(
-  plume: THREE.Object3D,
-  u: number,
-  flicker: number,
-  zScaleBase: number,
-  zScaleGain: number,
-): void {
-  const s = (0.45 + 0.7 * Math.sqrt(Math.max(u, 0.05))) * flicker;
-  const z = (zScaleBase + zScaleGain * u) * (0.92 + 0.08 * flicker);
-  plume.scale.set(s, s, z);
-  plume.traverse((obj) => {
-    if (!(obj instanceof THREE.Mesh)) return;
-    const mat = obj.material as THREE.MeshBasicMaterial;
-    if (!mat || mat.opacity === undefined) return;
-    const base = (obj.userData.baseOpacity as number | undefined) ?? mat.opacity;
-    mat.opacity = base * (0.75 + 0.35 * u) * (0.85 + 0.15 * flicker);
-  });
-}
-
 /**
  * Theater Max-Q condensation strength in [0,1].
  *
@@ -902,8 +793,8 @@ function condensationStrength(
 
 /**
  * Hide stacked booster after stage-out (detached mesh is handled by StagingFx);
- * show the active plume and scale it with thrust.
- * Hot-staging: ship plume ramps on shortly before stage while booster still burns.
+ * drive exhaust light / soft glow from thrust (no geometric plume cones).
+ * Hot-staging: ship light ramps on shortly before stage while booster still burns.
  */
 export function updateCraftVisuals(
   group: THREE.Group,
@@ -921,8 +812,6 @@ export function updateCraftVisuals(
     ship.position.z = state.staged ? stagedZ : stackedZ;
   }
 
-  const shipPlume = group.getObjectByName("plume-ship");
-  const boostPlume = group.getObjectByName("plume-booster");
   const exhaustGlow = group.getObjectByName("exhaust-glow");
   const exhaustLight = group.getObjectByName("exhaust-light") as
     | THREE.PointLight
@@ -955,29 +844,6 @@ export function updateCraftVisuals(
   const showShip =
     (state.burning && state.staged) ||
     (state.burning && hotPre > 0.02);
-
-  if (boostPlume) {
-    boostPlume.visible = showBoost;
-    if (showBoost) {
-      // Slight visual MECO fade in the last second of hot-stage pre
-      const mecoFade = hotPre > 0.7 ? 1 - (hotPre - 0.7) / 0.3 * 0.35 : 1;
-      const u = Math.min(1, state.thrustN / BOOSTER_THRUST_REF) * mecoFade;
-      setPlumeScale(boostPlume, u, flicker, 0.55, 0.95);
-    }
-  }
-  if (shipPlume) {
-    shipPlume.visible = showShip;
-    if (showShip) {
-      let u: number;
-      if (state.staged) {
-        u = Math.min(1, state.thrustN / SHIP_THRUST_REF);
-      } else {
-        // Hot-stage ignition — synthetic ship thrust (physics still on booster)
-        u = 0.35 + 0.55 * hotPre;
-      }
-      setPlumeScale(shipPlume, u, flicker, 0.55, 0.8);
-    }
-  }
 
   if (exhaustGlow) {
     exhaustGlow.visible = showBoost || hotPost > 0.05;
