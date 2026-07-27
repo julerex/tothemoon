@@ -3,7 +3,8 @@
  *
  * Conventions match scene/bodies.ts + Three.js SphereGeometry UVs:
  * - Mesh +Y = geographic north; texture lon 0° at mesh +X
- * - Axial tilt: north pole = (sin ε, 0, cos ε) in the ecliptic frame
+ * - Axial tilt: mean north pole in **ecliptic J2000** (Horizons frame):
+ *   n̂ = (0, sin ε, cos ε) — lean toward +Y (June solstice / RA 6h)
  * - Spin: rotation about local north at EARTH_SIDEREAL_DAY_S (same as visual)
  */
 
@@ -24,12 +25,15 @@ export const EARTH_SPIN_RATE = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
 /** Sidereal spin phase at t = 0 (rad). 0 ⇒ texture lon 0 as defined below. */
 export const EARTH_SPIN0 = 0;
 
-/** Inertial north pole (Earth axis). */
+/**
+ * Mean Earth north pole in the theater ecliptic frame (J2000).
+ * Matches standard equatorial→ecliptic: celestial north → (0, sin ε, cos ε).
+ */
 export function earthNorthPole(out: V3 = v3()): V3 {
   return set(
     out,
-    Math.sin(EARTH_OBLIQUITY),
     0,
+    Math.sin(EARTH_OBLIQUITY),
     Math.cos(EARTH_OBLIQUITY),
   );
 }
@@ -65,11 +69,100 @@ const _north = v3();
 const _tmp = v3();
 const _tmp2 = v3();
 const _omega = v3();
+/** Dedicated so surfaceState up/east are not clobbered by localEast scratch. */
+const _upOut = v3();
+const _eastOut = v3();
 
 /**
- * Quaternion-free map: mesh local → inertial using the same composition as
- * earthAxis (Y→north) then rotY(spin) in the scene graph
- * (world = R_axis · R_y(spin) · local).
+ * Apply R that maps mesh +Y → unit `north` (same as THREE setFromUnitVectors).
+ * Rodrigues about k ∥ (+Y)×north.
+ */
+function applyAlignYToNorth(
+  vx: number,
+  vy: number,
+  vz: number,
+  nx: number,
+  ny: number,
+  nz: number,
+  out: V3,
+): void {
+  // a = (0,1,0), b = n̂; cosθ = a·b = ny; k_raw = a×b = (nz, 0, −nx)
+  const cosA = ny;
+  let kx = nz;
+  let ky = 0;
+  let kz = -nx;
+  const sinA = Math.hypot(kx, ky, kz);
+  if (sinA < 1e-12) {
+    if (cosA > 0) {
+      // Identity
+      out.x = vx;
+      out.y = vy;
+      out.z = vz;
+    } else {
+      // 180° about +X
+      out.x = vx;
+      out.y = -vy;
+      out.z = -vz;
+    }
+    return;
+  }
+  const inv = 1 / sinA;
+  kx *= inv;
+  ky *= inv;
+  kz *= inv;
+  const c = cosA;
+  const s = sinA;
+  const t = 1 - c;
+  const kdot = kx * vx + ky * vy + kz * vz;
+  // v′ = v c + (k×v) s + k (k·v) (1−c)
+  out.x = vx * c + (ky * vz - kz * vy) * s + kx * kdot * t;
+  out.y = vy * c + (kz * vx - kx * vz) * s + ky * kdot * t;
+  out.z = vz * c + (kx * vy - ky * vx) * s + kz * kdot * t;
+}
+
+/** Inverse of applyAlignYToNorth (Rodrigues with −θ, same k). */
+function applyAlignNorthToY(
+  vx: number,
+  vy: number,
+  vz: number,
+  nx: number,
+  ny: number,
+  nz: number,
+  out: V3,
+): void {
+  const cosA = ny;
+  let kx = nz;
+  let ky = 0;
+  let kz = -nx;
+  const sinA = Math.hypot(kx, ky, kz);
+  if (sinA < 1e-12) {
+    if (cosA > 0) {
+      out.x = vx;
+      out.y = vy;
+      out.z = vz;
+    } else {
+      out.x = vx;
+      out.y = -vy;
+      out.z = -vz;
+    }
+    return;
+  }
+  const inv = 1 / sinA;
+  kx *= inv;
+  ky *= inv;
+  kz *= inv;
+  const c = cosA;
+  const s = -sinA; // −θ
+  const t = 1 - c;
+  const kdot = kx * vx + ky * vy + kz * vz;
+  out.x = vx * c + (ky * vz - kz * vy) * s + kx * kdot * t;
+  out.y = vy * c + (kz * vx - kx * vz) * s + ky * kdot * t;
+  out.z = vz * c + (kx * vy - ky * vx) * s + kz * kdot * t;
+}
+
+/**
+ * Mesh local → inertial using the same composition as the scene graph:
+ * world = R_axis · R_y(spin) · local, with R_axis: +Y → north pole.
  */
 export function meshLocalToInertial(local: V3, t: number, out: V3 = v3()): V3 {
   const spin = earthSpinAngle(t);
@@ -80,22 +173,16 @@ export function meshLocalToInertial(local: V3, t: number, out: V3 = v3()): V3 {
   _spun.y = local.y;
   _spun.z = -s * local.x + c * local.z;
 
-  // R_axis = setFromUnitVectors(+Y, north). Y·n = 0 for our n (in XZ), so α = 90°.
-  // k = normalize(Y × n) = (n.z, 0, −n.x); Rodrigues α=90°: v′ = k×v + k(k·v)
   earthNorthPole(_north);
-  set(_tmp, _north.z, 0, -_north.x);
-  if (Math.hypot(_tmp.x, _tmp.y, _tmp.z) < 1e-8) set(_tmp, 1, 0, 0);
-  normalize(_tmp2, _tmp); // k
-  const kx = _tmp2.x;
-  const ky = _tmp2.y;
-  const kz = _tmp2.z;
-  const vx = _spun.x;
-  const vy = _spun.y;
-  const vz = _spun.z;
-  const kdot = kx * vx + ky * vy + kz * vz;
-  out.x = ky * vz - kz * vy + kx * kdot;
-  out.y = kz * vx - kx * vz + ky * kdot;
-  out.z = kx * vy - ky * vx + kz * kdot;
+  applyAlignYToNorth(
+    _spun.x,
+    _spun.y,
+    _spun.z,
+    _north.x,
+    _north.y,
+    _north.z,
+    out,
+  );
   return out;
 }
 
@@ -109,27 +196,22 @@ export function inertialRelToMeshLocal(
   out: V3 = v3(),
 ): V3 {
   earthNorthPole(_north);
-  set(_tmp, _north.z, 0, -_north.x);
-  if (Math.hypot(_tmp.x, _tmp.y, _tmp.z) < 1e-8) set(_tmp, 1, 0, 0);
-  normalize(_tmp2, _tmp); // k
-  const kx = _tmp2.x;
-  const ky = _tmp2.y;
-  const kz = _tmp2.z;
-  const vx = inertial.x;
-  const vy = inertial.y;
-  const vz = inertial.z;
-  const kdot = kx * vx + ky * vy + kz * vz;
-  // R_axis^T = Rodrigues −90° about k: v = −(k×v) + k(k·v)
-  const spunX = -(ky * vz - kz * vy) + kx * kdot;
-  const spunY = -(kz * vx - kx * vz) + ky * kdot;
-  const spunZ = -(kx * vy - ky * vx) + kz * kdot;
+  applyAlignNorthToY(
+    inertial.x,
+    inertial.y,
+    inertial.z,
+    _north.x,
+    _north.y,
+    _north.z,
+    _spun,
+  );
 
   const spin = earthSpinAngle(t);
   const c = Math.cos(-spin);
   const s = Math.sin(-spin);
-  out.x = c * spunX + s * spunZ;
-  out.y = spunY;
-  out.z = -s * spunX + c * spunZ;
+  out.x = c * _spun.x + s * _spun.z;
+  out.y = _spun.y;
+  out.z = -s * _spun.x + c * _spun.z;
   return out;
 }
 
@@ -195,13 +277,15 @@ export function surfaceState(
     b.earthVel.z + _tmp2.z,
   );
 
-  localUpInertial(t, lat, lon, _tmp);
-  localEastInertial(t, lat, lon, _tmp2);
+  // Must not reuse _tmp/_tmp2: localEastInertial scratches those with R_EARTH-scale
+  // positions and would leave `up` as a ~6400 km vector (pad hop → ~64 km/s).
+  localUpInertial(t, lat, lon, _upOut);
+  localEastInertial(t, lat, lon, _eastOut);
   return {
     pos: outPos,
     vel: outVel,
-    up: { x: _tmp.x, y: _tmp.y, z: _tmp.z },
-    east: { x: _tmp2.x, y: _tmp2.y, z: _tmp2.z },
+    up: { x: _upOut.x, y: _upOut.y, z: _upOut.z },
+    east: { x: _eastOut.x, y: _eastOut.y, z: _eastOut.z },
   };
 }
 

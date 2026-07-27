@@ -72,17 +72,17 @@ const _moonMat = new THREE.Matrix4();
 /**
  * Earth orientation vs the orbital plane.
  *
- * Theater frame: Sun–Earth–Moon orbits in XY; ecliptic north = +Z.
- * SphereGeometry poles are on ±Y, so we map mesh +Y (texture north) onto
- * the real north-pole direction: tilted EARTH_OBLIQUITY from +Z toward +X
- * (June-solstice sense — north pole leans sunward at northern summer).
+ * Theater frame: Sun–Earth–Moon orbits in XY; ecliptic north = +Z (J2000,
+ * same as Horizons). SphereGeometry poles are on ±Y; map mesh +Y (texture
+ * north) onto the mean north pole (0, sin ε, cos ε) — lean toward +Y so the
+ * axis matches celestial north on the sky dome at northern summer.
  */
 function createEarthAxisGroup(): THREE.Group {
   const axis = new THREE.Group();
-  // North pole in inertial/ecliptic frame
+  // Mean north pole in ecliptic J2000 (matches earthFrame.earthNorthPole)
   const north = new THREE.Vector3(
-    Math.sin(EARTH_OBLIQUITY),
     0,
+    Math.sin(EARTH_OBLIQUITY),
     Math.cos(EARTH_OBLIQUITY),
   ).normalize();
   // Mesh local +Y → inertial north

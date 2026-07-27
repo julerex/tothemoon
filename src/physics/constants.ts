@@ -29,9 +29,9 @@ export const ATM_H_MAX_KM = 120;
 export const DRAG_CD_A_OVER_M = 1.2e-11;
 
 /**
- * Earth axial tilt vs the ecliptic / orbital plane (rad).
- * Heliocentric theater: ecliptic XY, +Z = ecliptic north (ICRF-related
- * solar-system frame with ecliptic axes; see bodies.ts).
+ * Earth mean obliquity vs the ecliptic (rad), J2000.
+ * Theater frame matches Horizons ecliptic: XY = orbital plane, +Z = ecliptic
+ * north, +X = vernal equinox. North pole leans toward +Y (June solstice).
  */
 export const EARTH_OBLIQUITY = (23.439_281 * Math.PI) / 180;
 

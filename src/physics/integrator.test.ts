@@ -21,8 +21,8 @@ describe("Earth J2", () => {
     const earth = v3(0, 0, 0);
     const pole = earthNorthPole();
     // Point in equatorial plane of Earth (perp to pole)
-    // pole ≈ (sin ε, 0, cos ε); a vector in equator: cross(pole, y)
-    const r = v3(-pole.z, 0, pole.x); // ⟂ pole, in XZ
+    // pole ≈ (0, sin ε, cos ε); a vector in equator: e.g. cross(pole, x)
+    const r = v3(0, -pole.z, pole.y); // ⟂ pole, in YZ
     const scale = (R_EARTH + 400) / len(r);
     r.x *= scale;
     r.y *= scale;
