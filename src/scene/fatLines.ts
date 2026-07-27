@@ -9,6 +9,12 @@ export type FatLineOpts = {
   /** Stroke width in CSS pixels (worldUnits: false). */
   linewidth?: number;
   depthTest?: boolean;
+  /** Dashed stroke (uses path arc length in scene units, km). */
+  dashed?: boolean;
+  /** Dash length along the path (km when positions are km). */
+  dashSize?: number;
+  /** Gap length along the path (km when positions are km). */
+  gapSize?: number;
 };
 
 /**
@@ -29,14 +35,18 @@ export function createFatLine(
   geom.setPositions(positions);
 
   const opacity = opts.opacity ?? 1;
+  const dashed = opts.dashed ?? false;
   const mat = new LineMaterial({
     color: opts.color,
     linewidth: opts.linewidth ?? 2.5,
-    transparent: opacity < 0.999,
+    transparent: opacity < 0.999 || dashed,
     opacity,
     depthWrite: false,
     depthTest: opts.depthTest ?? true,
     worldUnits: false,
+    dashed,
+    dashSize: opts.dashSize ?? 1,
+    gapSize: opts.gapSize ?? 1,
   });
   mat.resolution.set(
     Math.max(1, window.innerWidth || 1),

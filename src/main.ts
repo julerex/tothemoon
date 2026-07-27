@@ -17,7 +17,11 @@ import {
   horizonsSource,
   setMissionLandingT,
 } from "./physics/horizonsEpoch";
-import { createScene } from "./scene/createScene";
+import {
+  createMoonPathThroughSim,
+  createMoonRelativeOrbitCircle,
+  createScene,
+} from "./scene/createScene";
 import { createBodies, spinBodies, updateBodies } from "./scene/bodies";
 import {
   createCraft,
@@ -107,8 +111,15 @@ const craftTrail = createTrailFromPoints(trailPts);
 // Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
 orbitGroup.add(craftTrail);
 
-/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI, v/a). */
-const orbitExtras: THREE.Object3D[] = [bodies.moonSoi];
+// Moon: solid blue trail of actual location over the mission; dotted blue mean
+// orbit circle parented to Earth so it tracks with the planet.
+const moonPathSim = createMoonPathThroughSim(cache.durationS);
+orbitGroup.add(moonPathSim);
+const moonRelOrbit = createMoonRelativeOrbitCircle();
+bodies.earthGroup.add(moonRelOrbit);
+
+/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, SOI, v/a, Moon ring). */
+const orbitExtras: THREE.Object3D[] = [bodies.moonSoi, moonRelOrbit];
 if (groundTrack) orbitExtras.push(groundTrack);
 
 const { group: craft, locator } = createCraft();

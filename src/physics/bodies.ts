@@ -19,7 +19,7 @@ import {
 } from "./horizonsEpoch";
 import { len, set, type V3, v3 } from "./vec3";
 
-/** Earth orbital eccentricity (approx IAU) — used for the gold orbit ribbon. */
+/** Earth orbital eccentricity (approx IAU) — used for the green orbit ribbon. */
 const EARTH_ORB_E = 0.016_708_6;
 
 /**
@@ -309,25 +309,6 @@ export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
 }
 
 /**
- * Heliocentric Earth position used as the origin for the static Moon-orbit
- * ribbon. Prefer Horizons at the active landing map (τ=0); else analytic AU.
- */
-function earthAnchorForOrbitRibbon(): V3 {
-  const ep = v3();
-  const ev = v3();
-  const mp = v3();
-  const mv = v3();
-  // τ = t − landT = 0 → mission t = landT
-  const tLand = getMissionLandingT();
-  if (hasHorizonsEpoch() && interpolateHorizons(tLand, ep, ev, mp, mv)) {
-    return { x: ep.x, y: ep.y, z: ep.z };
-  }
-  // Analytic circular fallback
-  const θ = sunPhase0;
-  return { x: AU * Math.cos(θ), y: AU * Math.sin(θ), z: 0 };
-}
-
-/**
  * Longitude of perihelion ϖ (rad) for the Earth orbit ribbon.
  * Fitted so the ellipse passes through Horizons Earth near landing (July ≈
  * aphelion). Falls back to the classic ~102.9° value.
@@ -360,23 +341,48 @@ function earthPerihelionLongitude(): number {
 }
 
 /**
- * Sample the Moon’s path about Earth for orbit visualization (one sidereal
- * month). Centered on the real heliocentric Earth (Horizons or analytic),
- * not a fixed (AU, 0, 0) — so the small loop sits under the Earth mesh.
+ * Moon’s heliocentric trail over the mission window [0, durationS].
+ * Uses the same ephemeris as bodyPositions (Horizons when available).
  */
-export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
+export function moonPathThroughSim(durationS: number, samples = 512): V3[] {
   const pts: V3[] = [];
-  const period = (2 * Math.PI) / N_MOON;
-  const anchor = earthAnchorForOrbitRibbon();
-  // Always use Kepler for the static ribbon (not mission-τ Horizons samples)
-  const m0 = M0 === moonPhase0 ? M0 + 1e-6 : M0;
-  for (let i = 0; i <= samples; i++) {
-    const t = (i / samples) * period;
-    const rel = moonRelativeToEarth(t, m0);
+  const dur = Math.max(durationS, 1);
+  const n = Math.max(2, samples);
+  for (let i = 0; i <= n; i++) {
+    const t = (i / n) * dur;
+    const b = bodyPositions(t);
+    pts.push({ x: b.moon.x, y: b.moon.y, z: b.moon.z });
+  }
+  return pts;
+}
+
+/**
+ * Mean lunar orbit as a circle of radius A_EM in the lunar orbital plane
+ * (inclination + node from constants). Earth-relative positions — parent the
+ * line under the Earth group so it co-moves with Earth.
+ */
+export function moonRelativeOrbitCirclePoints(samples = 256): V3[] {
+  const pts: V3[] = [];
+  const a = A_EM;
+  const i = MOON_INCLINATION;
+  const Ω = MOON_NODE;
+  const cosΩ = Math.cos(Ω);
+  const sinΩ = Math.sin(Ω);
+  const cosi = Math.cos(i);
+  const sini = Math.sin(i);
+  const n = Math.max(3, samples);
+  for (let k = 0; k <= n; k++) {
+    const θ = (k / n) * 2 * Math.PI;
+    // Orbital plane: (a cos θ, a sin θ, 0) → ecliptic via R_z(Ω) R_x(i)
+    const x1 = a * Math.cos(θ);
+    const y1 = a * Math.sin(θ);
+    const x2 = x1;
+    const y2 = y1 * cosi;
+    const z2 = y1 * sini;
     pts.push({
-      x: anchor.x + rel.pos.x,
-      y: anchor.y + rel.pos.y,
-      z: anchor.z + rel.pos.z,
+      x: cosΩ * x2 - sinΩ * y2,
+      y: sinΩ * x2 + cosΩ * y2,
+      z: z2,
     });
   }
   return pts;
@@ -386,7 +392,7 @@ export function moonOrbitPathPoints(samples = 180, M0 = 0): V3[] {
  * Earth’s heliocentric orbit about the Sun (origin) in the ecliptic (XY).
  *
  * With Horizons: eccentric ellipse (e≈0.0167) with ϖ fitted so July DE441
- * Earth sits on the gold ring (circular 1 AU is ~2.4e6 km low at aphelion).
+ * Earth sits on the green ring (circular 1 AU is ~2.4e6 km low at aphelion).
  * Analytic fallback: circle of radius AU.
  */
 export function earthOrbitPathPoints(samples = 256): V3[] {

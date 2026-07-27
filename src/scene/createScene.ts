@@ -1,13 +1,17 @@
 import * as THREE from "three";
 import { A_EM, AU } from "../physics/constants";
-import { earthOrbitPathPoints, moonOrbitPathPoints } from "../physics/bodies";
+import {
+  earthOrbitPathPoints,
+  moonPathThroughSim,
+  moonRelativeOrbitCirclePoints,
+} from "../physics/bodies";
 import { createFatLine } from "./fatLines";
 import { makeStarTexture } from "./textures";
 
 export type SceneBundle = {
   scene: THREE.Scene;
   sunLight: THREE.DirectionalLight;
-  /** Ecliptic grids + Earth/Moon orbit paths — toggle with O */
+  /** Ecliptic grids + Earth path (+ Moon trail added in main) — toggle with O */
   orbitGroup: THREE.Group;
 };
 
@@ -47,29 +51,55 @@ function createEclipticGridTowardSun(): THREE.GridHelper {
   return grid;
 }
 
-/** Moon’s path about the barycenter (one sidereal month). */
-function createMoonOrbitPath(): THREE.Object3D {
-  const pts = moonOrbitPathPoints(256, 0);
+/**
+ * Moon’s actual heliocentric location over the mission window (solid blue).
+ * Built from bodyPositions so Horizons and analytic fallback stay consistent.
+ */
+export function createMoonPathThroughSim(
+  durationS: number,
+  samples = 640,
+): THREE.Object3D {
+  const pts = moonPathThroughSim(durationS, samples);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   const line = createFatLine(vecs, {
-    color: 0x88aacc,
-    opacity: 0.55,
+    color: 0x4aa3ff,
+    opacity: 0.75,
     linewidth: 2.75,
   });
-  line.name = "moon-orbit-path";
+  line.name = "moon-path-sim";
   return line;
 }
 
 /**
- * Earth’s orbit around the Sun (origin) — eccentric ecliptic ring (warm gold).
+ * Mean lunar orbit circle in the lunar plane (Earth-relative). Parent under
+ * the Earth group so the ring co-moves with Earth.
+ */
+export function createMoonRelativeOrbitCircle(): THREE.Object3D {
+  const pts = moonRelativeOrbitCirclePoints(256);
+  const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+  // Path length ~ 2π·A_EM ≈ 2.4e6 km — dash/gap in km along the path
+  const line = createFatLine(vecs, {
+    color: 0x4aa3ff,
+    opacity: 0.55,
+    linewidth: 2.25,
+    dashed: true,
+    dashSize: 12_000,
+    gapSize: 10_000,
+  });
+  line.name = "moon-relative-orbit";
+  return line;
+}
+
+/**
+ * Earth’s orbit around the Sun (origin) — eccentric ecliptic ring (green).
  * Path comes from bodies.earthOrbitPathPoints (Horizons-fitted ellipse).
  */
 function createEarthOrbitPath(): THREE.Object3D {
   const pts = earthOrbitPathPoints(360);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   const line = createFatLine(vecs, {
-    color: 0xe8b86d,
-    opacity: 0.5,
+    color: 0x3ecf7a,
+    opacity: 0.55,
     linewidth: 2.5,
   });
   line.name = "earth-orbit-path";
@@ -133,13 +163,13 @@ export function createScene(): SceneBundle {
   scene.background = new THREE.Color(0x010208);
   scene.add(createStarDome());
 
-  // Orbit overlays (ecliptic grids + Earth/Moon paths) — O toggles visibility
+  // Orbit overlays (ecliptic grids + Earth path) — O toggles visibility.
+  // Moon path + Earth-relative ring are added in main (need duration / Earth).
   const orbitGroup = new THREE.Group();
   orbitGroup.name = "orbit-overlays";
   orbitGroup.add(createEclipticGridTowardSun());
   orbitGroup.add(createEclipticGridNear());
   orbitGroup.add(createEarthOrbitPath());
-  orbitGroup.add(createMoonOrbitPath());
   scene.add(orbitGroup);
 
   scene.add(new THREE.AmbientLight(0x334466, 0.22));
