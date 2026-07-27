@@ -95,6 +95,7 @@ export function bindHud(
   const distEl = el<HTMLElement>("#distance");
   const progEl = el<HTMLElement>("#progress");
   const altEl = el<HTMLElement>("#tel-altitude");
+  const camEl = document.querySelector<HTMLElement>("#tel-cam");
   const spdEl = el<HTMLElement>("#tel-speed");
   const boosterEl = el<HTMLElement>("#tel-booster");
   const shipEl = el<HTMLElement>("#tel-ship");
@@ -505,6 +506,7 @@ export function bindHud(
     distEl.textContent = formatDistance(tel.distanceToMoon);
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
+    if (camEl) camEl.textContent = formatFocusDistance(tel.focusDistance);
     spdEl.textContent = formatSpeed(tel.speed);
     boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
     shipEl.textContent = formatFuel(tel.fuelShip, "ship");
