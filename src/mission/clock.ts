@@ -1,3 +1,11 @@
+/**
+ * Normalized mission transport clock for play/pause/scrub/speed.
+ *
+ * Progress `t` is in [0, 1]. At |speed| = 1, wall-clock duration equals the
+ * mission duration; higher |speed| compresses playback. Negative speed rewinds.
+ */
+
+/** Listener called with normalized progress after seek/tick. */
 export type ClockListener = (t: number) => void;
 
 /**
@@ -10,19 +18,22 @@ export class MissionClock {
   private _speed = 1;
   private listeners = new Set<ClockListener>();
 
+  /** Normalized progress in [0, 1]. */
   get t(): number {
     return this._t;
   }
 
+  /** True while the clock is advancing on `tick`. */
   get playing(): boolean {
     return this._playing;
   }
 
+  /** Signed playback rate (mission-duration multiples per wall second). */
   get speed(): number {
     return this._speed;
   }
 
-  /** Signed rate; |speed| ≥ 0.1. Negative rewinds. */
+  /** Signed rate; |speed| ≥ 0.1. Negative rewinds. Non-finite / zero → 1. */
   setSpeed(speed: number): void {
     if (!Number.isFinite(speed) || speed === 0) {
       this._speed = 1;
@@ -32,19 +43,22 @@ export class MissionClock {
     this._speed = speed < 0 ? -mag : mag;
   }
 
+  /** Start advancing on subsequent `tick` calls. */
   play(): void {
     this._playing = true;
   }
 
+  /** Stop advancing (keeps current `t`). */
   pause(): void {
     this._playing = false;
   }
 
+  /** Toggle play/pause. */
   toggle(): void {
     this._playing = !this._playing;
   }
 
-  /** Scrub to absolute normalized time. */
+  /** Scrub to absolute normalized time and notify listeners. */
   seek(t: number): void {
     this._t = clamp01(t);
     this.emit();
@@ -69,6 +83,10 @@ export class MissionClock {
     this.emit();
   }
 
+  /**
+   * Subscribe to progress changes (seek / tick).
+   * @returns Unsubscribe function.
+   */
   subscribe(fn: ClockListener): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
@@ -79,6 +97,7 @@ export class MissionClock {
   }
 }
 
+/** Clamp to [0, 1]. */
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }

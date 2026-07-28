@@ -144,7 +144,6 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
   normalize(_pro, _pro);
 
   const v = len(_relV);
-  const vCirc = Math.sqrt(MU_MOON / r);
   const vEsc = Math.sqrt((2 * MU_MOON) / r);
   const vRad = dot(_relV, _radial);
   const rLlo = R_MOON + LLO_ALT_KM;
@@ -157,8 +156,8 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
   }
 
   // High alt: brake hard + sink so we lower toward LLO (not park at flyby)
-  let vTgt = vCirc;
-  let tgtVRad = -vRad * 0.55;
+  let vTgt: number;
+  let tgtVRad: number;
   if (alt > 2_500) {
     // Strongly subcircular → fall in; sink scales with altitude
     const sink = Math.min(0.25, 0.04 + (alt - LLO_ALT_KM) * 2e-5);
@@ -177,9 +176,9 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
   const desVy = _pro.y * vTgt + _radial.y * tgtVRad;
   const desVz = _pro.z * vTgt + _radial.z * tgtVRad;
 
-  let ax = (desVx - _relV.x) * 1.25;
-  let ay = (desVy - _relV.y) * 1.25;
-  let az = (desVz - _relV.z) * 1.25;
+  const ax = (desVx - _relV.x) * 1.25;
+  const ay = (desVy - _relV.y) * 1.25;
+  const az = (desVz - _relV.z) * 1.25;
 
   set(_thrust, ax, ay, az);
   const mag = len(_thrust);
@@ -189,7 +188,7 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
 }
 
 /**
- * Theater capture into polar circular lunar orbit (≤2 000 km alt).
+ * Theater capture into polar circular lunar orbit (≤2000 km alt).
  * Bridges the trail with short samples so invariants don't see a teleport.
  * Used when LOI is "close enough" so the LLO coast stays bound and polar.
  */

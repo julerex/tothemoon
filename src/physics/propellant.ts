@@ -32,6 +32,7 @@ export type PropState = {
   staged: boolean;
 };
 
+/** Full tanks at mission time `t0` (s). */
 export function createPropState(t0 = 0): PropState {
   return {
     boosterPropKg: BOOSTER_PROP_KG,
@@ -41,6 +42,7 @@ export function createPropState(t0 = 0): PropState {
   };
 }
 
+/** Shallow clone of propellant bookkeeping state. */
 export function cloneProp(p: PropState): PropState {
   return {
     boosterPropKg: p.boosterPropKg,
@@ -56,18 +58,22 @@ export function wetMassKg(p: PropState): number {
   return BOOSTER_DRY_KG + p.boosterPropKg + SHIP_DRY_KG + p.shipPropKg;
 }
 
+/** Booster tank fill fraction in [0, 1]. */
 export function fuelBoosterFrac(p: PropState): number {
   return Math.max(0, Math.min(1, p.boosterPropKg / BOOSTER_PROP_KG));
 }
 
+/** Ship tank fill fraction in [0, 1]. */
 export function fuelShipFrac(p: PropState): number {
   return Math.max(0, Math.min(1, p.shipPropKg / SHIP_PROP_KG));
 }
 
+/** Remaining booster propellant (kg). */
 export function remainingBoosterKg(p: PropState): number {
   return p.boosterPropKg;
 }
 
+/** Remaining ship propellant (kg). */
 export function remainingShipKg(p: PropState): number {
   return p.shipPropKg;
 }

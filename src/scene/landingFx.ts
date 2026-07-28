@@ -135,8 +135,8 @@ export class LandingFx {
       this.dust.position.copy(surface);
       this.dust.quaternion.copy(this.site.quaternion);
 
-      let expand = 1;
-      let opacity = 0.2;
+      let expand: number;
+      let opacity: number;
       if (opts.phase === "descent" && opts.burning) {
         // Grow as we get closer
         expand = THREE.MathUtils.clamp(8 + (25 - opts.altMoon) * 0.8, 4, 35);

@@ -27,7 +27,7 @@ function clamp(x: number, lo: number, hi: number): number {
 
 /** Solve Kepler’s equation M = E − e sin E. */
 export function solveEccentricAnomaly(M: number, e: number): number {
-  let m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
   let E = e < 0.8 ? m : Math.PI * Math.sign(m || 1);
   for (let k = 0; k < 16; k++) {
     const f = E - e * Math.sin(E) - m;

@@ -1,5 +1,17 @@
+/**
+ * Shared mission trajectory types and phase labels.
+ *
+ * Samples are the time series baked into `trajectory.json` (or live-recomputed).
+ * Phase ids drive the scrubber, HUD, and callouts.
+ */
+
 import type { V3 } from "./vec3";
 
+/**
+ * Discrete mission phases along the theater arc.
+ * Ballistic free-coast missions end in `coast` or `impact` (no LOI/PDI).
+ * Capture missions may use approach → braking → descent → landed.
+ */
 export type PhaseId =
   | "launch"
   | "ascent"
@@ -13,9 +25,13 @@ export type PhaseId =
   /** Ballistic lunar surface impact (no capture burns after TLI). */
   | "impact";
 
+/** One trajectory sample at mission time `t` (s). */
 export type Sample = {
+  /** Mission time (s) from liftoff. */
   t: number;
+  /** Inertial position (km). */
   pos: V3;
+  /** Inertial velocity (km/s). */
   vel: V3;
   phase: PhaseId;
   burning: boolean;
@@ -29,6 +45,7 @@ export type Sample = {
   staged: boolean;
 };
 
+/** Result of a full mission integration / precompute pack metadata. */
 export type MissionResult = {
   samples: Sample[];
   durationS: number;
@@ -63,6 +80,7 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   impact: "Lunar impact (ballistic)",
 };
 
+/** Human-readable phase label for HUD / timeline. */
 export function phaseLabel(id: PhaseId): string {
   return PHASE_LABELS[id];
 }

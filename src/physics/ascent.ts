@@ -241,9 +241,9 @@ export function flyAscent(): AscentResult {
   );
 
   let lastSampleT = 0;
-  let phase: AscentPhase = "launch";
+  let phase: AscentPhase;
   const maxT = 25 * 60; // 25 min hard cap (mass-coupled lower T/W)
-  let lastForceN = a0?.forceN ?? 0;
+  let lastForceN: number;
 
   while (state.t < maxT) {
     const alt = altitudeEarth(state.t, state.pos);

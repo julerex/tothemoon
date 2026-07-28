@@ -374,7 +374,7 @@ export function rejoinSouthOfMoon(
   if (dr < 20) return 0;
 
   const vBridge = 7;
-  let rejoinS = Math.min(2_500, Math.max(80, dr / vBridge));
+  const rejoinS = Math.min(2_500, Math.max(80, dr / vBridge));
   const t0 = Math.max(state.t, lastT ? lastT.t + 0.05 : state.t);
   const steps = Math.max(40, Math.ceil(rejoinS / 1.5));
 
@@ -388,9 +388,9 @@ export function rejoinSouthOfMoon(
     const bi = bodyPositions(state.t);
     // Rebuild aim at end time
     moonSouthUnit(_south);
-    let ux = tx;
-    let uy = ty;
-    let uz = tz;
+    const ux = tx;
+    const uy = ty;
+    const uz = tz;
     state.pos.x = bi.moon.x + ux * rTgt;
     state.pos.y = bi.moon.y + uy * rTgt;
     state.pos.z = bi.moon.z + uz * rTgt;

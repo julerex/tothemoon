@@ -15,7 +15,7 @@ Living plan for **tothemoon** after the core mission theater, mission UX, engine
 | **Staging / craft** | Super Heavy + Ship mesh, thrust-scaled plumes, booster fallaway + flash, fuel bars |
 | **Earth theater** | Starbase pad, ascent ground track, atmosphere limb |
 | **Landing theater** | Site beacon, dust puff, mission-complete card (duration, TLI Δv, min lunar alt) |
-| **Hygiene** | `npm test` (Kepler, propellant, timeline, trajectory invariants), CI, precompute invariant gate |
+| **Hygiene** | `npm test` (Kepler, propellant, clock/timeline, epoch, earthFrame, capture, invariants), `npm run lint` (ESLint), CI, precompute invariant gate |
 
 Key modules: `src/physics/mission.ts`, `src/mission/timeline.ts`, `src/scene/{craft,stagingFx,landingFx,earthTheater}.ts`, `src/ui/hud.ts`.
 
@@ -184,6 +184,7 @@ Stop and reassess after (1)–(3); watchability gains compound more than deep ph
 - **Trajectory changes** → `npm run precompute` + invariants must pass; don’t hand-edit `trajectory.json` unless intentional.
 - **Theater vs ops:** document approximations in README or code comments when adding “realistic-looking” guidance.
 - **Tests:** extend unit/invariant coverage when locking new phase boundaries, pack fields, or Kepler helpers.
+- **Lint:** `npm run lint` must stay clean; fix with `npm run lint:fix` when safe.
 
 ---
 
@@ -192,7 +193,8 @@ Stop and reassess after (1)–(3); watchability gains compound more than deep ph
 ```bash
 npm run dev          # local theater
 npm test             # unit + trajectory invariants
-npm run ci           # typecheck + test
+npm run lint         # ESLint
+npm run ci           # typecheck + lint + test
 npm run precompute   # regenerate trajectory.json (+ invariant check)
 npm run build        # precompute → typecheck → vite
 ```
@@ -206,3 +208,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | Date | Note |
 |------|------|
 | 2026-07-21 | Initial plan after mission UX, hygiene, staging/landing/pad theater |
+| 2026-07-28 | ESLint + expanded unit tests (clock, epoch, earthFrame, capture, synthetic invariants) + JSDoc on pure modules |

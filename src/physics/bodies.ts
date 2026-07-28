@@ -84,7 +84,7 @@ export function getSunPhase0(): number {
 /** Solve Kepler’s equation M = E − e sin E (elliptical). */
 function eccentricAnomaly(M: number, e: number): number {
   // Normalize M to (−π, π] for faster convergence
-  let m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
   let E = e < 0.8 ? m : Math.PI;
   for (let i = 0; i < 12; i++) {
     const f = E - e * Math.sin(E) - m;

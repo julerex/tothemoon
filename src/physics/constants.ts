@@ -73,7 +73,7 @@ export const SOI_MOON_KM = A_EM * (MU_MOON / MU_EARTH) ** (2 / 5);
 
 /**
  * Mean lunar orbital eccentricity.
- * Perigee ≈ a(1−e) ≈ 363 300 km, apogee ≈ a(1+e) ≈ 405 500 km.
+ * Perigee ≈ a(1−e) ≈ 363_300 km, apogee ≈ a(1+e) ≈ 405_500 km.
  */
 export const MOON_ECC = 0.0549;
 

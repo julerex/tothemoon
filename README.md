@@ -34,16 +34,19 @@ npm run dev
 
 ```bash
 npm test             # unit + baked-trajectory invariants (node:test via tsx)
+npm run lint         # ESLint (src/ + scripts/)
 npm run typecheck
-npm run ci           # typecheck + test
+npm run ci           # typecheck + lint + test
 npm run build        # precompute (with invariant check) → typecheck → vite
 npm run preview
 ```
 
-Tests cover Kepler helpers, propellant bookkeeping, mission timeline UX data,
+Tests cover Kepler helpers, propellant bookkeeping, mission clock/timeline,
+epoch calendar helpers, Earth-frame geometry, capture period helpers, vec3,
 and structural invariants on `src/data/trajectory.json` (phase order, fuel
-monotonicity, no trail teleport jumps). Precompute re-runs those invariants
-so a bad pack fails the build.
+monotonicity, no trail teleport jumps) plus synthetic failure cases.
+Precompute re-runs those invariants so a bad pack fails the build.
+Linting uses ESLint flat config (`eslint.config.js`) with `typescript-eslint`.
 
 Runtime recompute (slow, for physics debugging): open the site with `?recompute=1`.
 

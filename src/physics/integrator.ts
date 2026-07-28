@@ -1,3 +1,11 @@
+/**
+ * Restricted n-body craft integrator (RK4) and force model.
+ *
+ * Accelerations: Earth + Moon point-mass gravity, solar tide about Earth,
+ * Earth J₂, and simple exponential atmosphere + quadratic drag below ~120 km.
+ * Units: km, s, km/s, km/s².
+ */
+
 import {
   ATM_H_MAX_KM,
   ATM_RHO0_KG_KM3,
@@ -26,9 +34,13 @@ import {
   v3,
 } from "./vec3";
 
+/** Craft state in the heliocentric theater frame. */
 export type CraftState = {
+  /** Mission time (s). */
   t: number;
+  /** Inertial position (km). */
   pos: V3;
+  /** Inertial velocity (km/s). */
   vel: V3;
 };
 

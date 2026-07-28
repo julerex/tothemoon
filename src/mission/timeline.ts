@@ -1,3 +1,10 @@
+/**
+ * Build scrubber phase segments and narrative callout events from samples.
+ *
+ * Segments are contiguous [t0, t1] ranges per phase; events mark liftoff,
+ * staging, dogleg, TLI, LOI, touchdown, impact, etc. for the HUD.
+ */
+
 import { phaseLabel, type PhaseId, type Sample } from "../physics/mission";
 
 /** Scrubber / marker short labels (keep tight — scrubber is narrow). */

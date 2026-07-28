@@ -19,3 +19,5 @@ When committing and pushing:
 - Interactive Three.js mission theater: Starbase → LEO → TLI → lunar landing.
 - Trajectory is baked at build time (`npm run precompute` / `npm run build`).
 - Scene unit = 1 km. Prefer small, focused diffs over drive-by refactors.
+- Hygiene: `npm run typecheck`, `npm run lint` (ESLint), `npm test` (or `npm run ci` for all three).
+- Prefer JSDoc on exported pure helpers and module headers; extend unit tests when changing physics or timeline contracts.

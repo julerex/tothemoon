@@ -69,4 +69,42 @@ describe("buildTimeline", () => {
       assert.ok(tl.events[i]!.t >= tl.events[i - 1]!.t);
     }
   });
+
+  it("returns empty segments for empty samples", () => {
+    const tl = buildTimeline([], 100);
+    assert.equal(tl.segments.length, 0);
+    assert.equal(tl.events.length, 0);
+    assert.equal(tl.durationS, 100);
+  });
+
+  it("assigns short labels and normalized u for each segment", () => {
+    const samples: Sample[] = [
+      sample(0, "launch"),
+      sample(50, "ascent"),
+      sample(100, "leo", { staged: true }),
+    ];
+    const tl = buildTimeline(samples, 200);
+    for (const seg of tl.segments) {
+      assert.ok(seg.shortLabel.length > 0);
+      assert.ok(seg.u0 >= 0 && seg.u1 <= 1);
+      assert.ok(seg.u1 >= seg.u0);
+      assert.equal(seg.u0, seg.t0 / 200);
+      assert.equal(seg.u1, seg.t1 / 200);
+    }
+  });
+
+  it("dedupes events that share an id", () => {
+    // Two launch-like segments would try to emit liftoff once only via phase walk
+    const samples: Sample[] = [
+      sample(0, "launch"),
+      sample(10, "launch"),
+      sample(20, "ascent"),
+      sample(100, "leo", { staged: true }),
+      sample(200, "tli", { staged: true }),
+      sample(300, "coast", { staged: true }),
+    ];
+    const tl = buildTimeline(samples, 300);
+    const liftoff = tl.events.filter((e) => e.id === "liftoff");
+    assert.equal(liftoff.length, 1);
+  });
 });
