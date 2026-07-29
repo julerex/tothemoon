@@ -25,6 +25,14 @@
             <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
               Play
             </button>
+            <button
+              type="button"
+              id="btn-auto-cam"
+              aria-pressed="true"
+              title="Auto-cam on — guided framing by phase (C)"
+            >
+              Auto-cam
+            </button>
             <label class="speed">
               Speed
               <select id="speed" aria-label="Playback speed">
@@ -73,6 +81,8 @@
               <span><kbd>H</kbd> hide HUD</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>Space</kbd> play/pause</span>
+              <span class="footer-sep" aria-hidden="true">·</span>
+              <span><kbd>C</kbd> auto-cam</span>
             </p>
             <div class="corner-meta">
               <p class="copyright">© Julian le Roux 2026</p>
@@ -195,6 +205,7 @@
               <section class="keymap-section">
                 <h3>Camera focus</h3>
                 <dl>
+                  <div><dt><kbd>C</kbd></dt><dd>Toggle Auto-cam (guided by phase)</dd></div>
                   <div><dt><kbd>1</kbd></dt><dd>Sun</dd></div>
                   <div><dt><kbd>2</kbd></dt><dd>Earth</dd></div>
                   <div><dt><kbd>3</kbd></dt><dd>Moon</dd></div>
@@ -202,6 +213,7 @@
                   <div><dt><kbd>5</kbd></dt><dd>Starbase</dd></div>
                   <div><dt><kbd>6</kbd></dt><dd>Ship fin → engines</dd></div>
                   <div><dt>Double-tap <kbd>1</kbd>–<kbd>5</kbd></dt><dd>Frame object (zoom to size)</dd></div>
+                  <div><dt>Manual focus / drag</dt><dd>Turns Auto-cam off</dd></div>
                 </dl>
               </section>
               <section class="keymap-section">

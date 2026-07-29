@@ -37,20 +37,23 @@ Use this order unless a bug or production issue supersedes it.
 
 ## P0 — Watchability polish
 
-### 1. Guided phase cameras (recommended next)
+### 1. Guided phase cameras — **done**
 
-When a phase starts (or a callout fires), optionally ease the camera to a sensible default:
+When a phase starts (or staging fires), ease the camera to a sensible default:
 
-| Phase | Suggested framing |
-|-------|-------------------|
-| Launch / ascent | Earth or Ship chase |
-| Staging | Ship (close) |
-| Coast | Free / cislunar overview |
-| Approach / LOI | Moon |
-| Descent / land | Ship or Moon close-in |
+| Phase | Framing |
+|-------|---------|
+| Launch | Starbase pad |
+| Ascent / LEO / TLI | Ship chase |
+| Staging | Ship (close reframe) |
+| Coast | Wide Earth (cislunar overview) |
+| Approach / LOI / LLO | Moon |
+| Descent / land | Ship chase |
+| Impact | Moon |
 
-- Toggle: **Auto-cam** on/off (default on for first-time viewers, off once user picks a camera manually).
-- Reuse `CameraDirector`; do not fight Free orbit while the user is dragging.
+- Toggle: **Auto-cam** button + **C** (default on; off on manual focus keys, WASD pan, or mouse orbit).
+- `CameraDirector.easeToMode` eases orbit radius; does not fight Free orbit mid-drag.
+- Pure map: `src/camera/autoCam.ts` (+ unit tests).
 
 ### 2. Callout ↔ scrubber coupling
 
@@ -167,13 +170,14 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 
 A practical order for the next few sessions:
 
-1. **Auto-cam by phase** (P0.1) + manual override  
-2. **Cinematic bookmarks** (P1.5)  
-3. **Persist mission stats in precompute pack** (P2.11)  
-4. **Split mission physics modules** (P3.12) with golden tests  
-5. **LOI / coast visual corridor** (P2.8) or **booster recovery silhouette** (P2.9) — pick one visual track  
+1. ~~**Auto-cam by phase** (P0.1) + manual override~~ **done**  
+2. **Cinematic bookmarks** (P1.5) — recommended next  
+3. **Callout ↔ scrubber coupling** (P0.2) or **landing beat** (P0.4)  
+4. **Persist mission stats in precompute pack** (P2.11)  
+5. **Split mission physics modules** (P3.12) with golden tests  
+6. **LOI / coast visual corridor** (P2.8) or **booster recovery silhouette** (P2.9) — pick one visual track  
 
-Stop and reassess after (1)–(3); watchability gains compound more than deep physics until the theater is effortless to follow.
+Stop and reassess after bookmarks + one more P0 polish item; watchability gains compound more than deep physics until the theater is effortless to follow.
 
 ---
 
@@ -209,3 +213,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 |------|------|
 | 2026-07-21 | Initial plan after mission UX, hygiene, staging/landing/pad theater |
 | 2026-07-28 | ESLint + expanded unit tests (clock, epoch, earthFrame, capture, synthetic invariants) + JSDoc on pure modules |
+| 2026-07-29 | Auto-cam by phase (P0.1): guided framing, C / button toggle, ease distance, unit tests |

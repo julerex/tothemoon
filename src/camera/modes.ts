@@ -32,6 +32,8 @@ const PAN_DIST_PER_S = 0.9;
 const PAN_MIN_SPEED = R_EARTH * 0.4;
 /** Z/X zoom rate (exponential distance scale per second). */
 const ZOOM_RATE = 1.4;
+/** Wall-clock seconds for Auto-cam / guided distance ease. */
+const DIST_EASE_S = 0.7;
 
 const FAR_SOLAR = AU * 4;
 /** Opening shot: distance from Earth center (km). */
@@ -70,6 +72,12 @@ export class CameraDirector {
   private readonly finPos = new THREE.Vector3();
   private readonly finLook = new THREE.Vector3();
   private readonly finUp = new THREE.Vector3();
+  /** 0…1 distance ease; 1 = idle. */
+  private distEaseU = 1;
+  private distEaseFrom = 0;
+  private distEaseTo = 0;
+  /** Fired when the user starts mouse orbit / pan / zoom on the canvas. */
+  private onUserControl: (() => void) | null = null;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -88,10 +96,28 @@ export class CameraDirector {
     this.camera.up.copy(ECLIPTIC_NORTH);
     this.syncOrbitControlsUp();
 
+    this.controls.addEventListener("start", () => {
+      this.cancelDistanceEase();
+      this.onUserControl?.();
+    });
+
     this.applyEarthOpeningShot();
     this.applyClipPlanes();
     this.camera.updateProjectionMatrix();
     this.controls.update();
+  }
+
+  /**
+   * Register a callback for intentional mouse control (orbit / pan / zoom).
+   * Used to turn Auto-cam off so guided cuts do not fight Free orbit.
+   */
+  setOnUserControl(cb: (() => void) | null): void {
+    this.onUserControl = cb;
+  }
+
+  /** Abort an in-progress framed-distance ease. */
+  cancelDistanceEase(): void {
+    this.distEaseU = 1;
   }
 
   /** Craft root (for fin-cam attachment). Call once after createCraft. */
@@ -155,6 +181,7 @@ export class CameraDirector {
    * and view direction. Fin mode snaps to the Starship forward-fin mount.
    */
   setMode(mode: CameraMode): void {
+    this.cancelDistanceEase();
     this.applyFocus(mode, /* frame */ false);
   }
 
@@ -162,15 +189,56 @@ export class CameraDirector {
    * Focus on a body/object and zoom so it fills a comfortable fraction of the
    * view (distance scales with object size). Double-tap number keys use this.
    */
-  frameMode(mode: CameraMode): void {
-    this.applyFocus(mode, /* frame */ true);
+  frameMode(mode: CameraMode, frameScale = 1): void {
+    this.cancelDistanceEase();
+    this.applyFocus(mode, /* frame */ true, frameScale);
+  }
+
+  /**
+   * Auto-cam cut: switch focus immediately (tracking stays live) and ease the
+   * camera–target distance to the framed size over ~0.7 s wall-clock.
+   */
+  easeToMode(
+    mode: CameraMode,
+    opts?: { frame?: boolean; frameScale?: number },
+  ): void {
+    const frame = opts?.frame ?? true;
+    const frameScale = opts?.frameScale ?? 1;
+
+    if (mode === "fin" || mode === "free" || !frame) {
+      this.cancelDistanceEase();
+      this.applyFocus(mode, frame, frameScale);
+      return;
+    }
+
+    // Track the new subject now; only the orbit radius eases.
+    this.applyFocus(mode, /* frame */ false);
+    const from = Math.max(
+      this.controls.minDistance,
+      this.camera.position.distanceTo(this.controls.target),
+    );
+    const to = Math.max(
+      this.controls.minDistance,
+      Math.min(
+        this.controls.maxDistance,
+        this.frameDistanceFor(mode) * frameScale,
+      ),
+    );
+    this.distEaseFrom = from;
+    this.distEaseTo = to;
+    this.distEaseU = from === to ? 1 : 0;
   }
 
   /**
    * @param frame when true, set distance from characteristic size; when false,
    *   keep the current camera–target distance (with a Sun minimum pull-back).
+   * @param frameScale multiplies framed distance (wide cislunar overview, etc.).
    */
-  private applyFocus(mode: CameraMode, frame: boolean): void {
+  private applyFocus(
+    mode: CameraMode,
+    frame: boolean,
+    frameScale = 1,
+  ): void {
     if (mode === "free") {
       this.focus = "free";
       this.controls.enabled = true;
@@ -210,7 +278,7 @@ export class CameraDirector {
 
     let dist: number;
     if (frame) {
-      dist = this.frameDistanceFor(mode);
+      dist = this.frameDistanceFor(mode) * frameScale;
     } else if (mode === "sun") {
       // Cislunar zooms are tiny next to the Sun — pull back so the disc frames.
       dist = Math.max(prevDist, SUN_DEFAULT_DIST);
@@ -386,6 +454,9 @@ export class CameraDirector {
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
     if ((camYaw === 0 && pitch === 0) || dt <= 0) return;
+    // Keyboard orbit is fine with Auto-cam; only cancel the radius ease so
+    // Q/E/R/F are not fighting a distance lerp.
+    this.cancelDistanceEase();
 
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
@@ -442,6 +513,7 @@ export class CameraDirector {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
     const right = (this.panA ? 1 : 0) - (this.panD ? 1 : 0);
     if ((fwd === 0 && right === 0) || dt <= 0) return;
+    this.cancelDistanceEase();
 
     const dist = this.camera.position.distanceTo(this.controls.target);
     const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
@@ -471,6 +543,7 @@ export class CameraDirector {
   private applyZoom(dt: number): void {
     const dir = (this.zoomZ ? 1 : 0) - (this.zoomX ? 1 : 0);
     if (dir === 0 || dt <= 0) return;
+    this.cancelDistanceEase();
 
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
     const dist = this.orbitOffset.length();
@@ -501,6 +574,7 @@ export class CameraDirector {
     }
 
     this.trackFocus();
+    this.applyDistanceEase(dt);
     this.applyPan(dt);
     this.applyZoom(dt);
     // OrbitControls first (mouse / damping), then Q/E/R/F so keyboard
@@ -508,5 +582,24 @@ export class CameraDirector {
     // camera.up (no view-axis roll); R/F may tumble that up.
     this.controls.update();
     this.applyOrbit(dt);
+  }
+
+  /** Ease orbit radius toward Auto-cam / guided frame distance (wall-clock). */
+  private applyDistanceEase(dt: number): void {
+    if (this.distEaseU >= 1 || dt <= 0) return;
+
+    this.distEaseU = Math.min(1, this.distEaseU + dt / DIST_EASE_S);
+    // Ease-out cubic
+    const t = 1 - (1 - this.distEaseU) ** 3;
+    const dist = THREE.MathUtils.lerp(this.distEaseFrom, this.distEaseTo, t);
+
+    this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
+    if (this.orbitOffset.lengthSq() < 1e-12) {
+      this.orbitOffset.copy(ECLIPTIC_NORTH).multiplyScalar(dist);
+    } else {
+      this.orbitOffset.setLength(dist);
+    }
+    this.camera.position.copy(this.controls.target).add(this.orbitOffset);
+    this.camera.lookAt(this.controls.target);
   }
 }

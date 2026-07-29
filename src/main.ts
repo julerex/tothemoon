@@ -44,8 +44,10 @@ import {
 import { createGroundSky, updateGroundSky } from "./scene/groundSky";
 import { toggleZoomLabels, updateZoomLabels } from "./scene/zoomLabels";
 import { createVectorArrows } from "./scene/vectorArrows";
+import { nextAutoCamCut } from "./camera/autoCam";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import { buildTimeline } from "./mission/timeline";
+import type { PhaseId } from "./physics/missionTypes";
 import { bindHud } from "./ui/hud";
 import "./style.css";
 
@@ -216,6 +218,23 @@ function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
   return SPEED_STEPS[0]!;
 }
 
+/** Guided phase cameras — on by default; off when the user takes control. */
+const autoCam = {
+  enabled: true,
+  phase: null as PhaseId | null,
+  staged: false,
+};
+
+/** Filled after bindHud (handlers close over these). */
+let setAutoCamUi: (enabled: boolean) => void = () => {};
+let notifyAutoCamera: (mode: CameraMode) => void = () => {};
+
+function disableAutoCam(): void {
+  if (!autoCam.enabled) return;
+  autoCam.enabled = false;
+  setAutoCamUi(false);
+}
+
 const hud = bindHud(clock, timeline, {
   onPlayToggle: () => clock.toggle(),
   onSpeedMode: (rate) => {
@@ -227,10 +246,20 @@ const hud = bindHud(clock, timeline, {
     return next;
   },
   onScrub: (t) => clock.seek(t),
-  onCamera: (mode: CameraMode) => director.setMode(mode),
-  onCameraFrame: (mode: CameraMode) => director.frameMode(mode),
+  onCamera: (mode: CameraMode) => {
+    disableAutoCam();
+    director.setMode(mode);
+  },
+  onCameraFrame: (mode: CameraMode) => {
+    disableAutoCam();
+    director.frameMode(mode);
+  },
   onOrbitKey: (key, down) => director.setOrbitKey(key, down),
-  onPanKey: (key, down) => director.setPanKey(key, down),
+  onPanKey: (key, down) => {
+    const mode = director.setPanKey(key, down);
+    if (down) disableAutoCam();
+    return mode;
+  },
   onZoomKey: (key, down) => director.setZoomKey(key, down),
   onToggleLabels: () => {
     toggleZoomLabels();
@@ -238,6 +267,20 @@ const hud = bindHud(clock, timeline, {
   onToggleOrbits: () => {
     toggleOrbits();
   },
+  onAutoCamToggle: () => {
+    autoCam.enabled = !autoCam.enabled;
+    if (autoCam.enabled) {
+      // Re-apply framing for the current phase on the next mission tick.
+      autoCam.phase = null;
+    }
+    return autoCam.enabled;
+  },
+});
+setAutoCamUi = hud.setAutoCamEnabled;
+notifyAutoCamera = hud.notifyAutoCamera;
+
+director.setOnUserControl(() => {
+  disableAutoCam();
 });
 
 // Hover labels on v/a arrows (when orbit overlays are visible)
@@ -405,6 +448,24 @@ function applyMissionState(u: number): void {
   updateLocatorVisibility(bodies.moonLocator, camera, _moonPosV, {
     sizeKm: R_MOON * 2,
   });
+
+  // Guided phase cameras (Auto-cam) — only on phase / staging edges
+  const autoCut = nextAutoCamCut(
+    autoCam.enabled,
+    frame.phase,
+    frame.staged,
+    { phase: autoCam.phase, staged: autoCam.staged },
+  );
+  autoCam.phase = autoCut.phase;
+  autoCam.staged = autoCut.staged;
+  if (autoCut.suggestion) {
+    const s = autoCut.suggestion;
+    director.easeToMode(s.mode, {
+      frame: s.frame,
+      frameScale: s.frameScale,
+    });
+    notifyAutoCamera(s.mode);
+  }
 
   // Altitude: Earth during launch/LEO/TLI/coast (far from Moon); else Moon
   const nearEarth =

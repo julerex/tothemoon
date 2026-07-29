@@ -38,6 +38,11 @@ export type HudHandlers = {
   onToggleLabels?: () => void;
   /** O — toggle orbit overlays (grids, Moon path, craft trail, ground track) */
   onToggleOrbits?: () => void;
+  /**
+   * Toggle guided phase cameras. Returns the new enabled state.
+   * Default on; manual camera picks and mouse orbit turn it off.
+   */
+  onAutoCamToggle?: () => boolean;
 };
 
 export type Telemetry = {
@@ -77,6 +82,7 @@ export type Telemetry = {
 };
 
 const CALLOUT_MS = 4200;
+const CAM_TOAST_MS = 1600;
 
 export function bindHud(
   _clock: MissionClock,
@@ -84,8 +90,15 @@ export function bindHud(
   handlers: HudHandlers,
 ): {
   update: (tel: Telemetry) => void;
+  /** Sync Auto-cam button when main disables (manual camera / mouse). */
+  setAutoCamEnabled: (enabled: boolean) => void;
+  /**
+   * Show camera toast after an Auto-cam cut (does not count as manual pick).
+   */
+  notifyAutoCamera: (mode: CameraMode) => void;
 } {
   const btnPlay = el<HTMLButtonElement>("#btn-play");
+  const btnAutoCam = document.querySelector<HTMLButtonElement>("#btn-auto-cam");
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
@@ -158,6 +171,51 @@ export function bindHud(
   let metricsOpen = false;
   let hudVisible = true;
   let lastCamMode: CameraMode = "earth";
+  /** UI mirror of Auto-cam; main is source of truth via setAutoCamEnabled. */
+  let autoCamEnabled = true;
+
+  function setAutoCamEnabled(enabled: boolean): void {
+    if (autoCamEnabled === enabled) return;
+    autoCamEnabled = enabled;
+    if (btnAutoCam) {
+      btnAutoCam.setAttribute("aria-pressed", enabled ? "true" : "false");
+      btnAutoCam.title = enabled
+        ? "Auto-cam on — guided framing by phase (C)"
+        : "Auto-cam off — press C or click to re-enable";
+      btnAutoCam.textContent = enabled ? "Auto-cam" : "Auto-cam off";
+    }
+  }
+
+  function toggleAutoCam(): void {
+    if (!handlers.onAutoCamToggle) return;
+    const on = handlers.onAutoCamToggle();
+    setAutoCamEnabled(on);
+    showAutoCamToast(on);
+  }
+
+  function showAutoCamToast(on: boolean): void {
+    if (!camToast || !camToastTitle) return;
+    camToastTitle.textContent = on ? "Auto-cam on" : "Auto-cam off";
+    if (camToastDetail) {
+      camToastDetail.textContent = on
+        ? "Camera follows mission phases"
+        : "Manual focus · C to re-enable";
+      camToastDetail.hidden = false;
+    }
+    camToast.hidden = false;
+    camToast.classList.remove("cam-toast-out");
+    void camToast.offsetWidth;
+    camToast.classList.add("cam-toast-in");
+    if (camToastTimer) clearTimeout(camToastTimer);
+    camToastTimer = setTimeout(() => {
+      camToast.classList.remove("cam-toast-in");
+      camToast.classList.add("cam-toast-out");
+      camToastTimer = setTimeout(() => {
+        camToast.hidden = true;
+        camToast.classList.remove("cam-toast-out");
+      }, 300);
+    }, CAM_TOAST_MS);
+  }
 
   function setHudVisible(visible: boolean): void {
     hudVisible = visible;
@@ -196,6 +254,10 @@ export function bindHud(
   }
 
   btnPlay.addEventListener("click", () => handlers.onPlayToggle());
+  if (btnAutoCam) {
+    btnAutoCam.addEventListener("click", () => toggleAutoCam());
+    setAutoCamEnabled(true);
+  }
   speed.addEventListener("change", () => {
     handlers.onSpeedMode(parseSpeedMode(speed.value));
   });
@@ -309,6 +371,9 @@ export function bindHud(
     } else if (e.key === "o" || e.key === "O") {
       e.preventDefault();
       handlers.onToggleOrbits?.();
+    } else if (e.key === "c" || e.key === "C") {
+      e.preventDefault();
+      toggleAutoCam();
     }
   });
 
@@ -387,8 +452,6 @@ export function bindHud(
     }, CALLOUT_MS);
   }
 
-  const CAM_TOAST_MS = 1600;
-
   const CAMERA_LABELS: Record<
     CameraMode,
     { title: string; detail: string }
@@ -456,6 +519,31 @@ export function bindHud(
     else handlers.onCamera(mode);
     lastCamMode = mode;
     showCameraToast(mode, true);
+  }
+
+  /** Auto-cam cut: toast only (does not disable Auto-cam). */
+  function notifyAutoCamera(mode: CameraMode): void {
+    lastCamMode = mode;
+    if (!camToast || !camToastTitle) return;
+    const info = CAMERA_LABELS[mode];
+    camToastTitle.textContent = `Auto · ${info.title}`;
+    if (camToastDetail) {
+      camToastDetail.textContent = "Guided phase camera";
+      camToastDetail.hidden = false;
+    }
+    camToast.hidden = false;
+    camToast.classList.remove("cam-toast-out");
+    void camToast.offsetWidth;
+    camToast.classList.add("cam-toast-in");
+    if (camToastTimer) clearTimeout(camToastTimer);
+    camToastTimer = setTimeout(() => {
+      camToast.classList.remove("cam-toast-in");
+      camToast.classList.add("cam-toast-out");
+      camToastTimer = setTimeout(() => {
+        camToast.hidden = true;
+        camToast.classList.remove("cam-toast-out");
+      }, 300);
+    }, CAM_TOAST_MS);
   }
 
   /**
@@ -634,7 +722,7 @@ export function bindHud(
     );
   }
 
-  return { update };
+  return { update, setAutoCamEnabled, notifyAutoCamera };
 }
 
 function setText(node: HTMLElement | null, text: string): void {
