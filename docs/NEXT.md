@@ -100,9 +100,9 @@ Stay honest: theater values, not flight-ops ephemerides.
 - Make LOI burn duration and plume more distinct in samples / HUD (phase already exists; ensure thrust and fuel draw read clearly).
 - Optional Kepler-vs-N-body corridor ribbon on the TLI coast (debug or low-opacity path) using precompute’s max |Δr| story.
 
-### 9. Booster recovery silhouette (optional)
+### 9. Booster recovery silhouette — done (theater)
 
-After fallaway, a simplified **boostback / entry** arc (kinematic theater, not full integration) that disappears near the Gulf. High visual payoff; keep it clearly non-authoritative.
+Kinematic RTLS path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
 
 ### 10. Epoch & lighting polish
 

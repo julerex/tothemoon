@@ -173,6 +173,19 @@ function buildEvents(
   if (stageIdx > 0) {
     const s = samples[stageIdx]!;
     add("staging", s.t, "Staging", "Booster separation");
+    // Theater RTLS beats (kinematic recovery path — see boosterRecovery.ts)
+    add(
+      "boostback",
+      s.t + 4,
+      "Boostback",
+      "Super Heavy flip · boostback burn",
+    );
+    add(
+      "booster-catch",
+      s.t + 278,
+      "Booster catch",
+      "Landing burn · tower catch at Starbase",
+    );
   } else if (stageIdx === 0 && samples[0]?.staged) {
     // already staged at t0 — skip
   }

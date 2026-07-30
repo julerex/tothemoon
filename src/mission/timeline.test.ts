@@ -61,6 +61,8 @@ describe("buildTimeline", () => {
     const ids = tl.events.map((e) => e.id);
     assert.ok(ids.includes("liftoff"));
     assert.ok(ids.includes("staging"));
+    assert.ok(ids.includes("boostback"));
+    assert.ok(ids.includes("booster-catch"));
     assert.ok(ids.includes("dogleg"));
     assert.ok(ids.includes("tli"));
     assert.ok(ids.includes("coast"));

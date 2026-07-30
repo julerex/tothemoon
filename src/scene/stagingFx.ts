@@ -1,16 +1,18 @@
 import * as THREE from "three";
-import { MU_EARTH, R_EARTH } from "../physics/constants";
-import { bodyPositions } from "../physics/bodies";
+import {
+  BOOSTER_VISIBLE_S,
+  buildBoosterKeyframes,
+  sampleBoosterRecovery,
+  type StageState,
+} from "../physics/boosterRecovery";
 import { CRAFT_MESH_SCALE } from "./craft";
 
-/** Mission seconds the free-flying booster remains visible. */
-const FALLAWAY_S = 90;
-/** Separation kick magnitude (km/s) aft along −velocity. */
-const SEP_DV = 0.04;
-/** Extra radial kick outward from Earth (km/s) for readable fallaway. */
-const SEP_RADIAL = 0.015;
 /** Staging flash lifetime (mission s). */
 const FLASH_S = 3.5;
+
+/** Reference thrust (N) for detached-booster plume sizing. */
+const BOOSTBACK_THRUST_REF = 7e7; // ~half of ascent field, multi-engine boostback
+const LANDING_THRUST_REF = 2.5e7; // fewer engines into the catch
 
 export type StageEvent = {
   t: number;
@@ -19,34 +21,45 @@ export type StageEvent = {
 };
 
 /**
- * Detached Super Heavy after stage-out: short ballistic coast + separation flash.
- * Fully deterministic in mission time so scrubbing works.
+ * Detached Super Heavy after stage-out: flip → boostback → coast → landing burn
+ * → tower catch at Starbase. Fully deterministic in mission time so scrubbing works.
+ *
+ * Path is kinematic theater (see `boosterRecovery.ts`), not the mission integrator.
  */
 export class StagingFx {
   readonly group = new THREE.Group();
   private readonly booster: THREE.Group;
   private readonly flash: THREE.Mesh;
   private readonly flashMat: THREE.MeshBasicMaterial;
-  private readonly sepPos = new THREE.Vector3();
-  private readonly sepVel = new THREE.Vector3();
-  private readonly earthPos = new THREE.Vector3();
-  private readonly rel = new THREE.Vector3();
-  private readonly acc = new THREE.Vector3();
+  private readonly exhaustGlow: THREE.Object3D | null = null;
+  private readonly exhaustLight: THREE.PointLight;
   private readonly look = new THREE.Matrix4();
   private readonly quat = new THREE.Quaternion();
   private readonly up = new THREE.Vector3(0, 1, 0);
+  private readonly lookTarget = new THREE.Vector3();
+  private readonly nose = new THREE.Vector3();
   private stage: StageEvent | null = null;
+  private stageState: StageState | null = null;
+  private keyframes: ReturnType<typeof buildBoosterKeyframes> | null = null;
 
   constructor(boosterPrototype: THREE.Object3D, meshScale = CRAFT_MESH_SCALE) {
     this.booster = boosterPrototype.clone(true) as THREE.Group;
     this.booster.name = "booster-detached";
     this.booster.visible = false;
-    // Stacked booster sits under craft mesh scale; apply the same here
     this.booster.scale.setScalar(meshScale);
     this.booster.userData.baseScale = meshScale;
-    // Kill exhaust glow on the free flyer
+
+    // Soft glow on free flyer (clone may already have one)
     const glow = this.booster.getObjectByName("exhaust-glow");
-    if (glow) glow.visible = false;
+    this.exhaustGlow = glow ?? null;
+    if (this.exhaustGlow) this.exhaustGlow.visible = false;
+
+    // Local plume light (world km; parent scale does not apply to PointLight distance)
+    this.exhaustLight = new THREE.PointLight(0xff9a58, 0, 0.28, 2);
+    this.exhaustLight.name = "booster-recovery-light";
+    this.exhaustLight.position.set(0, 0, -0.06);
+    this.booster.add(this.exhaustLight);
+
     this.group.add(this.booster);
 
     this.flashMat = new THREE.MeshBasicMaterial({
@@ -67,101 +80,140 @@ export class StagingFx {
 
   setStageEvent(ev: StageEvent | null): void {
     this.stage = ev;
+    if (!ev) {
+      this.stageState = null;
+      this.keyframes = null;
+      return;
+    }
+    this.stageState = {
+      t: ev.t,
+      pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
+      vel: { x: ev.vel.x, y: ev.vel.y, z: ev.vel.z },
+    };
+    this.keyframes = buildBoosterKeyframes(this.stageState);
   }
 
   /**
-   * @param meshScale craft mesh scale (same as stacked booster)
-   * @param craftQuat orientation of the ship at this frame (for pre-stage hide only)
+   * @param craftPos ship position (flash sticks near craft at t=0+)
+   * @param craftQuat unused (kept for call-site compatibility)
    */
-  update(missionT: number, craftPos: THREE.Vector3, craftQuat: THREE.Quaternion): void {
-    if (!this.stage) {
+  update(
+    missionT: number,
+    craftPos: THREE.Vector3,
+    _craftQuat: THREE.Quaternion,
+  ): void {
+    if (!this.stage || !this.stageState || !this.keyframes) {
       this.booster.visible = false;
       this.flash.visible = false;
+      this.exhaustLight.intensity = 0;
       return;
     }
 
     const age = missionT - this.stage.t;
-    if (age < 0) {
+    if (age < 0 || age > BOOSTER_VISIBLE_S) {
       this.booster.visible = false;
       this.flash.visible = false;
+      this.exhaustLight.intensity = 0;
       return;
     }
 
-    // Separation state at stage epoch
-    this.sepPos.copy(this.stage.pos);
-    this.sepVel.copy(this.stage.vel);
-    const speed = this.sepVel.length() || 1;
-    // Aft kick (−v) + slight Earth-radial
-    this.rel.copy(this.sepVel).multiplyScalar(-SEP_DV / speed);
-    this.sepVel.add(this.rel);
-    const b = bodyPositions(this.stage.t);
-    this.earthPos.set(b.earth.x, b.earth.y, b.earth.z);
-    this.rel.copy(this.sepPos).sub(this.earthPos);
-    const r0 = this.rel.length() || 1;
-    this.sepVel.addScaledVector(this.rel, SEP_RADIAL / r0);
+    const sample = sampleBoosterRecovery(
+      this.stageState,
+      age,
+      this.keyframes,
+    );
 
-    // Constant-g ballistic (Earth gravity at stage epoch) — theater, short window
-    const g = MU_EARTH / (r0 * r0);
-    this.acc.copy(this.rel).multiplyScalar(-g / r0);
+    if (sample.fade < 0.02 || sample.phase === "done") {
+      this.booster.visible = false;
+      this.flash.visible = age >= 0 && age <= FLASH_S;
+      this.exhaustLight.intensity = 0;
+      if (this.flash.visible) this.updateFlash(age, craftPos);
+      return;
+    }
 
-    const tVis = Math.min(age, FALLAWAY_S);
-    // p = p0 + v t + ½ a t²
-    this.booster.position
-      .copy(this.sepPos)
-      .addScaledVector(this.sepVel, tVis)
-      .addScaledVector(this.acc, 0.5 * tVis * tVis);
+    this.booster.visible = true;
+    this.booster.position.set(sample.pos.x, sample.pos.y, sample.pos.z);
 
-    // Orient nose (+Z) along free-fall velocity (Object3D lookAt convention)
-    const vNow = this.sepVel.clone().addScaledVector(this.acc, tVis);
-    if (vNow.lengthSq() > 1e-12) {
-      vNow.normalize();
-      const lookTarget = this.booster.position.clone().add(vNow);
+    // Nose (+Z) along sample.nose — same Matrix4.lookAt convention as main craft
+    this.nose.set(sample.nose.x, sample.nose.y, sample.nose.z);
+    if (this.nose.lengthSq() > 1e-12) {
+      this.nose.normalize();
+      this.lookTarget.copy(this.booster.position).add(this.nose);
       this.up.set(0, 1, 0);
-      if (Math.abs(vNow.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
-      this.look.lookAt(lookTarget, this.booster.position, this.up);
+      if (Math.abs(this.nose.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
+      this.look.lookAt(this.lookTarget, this.booster.position, this.up);
       this.quat.setFromRotationMatrix(this.look);
       this.booster.quaternion.copy(this.quat);
-    } else {
-      this.booster.quaternion.copy(craftQuat);
     }
 
-    const fade =
-      age >= FALLAWAY_S
-        ? 0
-        : age > FALLAWAY_S - 15
-          ? 1 - (age - (FALLAWAY_S - 15)) / 15
-          : 1;
-    this.booster.visible = fade > 0.02;
-    // Dim via uniform scale (materials stay shared with the stack)
     const baseScale = this.booster.userData.baseScale as number;
-    this.booster.scale.setScalar(baseScale * Math.max(fade, 0.001));
+    this.booster.scale.setScalar(baseScale * Math.max(sample.fade, 0.001));
 
-    // Flash at separation point
-    if (age <= FLASH_S) {
-      const u = age / FLASH_S;
-      this.flash.visible = true;
-      this.flash.position.copy(this.stage.pos);
-      // Stay near craft at t=0+
-      if (age < 0.05) this.flash.position.copy(craftPos);
-      const s = 0.15 + u * 2.2;
-      this.flash.scale.setScalar(s);
-      this.flashMat.opacity = 0.9 * (1 - u) * (1 - u);
-    } else {
+    this.updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
+    this.updateFlash(age, craftPos);
+  }
+
+  private updatePlume(
+    missionT: number,
+    burning: boolean,
+    throttle: number,
+    phase: string,
+  ): void {
+    if (!burning || throttle < 0.02) {
+      if (this.exhaustGlow) this.exhaustGlow.visible = false;
+      this.exhaustLight.intensity = 0;
+      return;
+    }
+
+    const flicker =
+      0.9 +
+      0.06 * Math.sin(missionT * 53.1) +
+      0.04 * Math.sin(missionT * 91.7 + 1.3) +
+      0.03 * Math.sin(missionT * 137.2 + 0.4);
+
+    const isLanding = phase === "landing";
+    const thrN = throttle * (isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF);
+    const ref = isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF;
+    const u = Math.min(1, thrN / ref) * throttle;
+
+    if (this.exhaustGlow) {
+      this.exhaustGlow.visible = true;
+      const s = (0.3 + 0.4 * u) * flicker;
+      this.exhaustGlow.scale.set(s, s, 1);
+      const mat = (this.exhaustGlow as THREE.Sprite).material as THREE.SpriteMaterial;
+      mat.opacity = (0.3 + 0.35 * u) * flicker;
+      this.exhaustGlow.position.z = -0.1 - 0.05 * u;
+    }
+
+    this.exhaustLight.intensity = (1.2 + 2.0 * u) * flicker;
+    this.exhaustLight.color.setHex(isLanding ? 0xffa060 : 0xff9a58);
+    this.exhaustLight.distance = 0.14 + 0.16 * u;
+    this.exhaustLight.position.set(0, 0, -0.05);
+  }
+
+  private updateFlash(age: number, craftPos: THREE.Vector3): void {
+    if (!this.stage || age < 0 || age > FLASH_S) {
       this.flash.visible = false;
+      return;
     }
-
-    // Hide if below Earth surface
-    const bt = bodyPositions(missionT);
-    this.earthPos.set(bt.earth.x, bt.earth.y, bt.earth.z);
-    if (this.booster.position.distanceTo(this.earthPos) < R_EARTH + 20) {
-      this.booster.visible = false;
-    }
+    const u = age / FLASH_S;
+    this.flash.visible = true;
+    this.flash.position.copy(this.stage.pos);
+    if (age < 0.05) this.flash.position.copy(craftPos);
+    const s = 0.15 + u * 2.2;
+    this.flash.scale.setScalar(s);
+    this.flashMat.opacity = 0.9 * (1 - u) * (1 - u);
   }
 }
 
 /** Find first staged sample → stage event. */
 export function findStageEvent(
-  samples: Array<{ t: number; pos: { x: number; y: number; z: number }; vel: { x: number; y: number; z: number }; staged: boolean }>,
+  samples: Array<{
+    t: number;
+    pos: { x: number; y: number; z: number };
+    vel: { x: number; y: number; z: number };
+    staged: boolean;
+  }>,
 ): StageEvent | null {
   for (const s of samples) {
     if (!s.staged) continue;
