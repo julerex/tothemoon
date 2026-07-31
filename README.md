@@ -8,9 +8,10 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
 - **Restricted n-body + Earth J₂** — craft integrated with **RK4** under **Earth + Moon** point-mass gravity, **solar tide** (residual about Earth), Earth **J₂**, and simple **exponential atmosphere / quadratic drag** below ~120 km
+- **Staged ascent (A5)** — booster throttle schedule (Max-Q dip + MECO ramp), **hot-stage** (booster throttle-down → ship ignition → separation), short ship upper burn, then **residual circularize** (path-smoothed LEO insert with capped rocket-equation Δv — theater, not a free teleport). Not flight-ops tables
 - **Translunar coast** — after a **hot super-Hohmann TLI** the craft is **pure ballistic** (zero thrust, zero TCMs) under that force model; outcome is **lunar impact** or **flyby** (no powered LOI/landing)
 - Heliocentric theater (Sun ≈ origin): **JPL Horizons DE441** samples for Earth/Moon over July 2027 (`npm run horizons`); analytic circular Earth + Keplerian Moon as fallback
-- Mission: **Starbase pad** → powered ascent → LEO dogleg → finite TLI → **ballistic n-body coast** → impact or flyby
+- Mission: **Starbase pad** → staged ascent → LEO dogleg → finite TLI → **ballistic n-body coast** → impact or flyby
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through TLI; empty tanks cut engines
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
 

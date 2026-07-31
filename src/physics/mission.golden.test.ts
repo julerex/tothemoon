@@ -11,15 +11,16 @@ import {
 } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after hot TLI + pure n-body free coast (no post-TLI burns). */
+/** Bands after A5 staged ascent + hot TLI + pure n-body free coast. */
 const GOLDEN = {
   durationS: 640_000,
   durationTolFrac: 0.45,
   tliDv: 3.154,
-  tliDvTol: 0.15,
+  tliDvTol: 0.2,
   samplesMin: 2_000,
   samplesMax: 25_000,
-  stageT: 140,
+  /** Super Heavy MECO / hot-stage (~2.5 min theater). */
+  stageT: 150,
   stageTTol: 90,
 } as const;
 

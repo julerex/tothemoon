@@ -138,10 +138,34 @@ export const STARBASE_LON = (-97.156 * Math.PI) / 180; // °W negative
 export const STARBASE_ALT = 0.01;
 
 /**
- * Peak ascent acceleration (km/s²) — theater value ~2.5 g continuous
- * (real staged vehicles vary; this yields ~8–12 min to LEO).
+ * Peak commanded ascent acceleration (km/s²) ≈ 2.8 g.
+ * Actual stack T/W is lower (≈1.6 g at liftoff wet mass) and is further
+ * reduced by the A5 throttle schedule (Max-Q dip, MECO ramp) so average
+ * accel lands near ~1.2–1.5 g over the booster burn.
  */
-export const ASCENT_ACCEL = 0.028; // ~2.8 g peak theater
+export const ASCENT_ACCEL = 0.028; // ~2.8 g peak command
+
+/**
+ * Dual-burn hot-stage window (s): booster throttle-down + ship ignition
+ * while still stacked, then separation. Matches craft visual HOT_STAGE_PRE.
+ */
+export const HOT_STAGE_S = 3.5;
+
+/** Min altitude (km) before hot-stage / MECO is allowed. */
+export const STAGE_ALT_MIN_KM = 60;
+
+/**
+ * Booster propellant fraction that arms hot-stage (theater MECO).
+ * Staging fires when alt ≥ STAGE_ALT_MIN_KM and remaining ≤ this.
+ */
+export const STAGE_PROP_ARM = 0.1;
+
+/**
+ * Ship accel command during upper-stage / circularization (km/s²).
+ * Paired with SHIP_ASCENT_THRUST_N (high T/W) so powered insert is short and
+ * gravity losses stay modest — long low-thrust inserts fall back to Earth.
+ */
+export const ASCENT_SHIP_ACCEL = 0.06;
 
 /**
  * LEO parking coast before TLI: ~1.25 revolutions so the craft clearly
@@ -179,7 +203,25 @@ export const BOOSTER_DRY_KG = 200_000;
 /** Sized for pure-RE multi-g burn lasting a few minutes to ~70+ km. */
 export const BOOSTER_PROP_KG = 9_000_000;
 export const SHIP_DRY_KG = 120_000;
+/**
+ * Headroom for A5 upper-stage burn + paid dogleg + finite TLI.
+ * Full pure-RE suborbital→LEO on the ship alone would empty tanks; circularize
+ * uses a short integrated burn + capped RE residual (see ascent.ts).
+ */
 export const SHIP_PROP_KG = 5_000_000;
+
+/**
+ * Max integrated upper-stage burn after hot-stage (s) before residual settle.
+ * Short on purpose: leave ship prop for dogleg + TLI.
+ */
+export const UPPER_BURN_MAX_S = 18;
+
+/**
+ * Cap on residual circularization Δv (km/s) booked via rocket equation after
+ * the integrated upper burn. Theater: path is smoothed to circular LEO; prop
+ * cost is real but not the full multi-km/s gravity-loss insert.
+ */
+export const CIRC_DV_CAP_KM_S = 0.85;
 
 /** Specific impulse (s) — rocket-equation mass flow */
 export const ISP_BOOSTER = 330;
@@ -198,12 +240,18 @@ export const STACK_WET_KG =
 export const SHIP_WET_KG = SHIP_DRY_KG + SHIP_PROP_KG;
 /**
  * ~1.6 g at full stack (must exceed 1 g to lift off). Pure-RE ṁ empties the
- * booster in a few minutes; ascent stages dry and force-circularizes if high.
+ * booster in a few minutes; A5 hot-stages and circularizes on the ship.
  * a rises as mass drops.
  */
 export const BOOSTER_THRUST_N = STACK_WET_KG * 0.016 * 1000;
 /** ~1.2 g at full ship wet mass (TLI / landing / TCM). */
 export const SHIP_THRUST_N = SHIP_WET_KG * 0.012 * 1000;
+/**
+ * Peak ship thrust during ascent upper stage / circularization (N) ≈ 4.5 g wet.
+ * Higher than SHIP_THRUST_N so suborbital → LEO finishes in ~1–2 min before the
+ * loft falls back. Theater-only; not a Raptor count.
+ */
+export const SHIP_ASCENT_THRUST_N = SHIP_WET_KG * 0.045 * 1000;
 
 /**
  * @deprecated A4 uses pure rocket equation (scale ≡ 1). Kept for any external refs.

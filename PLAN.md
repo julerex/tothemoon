@@ -142,17 +142,21 @@ engine-out tables stay deferred.
 - Propellant loads retuned for pure RE so the mission still closes.
 - HUD fuel/thrust use the same `PropState` as dynamics.
 
-### A5. Ascent atmosphere + staged profile
+### A5. Ascent atmosphere + staged profile — **done 2026-07-31**
 
-**Today:** continuous ~2.8 g gravity turn; forced circularize snap if close.
+**Was:** continuous ~2.8 g gravity turn; forced circularize snap when booster dry.
 
-**Target:**
-- Simple exponential density + drag (theater Cd·A/m) so Max-Q is meaningful.
-- Hot-staging shape: booster throttle-down / MECO → ship ignition → separation
-  (times approximate is fine).
-- Narrow or remove forced circularize snap; finish with a real circularization
-  burn on a slightly elliptical insert when possible.
-- Peak / average accel closer to ~1.2–1.5 g average with a throttle schedule.
+**Shipped:**
+- Atmosphere/drag already from C1; Max-Q still felt on ascent.
+- Booster **throttle schedule** (`boosterThrottle`): liftoff full, Max-Q dip,
+  recovery, MECO ramp → average closer to ~1.2–1.5 g class.
+- **Hot-stage** (`HOT_STAGE_S`): booster throttle-down + ship ignition while
+  stacked, then `stageBooster` → short integrated ship upper burn
+  (`UPPER_BURN_MAX_S`).
+- **Residual circularize**: path-smoothed settle to circular LEO with capped
+  rocket-equation Δv (`CIRC_DV_CAP_KM_S`) — not a free zero-dt teleport, and
+  not a full pure-RE multi-km/s insert (would empty tanks / starve dogleg+TLI).
+- Unit tests: `ascent.test.ts` (throttle, hot-stage fuel, LEO insert, prop left).
 
 ---
 
@@ -357,10 +361,12 @@ See “Definition of done (per slice)” below — precompute + tests + README +
 | 2026-07-23 | **South-pole geometry:** transfer plane south-biased (`TRANSFER_SOUTH_AIM_KM`); LOI → polar LLO (not northern flyby above lunar plane) |
 | 2026-07-23 | **LRO free coast:** design ellipse **apogee = south-pole rendezvous**; smooth Kepler coast (no TCMs); short LOI + land from apo |
 | 2026-07-23 | **Ballistic free coast:** no post-TLI burns; restricted 4-body RK4; outcome impact or flyby (landing not required) |
+| 2026-07-31 | **A5 complete:** throttle schedule, hot-stage, powered circularize (no force-snap) |
 
 ## Changelog
 
 | Date | Note |
 |------|------|
+| 2026-07-31 | A5 staged ascent shipped; golden stage/duration bands retuned |
 | 2026-07-23 | Initial plan: baseline gaps, A–D phases, sequence 1–7, deferred work |
 | 2026-07-23 | Locked A3=B, order D1→A3→A1→A2, dogleg UX/Δv, TLI 2–4 min, 2–3 TCMs |
