@@ -77,21 +77,50 @@ export function sunPhase0ForLanding(
   return λm - δ - N_EARTH_SUN * landingT;
 }
 
-/** UTC ms for a mission clock time, with t = durationS at landing. */
-export function missionUtcMs(missionT: number, durationS: number): number {
-  return LANDING_UTC_MS - durationS * 1000 + missionT * 1000;
+/**
+ * Absolute UTC (ms) for a mission clock time.
+ *
+ * Horizons τ = 0 is fixed at {@link LANDING_UTC_MS}. Mission time maps as
+ * `τ = missionT − landingMissionT`, so pass the packed `horizonsLandingT`
+ * (not necessarily mission duration — flyby coasts can continue past τ = 0).
+ */
+export function missionUtcMs(
+  missionT: number,
+  landingMissionT: number,
+): number {
+  return LANDING_UTC_MS + (missionT - landingMissionT) * 1000;
 }
 
 /** Compact UTC label for the HUD, e.g. "2027-07-20 11:42 UTC". */
 export function formatMissionDateUtc(
   missionT: number,
-  durationS: number,
+  landingMissionT: number,
 ): string {
-  const d = new Date(missionUtcMs(missionT, durationS));
+  const d = new Date(missionUtcMs(missionT, landingMissionT));
   const y = d.getUTCFullYear();
   const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   const h = String(d.getUTCHours()).padStart(2, "0");
   const mi = String(d.getUTCMinutes()).padStart(2, "0");
   return `${y}-${mo}-${day} ${h}:${mi} UTC`;
+}
+
+/**
+ * Greenwich Mean Sidereal Time (rad) at a UTC instant.
+ * USNO/Meeus low-precision — plenty for theater pad lighting and launch azimuth.
+ * Mesh spin equals GMST: lon 0° → mesh +X → equinox when GMST = 0 (see earthFrame).
+ */
+export function gmstRad(utcMs: number): number {
+  // Unix epoch 1970-01-01T00:00:00Z = JD 2440587.5
+  const jd = utcMs / 86_400_000 + 2_440_587.5;
+  const d = jd - 2_451_545.0; // days from J2000.0
+  const T = d / 36_525;
+  // GMST in degrees (includes fractional day via d)
+  let deg =
+    280.460_618_37 +
+    360.985_647_366_29 * d +
+    0.000_387_933 * T * T -
+    (T * T * T) / 38_710_000;
+  deg = ((deg % 360) + 360) % 360;
+  return (deg * Math.PI) / 180;
 }

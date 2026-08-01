@@ -8,9 +8,9 @@ import {
   STARBASE_LAT,
   STARBASE_LON,
 } from "./constants.ts";
-import { bodyPositions } from "./bodies.ts";
+import { gmstRad, LANDING_UTC_MS, missionUtcMs } from "./epoch.ts";
+import { setMissionLandingT } from "./horizonsEpoch.ts";
 import {
-  EARTH_SPIN0,
   earthNorthPole,
   earthSpinAngle,
   geodeticToMeshLocal,
@@ -18,6 +18,7 @@ import {
   localUpInertial,
   meshLocalToInertial,
   starbasePadState,
+  starbaseSunElev,
   surfaceState,
 } from "./earthFrame.ts";
 import { dist, dot, len, v3 } from "./vec3.ts";
@@ -31,23 +32,54 @@ describe("earthFrame geometry", () => {
     assert.ok(Math.abs(n.z - Math.cos(EARTH_OBLIQUITY)) < 1e-12);
   });
 
-  it("earthSpinAngle advances one turn per sidereal day", () => {
-    assert.equal(earthSpinAngle(0), EARTH_SPIN0);
-    const full = earthSpinAngle(EARTH_SIDEREAL_DAY_S);
-    assert.ok(Math.abs(full - EARTH_SPIN0 - 2 * Math.PI) < 1e-9);
+  it("earthSpinAngle tracks GMST; one sidereal day is one full turn (mod 2π)", () => {
+    setMissionLandingT(0);
+    const a0 = earthSpinAngle(0);
+    assert.ok(
+      Math.abs(a0 - gmstRad(LANDING_UTC_MS)) < 1e-9,
+      "spin at τ=0 is GMST at landing epoch",
+    );
+    const wrap = (x: number) =>
+      ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const circ = (a: number, b: number) => {
+      const d = wrap(a - b);
+      return Math.min(d, 2 * Math.PI - d);
+    };
+    // Wrapped angles match after one sidereal day (full 2π advance)
+    const a1 = earthSpinAngle(EARTH_SIDEREAL_DAY_S);
+    assert.ok(
+      circ(a1, a0) < 2e-3,
+      `expected full turn, residual ${circ(a1, a0)}`,
+    );
+    // Half a sidereal day → ~π apart
+    const aHalf = earthSpinAngle(EARTH_SIDEREAL_DAY_S / 2);
+    assert.ok(
+      Math.abs(circ(aHalf, a0) - Math.PI) < 2e-3,
+      `half-day residual ${circ(aHalf, a0)}`,
+    );
   });
 
-  it("places Starbase in daytime sun at liftoff", () => {
-    // sun·localUp > 0 ⇒ above horizon; theater aims mid-afternoon (~0.7)
-    const b = bodyPositions(0);
-    const pad = starbasePadState(0);
-    const sx = b.sun.x - b.earth.x;
-    const sy = b.sun.y - b.earth.y;
-    const sz = b.sun.z - b.earth.z;
-    const sl = Math.hypot(sx, sy, sz) || 1;
-    const elev = (sx * pad.up.x + sy * pad.up.y + sz * pad.up.z) / sl;
-    assert.ok(elev > 0.4, `expected daytime sun elev, got ${elev}`);
-    assert.ok(elev < 0.95, `expected mid-afternoon not zenith, got ${elev}`);
+  it("places Starbase in daytime sun for a mid-afternoon launch epoch", () => {
+    // Launch 2027-07-17 18:00 UTC → ~12:12 CDT solar-ish; landT from July 20 12:00
+    const launchUtc = Date.UTC(2027, 6, 17, 18, 0, 0);
+    const landT = (LANDING_UTC_MS - launchUtc) / 1000;
+    setMissionLandingT(landT);
+    const elev = starbaseSunElev(0);
+    assert.ok(elev > 0.35, `expected daytime sun elev, got ${elev}`);
+    assert.equal(missionUtcMs(0, landT), launchUtc);
+  });
+
+  it("baked pack launches with sun above the Starbase horizon", async () => {
+    const traj = (
+      await import("../data/trajectory.json", { with: { type: "json" } })
+    ).default as { horizonsLandingT?: number };
+    const landT = traj.horizonsLandingT ?? 0;
+    setMissionLandingT(landT);
+    const elev = starbaseSunElev(0);
+    assert.ok(
+      elev > 0.2,
+      `baked launch should be daytime (sun·up=${elev.toFixed(3)})`,
+    );
   });
 
   it("geodeticToMeshLocal places poles on ±Y and equator on the XZ plane", () => {

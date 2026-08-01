@@ -74,7 +74,8 @@ setMissionLandingT(cache.horizonsLandingT);
 const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
 setSunPhase0(sun0);
 console.info(
-  `[tothemoon] Epoch landing 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
+  `[tothemoon] Launch ${formatMissionDateUtc(0, cache.horizonsLandingT)} · ` +
+    `Horizons τ=0 at 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
     (hasHorizonsEpoch()
       ? `ephemeris=${horizonsSource()} · landT=${(cache.horizonsLandingT / 3600).toFixed(1)}h`
       : `sunPhase0=${sun0.toFixed(4)} (analytic)`),
@@ -529,7 +530,7 @@ function applyMissionState(u: number): void {
     fuelShip: frame.fuelShip,
     thrustN: frame.thrustN,
     playing: clock.playing,
-    dateUtc: formatMissionDateUtc(frame.t, cache.durationS),
+    dateUtc: formatMissionDateUtc(frame.t, cache.horizonsLandingT),
     playbackSpeed: clock.speed,
     missionComplete:
       frame.phase === "landed" ||

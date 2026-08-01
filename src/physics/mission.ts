@@ -17,6 +17,7 @@ import {
 } from "./constants";
 import { ensureAscent, getAscent, resetAscentCache } from "./ascentCache";
 import { bodyPositions, setMoonPhase0, setSunPhase0 } from "./bodies";
+import { starbaseSunElev } from "./earthFrame";
 import { sunPhase0ForLanding } from "./epoch";
 import {
   hasHorizonsEpoch,
@@ -451,6 +452,21 @@ export function runMission(): MissionResult {
   /** Lunar altitude at the SOI shell (theater overlay). */
   const SOI_ALT = SOI_MOON_KM - R_MOON;
 
+  /**
+   * Prefer a daytime Starbase liftoff under GMST-locked spin.
+   * Soft: does not override a clearly better perilune; hard: rejects night.
+   */
+  function launchDayPenalty(): number {
+    const elev = starbaseSunElev(0);
+    // Below horizon — strong push toward another epoch
+    if (elev < 0) return 12_000 + (-elev) * 8_000;
+    // Civil twilight band
+    if (elev < 0.2) return 4_000 * ((0.2 - elev) / 0.2);
+    // Low morning/evening sun — mild
+    if (elev < 0.35) return 400 * ((0.35 - elev) / 0.35);
+    return 0;
+  }
+
   function periluneScore(
     alt: number,
     periluneT: number,
@@ -503,7 +519,8 @@ export function runMission(): MissionResult {
     _leoRelTemplate = computeLeoRel();
     const pr = probePerilune(dv);
     return {
-      sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth),
+      sc:
+        periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(),
       alt: pr.minAlt,
       t: pr.periluneT,
       rE: pr.rEarth,

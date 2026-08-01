@@ -4,6 +4,7 @@ import {
   daysPastFullAtLanding,
   formatMissionDateUtc,
   FULL_MOON_UTC_MS,
+  gmstRad,
   LANDING_UTC_MS,
   missionUtcMs,
   moonElongationPastFullRad,
@@ -29,24 +30,35 @@ describe("epoch · July 2027 theater", () => {
     assert.ok(deg > 116 && deg < 119, `L = ${deg}°`);
   });
 
-  it("missionUtcMs maps t=durationS to landing epoch", () => {
-    const durationS = 3 * 86400;
-    assert.equal(missionUtcMs(durationS, durationS), LANDING_UTC_MS);
+  it("missionUtcMs maps landingMissionT to the Horizons landing epoch", () => {
+    const landT = 3 * 86400;
+    assert.equal(missionUtcMs(landT, landT), LANDING_UTC_MS);
     assert.equal(
-      missionUtcMs(0, durationS),
-      LANDING_UTC_MS - durationS * 1000,
+      missionUtcMs(0, landT),
+      LANDING_UTC_MS - landT * 1000,
     );
   });
 
-  it("formatMissionDateUtc lands on 2027-07-20 at mission end", () => {
+  it("formatMissionDateUtc shows landing epoch at τ=0 mission time", () => {
     const label = formatMissionDateUtc(1000, 1000);
     assert.match(label, /^2027-07-20 12:00 UTC$/);
   });
 
   it("formatMissionDateUtc is earlier earlier in the mission", () => {
-    const durationS = 2 * 86400;
-    const mid = formatMissionDateUtc(durationS / 2, durationS);
+    const landT = 2 * 86400;
+    const mid = formatMissionDateUtc(landT / 2, landT);
     // One day before landing → 2027-07-19
     assert.match(mid, /^2027-07-19 /);
+  });
+
+  it("gmstRad is finite; one sidereal day is one full turn (mod 2π)", () => {
+    const a = gmstRad(LANDING_UTC_MS);
+    const b = gmstRad(LANDING_UTC_MS + 86_164.0905 * 1000);
+    assert.ok(Number.isFinite(a) && a >= 0 && a < 2 * Math.PI);
+    const wrap = (x: number) =>
+      ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const d = wrap(b - a);
+    const circ = Math.min(d, 2 * Math.PI - d);
+    assert.ok(circ < 2e-3, `residual ${circ}`);
   });
 });

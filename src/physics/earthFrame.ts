@@ -17,17 +17,12 @@ import {
   STARBASE_LON,
 } from "./constants";
 import { bodyPositions } from "./bodies";
+import { gmstRad, missionUtcMs } from "./epoch";
+import { getMissionLandingT } from "./horizonsEpoch";
 import { cross, normalize, set, type V3, v3 } from "./vec3";
 
 /** Sidereal spin rate (rad/s) — shared with scene Earth rotation. */
 export const EARTH_SPIN_RATE = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
-
-/**
- * Sidereal spin phase at t = 0 (rad).
- * Theater value: places Starbase in mid-afternoon sun at liftoff (sun·up ≈ 0.72,
- * elevation ≈ 46°) so pad/sky read as daytime. Not locked to the wall-clock UTC hour.
- */
-export const EARTH_SPIN0 = 4.61075;
 
 /**
  * Mean Earth north pole in the theater ecliptic frame (J2000).
@@ -42,9 +37,25 @@ export function earthNorthPole(out: V3 = v3()): V3 {
   );
 }
 
-/** Spin angle about the north pole at mission time t (rad). */
+/**
+ * Spin angle about the north pole at mission time t (rad).
+ * Equals GMST at the absolute UTC for this mission clock — mesh lon 0° at
+ * equinox when GMST = 0 (calibrated to ecliptic J2000 + our SphereGeometry UVs).
+ */
 export function earthSpinAngle(t: number): number {
-  return EARTH_SPIN0 + (2 * Math.PI * t) / EARTH_SIDEREAL_DAY_S;
+  const utcMs = missionUtcMs(t, getMissionLandingT());
+  return gmstRad(utcMs);
+}
+
+/** Sun elevation factor at Starbase: sin(el) ≈ sun·localUp (−1…1). */
+export function starbaseSunElev(t: number): number {
+  const b = bodyPositions(t);
+  const pad = starbasePadState(t);
+  const sx = b.sun.x - b.earth.x;
+  const sy = b.sun.y - b.earth.y;
+  const sz = b.sun.z - b.earth.z;
+  const sl = Math.hypot(sx, sy, sz) || 1;
+  return (sx * pad.up.x + sy * pad.up.y + sz * pad.up.z) / sl;
 }
 
 /**

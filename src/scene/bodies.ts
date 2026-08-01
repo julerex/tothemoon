@@ -7,7 +7,7 @@ import {
   R_SUN,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
-import { EARTH_SPIN0, EARTH_SPIN_RATE } from "../physics/earthFrame";
+import { earthSpinAngle } from "../physics/earthFrame";
 import {
   makeEarthCloudTexture,
   makeEarthRoughnessMap,
@@ -453,8 +453,8 @@ export function updateBodies(t: number, bodies: Bodies): void {
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 
   // Mission-time sidereal rotation about the tilted polar axis (local Y).
-  // Same phase as physics/earthFrame (Starbase pad alignment).
-  const spin = EARTH_SPIN0 + t * EARTH_SPIN_RATE;
+  // Same GMST phase as physics/earthFrame (Starbase pad alignment).
+  const spin = earthSpinAngle(t);
   bodies.earth.rotation.y = spin;
   // Clouds drift a little faster than the ground
   bodies.earthClouds.rotation.y = spin * 1.03 + 0.35;
