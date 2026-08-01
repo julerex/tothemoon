@@ -29,6 +29,10 @@ export type StageEvent = {
 export class StagingFx {
   readonly group = new THREE.Group();
   private readonly booster: THREE.Group;
+  /** Detached Super Heavy mesh (grid-fin cam host after stage-out). */
+  get detachedBooster(): THREE.Group {
+    return this.booster;
+  }
   private readonly flash: THREE.Mesh;
   private readonly flashMat: THREE.MeshBasicMaterial;
   private readonly exhaustGlow: THREE.Object3D | null = null;

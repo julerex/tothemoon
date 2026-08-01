@@ -9,6 +9,7 @@ import { craftLengthKm } from "../scene/craft";
  * Focus preset — camera stays free; these only choose what to track.
  * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
  * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
+ * `"gridfin"` is a locked mount on a Super Heavy top grid fin (aft-looking).
  */
 export type CameraMode =
   | "free"
@@ -17,7 +18,8 @@ export type CameraMode =
   | "chase"
   | "moon"
   | "starbase"
-  | "fin";
+  | "fin"
+  | "gridfin";
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
@@ -68,6 +70,8 @@ export class CameraDirector {
   private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
   private craft: THREE.Object3D | null = null;
+  /** Detached Super Heavy (StagingFx); preferred host for grid-fin cam after stage-out. */
+  private detachedBooster: THREE.Object3D | null = null;
   private simTime = 0;
   private readonly finPos = new THREE.Vector3();
   private readonly finLook = new THREE.Vector3();
@@ -123,6 +127,14 @@ export class CameraDirector {
   /** Craft root (for fin-cam attachment). Call once after createCraft. */
   setCraft(craft: THREE.Object3D): void {
     this.craft = craft;
+  }
+
+  /**
+   * Detached Super Heavy free-flyer (StagingFx). Grid-fin cam prefers this
+   * while visible after stage-out; falls back to the stack booster otherwise.
+   */
+  setDetachedBooster(booster: THREE.Object3D | null): void {
+    this.detachedBooster = booster;
   }
 
   /**
@@ -205,7 +217,7 @@ export class CameraDirector {
     const frame = opts?.frame ?? true;
     const frameScale = opts?.frameScale ?? 1;
 
-    if (mode === "fin" || mode === "free" || !frame) {
+    if (mode === "fin" || mode === "gridfin" || mode === "free" || !frame) {
       this.cancelDistanceEase();
       this.applyFocus(mode, frame, frameScale);
       return;
@@ -251,6 +263,14 @@ export class CameraDirector {
       this.controls.enabled = false;
       this.applyClipPlanes();
       this.applyFinCam();
+      return;
+    }
+
+    if (mode === "gridfin") {
+      this.focus = "gridfin";
+      this.controls.enabled = false;
+      this.applyClipPlanes();
+      this.applyGridFinCam();
       return;
     }
 
@@ -327,6 +347,7 @@ export class CameraDirector {
         // Tower ~146 m + stack — frame the pad complex, not the whole Earth
         return this.distanceForRadius(0.12, 0.5);
       case "fin":
+      case "gridfin":
       case "free":
       default:
         return this.getFocusDistance();
@@ -375,7 +396,8 @@ export class CameraDirector {
     this.camera.near =
       this.focus === "chase" ||
       this.focus === "starbase" ||
-      this.focus === "fin"
+      this.focus === "fin" ||
+      this.focus === "gridfin"
         ? 0.0002
         : 0.1;
     this.camera.far = FAR_SOLAR;
@@ -388,6 +410,7 @@ export class CameraDirector {
     switch (mode) {
       case "free":
       case "fin":
+      case "gridfin":
         break;
 
       case "sun":
@@ -438,9 +461,53 @@ export class CameraDirector {
     this.syncOrbitControlsUp();
   }
 
+  /**
+   * Lock camera to a Super Heavy top grid fin, looking aft at the Raptors.
+   * Prefers the detached free-flyer after stage-out when it is visible.
+   */
+  private applyGridFinCam(): void {
+    const host = this.resolveGridFinHost();
+    if (!host) return;
+
+    const mount = host.getObjectByName("grid-fin-cam");
+    const look = host.getObjectByName("grid-fin-cam-look");
+    if (!mount || !look) return;
+
+    // Refresh stack + free-flyer world matrices (director runs before render)
+    this.craft?.updateMatrixWorld(true);
+    this.detachedBooster?.updateMatrixWorld(true);
+    mount.getWorldPosition(this.finPos);
+    look.getWorldPosition(this.finLook);
+    // Booster local +Y = outboard through the +Y grid fin (radial up when upright)
+    this.finUp.set(0, 1, 0).transformDirection(host.matrixWorld);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.copy(ECLIPTIC_NORTH);
+
+    this.camera.position.copy(this.finPos);
+    this.camera.up.copy(this.finUp);
+    this.camera.lookAt(this.finLook);
+    this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
+  }
+
+  /**
+   * Pick the active Super Heavy mesh for the grid-fin mount:
+   * visible free-flyer → stack booster if visible → free-flyer → stack.
+   */
+  private resolveGridFinHost(): THREE.Object3D | null {
+    const detached = this.detachedBooster;
+    if (detached?.visible) return detached;
+
+    const stackBooster = this.craft?.getObjectByName("booster") ?? null;
+    if (stackBooster?.visible) return stackBooster;
+
+    if (detached) return detached;
+    return stackBooster ?? this.craft;
+  }
+
   /** Keep target on the focused body; slide the camera with it. */
   private trackFocus(): void {
-    if (this.focus === "free" || this.focus === "fin") return;
+    if (this.focus === "free" || this.focus === "fin" || this.focus === "gridfin")
+      return;
 
     this.prevTarget.copy(this.controls.target);
     this.computeTarget(this.focus, this.desiredTarget);
@@ -567,9 +634,13 @@ export class CameraDirector {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
 
-    // Fin mount is fully locked to the craft; skip free orbit / pan / zoom.
+    // Fin mounts are fully locked; skip free orbit / pan / zoom.
     if (this.focus === "fin") {
       this.applyFinCam();
+      return;
+    }
+    if (this.focus === "gridfin") {
+      this.applyGridFinCam();
       return;
     }
 

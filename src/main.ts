@@ -157,6 +157,8 @@ const stageEvent = findStageEvent(cache.samples);
 stagingFx.setStageEvent(stageEvent);
 const stageT = stageEvent?.t ?? null;
 scene.add(stagingFx.group);
+// Grid-fin cam follows the free-flyer after stage-out
+director.setDetachedBooster(stagingFx.detachedBooster);
 
 // Landing site + dust
 const landingFx = new LandingFx();

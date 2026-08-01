@@ -337,6 +337,8 @@ export function bindHud(
       handleCameraKey("starbase", "5");
     } else if (e.key === "6") {
       handleCameraKey("fin", "6");
+    } else if (e.key === "7") {
+      handleCameraKey("gridfin", "7");
     } else if (e.key === "q" || e.key === "Q") {
       handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
@@ -469,6 +471,10 @@ export function bindHud(
       detail: "Pad · key 5 · double-tap to frame",
     },
     fin: { title: "Ship fin", detail: "Aft engines · key 6" },
+    gridfin: {
+      title: "Booster grid fin",
+      detail: "Aft engines · key 7",
+    },
   };
 
   /** Double-tap window for number-key frame zoom (ms). */

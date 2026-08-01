@@ -361,6 +361,9 @@ export function createCraft(): {
   const finH = 7.5 * U;
   const finT = 0.35 * U;
   const finZ = BOOST_H - 0.35;
+  // First fin sits at +Y (ang = π/2) — host for the grid-fin cam
+  let gridFinCamAng = Math.PI / 2;
+  let gridFinCamR = R + finH * 0.5;
   for (let i = 0; i < 3; i++) {
     const ang = Math.PI / 2 + (i * 2 * Math.PI) / 3;
     const fin = new THREE.Group();
@@ -398,7 +401,33 @@ export function createCraft(): {
     fin.rotation.z = ang;
     fin.rotation.y = 0.05;
     booster.add(fin);
+
+    if (i === 0) {
+      gridFinCamAng = ang;
+      // Slightly outboard of the plate tip for a clear look down the stack
+      gridFinCamR = attachR + finH * 0.12;
+    }
   }
+
+  // Grid-fin cam: +Y fin tip, looking aft toward the Raptor field (−Z).
+  // Cloned onto the free-flyer in StagingFx so recovery keeps the mount.
+  const gridFinCam = new THREE.Object3D();
+  gridFinCam.name = "grid-fin-cam";
+  gridFinCam.position.set(
+    Math.cos(gridFinCamAng) * gridFinCamR,
+    Math.sin(gridFinCamAng) * gridFinCamR,
+    finZ + finW * 0.12,
+  );
+  booster.add(gridFinCam);
+  const gridFinLook = new THREE.Object3D();
+  gridFinLook.name = "grid-fin-cam-look";
+  // Engine bells at z≈0; slight radial bias so the barrel stays in frame
+  gridFinLook.position.set(
+    Math.cos(gridFinCamAng) * R * 0.25,
+    Math.sin(gridFinCamAng) * R * 0.25,
+    0.04,
+  );
+  booster.add(gridFinLook);
 
   // Aft engine skirt
   const boostSkirt = new THREE.Mesh(
