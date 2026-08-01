@@ -22,8 +22,12 @@ import { cross, normalize, set, type V3, v3 } from "./vec3";
 /** Sidereal spin rate (rad/s) — shared with scene Earth rotation. */
 export const EARTH_SPIN_RATE = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
 
-/** Sidereal spin phase at t = 0 (rad). 0 ⇒ texture lon 0 as defined below. */
-export const EARTH_SPIN0 = 0;
+/**
+ * Sidereal spin phase at t = 0 (rad).
+ * Theater value: places Starbase in mid-afternoon sun at liftoff (sun·up ≈ 0.72,
+ * elevation ≈ 46°) so pad/sky read as daytime. Not locked to the wall-clock UTC hour.
+ */
+export const EARTH_SPIN0 = 4.61075;
 
 /**
  * Mean Earth north pole in the theater ecliptic frame (J2000).

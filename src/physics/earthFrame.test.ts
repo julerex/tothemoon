@@ -8,7 +8,9 @@ import {
   STARBASE_LAT,
   STARBASE_LON,
 } from "./constants.ts";
+import { bodyPositions } from "./bodies.ts";
 import {
+  EARTH_SPIN0,
   earthNorthPole,
   earthSpinAngle,
   geodeticToMeshLocal,
@@ -30,9 +32,22 @@ describe("earthFrame geometry", () => {
   });
 
   it("earthSpinAngle advances one turn per sidereal day", () => {
-    assert.equal(earthSpinAngle(0), 0);
+    assert.equal(earthSpinAngle(0), EARTH_SPIN0);
     const full = earthSpinAngle(EARTH_SIDEREAL_DAY_S);
-    assert.ok(Math.abs(full - 2 * Math.PI) < 1e-9);
+    assert.ok(Math.abs(full - EARTH_SPIN0 - 2 * Math.PI) < 1e-9);
+  });
+
+  it("places Starbase in daytime sun at liftoff", () => {
+    // sun·localUp > 0 ⇒ above horizon; theater aims mid-afternoon (~0.7)
+    const b = bodyPositions(0);
+    const pad = starbasePadState(0);
+    const sx = b.sun.x - b.earth.x;
+    const sy = b.sun.y - b.earth.y;
+    const sz = b.sun.z - b.earth.z;
+    const sl = Math.hypot(sx, sy, sz) || 1;
+    const elev = (sx * pad.up.x + sy * pad.up.y + sz * pad.up.z) / sl;
+    assert.ok(elev > 0.4, `expected daytime sun elev, got ${elev}`);
+    assert.ok(elev < 0.95, `expected mid-afternoon not zenith, got ${elev}`);
   });
 
   it("geodeticToMeshLocal places poles on ±Y and equator on the XZ plane", () => {
