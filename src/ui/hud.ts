@@ -5,6 +5,7 @@ import {
   buildBookmarks,
   type CinematicBookmark,
 } from "../mission/bookmarks";
+import { buildScrubEventTicks } from "../mission/scrubEvents";
 import type {
   MissionEvent,
   MissionTimeline,
@@ -112,6 +113,7 @@ export function bindHud(
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
+  const eventsEl = document.querySelector<HTMLElement>("#scrub-events");
   const bookmarksEl = document.querySelector<HTMLElement>("#bookmarks");
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
@@ -129,6 +131,7 @@ export function bindHud(
   const callout = document.querySelector<HTMLElement>("#callout");
   const calloutTitle = document.querySelector<HTMLElement>("#callout-title");
   const calloutDetail = document.querySelector<HTMLElement>("#callout-detail");
+  const telemetryEl = document.querySelector<HTMLElement>(".telemetry");
   const camToast = document.querySelector<HTMLElement>("#cam-toast");
   const camToastTitle = document.querySelector<HTMLElement>("#cam-toast-title");
   const camToastDetail = document.querySelector<HTMLElement>("#cam-toast-detail");
@@ -144,6 +147,9 @@ export function bindHud(
   const metricsEl = document.querySelector<HTMLElement>("#metrics");
   const metricsClose = document.querySelector<HTMLButtonElement>("#metrics-close");
   const bookmarks = buildBookmarks(timeline);
+  const scrubEventTicks = buildScrubEventTicks(timeline.events);
+  /** Event currently shown in the callout (for click-to-seek). */
+  let activeCalloutEvent: MissionEvent | null = null;
   const mx = {
     phase: document.querySelector<HTMLElement>("#mx-phase"),
     time: document.querySelector<HTMLElement>("#mx-time"),
@@ -264,8 +270,35 @@ export function bindHud(
   if (markersEl) {
     renderPhaseMarkers(markersEl, timeline.segments);
   }
+  if (eventsEl) {
+    renderEventTicks(eventsEl, scrubEventTicks, (ev) => seekToEvent(ev));
+  }
   if (bookmarksEl) {
     renderBookmarks(bookmarksEl, bookmarks, (bm) => jumpToBookmark(bm));
+  }
+
+  function setTelemetryDimmed(dimmed: boolean): void {
+    telemetryEl?.classList.toggle("tel-dimmed", dimmed);
+  }
+
+  function setActiveEventTick(id: string | null): void {
+    if (!eventsEl) return;
+    for (const node of eventsEl.querySelectorAll<HTMLElement>("[data-event]")) {
+      node.classList.toggle("active", node.dataset.event === id);
+    }
+  }
+
+  /**
+   * Seek scrubber to a narrative event, show its callout, and highlight the tick.
+   * Marks the event as fired so playthrough does not re-toast immediately.
+   */
+  function seekToEvent(ev: MissionEvent): void {
+    setActiveBookmark(null);
+    scrub.value = String(Math.round(ev.u * 1000));
+    handlers.onScrub(ev.u);
+    firedEvents.add(ev.id);
+    setActiveEventTick(ev.id);
+    showCallout(ev);
   }
 
   function setActiveBookmark(id: string | null): void {
@@ -299,6 +332,7 @@ export function bindHud(
 
   function jumpToBookmark(bm: CinematicBookmark): void {
     setActiveBookmark(bm.id);
+    setActiveEventTick(null);
     scrub.value = String(Math.round(bm.u * 1000));
     if (handlers.onBookmark) {
       handlers.onBookmark(bm);
@@ -325,6 +359,7 @@ export function bindHud(
   });
   scrub.addEventListener("input", () => {
     setActiveBookmark(null);
+    setActiveEventTick(null);
     handlers.onScrub(Number(scrub.value) / 1000);
   });
 
@@ -495,27 +530,57 @@ export function bindHud(
     });
   }
 
+  function hideCallout(): void {
+    if (!callout) return;
+    callout.hidden = true;
+    callout.classList.remove("callout-out", "callout-in");
+    activeCalloutEvent = null;
+    setTelemetryDimmed(false);
+    setActiveEventTick(null);
+  }
+
   function showCallout(ev: MissionEvent): void {
     if (!callout || !calloutTitle) return;
+    activeCalloutEvent = ev;
     calloutTitle.textContent = ev.title;
     if (calloutDetail) {
       calloutDetail.textContent = ev.detail ?? "";
       calloutDetail.hidden = !ev.detail;
     }
+    callout.title = `Jump to ${ev.title} · ${formatMissionTime(ev.t)}`;
+    callout.setAttribute(
+      "aria-label",
+      `Mission event: ${ev.title}. Activate to jump to ${formatMissionTime(ev.t)}`,
+    );
     callout.hidden = false;
     callout.classList.remove("callout-out");
     // retrigger enter animation
     void callout.offsetWidth;
     callout.classList.add("callout-in");
+    setTelemetryDimmed(true);
+    setActiveEventTick(ev.id);
     if (calloutTimer) clearTimeout(calloutTimer);
     calloutTimer = setTimeout(() => {
       callout.classList.remove("callout-in");
       callout.classList.add("callout-out");
       calloutTimer = setTimeout(() => {
-        callout.hidden = true;
-        callout.classList.remove("callout-out");
+        hideCallout();
       }, 320);
     }, CALLOUT_MS);
+  }
+
+  if (callout) {
+    callout.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!activeCalloutEvent) return;
+      seekToEvent(activeCalloutEvent);
+    });
+    callout.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      if (!activeCalloutEvent) return;
+      seekToEvent(activeCalloutEvent);
+    });
   }
 
   const CAMERA_LABELS: Record<
@@ -858,6 +923,42 @@ function renderPhaseMarkers(
     });
 
     root.appendChild(mark);
+  }
+}
+
+/** Subtle event ticks under the scrubber range (click → seek + callout). */
+function renderEventTicks(
+  root: HTMLElement,
+  ticks: ReturnType<typeof buildScrubEventTicks>,
+  onSeek: (ev: MissionEvent) => void,
+): void {
+  root.replaceChildren();
+  for (const tick of ticks) {
+    const ev = tick.event;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = tick.secondary
+      ? "scrub-event scrub-event-secondary"
+      : "scrub-event";
+    btn.dataset.event = ev.id;
+    btn.style.left = `${(ev.u * 100).toFixed(3)}%`;
+    btn.title = `${ev.title}${ev.detail ? ` · ${ev.detail}` : ""} · ${formatMissionTime(ev.t)}`;
+    btn.setAttribute(
+      "aria-label",
+      `Jump to ${ev.title} at ${formatMissionTime(ev.t)}`,
+    );
+
+    const dot = document.createElement("span");
+    dot.className = "scrub-event-tick";
+    btn.appendChild(dot);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onSeek(ev);
+    });
+
+    root.appendChild(btn);
   }
 }
 

@@ -214,6 +214,12 @@ body {
   font-size: 0.78rem;
   line-height: 1.55;
   min-width: 13rem;
+  transition: opacity 0.35s ease;
+}
+
+/* Soften telemetry while a callout holds focus */
+.telemetry.tel-dimmed {
+  opacity: 0.38;
 }
 
 .telemetry .label {
@@ -413,6 +419,7 @@ select {
   min-width: 0;
   width: 100%;
   padding-top: 1.05rem;
+  padding-bottom: 0.55rem;
 }
 
 #scrub {
@@ -427,6 +434,65 @@ select {
   top: 0;
   height: 1rem;
   pointer-events: none;
+}
+
+/* Narrative event ticks under the range (callout beats) */
+.scrub-events {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.5rem;
+  pointer-events: none;
+}
+
+.scrub-event {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 10px;
+  height: 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1;
+}
+
+.scrub-event-tick {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(180, 200, 230, 0.4);
+  box-shadow: 0 0 0 1px rgba(8, 12, 22, 0.55);
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.scrub-event:hover .scrub-event-tick,
+.scrub-event:focus-visible .scrub-event-tick {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(126, 200, 255, 0.55);
+  transform: scale(1.25);
+}
+
+.scrub-event.active .scrub-event-tick {
+  background: #9ed0ff;
+  box-shadow: 0 0 8px rgba(126, 200, 255, 0.7);
+}
+
+/* Mid-phase theater beats (staging, dogleg, RTLS) — slightly taller ticks */
+.scrub-event-secondary .scrub-event-tick {
+  width: 4px;
+  height: 7px;
+  border-radius: 1px;
+  background: rgba(200, 170, 120, 0.5);
 }
 
 .scrub-mark {
@@ -486,7 +552,7 @@ input[type="range"] {
   margin: 0;
 }
 
-/* Event callout toast */
+/* Event callout toast (clickable → re-seek that beat) */
 .callout {
   pointer-events: none;
   position: absolute;
@@ -505,6 +571,30 @@ input[type="range"] {
   -webkit-backdrop-filter: blur(14px);
   z-index: 5;
   opacity: 0;
+}
+
+.callout.callout-seekable:not([hidden]) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.callout.callout-seekable:hover,
+.callout.callout-seekable:focus-visible {
+  border-color: rgba(160, 210, 255, 0.55);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(126, 200, 255, 0.2);
+}
+
+.callout-hint {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(160, 200, 255, 0.55);
+}
+
+.callout.callout-seekable:hover .callout-hint,
+.callout.callout-seekable:focus-visible .callout-hint {
+  color: var(--accent);
 }
 
 /* Camera mode switch toast (keys 1–6 / free pan) */

@@ -19,9 +19,10 @@ The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters)
 
 ## Features
 
-- Play / pause, **Auto** speed by phase (or fixed up to 2000×), mission scrubber with phase marks
+- Play / pause, **Auto** speed by phase (or fixed up to 2000×), mission scrubber with phase marks + **event ticks**
 - **Cinematic bookmarks** (Pad · Stage · TLI · Half · LOI · Land) — seek + camera; **Shift+1…**
-- Event callouts (liftoff, staging, TLI, LOI, touchdown) + mission-complete card
+- Event callouts (liftoff, staging, TLI, LOI, touchdown) — click callout or tick to seek; telemetry dims during toast
+- Mission-complete card
 - Cameras: **Auto-cam** by phase (toggle **C**) · Free orbit · Earth · Ship chase · Moon · Solar · Starbase · Ship fin (**6**) · Booster grid fin (**7**)
 - HUD: phase, mission time, distance, altitude, speed, fuel bars + thrust
 - Logarithmic depth buffer for near craft + far Moon

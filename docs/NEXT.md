@@ -55,11 +55,12 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 - `CameraDirector.easeToMode` eases orbit radius; does not fight Free orbit mid-drag.
 - Pure map: `src/camera/autoCam.ts` (+ unit tests).
 
-### 2. Callout ↔ scrubber coupling
+### 2. Callout ↔ scrubber coupling — **done**
 
-- Scrubber ticks for **events** (not only phases), or a subtle event tick under the phase mark.
-- Clicking a callout title (or an events list) seeks to that mission time.
-- Optional: dim telemetry during callout so the toast is the focus.
+- Subtle **event ticks** under the scrubber (phase marks stay above); secondary beats (staging, dogleg, RTLS) use a taller tick.
+- Click a tick → seek + show callout; click the callout (or Enter/Space) → re-seek that beat.
+- Telemetry dims while a callout is visible (`tel-dimmed`).
+- Pure helper: `src/mission/scrubEvents.ts` (+ unit tests).
 
 ### 3. Booster fallaway readability
 
@@ -172,12 +173,13 @@ A practical order for the next few sessions:
 
 1. ~~**Auto-cam by phase** (P0.1) + manual override~~ **done**  
 2. ~~**Cinematic bookmarks** (P1.5)~~ **done**  
-3. **Callout ↔ scrubber coupling** (P0.2) or **landing beat** (P0.4) — recommended next  
-4. **Persist mission stats in precompute pack** (P2.11)  
-5. **Split mission physics modules** (P3.12) with golden tests  
-6. **LOI / coast visual corridor** (P2.8) — optional visual track  
+3. ~~**Callout ↔ scrubber coupling** (P0.2)~~ **done**  
+4. **Landing beat** (P0.4) or **booster fallaway locator** (P0.3) — recommended next  
+5. **Persist mission stats in precompute pack** (P2.11)  
+6. **Split mission physics modules** (P3.12) with golden tests  
+7. **LOI / coast visual corridor** (P2.8) — optional visual track  
 
-Stop and reassess after one more P0 polish item; watchability gains compound more than deep physics until the theater is effortless to follow.
+Watchability track is in good shape; pick a remaining P0 polish or shift to pack metadata / architecture.
 
 ---
 
@@ -215,3 +217,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-07-28 | ESLint + expanded unit tests (clock, epoch, earthFrame, capture, synthetic invariants) + JSDoc on pure modules |
 | 2026-07-29 | Auto-cam by phase (P0.1): guided framing, C / button toggle, ease distance, unit tests |
 | 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·TLI·Half·LOI·Land buttons + Shift+1…, pure builder + tests |
+| 2026-08-02 | Callout ↔ scrubber (P0.2): event ticks, click callout to seek, dim telemetry |

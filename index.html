@@ -69,6 +69,12 @@
                   step="1"
                   aria-label="Mission progress"
                 />
+                <div
+                  class="scrub-events"
+                  id="scrub-events"
+                  role="group"
+                  aria-label="Mission event markers"
+                ></div>
               </div>
             </div>
             <div
@@ -106,13 +112,16 @@
 
         <div
           id="callout"
-          class="callout hud-chrome"
-          role="status"
+          class="callout hud-chrome callout-seekable"
+          role="button"
+          tabindex="0"
           aria-live="polite"
+          title="Click to jump to this event"
           hidden
         >
           <div class="callout-title" id="callout-title"></div>
           <div class="callout-detail" id="callout-detail"></div>
+          <div class="callout-hint" id="callout-hint">Jump to event</div>
         </div>
 
         <div
@@ -207,7 +216,9 @@
                   <div><dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Slower / reverse · faster / forward</dd></div>
                   <div><dt>Speed menu</dt><dd>Playback rate (negative = reverse)</dd></div>
                   <div><dt>Scrubber</dt><dd>Seek mission time</dd></div>
-                  <div><dt>Phase marks</dt><dd>Click to jump</dd></div>
+                  <div><dt>Phase marks</dt><dd>Click to jump to phase start</dd></div>
+                  <div><dt>Event ticks</dt><dd>Small marks under scrubber · click for callout</dd></div>
+                  <div><dt>Callout</dt><dd>Click title to re-seek that beat</dd></div>
                   <div><dt>Bookmarks</dt><dd>Pad · Stage · TLI · Half · LOI · Land</dd></div>
                   <div><dt><kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd></dt><dd>Jump to bookmark + camera</dd></div>
                 </dl>
