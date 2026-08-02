@@ -109,10 +109,10 @@ body {
 
 .transport {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.65rem 0.9rem;
-  padding: 0.55rem 1.1rem 0.55rem;
+  gap: 0.45rem 0.9rem;
+  padding: 0.55rem 1.1rem 0.45rem;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -122,6 +122,46 @@ body {
   border-right: none;
   border-bottom: 1px solid var(--panel-border);
   pointer-events: auto;
+}
+
+/* Cinematic bookmarks — full-width row under play / speed / scrubber */
+.bookmarks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.35rem;
+  flex: 1 1 100%;
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
+.bookmarks[hidden] {
+  display: none;
+}
+
+.bookmark-btn {
+  font-size: 0.72rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: rgba(24, 36, 56, 0.9);
+  color: var(--muted);
+}
+
+.bookmark-btn:hover {
+  color: var(--text);
+  background: var(--btn-hover);
+}
+
+.bookmark-btn:focus-visible {
+  color: var(--text);
+}
+
+.bookmark-btn.active {
+  color: var(--text);
+  background: var(--btn-active);
+  border-color: rgba(160, 210, 255, 0.45);
 }
 
 /* One row: keyboard hints left, copyright + source right */
@@ -166,8 +206,8 @@ body {
 
 .telemetry {
   position: absolute;
-  /* Sit above the full-width bottom bar (transport + footer row) */
-  bottom: 6.25rem;
+  /* Sit above the full-width bottom bar (transport + bookmarks + footer) */
+  bottom: 7.5rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -782,7 +822,7 @@ kbd {
 
 @media (max-width: 640px) {
   .telemetry {
-    bottom: 7.25rem;
+    bottom: 8.5rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
@@ -796,6 +836,15 @@ kbd {
   .scrubber {
     flex: 1 1 100%;
     order: 3;
+  }
+
+  .bookmarks {
+    order: 4;
+  }
+
+  .bookmark-btn {
+    font-size: 0.68rem;
+    padding: 0.24rem 0.45rem;
   }
 
   .scrub-lab {

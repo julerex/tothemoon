@@ -1,5 +1,10 @@
 import type { MissionClock } from "../mission/clock";
 import type { CameraMode } from "../camera/modes";
+import {
+  bookmarkForShiftDigit,
+  buildBookmarks,
+  type CinematicBookmark,
+} from "../mission/bookmarks";
 import type {
   MissionEvent,
   MissionTimeline,
@@ -43,6 +48,11 @@ export type HudHandlers = {
    * Default on; manual camera picks and mouse orbit turn it off.
    */
   onAutoCamToggle?: () => boolean;
+  /**
+   * Cinematic bookmark: seek + guided camera. Does not count as a manual
+   * focus pick (Auto-cam stays on).
+   */
+  onBookmark?: (bookmark: CinematicBookmark) => void;
 };
 
 export type Telemetry = {
@@ -102,6 +112,7 @@ export function bindHud(
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
+  const bookmarksEl = document.querySelector<HTMLElement>("#bookmarks");
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
   const dateEl = document.querySelector<HTMLElement>("#date");
@@ -132,6 +143,7 @@ export function bindHud(
   const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
   const metricsEl = document.querySelector<HTMLElement>("#metrics");
   const metricsClose = document.querySelector<HTMLButtonElement>("#metrics-close");
+  const bookmarks = buildBookmarks(timeline);
   const mx = {
     phase: document.querySelector<HTMLElement>("#mx-phase"),
     time: document.querySelector<HTMLElement>("#mx-time"),
@@ -252,6 +264,49 @@ export function bindHud(
   if (markersEl) {
     renderPhaseMarkers(markersEl, timeline.segments);
   }
+  if (bookmarksEl) {
+    renderBookmarks(bookmarksEl, bookmarks, (bm) => jumpToBookmark(bm));
+  }
+
+  function setActiveBookmark(id: string | null): void {
+    if (!bookmarksEl) return;
+    for (const node of bookmarksEl.querySelectorAll<HTMLElement>("[data-bookmark]")) {
+      node.classList.toggle("active", node.dataset.bookmark === id);
+    }
+  }
+
+  function showBookmarkToast(bm: CinematicBookmark): void {
+    if (!camToast || !camToastTitle) return;
+    camToastTitle.textContent = `Bookmark · ${bm.label}`;
+    if (camToastDetail) {
+      camToastDetail.textContent = `${formatMissionTime(bm.t)} · seek + camera`;
+      camToastDetail.hidden = false;
+    }
+    camToast.hidden = false;
+    camToast.classList.remove("cam-toast-out");
+    void camToast.offsetWidth;
+    camToast.classList.add("cam-toast-in");
+    if (camToastTimer) clearTimeout(camToastTimer);
+    camToastTimer = setTimeout(() => {
+      camToast.classList.remove("cam-toast-in");
+      camToast.classList.add("cam-toast-out");
+      camToastTimer = setTimeout(() => {
+        camToast.hidden = true;
+        camToast.classList.remove("cam-toast-out");
+      }, 300);
+    }, CAM_TOAST_MS);
+  }
+
+  function jumpToBookmark(bm: CinematicBookmark): void {
+    setActiveBookmark(bm.id);
+    scrub.value = String(Math.round(bm.u * 1000));
+    if (handlers.onBookmark) {
+      handlers.onBookmark(bm);
+    } else {
+      handlers.onScrub(bm.u);
+    }
+    showBookmarkToast(bm);
+  }
 
   btnPlay.addEventListener("click", () => handlers.onPlayToggle());
   if (btnAutoCam) {
@@ -269,6 +324,7 @@ export function bindHud(
     scrubbing = false;
   });
   scrub.addEventListener("input", () => {
+    setActiveBookmark(null);
     handlers.onScrub(Number(scrub.value) / 1000);
   });
 
@@ -325,6 +381,14 @@ export function bindHud(
     if (e.code === "Space") {
       e.preventDefault();
       handlers.onPlayToggle();
+    } else if (e.shiftKey && e.code.startsWith("Digit")) {
+      // Shift+1… — use e.code (Shift+1 is "!" on many layouts, not "1")
+      const digit = Number(e.code.slice("Digit".length));
+      const bm = bookmarkForShiftDigit(bookmarks, digit);
+      if (bm) {
+        e.preventDefault();
+        jumpToBookmark(bm);
+      }
     } else if (e.key === "1") {
       handleCameraKey("sun", "1");
     } else if (e.key === "2") {
@@ -795,6 +859,41 @@ function renderPhaseMarkers(
 
     root.appendChild(mark);
   }
+}
+
+/** Compact seek+camera buttons under the scrubber (Pad · Stage · TLI · …). */
+function renderBookmarks(
+  root: HTMLElement,
+  bookmarks: CinematicBookmark[],
+  onJump: (bm: CinematicBookmark) => void,
+): void {
+  root.replaceChildren();
+  if (bookmarks.length === 0) {
+    root.hidden = true;
+    return;
+  }
+  root.hidden = false;
+
+  bookmarks.forEach((bm, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bookmark-btn";
+    btn.dataset.bookmark = bm.id;
+    btn.textContent = bm.shortLabel;
+    const keyHint = i < 9 ? `Shift+${i + 1}` : "";
+    btn.title = keyHint
+      ? `${bm.label} · ${formatMissionTime(bm.t)} · ${keyHint}`
+      : `${bm.label} · ${formatMissionTime(bm.t)}`;
+    btn.setAttribute(
+      "aria-label",
+      `Bookmark ${bm.label} at ${formatMissionTime(bm.t)}`,
+    );
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      onJump(bm);
+    });
+    root.appendChild(btn);
+  });
 }
 
 function formatRate(speed: number): string {

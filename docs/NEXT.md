@@ -75,9 +75,9 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 ## P1 — Camera & storytelling
 
-### 5. Cinematic bookmarks
+### 5. Cinematic bookmarks — **done**
 
-Preset jumps (buttons or keys): **Pad**, **Staging**, **TLI**, **Halfway**, **LOI**, **Touchdown** — seek + set camera mode in one action. Build from `timeline.events` / phase segments so bookmarks stay aligned with the baked trajectory.
+Preset jumps (buttons + **Shift+1…**): **Pad**, **Staging**, **TLI**, **Halfway**, **LOI**, **Touchdown** (or **Impact**). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
 
 ### 6. Chase camera quality
 
@@ -171,13 +171,13 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 A practical order for the next few sessions:
 
 1. ~~**Auto-cam by phase** (P0.1) + manual override~~ **done**  
-2. **Cinematic bookmarks** (P1.5) — recommended next  
-3. **Callout ↔ scrubber coupling** (P0.2) or **landing beat** (P0.4)  
+2. ~~**Cinematic bookmarks** (P1.5)~~ **done**  
+3. **Callout ↔ scrubber coupling** (P0.2) or **landing beat** (P0.4) — recommended next  
 4. **Persist mission stats in precompute pack** (P2.11)  
 5. **Split mission physics modules** (P3.12) with golden tests  
-6. **LOI / coast visual corridor** (P2.8) or **booster recovery silhouette** (P2.9) — pick one visual track  
+6. **LOI / coast visual corridor** (P2.8) — optional visual track  
 
-Stop and reassess after bookmarks + one more P0 polish item; watchability gains compound more than deep physics until the theater is effortless to follow.
+Stop and reassess after one more P0 polish item; watchability gains compound more than deep physics until the theater is effortless to follow.
 
 ---
 
@@ -214,3 +214,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-07-21 | Initial plan after mission UX, hygiene, staging/landing/pad theater |
 | 2026-07-28 | ESLint + expanded unit tests (clock, epoch, earthFrame, capture, synthetic invariants) + JSDoc on pure modules |
 | 2026-07-29 | Auto-cam by phase (P0.1): guided framing, C / button toggle, ease distance, unit tests |
+| 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·TLI·Half·LOI·Land buttons + Shift+1…, pure builder + tests |

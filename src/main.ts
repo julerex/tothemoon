@@ -46,6 +46,7 @@ import { toggleZoomLabels, updateZoomLabels } from "./scene/zoomLabels";
 import { createVectorArrows } from "./scene/vectorArrows";
 import { nextAutoCamCut } from "./camera/autoCam";
 import { CameraDirector, type CameraMode } from "./camera/modes";
+import type { CinematicBookmark } from "./mission/bookmarks";
 import { buildTimeline } from "./mission/timeline";
 import type { PhaseId } from "./physics/missionTypes";
 import { bindHud } from "./ui/hud";
@@ -277,6 +278,20 @@ const hud = bindHud(clock, timeline, {
       autoCam.phase = null;
     }
     return autoCam.enabled;
+  },
+  /**
+   * Seek + ease camera without turning Auto-cam off. Sync phase/staged so the
+   * next tick does not immediately re-cut on the same beat.
+   */
+  onBookmark: (bm: CinematicBookmark) => {
+    clock.seek(bm.u);
+    const frame = cache.sampleAtProgress(bm.u);
+    autoCam.phase = frame.phase;
+    autoCam.staged = frame.staged;
+    director.easeToMode(bm.mode, {
+      frame: bm.frame,
+      frameScale: bm.frameScale,
+    });
   },
 });
 setAutoCamUi = hud.setAutoCamEnabled;
