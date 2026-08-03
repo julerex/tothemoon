@@ -868,6 +868,65 @@ kbd {
   letter-spacing: 0.02em;
 }
 
+/* Ascent / RTLS cross-section (V) — black & white diagram */
+
+.cross-section-card {
+  width: min(56rem, 100%);
+  max-height: min(94vh, 48rem);
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.cross-section-header h2 {
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.cross-section-card .keymap-close {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.cross-section-card .keymap-close:hover,
+.cross-section-card .keymap-close:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cross-section-sub {
+  margin: 0;
+  padding: 0.4rem 0.95rem 0.55rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.cross-section-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 0.35rem 0.5rem;
+  background: #000;
+}
+
+#cross-section-canvas {
+  display: block;
+  width: 100%;
+  height: min(58vh, 28rem);
+  background: #000;
+}
+
+.cross-section-card .metrics-foot {
+  color: rgba(255, 255, 255, 0.5);
+  border-top-color: rgba(255, 255, 255, 0.15);
+}
+
+#btn-cross-section[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
 /* Copyright + source: right side of the footer row */
 .corner-meta {
   display: flex;

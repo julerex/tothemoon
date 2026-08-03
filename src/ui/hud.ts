@@ -12,6 +12,7 @@ import type {
   PhaseSegment,
 } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
+import type { Sample } from "../physics/missionTypes";
 import {
   BOOSTER_DRY_KG,
   BOOSTER_PROP_KG,
@@ -20,6 +21,13 @@ import {
   SHIP_DRY_KG,
   SHIP_PROP_KG,
 } from "../physics/constants";
+import { buildBoosterKeyframes } from "../physics/boosterRecovery";
+import {
+  buildCrossSectionModel,
+  drawCrossSection,
+  liveCrossSection,
+  stageStateFromSamples,
+} from "./crossSection";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
@@ -99,6 +107,8 @@ export function bindHud(
   _clock: MissionClock,
   timeline: MissionTimeline,
   handlers: HudHandlers,
+  /** Baked samples for live cross-section (optional; empty disables diagram data). */
+  samples: Sample[] = [],
 ): {
   update: (tel: Telemetry) => void;
   /** Sync Auto-cam button when main disables (manual camera / mouse). */
@@ -110,6 +120,9 @@ export function bindHud(
 } {
   const btnPlay = el<HTMLButtonElement>("#btn-play");
   const btnAutoCam = document.querySelector<HTMLButtonElement>("#btn-auto-cam");
+  const btnCrossSection = document.querySelector<HTMLButtonElement>(
+    "#btn-cross-section",
+  );
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
@@ -146,6 +159,21 @@ export function bindHud(
   const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
   const metricsEl = document.querySelector<HTMLElement>("#metrics");
   const metricsClose = document.querySelector<HTMLButtonElement>("#metrics-close");
+  const crossSectionEl = document.querySelector<HTMLElement>("#cross-section");
+  const crossSectionClose = document.querySelector<HTMLButtonElement>(
+    "#cross-section-close",
+  );
+  const crossSectionCanvas = document.querySelector<HTMLCanvasElement>(
+    "#cross-section-canvas",
+  );
+  const crossSectionCtx = crossSectionCanvas?.getContext("2d") ?? null;
+  const stageState = stageStateFromSamples(samples);
+  const crossModel =
+    samples.length > 0
+      ? buildCrossSectionModel(samples, stageState)
+      : null;
+  const boosterKeyframes =
+    stageState != null ? buildBoosterKeyframes(stageState) : null;
   const bookmarks = buildBookmarks(timeline);
   const scrubEventTicks = buildScrubEventTicks(timeline.events);
   /** Event currently shown in the callout (for click-to-seek). */
@@ -187,6 +215,7 @@ export function bindHud(
   let completeShown = false;
   let keymapOpen = false;
   let metricsOpen = false;
+  let crossSectionOpen = false;
   let hudVisible = true;
   let lastCamMode: CameraMode = "earth";
   /** UI mirror of Auto-cam; main is source of truth via setAutoCamEnabled. */
@@ -250,7 +279,10 @@ export function bindHud(
   function setKeymapOpen(open: boolean): void {
     keymapOpen = open;
     if (keymapEl) keymapEl.hidden = !open;
-    if (open) setMetricsOpen(false);
+    if (open) {
+      setMetricsOpen(false);
+      setCrossSectionOpen(false);
+    }
   }
 
   function toggleKeymap(): void {
@@ -260,11 +292,61 @@ export function bindHud(
   function setMetricsOpen(open: boolean): void {
     metricsOpen = open;
     if (metricsEl) metricsEl.hidden = !open;
-    if (open) setKeymapOpen(false);
+    if (open) {
+      setKeymapOpen(false);
+      setCrossSectionOpen(false);
+    }
   }
 
   function toggleMetrics(): void {
     setMetricsOpen(!metricsOpen);
+  }
+
+  function setCrossSectionOpen(open: boolean): void {
+    crossSectionOpen = open;
+    if (crossSectionEl) crossSectionEl.hidden = !open;
+    if (btnCrossSection) {
+      btnCrossSection.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+    if (open) {
+      setKeymapOpen(false);
+      setMetricsOpen(false);
+    }
+  }
+
+  function toggleCrossSection(): void {
+    setCrossSectionOpen(!crossSectionOpen);
+  }
+
+  function redrawCrossSection(missionT: number): void {
+    if (
+      !crossSectionOpen ||
+      !crossSectionCtx ||
+      !crossSectionCanvas ||
+      !crossModel
+    ) {
+      return;
+    }
+    const rect = crossSectionCanvas.getBoundingClientRect();
+    const cssW = Math.max(rect.width, 320);
+    const cssH = Math.max(rect.height, 200);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const live = liveCrossSection(
+      crossModel,
+      samples,
+      stageState,
+      missionT,
+      boosterKeyframes,
+    );
+    drawCrossSection(
+      crossSectionCtx,
+      crossModel,
+      live,
+      missionT,
+      cssW,
+      cssH,
+      dpr,
+    );
   }
 
   if (markersEl) {
@@ -347,6 +429,9 @@ export function bindHud(
     btnAutoCam.addEventListener("click", () => toggleAutoCam());
     setAutoCamEnabled(true);
   }
+  if (btnCrossSection) {
+    btnCrossSection.addEventListener("click", () => toggleCrossSection());
+  }
   speed.addEventListener("change", () => {
     handlers.onSpeedMode(parseSpeedMode(speed.value));
   });
@@ -380,6 +465,14 @@ export function bindHud(
       if (ev.target === metricsEl) setMetricsOpen(false);
     });
   }
+  if (crossSectionClose) {
+    crossSectionClose.addEventListener("click", () => setCrossSectionOpen(false));
+  }
+  if (crossSectionEl) {
+    crossSectionEl.addEventListener("click", (ev) => {
+      if (ev.target === crossSectionEl) setCrossSectionOpen(false);
+    });
+  }
 
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
@@ -407,9 +500,18 @@ export function bindHud(
       toggleMetrics();
       return;
     }
-    if (e.key === "Escape" && (keymapOpen || metricsOpen)) {
+    if (e.key === "v" || e.key === "V") {
       e.preventDefault();
-      if (metricsOpen) setMetricsOpen(false);
+      toggleCrossSection();
+      return;
+    }
+    if (
+      e.key === "Escape" &&
+      (keymapOpen || metricsOpen || crossSectionOpen)
+    ) {
+      e.preventDefault();
+      if (crossSectionOpen) setCrossSectionOpen(false);
+      else if (metricsOpen) setMetricsOpen(false);
       else setKeymapOpen(false);
       return;
     }
@@ -790,6 +892,7 @@ export function bindHud(
     maybeFireEvents(tel.t, tel.playing);
 
     if (metricsOpen) updateMetrics(tel);
+    if (crossSectionOpen) redrawCrossSection(tel.t);
   }
 
   function updateMetrics(tel: Telemetry): void {

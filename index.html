@@ -33,6 +33,14 @@
             >
               Auto-cam
             </button>
+            <button
+              type="button"
+              id="btn-cross-section"
+              aria-pressed="false"
+              title="Ascent / RTLS cross-section (V)"
+            >
+              Cross-section
+            </button>
             <label class="speed">
               Speed
               <select id="speed" aria-label="Playback speed">
@@ -89,6 +97,8 @@
               <span><kbd>K</kbd> keymap</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>M</kbd> metrics</span>
+              <span class="footer-sep" aria-hidden="true">·</span>
+              <span><kbd>V</kbd> cross-section</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>H</kbd> hide HUD</span>
               <span class="footer-sep" aria-hidden="true">·</span>
@@ -264,6 +274,7 @@
                   <div><dt>Hover arrow</dt><dd>Show v or a value</dd></div>
                   <div><dt><kbd>K</kbd></dt><dd>This keymap</dd></div>
                   <div><dt><kbd>M</kbd></dt><dd>Mission metrics</dd></div>
+                  <div><dt><kbd>V</kbd></dt><dd>Ascent / RTLS cross-section</dd></div>
                   <div><dt><kbd>Esc</kbd></dt><dd>Close overlay</dd></div>
                 </dl>
               </section>
@@ -345,6 +356,45 @@
               </section>
             </div>
             <p class="metrics-foot">Live at scrubber time · <kbd>M</kbd> / <kbd>Esc</kbd> close</p>
+          </div>
+        </div>
+
+        <div
+          id="cross-section"
+          class="keymap cross-section"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cross-section-title"
+        >
+          <div class="keymap-card panel cross-section-card">
+            <header class="keymap-header cross-section-header">
+              <h2 id="cross-section-title">Ascent · RTLS cross-section</h2>
+              <button
+                type="button"
+                id="cross-section-close"
+                class="keymap-close"
+                title="Close (V or Esc)"
+                aria-label="Close cross-section"
+              >
+                ×
+              </button>
+            </header>
+            <p class="cross-section-sub">
+              True scale · launch plane · Earth surface &amp; 120&nbsp;km atmosphere ·
+              booster liftoff → chopsticks · time keeps running
+            </p>
+            <div class="cross-section-canvas-wrap">
+              <canvas
+                id="cross-section-canvas"
+                width="960"
+                height="540"
+                aria-label="Earth atmosphere cross-section diagram"
+              ></canvas>
+            </div>
+            <p class="metrics-foot">
+              Live at scrubber time · <kbd>V</kbd> / <kbd>Esc</kbd> close · play continues
+            </p>
           </div>
         </div>
 

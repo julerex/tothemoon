@@ -293,7 +293,7 @@ const hud = bindHud(clock, timeline, {
       frameScale: bm.frameScale,
     });
   },
-});
+}, cache.samples);
 setAutoCamUi = hud.setAutoCamEnabled;
 notifyAutoCamera = hud.notifyAutoCamera;
 
