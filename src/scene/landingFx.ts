@@ -1,10 +1,17 @@
 import * as THREE from "three";
+import {
+  LANDING_SITE_DETAIL,
+  LANDING_SITE_LABEL,
+} from "../mission/landingBeat";
 import { R_MOON } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import { createNameLabel } from "./zoomLabels";
 
 /**
  * Landing site beacon + soft dust puff for powered descent / touchdown.
  * Positions are deterministic from mission time and the final land state.
+ *
+ * Site plate uses the theater selenographic name (Malapert Massif / south pole).
  */
 export class LandingFx {
   readonly group = new THREE.Group();
@@ -60,6 +67,17 @@ export class LandingFx {
     disc.rotation.x = -Math.PI / 2;
     disc.position.y = 0.05;
     this.site.add(disc);
+
+    // Theater site name (L-toggle zoom labels; south-pole / Malapert)
+    const siteLabel = createNameLabel(LANDING_SITE_LABEL, "#ffaa77", {
+      targetPx: 15,
+      aspect: 256 / 64,
+      minH: 0.6,
+    });
+    siteLabel.name = "landing-site-label";
+    siteLabel.position.set(0, 10, 0); // local +Y = surface radial after orient
+    siteLabel.userData.detail = LANDING_SITE_DETAIL;
+    this.site.add(siteLabel);
 
     this.group.add(this.site);
 

@@ -5,6 +5,10 @@ import {
   buildBookmarks,
   type CinematicBookmark,
 } from "../mission/bookmarks";
+import {
+  landingBeatCompleteSubtitle,
+  type LandingBeatKind,
+} from "../mission/landingBeat";
 import { buildScrubEventTicks } from "../mission/scrubEvents";
 import type {
   MissionEvent,
@@ -82,8 +86,10 @@ export type Telemetry = {
   dateUtc: string;
   /** Effective playback speed currently applied to the clock */
   playbackSpeed: number;
-  /** True once the craft has landed */
+  /** True once the craft has landed (and landing-beat hold has elapsed) */
   missionComplete: boolean;
+  /** Terminal beat kind for complete-card copy (landed / impact / flyby) */
+  completeKind?: LandingBeatKind | null;
   /** TLI Δv (km/s) for mission-complete stats */
   tliDv: number;
   /** Minimum lunar altitude during approach/capture (km) */
@@ -149,6 +155,7 @@ export function bindHud(
   const camToastTitle = document.querySelector<HTMLElement>("#cam-toast-title");
   const camToastDetail = document.querySelector<HTMLElement>("#cam-toast-detail");
   const completeEl = document.querySelector<HTMLElement>("#mission-complete");
+  const mcSub = document.querySelector<HTMLElement>(".mc-sub");
   const mcDuration = document.querySelector<HTMLElement>("#mc-duration");
   const mcTli = document.querySelector<HTMLElement>("#mc-tlidv");
   const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
@@ -846,11 +853,14 @@ export function bindHud(
     btnPlay.textContent = tel.playing ? "Pause" : "Play";
     btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
 
-    // Mission complete panel
+    // Mission complete panel (main delays this until landing-beat hold elapses)
     if (completeEl) {
       if (tel.missionComplete) {
         if (!completeShown) {
           completeShown = true;
+          if (mcSub) {
+            mcSub.textContent = landingBeatCompleteSubtitle(tel.completeKind);
+          }
           if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
           if (mcTli) mcTli.textContent = `${tel.tliDv.toFixed(3)} km/s`;
           if (mcMinAlt) {

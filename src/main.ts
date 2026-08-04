@@ -47,6 +47,12 @@ import { createVectorArrows } from "./scene/vectorArrows";
 import { nextAutoCamCut } from "./camera/autoCam";
 import { CameraDirector, type CameraMode } from "./camera/modes";
 import type { CinematicBookmark } from "./mission/bookmarks";
+import {
+  classifyLandingBeat,
+  landingBeatCameraMode,
+  landingBeatCardReady,
+  type LandingBeatKind,
+} from "./mission/landingBeat";
 import { buildTimeline } from "./mission/timeline";
 import type { PhaseId } from "./physics/missionTypes";
 import { bindHud } from "./ui/hud";
@@ -227,6 +233,20 @@ const autoCam = {
   enabled: true,
   phase: null as PhaseId | null,
   staged: false,
+};
+
+/**
+ * Terminal landing beat: on rising mission-complete while playing, settle
+ * camera, pin speed to 1×, and delay the complete card for a few wall-clock s.
+ * Scrub-to-end shows the card immediately.
+ */
+const landingBeat = {
+  kind: null as LandingBeatKind | null,
+  /** performance.now() when the hold started; null → card ready immediately */
+  holdStartMs: null as number | null,
+  /** One-shot settle applied for the current complete edge */
+  settled: false,
+  wasComplete: false,
 };
 
 /** Filled after bindHud (handlers close over these). */
@@ -533,6 +553,53 @@ function applyMissionState(u: number): void {
     camera,
   );
 
+  // Terminal beat: classify complete, hold 1× + settle camera, delay card
+  const completeRaw =
+    frame.phase === "landed" ||
+    frame.phase === "impact" ||
+    (u >= 0.999 && frame.phase === "coast");
+  const beatKind = classifyLandingBeat(frame.phase, completeRaw);
+  const nowMs = performance.now();
+
+  if (!completeRaw) {
+    landingBeat.kind = null;
+    landingBeat.holdStartMs = null;
+    landingBeat.settled = false;
+    landingBeat.wasComplete = false;
+  } else {
+    if (!landingBeat.wasComplete) {
+      // Rising edge of mission complete
+      landingBeat.kind = beatKind;
+      landingBeat.settled = false;
+      if (clock.playing) {
+        landingBeat.holdStartMs = nowMs;
+      } else {
+        // Scrub / paused at end — show card immediately
+        landingBeat.holdStartMs = null;
+      }
+    }
+    landingBeat.wasComplete = true;
+    landingBeat.kind = beatKind;
+
+    // One-shot: pin 1× and settle camera while the hold runs
+    if (clock.playing && !landingBeat.settled && beatKind) {
+      landingBeat.settled = true;
+      if (Math.abs(clock.speed) > 1 + 1e-9) {
+        clock.setSpeed(1);
+      }
+      const mode = landingBeatCameraMode(beatKind);
+      autoCam.phase = frame.phase;
+      autoCam.staged = frame.staged;
+      director.easeToMode(mode, { frame: true });
+      notifyAutoCamera(mode);
+    }
+  }
+
+  const showCompleteCard =
+    completeRaw &&
+    (landingBeat.holdStartMs == null ||
+      landingBeatCardReady((nowMs - landingBeat.holdStartMs) / 1000));
+
   hud.update({
     phase: frame.phaseLabel,
     phaseId: frame.phase,
@@ -547,10 +614,8 @@ function applyMissionState(u: number): void {
     playing: clock.playing,
     dateUtc: formatMissionDateUtc(frame.t, cache.horizonsLandingT),
     playbackSpeed: clock.speed,
-    missionComplete:
-      frame.phase === "landed" ||
-      frame.phase === "impact" ||
-      (u >= 0.999 && frame.phase === "coast"),
+    missionComplete: showCompleteCard,
+    completeKind: landingBeat.kind,
     tliDv: cache.tliDv,
     minMoonAlt: cache.minMoonAlt,
     focusDistance: director.getFocusDistance(),
@@ -563,8 +628,8 @@ function applyMissionState(u: number): void {
     burning: frame.burning,
   });
 
-  // Auto-pause on landing at end
-  if (u >= 1 && clock.playing) {
+  // Auto-pause at end after the landing-beat hold (card may then steal focus)
+  if (u >= 1 && clock.playing && showCompleteCard) {
     clock.pause();
   }
 }

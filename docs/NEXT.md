@@ -14,7 +14,7 @@ Living plan for **tothemoon** after the core mission theater, mission UX, engine
 | **Mission UX** | Scrubber phase marks, event callouts, Auto speed by phase |
 | **Staging / craft** | Super Heavy + Ship mesh, thrust-scaled plumes, booster fallaway + flash, fuel bars |
 | **Earth theater** | Starbase pad, ascent ground track, atmosphere limb |
-| **Landing theater** | Site beacon, dust puff, mission-complete card (duration, TLI Δv, min lunar alt) |
+| **Landing theater** | Site beacon + Malapert Massif label, dust puff, landing beat (1× hold + settle) then mission-complete card |
 | **Hygiene** | `npm test` (Kepler, propellant, clock/timeline, epoch, earthFrame, capture, invariants), `npm run lint` (ESLint), CI, precompute invariant gate |
 
 Key modules: `src/physics/mission.ts`, `src/mission/timeline.ts`, `src/scene/{craft,stagingFx,landingFx,earthTheater}.ts`, `src/ui/hud.ts`.
@@ -68,10 +68,12 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 - Tiny boostback ignition flash (theater-only, non-physical) when reverse burn lights.
 - Pure helpers: `boosterLocatorStrength` / `boostbackFlashStrength` in `boosterRecovery.ts` (+ unit tests); rendered by `StagingFx`.
 
-### 4. Landing beat
+### 4. Landing beat — **done**
 
-- On touchdown: brief camera settle on Ship or Moon, hold Auto speed at 1× for a few wall-clock seconds before the complete card fully steals focus.
-- Site label (“landing site”) or selenographic name (fictional is fine if documented as theater).
+- On terminal complete (landed / impact / flyby end) while playing: settle camera (Ship chase on soft land, Moon otherwise), pin playback to **1×**, hold ~3.2 s wall-clock, then reveal the complete card and auto-pause at end.
+- Scrub / pause-to-end shows the card immediately (no hold).
+- Theater site plate: **Malapert Massif** (lunar south pole) on `LandingFx`; complete-card subtitle adapts to beat kind.
+- Pure helpers: `src/mission/landingBeat.ts` (+ unit tests).
 
 ---
 
@@ -176,12 +178,12 @@ A practical order for the next few sessions:
 2. ~~**Cinematic bookmarks** (P1.5)~~ **done**  
 3. ~~**Callout ↔ scrubber coupling** (P0.2)~~ **done**  
 4. ~~**Booster fallaway locator** (P0.3)~~ **done**  
-5. **Landing beat** (P0.4) — recommended next  
-6. **Persist mission stats in precompute pack** (P2.11)  
+5. ~~**Landing beat** (P0.4)~~ **done**  
+6. **Persist mission stats in precompute pack** (P2.11) — recommended next  
 7. **Split mission physics modules** (P3.12) with golden tests  
 8. **LOI / coast visual corridor** (P2.8) — optional visual track  
 
-Watchability track is nearly complete; landing beat is the last P0 polish, then pack metadata / architecture.
+Watchability track (P0) is complete; next leverage is pack metadata or architecture.
 
 ---
 
@@ -221,3 +223,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·TLI·Half·LOI·Land buttons + Shift+1…, pure builder + tests |
 | 2026-08-02 | Callout ↔ scrubber (P0.2): event ticks, click callout to seek, dim telemetry |
 | 2026-08-04 | Booster fallaway (P0.3): dim free-flyer locator ~30 s + boostback ignition flash |
+| 2026-08-04 | Landing beat (P0.4): 1× hold + camera settle + delayed complete card; Malapert site label |

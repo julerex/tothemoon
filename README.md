@@ -23,6 +23,7 @@ The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters)
 - **Cinematic bookmarks** (Pad · Stage · TLI · Half · LOI · Land) — seek + camera; **Shift+1…**
 - Event callouts (liftoff, staging, TLI, LOI, touchdown) — click callout or tick to seek; telemetry dims during toast
 - **Ascent / RTLS cross-section** (**V** or button) — true-scale black & white launch-plane diagram (Earth surface + 120 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
+- Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
 - Cameras: **Auto-cam** by phase (toggle **C**) · Free orbit · Earth · Ship chase · Moon · Solar · Starbase · Ship fin (**6**) · Booster grid fin (**7**)
 - HUD: phase, mission time, distance, altitude, speed, fuel bars + thrust
