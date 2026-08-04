@@ -90,15 +90,15 @@ export type Telemetry = {
   missionComplete: boolean;
   /** Terminal beat kind for complete-card copy (landed / impact / flyby) */
   completeKind?: LandingBeatKind | null;
-  /** TLI Δv (km/s) for mission-complete stats */
-  tliDv: number;
+  /** Translunar injection Δv (km/s) for mission-complete stats */
+  translunarInjectionDeltaV: number;
   /** Minimum lunar altitude during approach/capture (km) */
   minMoonAlt: number;
   /** Peak inertial |v| (km/s) from pack meta */
   peakSpeedKmS?: number;
   /** Mission time of booster stage-out (s), or null */
   stageT?: number | null;
-  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  /** Peak |r_nbody − r_kepler| on Translunar injection coast (km) */
   keplerRefMaxDevKm?: number;
   /** Camera distance to focus target (km) */
   focusDistance: number;
@@ -163,7 +163,9 @@ export function bindHud(
   const completeEl = document.querySelector<HTMLElement>("#mission-complete");
   const mcSub = document.querySelector<HTMLElement>(".mc-sub");
   const mcDuration = document.querySelector<HTMLElement>("#mc-duration");
-  const mcTli = document.querySelector<HTMLElement>("#mc-tlidv");
+  const mcTranslunarInjectionDeltaV = document.querySelector<HTMLElement>(
+    "#mc-translunar-injection-delta-v",
+  );
   const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
   const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
   const mcPeakSpeed = document.querySelector<HTMLElement>("#mc-peak-speed");
@@ -216,7 +218,9 @@ export function bindHud(
     engines: document.querySelector<HTMLElement>("#mx-engines"),
     staged: document.querySelector<HTMLElement>("#mx-staged"),
     duration: document.querySelector<HTMLElement>("#mx-duration"),
-    tlidv: document.querySelector<HTMLElement>("#mx-tlidv"),
+    translunarInjectionDeltaV: document.querySelector<HTMLElement>(
+      "#mx-translunar-injection-delta-v",
+    ),
     minalt: document.querySelector<HTMLElement>("#mx-minalt"),
     peakSpeed: document.querySelector<HTMLElement>("#mx-peak-speed"),
     stageT: document.querySelector<HTMLElement>("#mx-stage-t"),
@@ -873,7 +877,9 @@ export function bindHud(
             mcSub.textContent = landingBeatCompleteSubtitle(tel.completeKind);
           }
           if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
-          if (mcTli) mcTli.textContent = `${tel.tliDv.toFixed(3)} km/s`;
+          if (mcTranslunarInjectionDeltaV) {
+            mcTranslunarInjectionDeltaV.textContent = `${tel.translunarInjectionDeltaV.toFixed(3)} km/s`;
+          }
           if (mcMinAlt) {
             mcMinAlt.textContent =
               tel.minMoonAlt < 1
@@ -984,7 +990,10 @@ export function bindHud(
     );
     setText(mx.staged, tel.staged ? "yes · ship only" : "no · full stack");
     setText(mx.duration, formatMissionTimeDetailed(tel.durationS));
-    setText(mx.tlidv, `${tel.tliDv.toFixed(4)} km/s`);
+    setText(
+      mx.translunarInjectionDeltaV,
+      `${tel.translunarInjectionDeltaV.toFixed(4)} km/s`,
+    );
     setText(
       mx.minalt,
       Number.isFinite(tel.minMoonAlt)
@@ -1035,8 +1044,8 @@ function renderPhaseMarkers(
   const major = new Set<PhaseId>([
     "launch",
     "ascent",
-    "leo",
-    "tli",
+    "lowEarthOrbit",
+    "translunarInjection",
     "coast",
     "approach",
     "braking",
@@ -1118,7 +1127,7 @@ function renderEventTicks(
   }
 }
 
-/** Compact seek+camera buttons under the scrubber (Pad · Stage · TLI · …). */
+/** Compact seek+camera buttons under the scrubber (Pad · Stage · translunar injection · …). */
 function renderBookmarks(
   root: HTMLElement,
   bookmarks: CinematicBookmark[],

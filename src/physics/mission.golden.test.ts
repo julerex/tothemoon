@@ -2,7 +2,7 @@
  * Golden bands for the baked trajectory pack — pins mission shape so physics
  * refactors (P3.12 module split) cannot silently drift.
  *
- * Covers: phase order, duration band, stage-out window, TLI Δv band, pack meta.
+ * Covers: phase order, duration band, stage-out window, Translunar injection Δv band, pack meta.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -13,18 +13,18 @@ import {
 } from "./trajectoryInvariants.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
-/** Bands after A5 staged ascent + hot TLI + pure n-body free coast. */
+/** Bands after A5 staged ascent + hot translunar injection + pure n-body free coast. */
 const GOLDEN = {
   durationS: 640_000,
   durationTolFrac: 0.45,
-  tliDv: 3.154,
-  tliDvTol: 0.2,
+  translunarInjectionDeltaV: 3.154,
+  translunarInjectionDeltaVTol: 0.2,
   samplesMin: 2_000,
   samplesMax: 25_000,
-  /** Super Heavy MECO / hot-stage (~2.5 min theater). */
+  /** Super Heavy main engine cutoff / hot-stage (~2.5 min theater). */
   stageT: 150,
   stageTTol: 90,
-  /** Heliocentric peak |v| (km/s) — Earth orbit + LEO/TLI. */
+  /** Heliocentric peak |v| (km/s) — Earth orbit + low Earth orbit/ translunar injection. */
   peakSpeedKmS: 37,
   peakSpeedTol: 8,
   minMoonAltKm: 7_000,
@@ -62,7 +62,7 @@ function firstStagedT(
 }
 
 describe("mission golden bands (baked pack)", () => {
-  it("matches duration / TLI Δv / sample count bands", () => {
+  it("matches duration / Translunar injection Δv / sample count bands", () => {
     assert.equal(pack.ok, true);
     assert.ok(
       Math.abs(pack.durationS - GOLDEN.durationS) <=
@@ -70,8 +70,8 @@ describe("mission golden bands (baked pack)", () => {
       `durationS ${pack.durationS} outside ±${GOLDEN.durationTolFrac * 100}% of ${GOLDEN.durationS}`,
     );
     assert.ok(
-      Math.abs(pack.tliDv - GOLDEN.tliDv) <= GOLDEN.tliDvTol,
-      `tliDv ${pack.tliDv} outside ±${GOLDEN.tliDvTol} of ${GOLDEN.tliDv}`,
+      Math.abs(pack.translunarInjectionDeltaV - GOLDEN.translunarInjectionDeltaV) <= GOLDEN.translunarInjectionDeltaVTol,
+      `translunarInjectionDeltaV ${pack.translunarInjectionDeltaV} outside ±${GOLDEN.translunarInjectionDeltaVTol} of ${GOLDEN.translunarInjectionDeltaV}`,
     );
     assert.ok(
       pack.samples.length >= GOLDEN.samplesMin &&
@@ -127,42 +127,58 @@ describe("mission golden bands (baked pack)", () => {
     );
   });
 
-  it("starts at launch, ends coast or impact, with finite TLI", () => {
+  it("starts at launch, ends coast or impact, with finite translunar injection", () => {
     assert.equal(pack.samples[0]!.phase, "launch");
     const last = pack.samples[pack.samples.length - 1]!.phase;
     assert.ok(last === "coast" || last === "impact", `last=${last}`);
-    assert.ok(pack.tliDv > 2.5 && pack.tliDv < 4.0);
+    assert.ok(pack.translunarInjectionDeltaV > 2.5 && pack.translunarInjectionDeltaV < 4.0);
     assert.ok(pack.durationS > 24 * 3600 && pack.durationS < 14 * 24 * 3600);
   });
 
-  it("has LEO dogleg burns and ship fuel drops by TLI", () => {
-    const leo = pack.samples.filter((s) => s.phase === "leo");
-    assert.ok(leo.length > 10, "expected dense LEO samples");
-    const burning = leo.filter((s) => s.burning);
+  it("has low Earth orbit dogleg burns and ship fuel drops by translunar injection", () => {
+    const lowEarthOrbitSamples = pack.samples.filter(
+      (s) => s.phase === "lowEarthOrbit",
+    );
+    assert.ok(
+      lowEarthOrbitSamples.length > 10,
+      "expected dense low Earth orbit samples",
+    );
+    const burning = lowEarthOrbitSamples.filter((s) => s.burning);
     assert.ok(
       burning.length > 5,
-      `expected LEO burning samples for dogleg, got ${burning.length}`,
+      `expected low Earth orbit burning samples for dogleg, got ${burning.length}`,
     );
-    const tli = pack.samples.find((s) => s.phase === "tli");
-    assert.ok(tli);
-    const fsLeo = leo[0]!.fs ?? 1;
-    const fsTli = tli!.fs ?? 1;
+    const injectSample = pack.samples.find(
+      (s) => s.phase === "translunarInjection",
+    );
+    assert.ok(injectSample);
+    const fuelAtLowEarthOrbit = lowEarthOrbitSamples[0]!.fs ?? 1;
+    const fuelAtInject = injectSample!.fs ?? 1;
     assert.ok(
-      fsTli < fsLeo - 0.01,
-      `ship fuel should fall by TLI (leo0=${fsLeo}, tli=${fsTli})`,
+      fuelAtInject < fuelAtLowEarthOrbit - 0.01,
+      `ship fuel should fall by translunar injection (leo=${fuelAtLowEarthOrbit}, inject=${fuelAtInject})`,
     );
   });
 
-  it("has a finite TLI burn lasting ~2–4 minutes", () => {
-    const tli = pack.samples.filter((s) => s.phase === "tli");
-    assert.ok(tli.length >= 2, "expected multiple TLI samples");
-    const burnS = tli[tli.length - 1]!.t - tli[0]!.t;
+  it("has a finite translunar injection burn lasting ~2–4 minutes", () => {
+    const injectSamples = pack.samples.filter(
+      (s) => s.phase === "translunarInjection",
+    );
+    assert.ok(
+      injectSamples.length >= 2,
+      "expected multiple translunar injection samples",
+    );
+    const burnS =
+      injectSamples[injectSamples.length - 1]!.t - injectSamples[0]!.t;
     assert.ok(
       burnS >= 100 && burnS <= 360,
-      `TLI duration ${burnS.toFixed(1)}s outside ~2–6 min theater band`,
+      `translunar injection duration ${burnS.toFixed(1)}s outside ~2–6 min theater band`,
     );
-    const burning = tli.filter((s) => s.burning);
-    assert.ok(burning.length > 5, "expected dense TLI burn samples");
+    const burning = injectSamples.filter((s) => s.burning);
+    assert.ok(
+      burning.length > 5,
+      "expected dense translunar injection burn samples",
+    );
   });
 
   it("message reports ballistic impact or flyby (no powered landing)", () => {
@@ -177,7 +193,7 @@ describe("mission golden bands (baked pack)", () => {
     );
   });
 
-  it("has a pure ballistic coast (no post-TLI burns)", () => {
+  it("has a pure ballistic coast (no post-Translunar injection burns)", () => {
     const coast = pack.samples.filter((s) => s.phase === "coast");
     assert.ok(coast.length > 50);
     const burning = coast.filter((s) => s.burning && (s.th ?? 0) > 0);
@@ -185,7 +201,7 @@ describe("mission golden bands (baked pack)", () => {
       burning.length === 0,
       `ballistic coast should have zero burns, got ${burning.length}`,
     );
-    // No LOI/PDI phases
+    // No lunar orbit insertion / powered descent phases
     const powered = pack.samples.filter(
       (s) =>
         s.phase === "approach" ||
@@ -193,6 +209,6 @@ describe("mission golden bands (baked pack)", () => {
         s.phase === "descent" ||
         s.phase === "landed",
     );
-    assert.equal(powered.length, 0, "no LOI/PDI/landed samples expected");
+    assert.equal(powered.length, 0, "no lunar orbit insertion / powered descent/landed samples expected");
   });
 });

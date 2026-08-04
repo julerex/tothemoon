@@ -39,8 +39,8 @@ function healthyTrajectory(): TrajectoryLike {
   const samples = [
     baseSample(0, "launch", { staged: false, fuelBooster: 1 }),
     baseSample(100, "ascent", { staged: false, fuelBooster: 0.5 }),
-    baseSample(200, "leo", { staged: true, fuelBooster: 0 }),
-    baseSample(300, "tli", { staged: true, fuelBooster: 0 }),
+    baseSample(200, "lowEarthOrbit", { staged: true, fuelBooster: 0 }),
+    baseSample(300, "translunarInjection", { staged: true, fuelBooster: 0 }),
   ];
   const durationS = 2 * 86400;
   // Pad with dense coast samples so sample count and step size pass
@@ -109,10 +109,10 @@ describe("checkTrajectoryInvariants (synthetic)", () => {
     assert.ok(issues.some((i) => i.code === "fuel_ship_increase"));
   });
 
-  it("flags missing LEO phase", () => {
+  it("flags missing low Earth orbit phase", () => {
     const traj = healthyTrajectory();
     for (const s of traj.samples) {
-      if (s.phase === "leo") s.phase = "ascent";
+      if (s.phase === "lowEarthOrbit") s.phase = "ascent";
     }
     const issues = checkTrajectoryInvariants(traj);
     assert.ok(

@@ -4,7 +4,7 @@ import { setMoonPhase0 } from "./bodies.ts";
 import {
   buildCoastCorridor,
   computeKeplerRefMaxDevKm,
-  findTliInjectSample,
+  findTranslunarInjectionInjectSample,
   orbitFromSample,
 } from "./coastCorridor.ts";
 import { setMissionLandingT } from "./horizonsEpoch.ts";
@@ -23,28 +23,28 @@ function sample(
     pos,
     vel,
     phase,
-    burning: phase === "tli",
+    burning: phase === "translunarInjection",
     fuelBooster: 0,
     fuelShip: 0.5,
-    thrustN: phase === "tli" ? 1e6 : 0,
+    thrustN: phase === "translunarInjection" ? 1e6 : 0,
     staged: true,
   };
 }
 
-describe("findTliInjectSample", () => {
-  it("prefers the last TLI sample", () => {
-    const s = findTliInjectSample([
-      sample(0, "leo", { x: 7000, y: 0, z: 0 }),
-      sample(100, "tli", { x: 7100, y: 0, z: 0 }),
-      sample(200, "tli", { x: 7200, y: 0, z: 0 }),
+describe("findTranslunarInjectionInjectSample", () => {
+  it("prefers the last translunar injection sample", () => {
+    const s = findTranslunarInjectionInjectSample([
+      sample(0, "lowEarthOrbit", { x: 7000, y: 0, z: 0 }),
+      sample(100, "translunarInjection", { x: 7100, y: 0, z: 0 }),
+      sample(200, "translunarInjection", { x: 7200, y: 0, z: 0 }),
       sample(300, "coast", { x: 8000, y: 0, z: 0 }),
     ]);
     assert.equal(s?.t, 200);
   });
 
-  it("falls back to first coast when no TLI phase", () => {
-    const s = findTliInjectSample([
-      sample(0, "leo", { x: 7000, y: 0, z: 0 }),
+  it("falls back to first coast when no translunar injection phase", () => {
+    const s = findTranslunarInjectionInjectSample([
+      sample(0, "lowEarthOrbit", { x: 7000, y: 0, z: 0 }),
       sample(300, "coast", { x: 8000, y: 0, z: 0 }),
     ]);
     assert.equal(s?.t, 300);
@@ -54,7 +54,7 @@ describe("findTliInjectSample", () => {
 describe("buildCoastCorridor (synthetic)", () => {
   it("returns null without coast samples", () => {
     assert.equal(
-      buildCoastCorridor([sample(0, "leo", { x: 7000, y: 0, z: 0 })]),
+      buildCoastCorridor([sample(0, "lowEarthOrbit", { x: 7000, y: 0, z: 0 })]),
       null,
     );
   });
@@ -88,7 +88,7 @@ describe("buildCoastCorridor (baked pack)", () => {
   });
 
   it("orbitFromSample at inject is elliptical", () => {
-    const inj = findTliInjectSample(samples);
+    const inj = findTranslunarInjectionInjectSample(samples);
     assert.ok(inj);
     const orb = orbitFromSample(inj!);
     assert.ok(orb.a > 0 && orb.e < 1, `a=${orb.a} e=${orb.e}`);

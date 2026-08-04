@@ -494,7 +494,7 @@ export function createCraft(): {
   exhaustLight.position.set(0, 0, -0.08);
   mesh.add(exhaustLight);
 
-  // Max-Q condensation / vapor sheath (mission-time driven)
+  // maximum dynamic pressure condensation / vapor sheath (mission-time driven)
   const condense = makeCondensationCloud(BOOST_H + SHIP_H, R);
   mesh.add(condense);
 
@@ -643,7 +643,7 @@ function makeHeatTileTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Soft vapor / condensation sheath around the stack (Max-Q theater cue).
+ * Soft vapor / condensation sheath around the stack (Maximum dynamic pressure theater cue).
  * Sprites face the camera; opacity driven by altitude in updateCraftVisuals.
  */
 function makeCondensationCloud(stackH: number, radius: number): THREE.Group {
@@ -772,14 +772,14 @@ export type CraftVisualState = {
   missionT?: number;
   /** Stage-out epoch (s); enables hot-staging dual-plume window */
   stageT?: number | null;
-  /** Altitude above Earth (km) — Max-Q condensation envelope */
+  /** Altitude above Earth (km) — maximum dynamic pressure condensation envelope */
   altEarth?: number;
   phase?: string;
 };
 
 /** Reference thrust (N) for plume size normalization. */
 const BOOSTER_THRUST_REF = 1.4e8; // ~140 MN theater ascent
-const SHIP_THRUST_REF = 8e6; // ~8 MN TLI / landing theater
+const SHIP_THRUST_REF = 8e6; // ~8 MN translunar injection / landing theater
 /** Ship Raptors light this many seconds before stage-out (hot-stage theater). */
 const HOT_STAGE_PRE_S = 4.0;
 /** Brief dual-plume hang after stage while flash is still readable. */
@@ -797,11 +797,11 @@ function thrustFlicker(missionT: number): number {
 }
 
 /**
- * Theater Max-Q condensation strength in [0,1].
+ * Theater maximum dynamic pressure condensation strength in [0,1].
  *
  * Absolute altEarth in this mission pack is barycenter-frame noisy for
  * low-altitude cues, so we use a mission-time envelope peaking near real
- * Starship Max-Q (~T+55 s) during powered launch/ascent. Scrub-safe.
+ * Starship maximum dynamic pressure (~T+55 s) during powered launch/ascent. Scrub-safe.
  */
 function condensationStrength(
   phase: string | undefined,
@@ -917,7 +917,7 @@ export function updateCraftVisuals(
     }
   }
 
-  // Max-Q condensation cloud
+  // maximum dynamic pressure condensation cloud
   if (condense) {
     const str = condensationStrength(state.phase, missionT, state.burning);
     condense.visible = str > 0.03;

@@ -1,32 +1,32 @@
 /**
- * Mission orchestrator: Starbase → LEO → TLI → pure ballistic n-body coast.
+ * Mission orchestrator: Starbase → low Earth orbit → translunar injection → pure ballistic n-body coast.
  *
- * After TLI there are **no burns** (no TCMs, no LOI/PDI). The craft coasts under
+ * After translunar injection there are **no burns** (no trajectory corrections, no lunar orbit insertion / powered descent). The craft coasts under
  * restricted n-body gravity (Earth + Moon + solar tide + J₂). Outcome is lunar
  * impact or ballistic flyby — not a powered landing.
  *
  * Heavy lifting lives in focused modules:
- * - {@link flyMission} — ascent + dogleg + TLI + ballistic coast
+ * - {@link flyMission} — ascent + dogleg + translunar injection + ballistic coast
  * - {@link searchBallisticTransfer} — epoch / phase / Δv search
  * - {@link runBallisticCoast} / {@link probePerilune} — free-coast dynamics
  * - {@link downsampleTrajectory} — pack thinning
  */
 
-import { LEO_COAST_S } from "./constants";
+import { LOW_EARTH_ORBIT_COAST_S } from "./constants";
 import { ensureAscent, resetAscentCache } from "./ascentCache";
 import {
   hasHorizonsEpoch,
   horizonsSource,
   setMissionLandingT,
 } from "./horizonsEpoch";
-import { computeLeoRel, setLeoCoastS, type LeoRel } from "./leoCoast";
+import { computeLowEarthOrbitRelative, setLowEarthOrbitCoastS, type LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
 import { downsampleTrajectory } from "./missionDownsample";
 import { setEpochPhases } from "./missionEpoch";
 import { flyMission } from "./missionFly";
 import { searchBallisticTransfer } from "./missionSearch";
 import type { MissionResult } from "./missionTypes";
 import { deriveTrajectoryMeta } from "./trajectoryMeta";
-import { lroTransfer } from "./tli";
+import { designLunarTransfer } from "./translunarInjection";
 import { clone } from "./vec3";
 
 // Re-export public types / helpers so existing imports of ./mission keep working.
@@ -34,12 +34,12 @@ export type { PhaseId, Sample, MissionResult } from "./missionTypes";
 export { phaseLabel } from "./missionTypes";
 
 /**
- * Starbase → LEO → TLI → ballistic free coast (no post-TLI burns).
+ * Starbase → low Earth orbit → translunar injection → ballistic free coast (no post-Translunar injection burns).
  * Outcome: lunar impact or flyby. Probe search aims for a close Moon pass.
  */
 export function runMission(): MissionResult {
-  const xfer = lroTransfer();
-  const baseDv = xfer.tliDv;
+  const xfer = designLunarTransfer();
+  const baseDv = xfer.translunarInjectionDeltaV;
   const T = xfer.tof;
 
   // Map mission time → Horizons absolute epoch (landing = 2027-07-20 12:00)
@@ -68,23 +68,23 @@ export function runMission(): MissionResult {
       })),
       durationS: ascent0.state.t,
       moonPhase0: 0,
-      tliDv: 0,
+      translunarInjectionDeltaV: 0,
       minMoonAlt: Infinity,
       ok: false,
       message: ascent0.message,
     };
   }
-  setLeoCoastS(LEO_COAST_S);
-  const leoRel: { current: LeoRel | null } = {
-    current: computeLeoRel(),
+  setLowEarthOrbitCoastS(LOW_EARTH_ORBIT_COAST_S);
+  const lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null } = {
+    current: computeLowEarthOrbitRelative(),
   };
-  const tTli0 = leoRel.current!.t;
+  const tTli0 = lowEarthOrbitRelative.current!.t;
 
   const search = searchBallisticTransfer({
     baseDv,
     designTof: T,
     tTli0,
-    leoRel,
+    lowEarthOrbitRelative,
   });
 
   const toa =
@@ -96,7 +96,7 @@ export function runMission(): MissionResult {
   setEpochPhases(search.bestPhase, T);
   resetAscentCache();
   ensureAscent(search.bestPhase);
-  leoRel.current = computeLeoRel();
+  lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
 
   setMissionLandingT(search.bestLandingT);
   const flown = flyMission(search.bestPhase, search.bestDv, toa);

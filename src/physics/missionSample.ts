@@ -13,7 +13,7 @@ import type { PhaseId, Sample } from "./missionTypes";
 
 /**
  * Append a trajectory sample, optionally consuming propellant for HUD thrust.
- * Shared by LEO coast, TLI coast, and capture legs.
+ * Shared by low Earth orbit coast, Translunar injection coast, and capture legs.
  */
 export function pushSample(
   samples: Sample[],

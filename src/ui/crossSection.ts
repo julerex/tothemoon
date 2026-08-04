@@ -1,5 +1,5 @@
 /**
- * Ascent / RTLS cross-section: true-scale Earth arc + atmosphere shell in the
+ * Ascent / return to launch site cross-section: true-scale Earth arc + atmosphere shell in the
  * Starbase launch plane (mesh-local up × east).
  *
  * Black & white diagram for reading booster altitude vs downrange from liftoff
@@ -50,7 +50,7 @@ export type CrossSectionModel = {
   basis: LaunchPlaneBasis;
   /** Stack path until stage-out (and ship while still in frame). */
   shipTrail: TimedPlanePoint[];
-  /** Booster: stacked path + RTLS recovery to chopsticks. */
+  /** Booster: stacked path + return to launch site recovery to chopsticks. */
   boosterTrail: TimedPlanePoint[];
   /** Stage-out mission time, or null if never staged. */
   stageT: number | null;
@@ -108,7 +108,7 @@ export function launchPlaneBasis(): LaunchPlaneBasis {
 
 /**
  * Project an inertial (heliocentric) position into the Starbase launch plane.
- * Drops the out-of-plane component so RTLS stays readable in 2-D.
+ * Drops the out-of-plane component so return to launch site stays readable in 2-D.
  */
 export function projectToLaunchPlane(
   pos: V3,
@@ -157,7 +157,7 @@ function expandBounds(
 /**
  * Build static trails + view bounds from mission samples and optional stage state.
  * Ship trail covers launch→early post-stage while inside the booster envelope;
- * booster trail is stacked ascent + full RTLS to catch.
+ * booster trail is stacked ascent + full return to launch site to catch.
  */
 export function buildCrossSectionModel(
   samples: Sample[],
@@ -186,7 +186,7 @@ export function buildCrossSectionModel(
   }
 
   // Short ship path after stage while still near the booster envelope
-  // (not full LEO — that would blow the true-scale frame)
+  // (not full low Earth orbit — that would blow the true-scale frame)
   if (stageT != null) {
     const maxShipT = stageT + 45;
     for (const s of samples) {
@@ -194,7 +194,7 @@ export function buildCrossSectionModel(
       if (s.t > maxShipT) break;
       if (s.t - lastShipT < 0.5) continue;
       projectToLaunchPlane(s.pos, s.t, basis, pt);
-      // Drop once ship clearly leaves the RTLS theater box
+      // Drop once ship clearly leaves the return to launch site theater box
       if (Math.abs(pt.x) > 160 || Math.hypot(pt.x, pt.y) > R_EARTH + 160) {
         break;
       }
@@ -203,7 +203,7 @@ export function buildCrossSectionModel(
     }
   }
 
-  // RTLS path after stage-out
+  // return to launch site path after stage-out
   if (stage) {
     const kfs = buildBoosterKeyframes(stage);
     const dt = 1.0;
@@ -221,7 +221,7 @@ export function buildCrossSectionModel(
     }
   }
 
-  // Bounds: primarily booster RTLS envelope (diagram’s purpose) + ship in-frame
+  // Bounds: primarily booster return to launch site envelope (diagram’s purpose) + ship in-frame
   const bounds: CrossSectionBounds = {
     xMin: Infinity,
     xMax: -Infinity,
@@ -273,7 +273,7 @@ export function buildCrossSectionModel(
   };
 }
 
-/** Age past which we stop extending the RTLS trail after fade. */
+/** Age past which we stop extending the return to launch site trail after fade. */
 const LANDING_HOLD_CUT = 320;
 
 /**

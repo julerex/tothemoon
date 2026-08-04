@@ -2,7 +2,7 @@
  * Build scrubber phase segments and narrative callout events from samples.
  *
  * Segments are contiguous [t0, t1] ranges per phase; events mark liftoff,
- * staging, dogleg, TLI, LOI, touchdown, impact, etc. for the HUD.
+ * staging, dogleg, translunar injection, lunar orbit insertion, touchdown, impact, etc. for the HUD.
  */
 
 import { phaseLabel, type PhaseId, type Sample } from "../physics/mission";
@@ -11,12 +11,12 @@ import { phaseLabel, type PhaseId, type Sample } from "../physics/mission";
 const PHASE_SHORT: Record<PhaseId, string> = {
   launch: "Lift",
   ascent: "Ascent",
-  leo: "LEO",
-  tli: "TLI",
+  lowEarthOrbit: "Earth",
+  translunarInjection: "Inject",
   coast: "Coast",
-  approach: "LOI",
-  braking: "LLO",
-  descent: "PDI",
+  approach: "Capture",
+  braking: "Lunar",
+  descent: "Descent",
   landed: "Land",
   impact: "Impact",
 };
@@ -128,31 +128,56 @@ function buildEvents(
       case "ascent":
         // Usually continuous with launch; only announce if launch was skipped
         if (!segments.some((s) => s.phase === "launch")) {
-          add("ascent", seg.t0, "Ascent", "Powered climb to LEO");
+          add("ascent", seg.t0, "Ascent", "Powered climb to low Earth orbit");
         }
         break;
-      case "leo":
-        add("leo", seg.t0, "LEO insertion", "Parking orbit · due-east");
+      case "lowEarthOrbit":
+        add(
+          "lowEarthOrbit",
+          seg.t0,
+          "Low Earth orbit insertion",
+          "Parking orbit · due-east",
+        );
         break;
-      case "tli":
-        add("tli", seg.t0, "TLI burn", "Finite prograde inject · ~2–4 min");
+      case "translunarInjection":
+        add(
+          "translunarInjection",
+          seg.t0,
+          "Translunar injection burn",
+          "Finite prograde inject · ~2–4 min",
+        );
         break;
       case "coast":
         add(
           "coast",
           seg.t0,
-          "TLI complete",
+          "Translunar injection complete",
           "Ballistic 4-body coast · no further burns",
         );
         break;
       case "approach":
-        add("loi", seg.t0, "LOI burn", "Capture into low lunar orbit");
+        add(
+          "lunarOrbitInsertion",
+          seg.t0,
+          "Lunar orbit insertion burn",
+          "Capture into low lunar orbit",
+        );
         break;
       case "braking":
-        add("llo", seg.t0, "LLO coast", "Parking orbit · ~¾ rev");
+        add(
+          "lowLunarOrbit",
+          seg.t0,
+          "Low lunar orbit coast",
+          "Parking orbit · ~¾ rev",
+        );
         break;
       case "descent":
-        add("pdi", seg.t0, "PDI", "Powered descent · south pole");
+        add(
+          "poweredDescentInitiation",
+          seg.t0,
+          "Powered descent initiation",
+          "Powered descent · south pole",
+        );
         break;
       case "landed":
         add("touchdown", seg.t0, "Touchdown", "Lunar south pole");
@@ -162,7 +187,7 @@ function buildEvents(
           "impact",
           seg.t0,
           "Lunar impact",
-          "Ballistic · no post-TLI burns",
+          "Ballistic · no post-Translunar injection burns",
         );
         break;
     }
@@ -173,7 +198,7 @@ function buildEvents(
   if (stageIdx > 0) {
     const s = samples[stageIdx]!;
     add("staging", s.t, "Staging", "Booster separation");
-    // Theater RTLS beats (kinematic recovery path — see boosterRecovery.ts)
+    // Theater return to launch site beats (kinematic recovery path — see boosterRecovery.ts)
     add(
       "boostback",
       s.t + 4,
@@ -190,9 +215,9 @@ function buildEvents(
     // already staged at t0 — skip
   }
 
-  // Dogleg: first LEO sample with significant ship burn (plane change)
+  // Dogleg: first low Earth orbit sample with significant ship burn (plane change)
   const dogleg = samples.find(
-    (s) => s.phase === "leo" && s.burning && s.thrustN > 1e3,
+    (s) => s.phase === "lowEarthOrbit" && s.burning && s.thrustN > 1e3,
   );
   if (dogleg) {
     add(
@@ -203,7 +228,7 @@ function buildEvents(
     );
   }
 
-  // No midcourse TCMs on the LRO-style ballistic coast (burns only at LOI/PDI).
+  // No midcourse trajectory corrections on the lunar-transfer-style ballistic coast (burns only at lunar orbit insertion/powered descent initiation).
 
   // Stable order by time, then id (dedupe same t)
   events.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));

@@ -1,20 +1,20 @@
 /**
- * Near-Moon capture and landing (B1 discrete LOI → LLO → PDI).
+ * Near-Moon capture and landing (B1 discrete lunar orbit insertion → low lunar orbit → powered descent initiation).
  *
  * Phase mapping (keeps existing PhaseId for timeline/HUD):
- * - approach  → LOI burn (polar LLO capture, south-pole geometry)
- * - braking   → ballistic LLO coast (~¾ rev)
- * - descent   → PDI + powered descent to south pole
+ * - approach  → Lunar orbit insertion burn (polar low lunar orbit capture, south-pole geometry)
+ * - braking   → ballistic Low lunar orbit coast (~¾ rev)
+ * - descent   → powered descent initiation + powered descent to south pole
  * - landed    → surface settle + polar taxi
  */
 
 import {
   LANDING_ACCEL,
-  LLO_ALT_KM,
-  LOI_ACCEL,
-  LOI_ALT_START_KM,
-  LOI_V_ERR_OK,
-  LOI_VRAD_OK,
+  LOW_LUNAR_ORBIT_ALTITUDE_KM,
+  LUNAR_ORBIT_INSERTION_ACCEL,
+  LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM,
+  LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK,
+  LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK,
   MU_MOON,
   R_MOON,
 } from "./constants";
@@ -75,14 +75,14 @@ export function southPoleAlign(t: number, pos: V3): number {
 }
 
 /** Sidereal period (s) of a circular lunar orbit at radius r (km). */
-export function lloPeriodS(rKm: number): number {
+export function lowLunarOrbitPeriodS(rKm: number): number {
   const r = Math.max(rKm, R_MOON + 50);
   return 2 * Math.PI * Math.sqrt((r * r * r) / MU_MOON);
 }
 
 /**
- * Polar LLO angular-momentum unit: orbit plane contains lunar poles and the
- * craft radial (so PDI can reach the south pole without a huge plane change).
+ * Polar low lunar orbit angular-momentum unit: orbit plane contains lunar poles and the
+ * craft radial (so powered descent initiation can reach the south pole without a huge plane change).
  */
 function polarOrbitNormal(relP: V3, relV: V3, out: V3): V3 {
   moonSouthUnit(_south);
@@ -99,14 +99,14 @@ function polarOrbitNormal(relP: V3, relV: V3, out: V3): V3 {
   return out;
 }
 
-/** True when LOI has achieved near-circular polar-ish LLO. */
-export function loiComplete(t: number, pos: V3, vel: V3): boolean {
+/** True when lunar orbit insertion has achieved near-circular polar-ish low lunar orbit. */
+export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3): boolean {
   const b = getBodies(t);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
   const r = len(_relP);
   const alt = r - R_MOON;
-  // Accept capture once lowered into useful LLO band (not multi-Mm flyby)
+  // Accept capture once lowered into useful low lunar orbit band (not multi-Mm flyby)
   if (alt < 50 || alt > 2_500) return false;
   normalize(_radial, _relP);
   const vRad = Math.abs(dot(_relV, _radial));
@@ -114,28 +114,28 @@ export function loiComplete(t: number, pos: V3, vel: V3): boolean {
   const vCirc = Math.sqrt(MU_MOON / r);
   const vEsc = Math.sqrt((2 * MU_MOON) / r);
   const bound = v < vEsc * 0.97;
-  const nearCirc = Math.abs(v - vCirc) < LOI_V_ERR_OK * 2;
+  const nearCirc = Math.abs(v - vCirc) < LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK * 2;
   // Prefer polar: |h · south| small means poles lie in the orbital plane
   moonSouthUnit(_south);
   cross(_h, _relP, _relV);
   const hLen = len(_h);
   const polarOk =
     hLen < 1e-8 || Math.abs(dot(_h, _south) / hLen) < 0.7; // ≲45° from polar
-  return bound && vRad < LOI_VRAD_OK * 2 && nearCirc && polarOk;
+  return bound && vRad < LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK * 2 && nearCirc && polarOk;
 }
 
 /**
- * LOI burn (phase `approach`): kill hyperbolic excess, change into a **polar**
- * LLO, and lower toward ~LLO_ALT. Lights when alt &lt; LOI_ALT_START.
+ * Lunar orbit insertion burn (phase `approach`): kill hyperbolic excess, change into a **polar**
+ * low lunar orbit, and lower toward ~LOW_LUNAR_ORBIT_ALTITUDE. Lights when alt &lt; LUNAR_ORBIT_INSERTION_ALTITUDE_START.
  */
-export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
+export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3): V3 | null {
   const b = getBodies(t);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
   const r = len(_relP);
   const alt = r - R_MOON;
   if (alt < -1 || !Number.isFinite(alt)) return null;
-  if (alt > LOI_ALT_START_KM) return null;
+  if (alt > LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM) return null;
 
   normalize(_radial, _relP);
   polarOrbitNormal(_relP, _relV, _h);
@@ -146,28 +146,28 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
   const v = len(_relV);
   const vEsc = Math.sqrt((2 * MU_MOON) / r);
   const vRad = dot(_relV, _radial);
-  const rLlo = R_MOON + LLO_ALT_KM;
+  const rLlo = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
 
   // Hyperbolic: pure retrograde first (capture)
   if (v > vEsc * 0.92) {
     normalize(_tmp, _relV);
-    set(_thrust, -_tmp.x * LOI_ACCEL, -_tmp.y * LOI_ACCEL, -_tmp.z * LOI_ACCEL);
+    set(_thrust, -_tmp.x * LUNAR_ORBIT_INSERTION_ACCEL, -_tmp.y * LUNAR_ORBIT_INSERTION_ACCEL, -_tmp.z * LUNAR_ORBIT_INSERTION_ACCEL);
     return _thrust;
   }
 
-  // High alt: brake hard + sink so we lower toward LLO (not park at flyby)
+  // High alt: brake hard + sink so we lower toward low lunar orbit (not park at flyby)
   let vTgt: number;
   let tgtVRad: number;
   if (alt > 2_500) {
     // Strongly subcircular → fall in; sink scales with altitude
-    const sink = Math.min(0.25, 0.04 + (alt - LLO_ALT_KM) * 2e-5);
+    const sink = Math.min(0.25, 0.04 + (alt - LOW_LUNAR_ORBIT_ALTITUDE_KM) * 2e-5);
     vTgt = Math.sqrt(MU_MOON / Math.max(rLlo, r * 0.75));
     tgtVRad = Math.min(vRad, 0) * 0.2 - sink;
-  } else if (alt > LLO_ALT_KM * 1.8) {
+  } else if (alt > LOW_LUNAR_ORBIT_ALTITUDE_KM * 1.8) {
     vTgt = Math.sqrt(MU_MOON / Math.max(r * 0.9, rLlo));
     tgtVRad = -vRad * 0.45 - 0.03;
   } else {
-    // Near target LLO: circularize in polar plane
+    // Near target low lunar orbit: circularize in polar plane
     vTgt = Math.sqrt(MU_MOON / Math.max(r, rLlo * 0.95));
     tgtVRad = -vRad * 0.7;
   }
@@ -183,16 +183,16 @@ export function loiThrust(t: number, pos: V3, vel: V3): V3 | null {
   set(_thrust, ax, ay, az);
   const mag = len(_thrust);
   if (!Number.isFinite(mag) || mag < 1e-6) return null;
-  if (mag > LOI_ACCEL) scale(_thrust, _thrust, LOI_ACCEL / mag);
+  if (mag > LUNAR_ORBIT_INSERTION_ACCEL) scale(_thrust, _thrust, LUNAR_ORBIT_INSERTION_ACCEL / mag);
   return _thrust;
 }
 
 /**
  * Theater capture into polar circular lunar orbit (≤2000 km alt).
  * Bridges the trail with short samples so invariants don't see a teleport.
- * Used when LOI is "close enough" so the LLO coast stays bound and polar.
+ * Used when lunar orbit insertion is "close enough" so the Low lunar orbit coast stays bound and polar.
  */
-export function snapPolarLlo(
+export function snapPolarLowLunarOrbit(
   t: number,
   state: CraftState,
   samples: Sample[] | null = null,
@@ -204,7 +204,7 @@ export function snapPolarLlo(
   if (len(_relP) < 1e-6) set(_relP, 0, 0, -1);
   normalize(_from, _relP);
   moonSouthUnit(_south);
-  // If over northern hemisphere, nudge radial toward south for PDI geometry
+  // If over northern hemisphere, nudge radial toward south for powered descent initiation geometry
   set(_radial, _from.x, _from.y, _from.z);
   if (dot(_radial, _south) < -0.1) {
     _radial.x += _south.x * 0.4;
@@ -212,11 +212,11 @@ export function snapPolarLlo(
     _radial.z += _south.z * 0.4;
     normalize(_radial, _radial);
   }
-  const rIn = Math.max(len(_relP), R_MOON + LLO_ALT_KM);
-  // Park near target LLO so PDI / finishLanding don't start from multi-Mm alt
-  const rFinal = R_MOON + LLO_ALT_KM;
+  const rIn = Math.max(len(_relP), R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM);
+  // Park near target low lunar orbit so powered descent initiation / finishLanding don't start from multi-Mm alt
+  const rFinal = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
 
-  // End state on polar circular LLO
+  // End state on polar circular low lunar orbit
   const endPos = v3(
     b0.moon.x + _radial.x * rFinal,
     b0.moon.y + _radial.y * rFinal,
@@ -274,7 +274,7 @@ export function snapPolarLlo(
         0,
         lastT,
         prop,
-        LOI_ACCEL * 0.8,
+        LUNAR_ORBIT_INSERTION_ACCEL * 0.8,
         "ship",
         false,
       );
@@ -301,9 +301,9 @@ export function snapPolarLlo(
 }
 
 /**
- * PDI / powered descent (phase `descent`) toward the lunar south pole.
+ * powered descent initiation / powered descent (phase `descent`) toward the lunar south pole.
  */
-export function pdiThrust(t: number, pos: V3, vel: V3): V3 | null {
+export function poweredDescentThrust(t: number, pos: V3, vel: V3): V3 | null {
   const b = getBodies(t);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
@@ -386,7 +386,7 @@ export function pdiThrust(t: number, pos: V3, vel: V3): V3 | null {
 }
 
 /**
- * @deprecated Prefer loiThrust / pdiThrust. Kept for any external callers.
+ * @deprecated Prefer lunarOrbitInsertionThrust / poweredDescentThrust. Kept for any external callers.
  */
 export function landingThrust(
   t: number,
@@ -394,9 +394,9 @@ export function landingThrust(
   vel: V3,
   phase: PhaseId,
 ): V3 | null {
-  if (phase === "approach") return loiThrust(t, pos, vel);
-  if (phase === "descent") return pdiThrust(t, pos, vel);
-  // braking = LLO coast — no continuous thrust
+  if (phase === "approach") return lunarOrbitInsertionThrust(t, pos, vel);
+  if (phase === "descent") return poweredDescentThrust(t, pos, vel);
+  // braking = Low lunar orbit coast — no continuous thrust
   return null;
 }
 
@@ -449,7 +449,7 @@ export function finishLanding(
   state: CraftState,
   samples: Sample[],
   moonPhase0: number,
-  tliDv: number,
+  translunarInjectionDeltaV: number,
   minMoonAlt: number,
   prop: PropState | null = null,
 ): MissionResult {
@@ -464,7 +464,7 @@ export function finishLanding(
     t: samples.length > 0 ? samples[samples.length - 1]!.t : state.t - 1,
   };
 
-  // Bridge altitude down to the surface (no same-t teleport from high LLO)
+  // Bridge altitude down to the surface (no same-t teleport from high low lunar orbit)
   const alt0 = r0 - R_MOON;
   if (alt0 > 2) {
     const vDown = 8;
@@ -588,7 +588,7 @@ export function finishLanding(
     samples,
     durationS: samples[samples.length - 1]!.t,
     moonPhase0,
-    tliDv,
+    translunarInjectionDeltaV,
     minMoonAlt: Math.min(minMoonAlt, 0),
     ok: true,
     message: "Landed · lunar south pole",

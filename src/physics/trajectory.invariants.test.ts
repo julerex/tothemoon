@@ -45,7 +45,7 @@ describe("baked trajectory.json invariants", () => {
     assert.ok(tl.segments.length >= EXPECTED_PHASE_ORDER.length - 1);
     assert.ok(tl.events.some((e) => e.id === "liftoff"));
     assert.ok(
-      tl.events.some((e) => e.id === "coast" || e.id === "impact" || e.id === "tli"),
+      tl.events.some((e) => e.id === "coast" || e.id === "impact" || e.id === "translunarInjection"),
     );
     // Coast should dominate wall-clock progress on the scrubber
     const coast = tl.segments.find((s) => s.phase === "coast");

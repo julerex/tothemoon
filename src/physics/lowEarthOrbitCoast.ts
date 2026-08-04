@@ -1,4 +1,4 @@
-import { LEO_COAST_S, LEO_RADIUS, MU_EARTH } from "./constants";
+import { LOW_EARTH_ORBIT_COAST_S, LOW_EARTH_ORBIT_RADIUS, MU_EARTH } from "./constants";
 import { bodyPositions } from "./bodies";
 import { getAscent } from "./ascentCache";
 import { getBodies, type CraftState } from "./integrator";
@@ -9,7 +9,7 @@ import {
   createPropState,
   type PropState,
 } from "./propellant";
-import { moonArrivalDirection, transferPlaneNormal } from "./tli";
+import { moonArrivalDirection, transferPlaneNormal } from "./translunarInjection";
 import {
   clone,
   cross,
@@ -23,24 +23,24 @@ import {
   v3,
 } from "./vec3";
 
-/** Earth-relative LEO state at TLI epoch (survives Moon-phase ephemeris changes). */
-export type LeoRel = { t: number; relPos: V3; relVel: V3 };
+/** Earth-relative low Earth orbit state at translunar injection epoch (survives Moon-phase ephemeris changes). */
+export type LowEarthOrbitRelative = { t: number; relPos: V3; relVel: V3 };
 
-/** Chosen LEO coast duration (s). */
-let _leoCoastS = LEO_COAST_S;
+/** Chosen low Earth orbit coast duration (s). */
+let _leoCoastS = LOW_EARTH_ORBIT_COAST_S;
 
 /** Last dogleg plane-change Δv booked (km/s) — diagnostic / precompute log. */
 let _lastDoglegDvKmS = 0;
 
-export function setLeoCoastS(s: number): void {
+export function setLowEarthOrbitCoastS(s: number): void {
   _leoCoastS = s;
 }
 
-export function getLeoCoastS(): number {
+export function getLowEarthOrbitCoastS(): number {
   return _leoCoastS;
 }
 
-/** Total plane-change class Δv booked on the last LEO dogleg (km/s). */
+/** Total plane-change class Δv booked on the last low Earth orbit dogleg (km/s). */
 export function getLastDoglegDvKmS(): number {
   return _lastDoglegDvKmS;
 }
@@ -118,7 +118,7 @@ function projectToPlaneUnit(v: V3, n: V3, out: V3): V3 {
 }
 
 /**
- * Circular LEO state: position along rHat, velocity n×rHat · v_circ
+ * Circular low Earth orbit state: position along rHat, velocity n×rHat · v_circ
  * (prograde about normal n — co-rotating if n matches the Moon).
  */
 function setCircularLeo(
@@ -128,14 +128,14 @@ function setCircularLeo(
   n: V3,
 ): void {
   const b = bodyPositions(t);
-  const vCirc = Math.sqrt(MU_EARTH / LEO_RADIUS);
+  const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
   // v_hat = n × r_hat
   cross(_tangent, n, rHat);
   normalize(_tangent, _tangent);
   state.t = t;
-  state.pos.x = b.earth.x + rHat.x * LEO_RADIUS;
-  state.pos.y = b.earth.y + rHat.y * LEO_RADIUS;
-  state.pos.z = b.earth.z + rHat.z * LEO_RADIUS;
+  state.pos.x = b.earth.x + rHat.x * LOW_EARTH_ORBIT_RADIUS;
+  state.pos.y = b.earth.y + rHat.y * LOW_EARTH_ORBIT_RADIUS;
+  state.pos.z = b.earth.z + rHat.z * LOW_EARTH_ORBIT_RADIUS;
   state.vel.x = b.earthVel.x + _tangent.x * vCirc;
   state.vel.y = b.earthVel.y + _tangent.y * vCirc;
   state.vel.z = b.earthVel.z + _tangent.z * vCirc;
@@ -145,7 +145,7 @@ export function cloneState(s: CraftState): CraftState {
   return { t: s.t, pos: clone(s.pos), vel: clone(s.vel) };
 }
 
-export function captureLeoRel(state: CraftState): LeoRel {
+export function captureLowEarthOrbitRelative(state: CraftState): LowEarthOrbitRelative {
   const b = getBodies(state.t);
   return {
     t: state.t,
@@ -162,7 +162,7 @@ export function captureLeoRel(state: CraftState): LeoRel {
   };
 }
 
-export function restoreLeoRel(rel: LeoRel): CraftState {
+export function restoreLowEarthOrbitRelative(rel: LowEarthOrbitRelative): CraftState {
   const b = getBodies(rel.t);
   return {
     t: rel.t,
@@ -189,28 +189,28 @@ function planeChangeDv(vCirc: number, diRad: number): number {
 }
 
 /**
- * After ascent: **continuous** circular LEO that doglegs into the
- * **south-biased transfer plane** (same as TLI), ~1.25 revs, ending at the
+ * After ascent: **continuous** circular low Earth orbit that doglegs into the
+ * **south-biased transfer plane** (same as translunar injection), ~1.25 revs, ending at the
  * transfer periapsis direction.
  *
- * Geometry is kinematic (smooth trail / TLI aim). Plane-change cost is
+ * Geometry is kinematic (smooth trail / translunar injection aim). Plane-change cost is
  * booked as ship thrust + propellant: each step pays 2 v sin(di/2) for the
  * normal rotation that step (smoothstep concentrates burn mid-coast).
  * In-plane prograde motion is free (orbital). No free plane slerp.
  */
-export function runLunarPlaneLeoCoast(
+export function runLunarPlaneLowEarthOrbitCoast(
   state: CraftState,
   samples: Sample[] | null,
   lastT: { t: number } | null,
   prop: PropState | null = null,
 ): void {
   const t0 = state.t;
-  const period = 2 * Math.PI * Math.sqrt(LEO_RADIUS ** 3 / MU_EARTH);
+  const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
   const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
   // Fine samples so the plane-change arc is smooth (~10 s chords ≈ 70 km)
   const steps = Math.max(180, Math.ceil(coastS / 10));
   const dt = coastS / steps;
-  const vCirc = Math.sqrt(MU_EARTH / LEO_RADIUS);
+  const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
 
   const b0 = bodyPositions(t0);
   sub(_relP, state.pos, b0.earth);
@@ -221,7 +221,7 @@ export function runLunarPlaneLeoCoast(
   if (len(_n0) < 1e-12) set(_n0, 0, 0, 1);
   normalize(_n0, _n0);
 
-  // Target: south-biased transfer plane (matches TLI inject)
+  // Target: south-biased transfer plane (matches translunar injection inject)
   const t1 = t0 + coastS;
   transferPlaneNormal(t1, _n1);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
@@ -248,7 +248,7 @@ export function runLunarPlaneLeoCoast(
 
   // Insertion sample — not burning yet
   if (samples && lastT) {
-    pushSample(samples, state, "leo", false, true, 0, lastT, prop, 0, "ship");
+    pushSample(samples, state, "lowEarthOrbit", false, true, 0, lastT, prop, 0, "ship");
   }
 
   set(_nPrev, _n0.x, _n0.y, _n0.z);
@@ -283,7 +283,7 @@ export function runLunarPlaneLeoCoast(
       pushSample(
         samples,
         state,
-        "leo",
+        "lowEarthOrbit",
         burning,
         i === steps,
         0,
@@ -310,17 +310,17 @@ export function runLunarPlaneLeoCoast(
   void totalDi;
 }
 
-/** Ascent end → continuous LEO coast → LEO-rel state for probes. */
-export function computeLeoRel(_coastS?: number): LeoRel {
+/** Ascent end → continuous low Earth orbit coast → low Earth orbit-rel state for probes. */
+export function computeLowEarthOrbitRelative(_coastS?: number): LowEarthOrbitRelative {
   void _coastS;
   const ascent = getAscent();
   const state = cloneState(ascent.state);
-  runLunarPlaneLeoCoast(state, null, null);
-  return captureLeoRel(state);
+  runLunarPlaneLowEarthOrbitCoast(state, null, null);
+  return captureLowEarthOrbitRelative(state);
 }
 
-/** Append ascent samples, then LEO dogleg into the lunar plane (paid ship Δv). */
-export function appendAscentAndLeoCoast(
+/** Append ascent samples, then low Earth orbit dogleg into the lunar plane (paid ship Δv). */
+export function appendAscentAndLowEarthOrbitCoast(
   samples: Sample[],
   lastT: { t: number },
   prop: PropState,
@@ -350,7 +350,7 @@ export function appendAscentAndLeoCoast(
     lastT.t = s.t;
   }
   const state = cloneState(ascent.state);
-  // First LEO sample is continuous with last ascent sample (same r direction)
-  runLunarPlaneLeoCoast(state, samples, lastT, prop);
+  // First low Earth orbit sample is continuous with last ascent sample (same r direction)
+  runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop);
   return state;
 }

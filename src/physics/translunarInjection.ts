@@ -1,12 +1,12 @@
 import {
   A_EM,
   DT_BURN,
-  LEO_RADIUS,
+  LOW_EARTH_ORBIT_RADIUS,
   MU_EARTH,
   R_EARTH,
   R_MOON,
-  TLI_ACCEL,
-  TLI_BURN_MAX_S,
+  TRANSLUNAR_INJECTION_ACCEL,
+  TRANSLUNAR_INJECTION_BURN_MAX_S,
   TRANSFER_AIM_ALT_KM,
 } from "./constants";
 import { moonRelativeToEarth, moonSouthUnit } from "./bodies";
@@ -58,36 +58,36 @@ export const TRANSFER_PLANE_NORTH_BIAS = 0.32;
 
 /**
  * Advance the line of apsides (rad) about the transfer normal (RH rule).
- * Positive = prograde / anticlockwise from northern view — delays TLI along
- * the LEO arc so free coast crosses the lunar SOI near the Moon’s orbit.
+ * Positive = prograde / anticlockwise from northern view — delays translunar injection along
+ * the low Earth orbit arc so free coast crosses the lunar sphere of influence near the Moon’s orbit.
  */
 export const APSIS_CCW_BIAS_RAD = 0.55; // ~31.5°
 
 /**
- * Hot free-coast TLI (super-Hohmann).
+ * Hot free-coast translunar injection (super-Hohmann).
  *
  * Design apogee past the Moon so restricted n-body free coast (tidal Sun)
- * still reaches the lunar region with margin. TOF ≈ half-period.
+ * still reaches the lunar region with margin. time of flight ≈ half-period.
  */
-export function lroTransfer(): {
+export function designLunarTransfer(): {
   ra: number;
   a: number;
-  tliDv: number;
+  translunarInjectionDeltaV: number;
   tof: number;
   vPeri: number;
 } {
-  const rp = LEO_RADIUS;
+  const rp = LOW_EARTH_ORBIT_RADIUS;
   // Hotter inject: more velocity, apo well past mean lunar distance
   const ra = A_EM * 1.35;
   const a = 0.5 * (rp + ra);
   const vLeo = Math.sqrt(MU_EARTH / rp);
   const vPeri = Math.sqrt(MU_EARTH * (2 / rp - 1 / a));
   const tof = Math.PI * Math.sqrt((a * a * a) / MU_EARTH);
-  return { ra, a, tliDv: vPeri - vLeo, tof, vPeri };
+  return { ra, a, translunarInjectionDeltaV: vPeri - vLeo, tof, vPeri };
 }
 
 export function transferTimeEst(): number {
-  return lroTransfer().tof;
+  return designLunarTransfer().tof;
 }
 
 /**
@@ -99,33 +99,33 @@ export function vPeriForRa(r: number, ra: number): number {
 }
 
 /**
- * Max design apogee (km) for free-coast TLI search ladder.
+ * Max design apogee (km) for free-coast translunar injection search ladder.
  * High enough for hot injects; still sub-escape (v/v_esc ≈ 0.996).
  */
-export const TLI_RA_CAP = A_EM * 2.0;
+export const TRANSLUNAR_INJECTION_APOGEE_CAP = A_EM * 2.0;
 
-/** Periapsis speed = circular LEO + TLI Δv, capped so ra ≤ TLI_RA_CAP. */
-export function transferVPeri(r: number, tliDv: number): number {
+/** Periapsis speed = circular low Earth orbit + Translunar injection Δv, capped so ra ≤ TRANSLUNAR_INJECTION_APOGEE_CAP. */
+export function transferPeriapsisSpeed(r: number, translunarInjectionDeltaV: number): number {
   const vCirc = Math.sqrt(MU_EARTH / r);
-  const vCap = vPeriForRa(r, TLI_RA_CAP);
+  const vCap = vPeriForRa(r, TRANSLUNAR_INJECTION_APOGEE_CAP);
   const dvCap = Math.max(0, vCap - vCirc);
-  return vCirc + Math.min(tliDv, dvCap);
+  return vCirc + Math.min(translunarInjectionDeltaV, dvCap);
 }
 
 /** Earth-centered radius of transfer apogee for a given periapsis Δv. */
-export function apogeeFromTliDv(r: number, tliDv: number): number {
-  const v = transferVPeri(r, tliDv);
+export function apogeeFromTranslunarInjectionDeltaV(r: number, translunarInjectionDeltaV: number): number {
+  const v = transferPeriapsisSpeed(r, translunarInjectionDeltaV);
   const invA = 2 / r - (v * v) / MU_EARTH;
   if (invA <= 1e-12) return Infinity;
   const a = 1 / invA;
   return 2 * a - r;
 }
 
-/** Max TLI Δv from LEO (km/s) — hot free-coast ladder headroom. */
-export function maxTliDv(r = LEO_RADIUS): number {
-  const base = lroTransfer().tliDv;
+/** Max Translunar injection Δv from low Earth orbit (km/s) — hot free-coast ladder headroom. */
+export function maxTranslunarInjectionDeltaV(r = LOW_EARTH_ORBIT_RADIUS): number {
+  const base = designLunarTransfer().translunarInjectionDeltaV;
   const vCirc = Math.sqrt(MU_EARTH / r);
-  const dvCap = transferVPeri(r, base * 2) - vCirc;
+  const dvCap = transferPeriapsisSpeed(r, base * 2) - vCirc;
   return Math.min(dvCap, base * 1.06);
 }
 
@@ -142,7 +142,7 @@ function lunarPlaneNormal(t: number, out: V3): V3 {
 }
 
 /**
- * Earth-relative rendezvous aim at TLI+TOF: above the lunar **south pole**
+ * Earth-relative rendezvous aim at translunar injection+TOF: above the lunar **south pole**
  * at arrival (where the Moon will be).
  */
 export function southPoleRendezvousAim(tInject: number, out: V3): V3 {
@@ -227,10 +227,10 @@ function progradeInPlane(relPos: V3, n: V3, out: V3): V3 {
 }
 
 /**
- * @deprecated Prefer runFiniteTli — kept for reference / emergency snaps.
- * Impulsive LRO-style velocity set (may adjust position if poorly aligned).
+ * @deprecated Prefer runFiniteTranslunarInjection — kept for reference / emergency snaps.
+ * Impulsive lunar-transfer-style velocity set (may adjust position if poorly aligned).
  */
-export function applyTli(state: CraftState, tliDv: number): void {
+export function applyTranslunarInjection(state: CraftState, translunarInjectionDeltaV: number): void {
   const t0 = state.t;
   const b0 = getBodies(t0);
 
@@ -252,8 +252,8 @@ export function applyTli(state: CraftState, tliDv: number): void {
   cross(_tmp, _tangent, _relP);
   normalize(_relV, _tmp);
 
-  const r = LEO_RADIUS;
-  const vPeri = transferVPeri(r, tliDv);
+  const r = LOW_EARTH_ORBIT_RADIUS;
+  const vPeri = transferPeriapsisSpeed(r, translunarInjectionDeltaV);
 
   sub(_relP, state.pos, b0.earth);
   const rNow = len(_relP);
@@ -278,7 +278,7 @@ export function applyTli(state: CraftState, tliDv: number): void {
   }
 }
 
-export type FiniteTliResult = {
+export type FiniteTranslunarInjectionResult = {
   /** Delivered thrust Δv (km/s) */
   dvDelivered: number;
   /** Burn duration (s) */
@@ -288,39 +288,39 @@ export type FiniteTliResult = {
 };
 
 /**
- * Ideal Earth-relative velocity after impulsive TLI at the craft's current
+ * Ideal Earth-relative velocity after impulsive translunar injection at the craft's current
  * Earth-relative position: transfer-plane prograde × v_peri (hot inject).
  */
-function idealTliRelVel(state: CraftState, tliDv: number, out: V3): V3 {
+function idealTliRelVel(state: CraftState, translunarInjectionDeltaV: number, out: V3): V3 {
   const b = getBodies(state.t);
   sub(_relP, state.pos, b.earth);
   const r = Math.max(len(_relP), R_EARTH + 100);
   transferPlaneNormal(state.t, _n);
   progradeInPlane(_relP, _n, _pro);
   const vCirc = Math.sqrt(MU_EARTH / r);
-  const vCap = vPeriForRa(r, TLI_RA_CAP);
-  const vPeri = Math.min(vCirc + tliDv, vCap);
+  const vCap = vPeriForRa(r, TRANSLUNAR_INJECTION_APOGEE_CAP);
+  const vPeri = Math.min(vCirc + translunarInjectionDeltaV, vCap);
   return scale(out, _pro, vPeri);
 }
 
 /**
- * Finite TLI burn under capped ship acceleration.
+ * Finite Translunar injection burn under capped ship acceleration.
  *
- * Starts from current LEO (no position teleport). Thrusts along
+ * Starts from current low Earth orbit (no position teleport). Thrusts along
  * **velocity-to-go** toward the impulsive inject velocity until the
  * Earth-relative residual is small — so intercept geometry matches the
  * design transfer while the HUD sees a multi-minute burn + plume.
  */
-export function runFiniteTli(
+export function runFiniteTranslunarInjection(
   state: CraftState,
-  tliDv: number,
+  translunarInjectionDeltaV: number,
   samples: Sample[] | null = null,
   lastT: { t: number } | null = null,
   prop: PropState | null = null,
-): FiniteTliResult {
-  const aNom = TLI_ACCEL;
+): FiniteTranslunarInjectionResult {
+  const aNom = TRANSLUNAR_INJECTION_ACCEL;
   const tIgnition = state.t;
-  const tHardCap = tIgnition + TLI_BURN_MAX_S * 1.35;
+  const tHardCap = tIgnition + TRANSLUNAR_INJECTION_BURN_MAX_S * 1.35;
   let delivered = 0;
 
   // Opening sample at ignition
@@ -328,7 +328,7 @@ export function runFiniteTli(
     pushSample(
       samples,
       state,
-      "tli",
+      "translunarInjection",
       aNom > 0,
       true,
       0,
@@ -348,7 +348,7 @@ export function runFiniteTli(
     if (prop && !hasPropellant(prop, "ship")) break;
 
     const b = getBodies(state.t);
-    idealTliRelVel(state, tliDv, vIdeal);
+    idealTliRelVel(state, translunarInjectionDeltaV, vIdeal);
     sub(_relV, state.vel, b.earthVel);
     vGo.x = vIdeal.x - _relV.x;
     vGo.y = vIdeal.y - _relV.y;
@@ -386,7 +386,7 @@ export function runFiniteTli(
       pushSample(
         samples,
         state,
-        "tli",
+        "translunarInjection",
         true,
         false,
         0.8,
@@ -402,7 +402,7 @@ export function runFiniteTli(
   // Snap residual velocity-to-go so coast matches design inject
   {
     const b = getBodies(state.t);
-    idealTliRelVel(state, tliDv, vIdeal);
+    idealTliRelVel(state, translunarInjectionDeltaV, vIdeal);
     state.vel.x = b.earthVel.x + vIdeal.x;
     state.vel.y = b.earthVel.y + vIdeal.y;
     state.vel.z = b.earthVel.z + vIdeal.z;
@@ -412,7 +412,7 @@ export function runFiniteTli(
     pushSample(
       samples,
       state,
-      "tli",
+      "translunarInjection",
       false,
       true,
       0,
@@ -431,8 +431,8 @@ export function runFiniteTli(
   };
 }
 
-/** Build osculating Kepler orbit about Earth right after TLI (2-body reference). */
-export function orbitAfterTli(state: CraftState): KeplerOrbit {
+/** Build osculating Kepler orbit about Earth right after translunar injection (2-body reference). */
+export function orbitAfterTranslunarInjection(state: CraftState): KeplerOrbit {
   const b = getBodies(state.t);
   sub(_relP, state.pos, b.earth);
   sub(_relV, state.vel, b.earthVel);
@@ -441,7 +441,7 @@ export function orbitAfterTli(state: CraftState): KeplerOrbit {
 
 /**
  * Optional design ellipse: coplanar Hohmann-class at current r.
- * Prefer runFiniteTli + transferVPeri cap for free-coast missions.
+ * Prefer runFiniteTranslunarInjection + transferPeriapsisSpeed cap for free-coast missions.
  */
 export function designApogeeTransferOrbit(state: CraftState): KeplerOrbit {
   const t0 = state.t;
@@ -450,8 +450,8 @@ export function designApogeeTransferOrbit(state: CraftState): KeplerOrbit {
   const r = Math.max(len(_relP), R_EARTH + 100);
   transferPlaneNormal(t0, _n);
   progradeInPlane(_relP, _n, _pro);
-  const xfer = lroTransfer();
-  const vPeri = transferVPeri(r, xfer.tliDv);
+  const xfer = designLunarTransfer();
+  const vPeri = transferPeriapsisSpeed(r, xfer.translunarInjectionDeltaV);
   scale(_relV, _pro, vPeri);
   return rvToKepler(_relP, _relV, MU_EARTH, t0);
 }

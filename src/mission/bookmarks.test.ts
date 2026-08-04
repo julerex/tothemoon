@@ -28,13 +28,13 @@ function sample(
   };
 }
 
-/** Full theater arc with staging, LOI, and soft land. */
+/** Full theater arc with staging, lunar orbit insertion, and soft land. */
 function landingArcSamples(): Sample[] {
   return [
     sample(0, "launch", { staged: false }),
     sample(50, "ascent", { staged: false, fuelBooster: 0.5 }),
-    sample(100, "leo", { staged: true, fuelBooster: 0 }),
-    sample(200, "tli", { staged: true }),
+    sample(100, "lowEarthOrbit", { staged: true, fuelBooster: 0 }),
+    sample(200, "translunarInjection", { staged: true }),
     sample(300, "coast", { staged: true }),
     sample(800, "approach", { staged: true }),
     sample(850, "braking", { staged: true }),
@@ -44,12 +44,19 @@ function landingArcSamples(): Sample[] {
 }
 
 describe("buildBookmarks", () => {
-  it("emits Pad · Stage · TLI · Half · LOI · Land for a landing arc", () => {
+  it("emits Pad · Stage · translunar injection · Half · lunar orbit insertion · Land for a landing arc", () => {
     const tl = buildTimeline(landingArcSamples(), 1000);
     const marks = buildBookmarks(tl);
     assert.deepEqual(
       marks.map((m) => m.id),
-      ["pad", "staging", "tli", "halfway", "loi", "touchdown"],
+      [
+        "pad",
+        "staging",
+        "translunarInjection",
+        "halfway",
+        "lunarOrbitInsertion",
+        "touchdown",
+      ],
     );
     assert.equal(marks[0]!.mode, "starbase");
     assert.equal(marks[1]!.mode, "chase");
@@ -74,7 +81,7 @@ describe("buildBookmarks", () => {
   it("omits staging when the stack never stages", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: true }),
-      sample(10, "tli", { staged: true }),
+      sample(10, "translunarInjection", { staged: true }),
       sample(20, "coast", { staged: true }),
       sample(100, "impact", { staged: true }),
     ];
@@ -82,15 +89,15 @@ describe("buildBookmarks", () => {
     const marks = buildBookmarks(tl);
     assert.ok(!marks.some((m) => m.id === "staging"));
     assert.ok(marks.some((m) => m.id === "pad"));
-    assert.ok(marks.some((m) => m.id === "tli"));
+    assert.ok(marks.some((m) => m.id === "translunarInjection"));
   });
 
   it("uses Impact framing when there is no soft landing", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: false }),
       sample(50, "ascent", { staged: false }),
-      sample(100, "leo", { staged: true }),
-      sample(200, "tli", { staged: true }),
+      sample(100, "lowEarthOrbit", { staged: true }),
+      sample(200, "translunarInjection", { staged: true }),
       sample(300, "coast", { staged: true }),
       sample(700, "impact", { staged: true }),
     ];
@@ -130,9 +137,9 @@ describe("buildBookmarks", () => {
     assert.deepEqual([...BOOKMARK_IDS], [
       "pad",
       "staging",
-      "tli",
+      "translunarInjection",
       "halfway",
-      "loi",
+      "lunarOrbitInsertion",
       "touchdown",
     ]);
   });
@@ -143,7 +150,7 @@ describe("bookmarkForShiftDigit", () => {
     const tl = buildTimeline(landingArcSamples(), 1000);
     const marks = buildBookmarks(tl);
     assert.equal(bookmarkForShiftDigit(marks, 1)?.id, "pad");
-    assert.equal(bookmarkForShiftDigit(marks, 3)?.id, "tli");
+    assert.equal(bookmarkForShiftDigit(marks, 3)?.id, "translunarInjection");
     assert.equal(bookmarkForShiftDigit(marks, marks.length)?.id, "touchdown");
     assert.equal(bookmarkForShiftDigit(marks, 0), null);
     assert.equal(bookmarkForShiftDigit(marks, 99), null);

@@ -252,7 +252,7 @@ export function createBodies(): Bodies {
   );
   earthAxis.add(atmoOuter);
 
-  // Thin bright limb edge for pad / LEO drama
+  // Thin bright limb edge for pad / low Earth orbit drama
   const atmoLimb = new THREE.Mesh(
     new THREE.SphereGeometry(R_EARTH * 1.012, 64, 48),
     new THREE.MeshBasicMaterial({
@@ -453,7 +453,7 @@ export function updateBodies(t: number, bodies: Bodies): void {
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 
   // Mission-time sidereal rotation about the tilted polar axis (local Y).
-  // Same GMST phase as physics/earthFrame (Starbase pad alignment).
+  // Same Greenwich mean sidereal time phase as physics/earthFrame (Starbase pad alignment).
   const spin = earthSpinAngle(t);
   bodies.earth.rotation.y = spin;
   // Clouds drift a little faster than the ground

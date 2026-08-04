@@ -5,8 +5,8 @@ import { phaseLabel, type PhaseId } from "./missionTypes.ts";
 const ALL_PHASES: PhaseId[] = [
   "launch",
   "ascent",
-  "leo",
-  "tli",
+  "lowEarthOrbit",
+  "translunarInjection",
   "coast",
   "approach",
   "braking",
@@ -27,6 +27,6 @@ describe("phaseLabel", () => {
   it("uses distinctive labels for launch and impact", () => {
     assert.match(phaseLabel("launch"), /Liftoff|Starbase/i);
     assert.match(phaseLabel("impact"), /impact/i);
-    assert.match(phaseLabel("tli"), /lunar|inject/i);
+    assert.match(phaseLabel("translunarInjection"), /lunar|inject/i);
   });
 });

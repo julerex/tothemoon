@@ -1,5 +1,5 @@
 /**
- * Unit tests for ascent/RTLS cross-section pure helpers.
+ * Unit tests for ascent/Return-to-launch-site cross-section pure helpers.
  */
 
 import assert from "node:assert/strict";
@@ -64,7 +64,7 @@ describe("launch plane projection", () => {
 });
 
 describe("buildCrossSectionModel", () => {
-  it("builds booster trail covering RTLS return near pad", () => {
+  it("builds booster trail covering return-to-launch-site path near pad", () => {
     assert.ok(model.boosterTrail.length > 50);
     assert.ok(model.stageT != null && model.stageT > 0);
     const last = model.boosterTrail[model.boosterTrail.length - 1]!;
@@ -80,7 +80,7 @@ describe("buildCrossSectionModel", () => {
     assert.equal(model.rAtm, R_EARTH + ATM_H_MAX_KM);
     assert.ok(model.bounds.yMax >= model.rAtm - 5);
     assert.ok(model.bounds.xMax > 50);
-    // Envelope stays LEO-local (not cislunar)
+    // Envelope stays low-Earth-orbit-local (not cislunar)
     assert.ok(model.bounds.xMax < 500);
   });
 });
@@ -159,7 +159,7 @@ describe("view helpers", () => {
 });
 
 describe("BOOSTER_VISIBLE_S sanity", () => {
-  it("is long enough for RTLS theater", () => {
+  it("is long enough for return to launch site theater", () => {
     assert.ok(BOOSTER_VISIBLE_S > 300);
   });
 });

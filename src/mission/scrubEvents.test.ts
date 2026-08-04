@@ -16,7 +16,7 @@ describe("buildScrubEventTicks", () => {
       ev("liftoff", 0),
       ev("staging", 100),
       ev("dogleg", 150),
-      ev("tli", 200),
+      ev("translunarInjection", 200),
       ev("boostback", 104),
     ];
     const ticks = buildScrubEventTicks(events);
@@ -35,12 +35,12 @@ describe("buildScrubEventTicks", () => {
 });
 
 describe("isSecondaryScrubEvent", () => {
-  it("recognizes staging / dogleg / RTLS theater ids", () => {
+  it("recognizes staging / dogleg / return to launch site theater ids", () => {
     assert.equal(isSecondaryScrubEvent("staging"), true);
     assert.equal(isSecondaryScrubEvent("dogleg"), true);
     assert.equal(isSecondaryScrubEvent("boostback"), true);
     assert.equal(isSecondaryScrubEvent("booster-catch"), true);
     assert.equal(isSecondaryScrubEvent("liftoff"), false);
-    assert.equal(isSecondaryScrubEvent("tli"), false);
+    assert.equal(isSecondaryScrubEvent("translunarInjection"), false);
   });
 });

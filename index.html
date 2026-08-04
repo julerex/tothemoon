@@ -37,7 +37,7 @@
               type="button"
               id="btn-cross-section"
               aria-pressed="false"
-              title="Ascent / RTLS cross-section (V)"
+              title="Ascent / return to launch site cross-section (V)"
             >
               Cross-section
             </button>
@@ -186,8 +186,8 @@
               <dd id="mc-duration">—</dd>
             </div>
             <div>
-              <dt>TLI Δv</dt>
-              <dd id="mc-tlidv">—</dd>
+              <dt>Translunar injection Δv</dt>
+              <dd id="mc-translunar-injection-delta-v">—</dd>
             </div>
             <div>
               <dt>Min lunar alt</dt>
@@ -237,7 +237,7 @@
                   <div><dt>Phase marks</dt><dd>Click to jump to phase start</dd></div>
                   <div><dt>Event ticks</dt><dd>Small marks under scrubber · click for callout</dd></div>
                   <div><dt>Callout</dt><dd>Click title to re-seek that beat</dd></div>
-                  <div><dt>Bookmarks</dt><dd>Pad · Stage · TLI · Half · LOI · Land</dd></div>
+                  <div><dt>Bookmarks</dt><dd>Pad · Stage · Inject · Half · Capture · Land</dd></div>
                   <div><dt><kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd></dt><dd>Jump to bookmark + camera</dd></div>
                 </dl>
               </section>
@@ -282,7 +282,7 @@
                   <div><dt>Hover arrow</dt><dd>Show v or a value</dd></div>
                   <div><dt><kbd>K</kbd></dt><dd>This keymap</dd></div>
                   <div><dt><kbd>M</kbd></dt><dd>Mission metrics</dd></div>
-                  <div><dt><kbd>V</kbd></dt><dd>Ascent / RTLS cross-section</dd></div>
+                  <div><dt><kbd>V</kbd></dt><dd>Ascent / return to launch site cross-section</dd></div>
                   <div><dt><kbd>Esc</kbd></dt><dd>Close overlay</dd></div>
                 </dl>
               </section>
@@ -358,7 +358,7 @@
                 <h3>Mission (baked)</h3>
                 <dl>
                   <div><dt>Duration</dt><dd id="mx-duration">—</dd></div>
-                  <div><dt>TLI Δv</dt><dd id="mx-tlidv">—</dd></div>
+                  <div><dt>Translunar injection Δv</dt><dd id="mx-translunar-injection-delta-v">—</dd></div>
                   <div><dt>Min lunar alt</dt><dd id="mx-minalt">—</dd></div>
                   <div><dt>Peak |v|</dt><dd id="mx-peak-speed">—</dd></div>
                   <div><dt>Stage-out</dt><dd id="mx-stage-t">—</dd></div>
@@ -380,7 +380,7 @@
         >
           <div class="keymap-card panel cross-section-card">
             <header class="keymap-header cross-section-header">
-              <h2 id="cross-section-title">Ascent · RTLS cross-section</h2>
+              <h2 id="cross-section-title">Ascent · return to launch site cross-section</h2>
               <button
                 type="button"
                 id="cross-section-close"

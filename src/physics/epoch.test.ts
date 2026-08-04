@@ -4,7 +4,7 @@ import {
   daysPastFullAtLanding,
   formatMissionDateUtc,
   FULL_MOON_UTC_MS,
-  gmstRad,
+  greenwichMeanSiderealTimeRad,
   LANDING_UTC_MS,
   missionUtcMs,
   moonElongationPastFullRad,
@@ -51,9 +51,9 @@ describe("epoch · July 2027 theater", () => {
     assert.match(mid, /^2027-07-19 /);
   });
 
-  it("gmstRad is finite; one sidereal day is one full turn (mod 2π)", () => {
-    const a = gmstRad(LANDING_UTC_MS);
-    const b = gmstRad(LANDING_UTC_MS + 86_164.0905 * 1000);
+  it("greenwichMeanSiderealTimeRad is finite; one sidereal day is one full turn (mod 2π)", () => {
+    const a = greenwichMeanSiderealTimeRad(LANDING_UTC_MS);
+    const b = greenwichMeanSiderealTimeRad(LANDING_UTC_MS + 86_164.0905 * 1000);
     assert.ok(Number.isFinite(a) && a >= 0 && a < 2 * Math.PI);
     const wrap = (x: number) =>
       ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);

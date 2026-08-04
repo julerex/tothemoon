@@ -1,7 +1,7 @@
 import { flyAscent, type AscentResult } from "./ascent";
 import { getMissionLandingT } from "./horizonsEpoch";
 
-/** Cached Starbase → LEO under the current Moon/Sun/Horizons epoch. */
+/** Cached Starbase → low Earth orbit under the current Moon/Sun/Horizons epoch. */
 let _ascentCache: AscentResult | null = null;
 let _ascentPhaseKey = NaN;
 /** Horizons map t_land used when the cache was baked (absolute Earth motion). */

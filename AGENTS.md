@@ -16,7 +16,7 @@ When committing and pushing:
 
 ## Project notes
 
-- Interactive Three.js mission theater: Starbase → LEO → TLI → lunar landing.
+- Interactive Three.js mission theater: Starbase → low Earth orbit → translunar injection → lunar landing.
 - Trajectory is baked at build time (`npm run precompute` / `npm run build`).
 - Scene unit = 1 km. Prefer small, focused diffs over drive-by refactors.
 - Hygiene: `npm run typecheck`, `npm run lint` (ESLint), `npm test` (or `npm run ci` for all three).

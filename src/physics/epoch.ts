@@ -108,14 +108,14 @@ export function formatMissionDateUtc(
 /**
  * Greenwich Mean Sidereal Time (rad) at a UTC instant.
  * USNO/Meeus low-precision — plenty for theater pad lighting and launch azimuth.
- * Mesh spin equals GMST: lon 0° → mesh +X → equinox when GMST = 0 (see earthFrame).
+ * Mesh spin equals Greenwich mean sidereal time: lon 0° → mesh +X → equinox when Greenwich mean sidereal time = 0 (see earthFrame).
  */
-export function gmstRad(utcMs: number): number {
+export function greenwichMeanSiderealTimeRad(utcMs: number): number {
   // Unix epoch 1970-01-01T00:00:00Z = JD 2440587.5
   const jd = utcMs / 86_400_000 + 2_440_587.5;
   const d = jd - 2_451_545.0; // days from J2000.0
   const T = d / 36_525;
-  // GMST in degrees (includes fractional day via d)
+  // Greenwich mean sidereal time in degrees (includes fractional day via d)
   let deg =
     280.460_618_37 +
     360.985_647_366_29 * d +

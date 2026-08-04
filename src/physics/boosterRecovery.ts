@@ -3,7 +3,7 @@
  *
  * Kinematic (not N-body authoritative): flip → boostback burn → coast/entry →
  * landing burn → tower catch at Starbase. Times relative to stage epoch follow
- * Flight 5–7 / Flight 13 RTLS cadence (~4–5 min pad return).
+ * Flight 5–7 / Flight 13 return to launch site cadence (~4–5 min pad return).
  *
  * All path math is **Earth-relative** ( heliocentric body motion is added back
  * at sample time) so multi-minute coasts stay near the planet.
@@ -270,7 +270,7 @@ export function buildBoosterKeyframes(stage: StageState): RelKeyframe[] {
   const rBall = len(pBall) || 1;
   normalize(_tmp2, pBall);
   normalize(_tmp3, pGate);
-  // Stronger pull-back than a pure residual — RTLS theater wants a clear return
+  // Stronger pull-back than a pure residual — return to launch site theater wants a clear return
   const blend = 0.55;
   set(
     _tmp,

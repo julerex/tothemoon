@@ -8,7 +8,7 @@ import {
   STARBASE_LAT,
   STARBASE_LON,
 } from "./constants.ts";
-import { gmstRad, LANDING_UTC_MS, missionUtcMs } from "./epoch.ts";
+import { greenwichMeanSiderealTimeRad, LANDING_UTC_MS, missionUtcMs } from "./epoch.ts";
 import { setMissionLandingT } from "./horizonsEpoch.ts";
 import {
   earthNorthPole,
@@ -32,12 +32,12 @@ describe("earthFrame geometry", () => {
     assert.ok(Math.abs(n.z - Math.cos(EARTH_OBLIQUITY)) < 1e-12);
   });
 
-  it("earthSpinAngle tracks GMST; one sidereal day is one full turn (mod 2π)", () => {
+  it("earthSpinAngle tracks Greenwich mean sidereal time; one sidereal day is one full turn (mod 2π)", () => {
     setMissionLandingT(0);
     const a0 = earthSpinAngle(0);
     assert.ok(
-      Math.abs(a0 - gmstRad(LANDING_UTC_MS)) < 1e-9,
-      "spin at τ=0 is GMST at landing epoch",
+      Math.abs(a0 - greenwichMeanSiderealTimeRad(LANDING_UTC_MS)) < 1e-9,
+      "spin at τ=0 is Greenwich mean sidereal time at landing epoch",
     );
     const wrap = (x: number) =>
       ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);

@@ -62,7 +62,7 @@ export function createStarbasePad(): THREE.Group {
   landmarkRing.name = "pad-landmark-ring";
   pad.add(landmarkRing);
 
-  // Soft outer apron rim (reads from LEO)
+  // Soft outer apron rim (reads from low Earth orbit)
   const landmarkRim = new THREE.Mesh(
     new THREE.TorusGeometry(2.55, 0.035, 8, 64),
     new THREE.MeshStandardMaterial({
@@ -427,7 +427,7 @@ export function updateStarbaseLaunchFx(
 }
 
 /**
- * Sub-satellite ground track for launch → early LEO, in Earth mesh-local coords
+ * Sub-satellite ground track for launch → early low Earth orbit, in Earth mesh-local coords
  * so it co-rotates with the surface.
  */
 export function createAscentGroundTrack(
@@ -438,11 +438,11 @@ export function createAscentGroundTrack(
   const local = v3();
 
   for (const s of samples) {
-    if (s.phase !== "launch" && s.phase !== "ascent" && s.phase !== "leo") {
+    if (s.phase !== "launch" && s.phase !== "ascent" && s.phase !== "lowEarthOrbit") {
       if (pts.length > 10) break;
       continue;
     }
-    if (s.phase === "leo" && s.t > 6000) break;
+    if (s.phase === "lowEarthOrbit" && s.t > 6000) break;
 
     const b = bodyPositions(s.t);
     const rx = s.pos.x - b.earth.x;

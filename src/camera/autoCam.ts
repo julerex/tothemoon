@@ -27,9 +27,9 @@ export type AutoCamSuggestion = {
  * | Phase            | Framing                         |
  * |------------------|---------------------------------|
  * | Launch           | Starbase pad                    |
- * | Ascent / LEO / TLI | Ship chase                    |
+ * | Ascent / low Earth orbit / translunar injection | Ship chase                    |
  * | Coast            | Wide Earth (cislunar overview)  |
- * | Approach / LOI / LLO | Moon                        |
+ * | Approach / Lunar orbit insertion / low lunar orbit | Moon                        |
  * | Descent / landed | Ship chase                      |
  * | Impact           | Moon                            |
  */
@@ -38,8 +38,8 @@ export function autoCamForPhase(phase: PhaseId): AutoCamSuggestion {
     case "launch":
       return { mode: "starbase", frame: true };
     case "ascent":
-    case "leo":
-    case "tli":
+    case "lowEarthOrbit":
+    case "translunarInjection":
       return { mode: "chase", frame: true };
     case "coast":
       // Pull back past a full-Earth frame so the Moon path stays readable.

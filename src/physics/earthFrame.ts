@@ -17,7 +17,7 @@ import {
   STARBASE_LON,
 } from "./constants";
 import { bodyPositions } from "./bodies";
-import { gmstRad, missionUtcMs } from "./epoch";
+import { greenwichMeanSiderealTimeRad, missionUtcMs } from "./epoch";
 import { getMissionLandingT } from "./horizonsEpoch";
 import { cross, normalize, set, type V3, v3 } from "./vec3";
 
@@ -39,12 +39,12 @@ export function earthNorthPole(out: V3 = v3()): V3 {
 
 /**
  * Spin angle about the north pole at mission time t (rad).
- * Equals GMST at the absolute UTC for this mission clock — mesh lon 0° at
- * equinox when GMST = 0 (calibrated to ecliptic J2000 + our SphereGeometry UVs).
+ * Equals Greenwich mean sidereal time at the absolute UTC for this mission clock — mesh lon 0° at
+ * equinox when Greenwich mean sidereal time = 0 (calibrated to ecliptic J2000 + our SphereGeometry UVs).
  */
 export function earthSpinAngle(t: number): number {
   const utcMs = missionUtcMs(t, getMissionLandingT());
-  return gmstRad(utcMs);
+  return greenwichMeanSiderealTimeRad(utcMs);
 }
 
 /** Sun elevation factor at Starbase: sin(el) ≈ sun·localUp (−1…1). */

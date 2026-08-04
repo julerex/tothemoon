@@ -1,24 +1,24 @@
 /**
- * Transfer search: epoch / Moon-phase / TLI Δv grid for a close ballistic pass.
+ * Transfer search: epoch / Moon-phase / Translunar injection Δv grid for a close ballistic pass.
  *
- * Pure scoring + search over probes; LEO template is rebuilt when epoch/phase
+ * Pure scoring + search over probes; low Earth orbit template is rebuilt when epoch/phase
  * changes so scores match the path {@link flyMission} will bake.
  */
 
 import {
   A_EM,
-  LEO_RADIUS,
+  LOW_EARTH_ORBIT_RADIUS,
   N_MOON,
   R_MOON,
-  SOI_MOON_KM,
+  MOON_SPHERE_OF_INFLUENCE_KM,
 } from "./constants";
 import { ensureAscent } from "./ascentCache";
 import { probePerilune } from "./ballisticCoast";
 import { starbaseSunElev } from "./earthFrame";
 import { hasHorizonsEpoch, setMissionLandingT } from "./horizonsEpoch";
-import { computeLeoRel, type LeoRel } from "./leoCoast";
+import { computeLowEarthOrbitRelative, type LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
 import { setEpochPhases } from "./missionEpoch";
-import { apogeeFromTliDv, maxTliDv } from "./tli";
+import { apogeeFromTranslunarInjectionDeltaV, maxTranslunarInjectionDeltaV } from "./translunarInjection";
 
 export type TransferSearchResult = {
   bestPhase: number;
@@ -34,17 +34,17 @@ const INTERCEPT_ALT = 80_000;
 const IDEAL_PERILUNE = 8_000;
 /**
  * Hot free-coast meets the Moon on the *outbound* leg near lunar distance
- * (~3 d), not at design apogee TOF (~T). Prefer that window so the craft
- * crosses the lunar SOI when it flies past the Moon’s orbit.
+ * (~3 d), not at design apogee time of flight (~T). Prefer that window so the craft
+ * crosses the lunar sphere of influence when it flies past the Moon’s orbit.
  */
 const IDEAL_TOA = 72 * 3600;
 const TOA_MIN = 48 * 3600;
 const TOA_MAX = 120 * 3600;
-/** Lunar altitude at the SOI shell (theater overlay). */
-const SOI_ALT = SOI_MOON_KM - R_MOON;
+/** Lunar altitude at the sphere of influence shell (theater overlay). */
+const MOON_SPHERE_OF_INFLUENCE_ALTITUDE = MOON_SPHERE_OF_INFLUENCE_KM - R_MOON;
 
 /**
- * Prefer a daytime Starbase liftoff under GMST-locked spin.
+ * Prefer a daytime Starbase liftoff under Greenwich-mean-sidereal-time-locked spin.
  * Soft: does not override a clearly better perilune; hard: rejects night.
  */
 function launchDayPenalty(): number {
@@ -64,7 +64,7 @@ function periluneScore(
   rEarth: number,
 ): number {
   if (!Number.isFinite(alt) || alt > 400_000) return 1e12;
-  // Ignore "closest approach" still in LEO (rE ≪ A_EM)
+  // Ignore "closest approach" still in low Earth orbit (rE ≪ A_EM)
   if (rEarth < A_EM * 0.5 && alt > 50_000) return 1e12;
   const altTerm =
     alt < 0
@@ -86,27 +86,27 @@ function periluneScore(
     rEarth > A_EM * 0.75 && rEarth < A_EM * 1.2
       ? 0
       : ((rEarth - A_EM) / 1000) ** 2 * 50;
-  // Reward SOI entry so the trail punches the Moon SOI shell near A_EM
-  const soiTerm = alt < SOI_ALT ? -80_000 : (alt - SOI_ALT) * 1.5;
-  return altTerm + timeTerm + rTerm + windowPen + nearLunar + soiTerm;
+  // Reward sphere of influence entry so the trail punches the Moon sphere of influence shell near A_EM
+  const sphereOfInfluenceTerm = alt < MOON_SPHERE_OF_INFLUENCE_ALTITUDE ? -80_000 : (alt - MOON_SPHERE_OF_INFLUENCE_ALTITUDE) * 1.5;
+  return altTerm + timeTerm + rTerm + windowPen + nearLunar + sphereOfInfluenceTerm;
 }
 
 /**
  * Search epoch / phase / Δv for the best ballistic perilune.
  * Mutates ascent cache + mission landing map as it evaluates candidates.
- * Updates `leoRel.current` whenever LEO is rebuilt.
+ * Updates `lowEarthOrbitRelative.current` whenever low Earth orbit is rebuilt.
  */
 export function searchBallisticTransfer(opts: {
   baseDv: number;
   designTof: number;
   tTli0: number;
-  leoRel: { current: LeoRel | null };
+  lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
 }): TransferSearchResult {
-  const { baseDv, designTof: T, tTli0, leoRel } = opts;
+  const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative } = opts;
   const useHorizons = hasHorizonsEpoch();
-  const dvMax = maxTliDv();
+  const dvMax = maxTranslunarInjectionDeltaV();
 
-  // Lead angle for outbound lunar-distance intercept (~3 d), not full apo TOF
+  // Lead angle for outbound lunar-distance intercept (~3 d), not full apo time of flight
   const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
 
   const phaseOffsets: number[] = [];
@@ -118,7 +118,7 @@ export function searchBallisticTransfer(opts: {
   const epochOffsetsS: number[] = [];
   if (useHorizons) {
     // ±10 d around design landing map, 12 h steps. Coarse pass rebuilds
-    // LEO per offset so dogleg/TLI aim match DE441 Moon geometry.
+    // low Earth orbit per offset so dogleg / translunar injection aim match DE441 Moon geometry.
     for (let i = -20; i <= 20; i++) epochOffsetsS.push(i * 12 * 3600);
   } else {
     epochOffsetsS.push(0);
@@ -130,7 +130,7 @@ export function searchBallisticTransfer(opts: {
   );
 
   /**
-   * Score a (Δv, moon-phase) pair. `reAscent` rebuilds LEO under that phase so
+   * Score a (Δv, moon-phase) pair. `reAscent` rebuilds low Earth orbit under that phase so
    * the probe matches flyMission (ascent is weakly barycenter-coupled).
    */
   function evalCandidate(
@@ -145,8 +145,8 @@ export function searchBallisticTransfer(opts: {
   } {
     setEpochPhases(ph, T);
     if (reAscent) ensureAscent(ph);
-    leoRel.current = computeLeoRel();
-    const pr = probePerilune(dv, leoRel.current);
+    lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+    const pr = probePerilune(dv, lowEarthOrbitRelative.current);
     return {
       sc:
         periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(),
@@ -166,14 +166,14 @@ export function searchBallisticTransfer(opts: {
   let found = false;
 
   // Coarse grid: epoch offset (Horizons) and/or Moon phase (analytic) × Δv.
-  // Horizons: rebuild ascent+LEO at every epoch so the transfer plane aims at
-  // the DE441 Moon (stale LEO from a fixed landT systematically missed).
+  // Horizons: rebuild ascent+ low Earth orbit at every epoch so the transfer plane aims at
+  // the DE441 Moon (stale low Earth orbit from a fixed landT systematically missed).
   for (const landOff of epochOffsetsS) {
     if (useHorizons) {
       setMissionLandingT(T + landOff);
       setEpochPhases(0, T);
       ensureAscent(0);
-      leoRel.current = computeLeoRel();
+      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
     }
     for (const dS of dvScales) {
       const dv = Math.min(baseDv * dS, dvMax);
@@ -201,13 +201,13 @@ export function searchBallisticTransfer(opts: {
     const seedLand = bestLandingT;
     bestScore = Infinity;
     if (useHorizons) {
-      // Refine epoch ±48 h at 4 h, rebuild LEO each step
+      // Refine epoch ±48 h at 4 h, rebuild low Earth orbit each step
       for (let i = -12; i <= 12; i++) {
         const landT = seedLand + i * 4 * 3600;
         setMissionLandingT(landT);
         setEpochPhases(0, T);
         ensureAscent(0);
-        leoRel.current = computeLeoRel();
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
         for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
           const ev = evalCandidate(dv, 0, false);
@@ -228,7 +228,7 @@ export function searchBallisticTransfer(opts: {
         const ph = seedPhase + i * 0.05;
         setEpochPhases(ph, T);
         ensureAscent(ph);
-        leoRel.current = computeLeoRel();
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
         for (const s of [0, -0.012, 0.012]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
           const ev = evalCandidate(dv, ph, false);
@@ -245,7 +245,7 @@ export function searchBallisticTransfer(opts: {
     }
   }
 
-  // Coordinate descent refine (rebuild LEO when epoch or phase changes)
+  // Coordinate descent refine (rebuild low Earth orbit when epoch or phase changes)
   for (let iter = 0; iter < 8; iter++) {
     let improved = false;
     if (useHorizons) {
@@ -255,7 +255,7 @@ export function searchBallisticTransfer(opts: {
         setMissionLandingT(landT);
         setEpochPhases(0, T);
         ensureAscent(0);
-        leoRel.current = computeLeoRel();
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
         const ev = evalCandidate(bestDv, 0, false);
         if (ev.sc < bestScore - 1e-6) {
           bestScore = ev.sc;
@@ -270,7 +270,7 @@ export function searchBallisticTransfer(opts: {
       setMissionLandingT(bestLandingT);
       setEpochPhases(0, T);
       ensureAscent(0);
-      leoRel.current = computeLeoRel();
+      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
     } else {
       const dPh = 0.02 / (1 + iter);
       for (const s of [-2, -1, 1, 2]) {
@@ -305,7 +305,7 @@ export function searchBallisticTransfer(opts: {
 
   if (bestAlt < INTERCEPT_ALT) found = true;
 
-  const raDes = apogeeFromTliDv(LEO_RADIUS, bestDv);
+  const raDes = apogeeFromTranslunarInjectionDeltaV(LOW_EARTH_ORBIT_RADIUS, bestDv);
   console.info(
     `[tothemoon] Ballistic 4-body probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
       `rEarth=${(bestREarth / A_EM).toFixed(3)}×A_EM phase=${bestPhase.toFixed(3)} ` +

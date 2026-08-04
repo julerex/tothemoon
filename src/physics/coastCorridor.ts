@@ -1,7 +1,7 @@
 /**
  * Kepler-vs-n-body coast corridor.
  *
- * After TLI the craft coasts under restricted n-body gravity. The osculating
+ * After translunar injection the craft coasts under restricted n-body gravity. The osculating
  * 2-body ellipse at inject is a theater reference — this module samples that
  * path, measures max |Δr| vs the baked n-body trail, and supplies polyline
  * points for a low-opacity scene ribbon.
@@ -30,7 +30,7 @@ export type CoastCorridor = {
   t1: number;
 };
 
-/** Coast / impact phases after TLI. */
+/** Coast / impact phases after translunar injection. */
 function isCoastPhase(phase: string): boolean {
   return (
     phase === "coast" ||
@@ -43,13 +43,13 @@ function isCoastPhase(phase: string): boolean {
 }
 
 /**
- * Inject sample for the Kepler reference: last TLI sample if present,
+ * Inject sample for the Kepler reference: last translunar injection sample if present,
  * otherwise first coast sample (already post-inject).
  */
-export function findTliInjectSample(samples: Sample[]): Sample | null {
+export function findTranslunarInjectionInjectSample(samples: Sample[]): Sample | null {
   let lastTli: Sample | null = null;
   for (const s of samples) {
-    if (s.phase === "tli") lastTli = s;
+    if (s.phase === "translunarInjection") lastTli = s;
   }
   if (lastTli) return lastTli;
   for (const s of samples) {
@@ -81,14 +81,14 @@ export function keplerHeliocentricAt(orb: KeplerOrbit, t: number, out: V3): V3 {
 }
 
 /**
- * Build a thinned Kepler-vs-n-body corridor along the post-TLI coast.
+ * Build a thinned Kepler-vs-n-body corridor along the post-Translunar injection coast.
  * Returns null when the pack has no coast samples or inject state.
  */
 export function buildCoastCorridor(
   samples: Sample[],
   maxPts = 480,
 ): CoastCorridor | null {
-  const inject = findTliInjectSample(samples);
+  const inject = findTranslunarInjectionInjectSample(samples);
   if (!inject) return null;
 
   const coast: Sample[] = [];

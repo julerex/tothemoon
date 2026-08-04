@@ -41,7 +41,10 @@ export type FrameState = {
 type PackedTrajectory = {
   version: number;
   moonPhase0: number;
-  tliDv: number;
+  /** Preferred pack field name */
+  translunarInjectionDeltaV?: number;
+  /** Legacy pack field (pre–full-term rename) */
+  tliDv?: number;
   durationS: number;
   horizonsLandingT?: number;
   ok: boolean;
@@ -52,7 +55,7 @@ type PackedTrajectory = {
   peakSpeedKmS?: number;
   /** v2+ mission time of stage-out (s), or null */
   stageT?: number | null;
-  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  /** Peak |r_nbody − r_kepler| on translunar coast (km) */
   keplerRefMaxDevKm?: number;
   samples: Array<{
     t: number;
@@ -67,12 +70,19 @@ type PackedTrajectory = {
   }>;
 };
 
+/** Map legacy phase ids (leo/tli) to full terms. */
+function normalizePhaseId(phase: string): PhaseId {
+  if (phase === "leo") return "lowEarthOrbit";
+  if (phase === "tli") return "translunarInjection";
+  return phase as PhaseId;
+}
+
 function unpack(packed: PackedTrajectory): MissionResult {
   const samples = packed.samples.map((s) => ({
     t: s.t,
     pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
     vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
-    phase: s.phase as PhaseId,
+    phase: normalizePhaseId(s.phase),
     burning: s.burning,
     fuelBooster: s.fb ?? 0,
     fuelShip: s.fs ?? 1,
@@ -95,9 +105,12 @@ function unpack(packed: PackedTrajectory): MissionResult {
       ? packed.keplerRefMaxDevKm
       : computeKeplerRefMaxDevKm(samples);
 
+  const translunarInjectionDeltaV =
+    packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0;
+
   return {
     moonPhase0: packed.moonPhase0,
-    tliDv: packed.tliDv,
+    translunarInjectionDeltaV,
     durationS: packed.durationS,
     horizonsLandingT: packed.horizonsLandingT,
     ok: packed.ok,
@@ -116,13 +129,13 @@ export class TrajectoryCache {
   readonly ok: boolean;
   readonly message: string;
   readonly moonPhase0: number;
-  readonly tliDv: number;
+  readonly translunarInjectionDeltaV: number;
   readonly minMoonAlt: number;
   /** Peak inertial |v| (km/s) — from pack meta when present */
   readonly peakSpeedKmS: number;
   /** Mission time (s) of booster stage-out, or null */
   readonly stageT: number | null;
-  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  /** Peak |r_nbody − r_kepler| on Translunar injection coast (km) */
   readonly keplerRefMaxDevKm: number;
   /** Horizons τ=0 mission time used when samples were baked. */
   readonly horizonsLandingT: number;
@@ -134,7 +147,7 @@ export class TrajectoryCache {
     this.ok = result.ok;
     this.message = result.message;
     this.moonPhase0 = result.moonPhase0;
-    this.tliDv = result.tliDv;
+    this.translunarInjectionDeltaV = result.translunarInjectionDeltaV;
     this.horizonsLandingT =
       result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
         ? result.horizonsLandingT
@@ -160,7 +173,7 @@ export class TrajectoryCache {
 
   /**
    * Lazy Kepler-vs-n-body coast corridor for scene overlays.
-   * Null when the pack has no post-TLI coast.
+   * Null when the pack has no post-Translunar injection coast.
    */
   getCoastCorridor(): CoastCorridor | null {
     if (this._corridor === undefined) {
@@ -211,8 +224,8 @@ export class TrajectoryCache {
         t: 0,
         pos: v3(),
         vel: v3(),
-        phase: "leo",
-        phaseLabel: phaseLabel("leo"),
+        phase: "lowEarthOrbit",
+        phaseLabel: phaseLabel("lowEarthOrbit"),
         burning: false,
         speed: 0,
         altMoon: 0,

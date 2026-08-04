@@ -1,5 +1,5 @@
 /**
- * Pure ballistic restricted n-body coast after TLI (no TCMs, no LOI/PDI).
+ * Pure ballistic restricted n-body coast after translunar injection (no trajectory corrections, no lunar orbit insertion / powered descent).
  *
  * Used by the full bake (`runBallisticCoast`) and the fast transfer probe
  * (`probePerilune`) so search scores match the path that will be packed.
@@ -20,12 +20,12 @@ import {
   type CraftState,
 } from "./integrator";
 import { keplerRvAt } from "./kepler";
-import type { LeoRel } from "./leoCoast";
-import { restoreLeoRel } from "./leoCoast";
+import type { LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
+import { restoreLowEarthOrbitRelative } from "./lowEarthOrbitCoast";
 import { pushSample } from "./missionSample";
 import type { MissionResult, Sample } from "./missionTypes";
 import type { PropState } from "./propellant";
-import { orbitAfterTli, runFiniteTli, transferTimeEst } from "./tli";
+import { orbitAfterTranslunarInjection, runFiniteTranslunarInjection, transferTimeEst } from "./translunarInjection";
 import { len, normalize, set, sub, v3 } from "./vec3";
 
 const _relP = v3();
@@ -39,18 +39,18 @@ export type ProbeResult = {
 };
 
 /**
- * Fast probe: pure restricted n-body ballistic coast after TLI (no burns).
+ * Fast probe: pure restricted n-body ballistic coast after translunar injection (no burns).
  * Matches {@link runBallisticCoast} so search scores the path the bake will fly.
  */
 export function probePerilune(
-  tliDv: number,
-  leoRelTemplate: LeoRel | null,
+  translunarInjectionDeltaV: number,
+  lowEarthOrbitRelativeTemplate: LowEarthOrbitRelative | null,
 ): ProbeResult {
-  if (!leoRelTemplate) {
+  if (!lowEarthOrbitRelativeTemplate) {
     return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
-  const state = restoreLeoRel(leoRelTemplate);
-  runFiniteTli(state, tliDv, null, null, null);
+  const state = restoreLowEarthOrbitRelative(lowEarthOrbitRelativeTemplate);
+  runFiniteTranslunarInjection(state, translunarInjectionDeltaV, null, null, null);
   const tTli = state.t;
   const T = transferTimeEst();
   const maxT = tTli + T * 1.35 + 50_000;
@@ -109,21 +109,21 @@ export type BallisticCoastArgs = {
   lastT: { t: number };
   prop: PropState;
   moonPhase0: number;
-  tliDv: number;
+  translunarInjectionDeltaV: number;
 };
 
 /**
- * Integrate post-TLI ballistic coast until lunar impact, flyby end, Earth
+ * Integrate post–translunar-injection ballistic coast until lunar impact, flyby end, Earth
  * impact, or max transfer window. Appends coast / impact samples in place.
  */
 export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
-  const { state, samples, lastT, prop, moonPhase0, tliDv } = args;
+  const { state, samples, lastT, prop, moonPhase0, translunarInjectionDeltaV } = args;
   const tTli = state.t;
   const Tcoast = transferTimeEst();
   let minMoonAlt = Infinity;
   let periluneT = tTli;
   // Osculating 2-body reference at inject — track max |Δr| for corridor meta
-  const keplerRef = orbitAfterTli(state);
+  const keplerRef = orbitAfterTranslunarInjection(state);
   let keplerRefMaxDevKm = 0;
 
   function trackKeplerDev(): void {
@@ -181,23 +181,23 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
         pushSample(samples, state, "impact", false, true, 0, lastT, prop, 0, "ship");
       }
       const msg =
-        `Lunar impact (ballistic · no post-TLI burns) · minAlt before hit ≈ ${Math.max(0, minMoonAlt).toFixed(0)} km`;
+        `Lunar impact (ballistic · no post-Translunar injection burns) · minAlt before hit ≈ ${Math.max(0, minMoonAlt).toFixed(0)} km`;
       console.info(`[tothemoon] ${msg}`);
       return {
         samples,
         durationS: samples[samples.length - 1]!.t,
         moonPhase0,
-        tliDv,
+        translunarInjectionDeltaV,
         minMoonAlt: Math.min(minMoonAlt, 0),
         ok: true,
         message: msg,
         keplerRefMaxDevKm,
-        tcmCount: 0,
-        tcmTotalDv: 0,
+        trajectoryCorrectionCount: 0,
+        trajectoryCorrectionTotalDeltaV: 0,
       };
     }
 
-    // End after the transfer arc (design TOF + margin).
+    // End after the transfer arc (design time of flight + margin).
     const transferDone =
       (coastT > Tcoast * 0.95 &&
         state.t > periluneT + 8_000 &&
@@ -207,22 +207,22 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
       pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
       const msg =
         minMoonAlt < 100
-          ? `Ballistic skim · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
+          ? `Ballistic skim · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-Translunar injection burns)`
           : minMoonAlt < 25_000
-            ? `Ballistic flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
-            : `Distant flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`;
+            ? `Ballistic flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-Translunar injection burns)`
+            : `Distant flyby · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-Translunar injection burns)`;
       console.info(`[tothemoon] ${msg}`);
       return {
         samples,
         durationS: samples[samples.length - 1]!.t,
         moonPhase0,
-        tliDv,
+        translunarInjectionDeltaV,
         minMoonAlt,
         ok: true,
         message: msg,
         keplerRefMaxDevKm,
-        tcmCount: 0,
-        tcmTotalDv: 0,
+        trajectoryCorrectionCount: 0,
+        trajectoryCorrectionTotalDeltaV: 0,
       };
     }
 
@@ -234,13 +234,13 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
         samples,
         durationS: samples[samples.length - 1]!.t,
         moonPhase0,
-        tliDv,
+        translunarInjectionDeltaV,
         minMoonAlt,
         ok: true,
-        message: "Earth impact (ballistic · no post-TLI burns)",
+        message: "Earth impact (ballistic · no post-Translunar injection burns)",
         keplerRefMaxDevKm,
-        tcmCount: 0,
-        tcmTotalDv: 0,
+        trajectoryCorrectionCount: 0,
+        trajectoryCorrectionTotalDeltaV: 0,
       };
     }
 
@@ -272,19 +272,19 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
   pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
   const msg =
     Number.isFinite(minMoonAlt) && minMoonAlt < 500_000
-      ? `Ballistic coast end · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-TLI burns)`
-      : "Ballistic coast end · no lunar encounter (no post-TLI burns)";
+      ? `Ballistic coast end · min lunar alt ${minMoonAlt.toFixed(0)} km (no post-Translunar injection burns)`
+      : "Ballistic coast end · no lunar encounter (no post-Translunar injection burns)";
   console.info(`[tothemoon] ${msg}`);
   return {
     samples,
     durationS: samples[samples.length - 1]!.t,
     moonPhase0,
-    tliDv,
+    translunarInjectionDeltaV,
     minMoonAlt,
     ok: true,
     message: msg,
     keplerRefMaxDevKm,
-    tcmCount: 0,
-    tcmTotalDv: 0,
+    trajectoryCorrectionCount: 0,
+    trajectoryCorrectionTotalDeltaV: 0,
   };
 }

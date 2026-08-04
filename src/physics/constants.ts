@@ -7,13 +7,13 @@
 export const R_EARTH = 6371.0;
 
 /**
- * Earth dynamical form factor J₂ (unnormalized). Used for LEO nodal precession
+ * Earth dynamical form factor J₂ (unnormalized). Used for low Earth orbit nodal precession
  * and slight equatorial bulge force (theater-grade, not EGM).
  */
 export const EARTH_J2 = 1.082_626_68e-3;
 
 /**
- * Simple exponential atmosphere for ascent / low LEO drag (theater).
+ * Simple exponential atmosphere for ascent / low low Earth orbit drag (theater).
  * ρ = ρ₀ exp(−h / H) for h < ATM_H_MAX_KM; zero above.
  * ρ₀ in kg/km³ (1.225 kg/m³ = 1.225×10⁹ kg/km³).
  */
@@ -69,7 +69,7 @@ export const A_EM = 384_400;
  * Laplace sphere of influence radius (km) for the Moon vs Earth.
  * r_SOI ≈ a (m/M)^{2/5} — theater overlay shell (uses μ ratio = mass ratio).
  */
-export const SOI_MOON_KM = A_EM * (MU_MOON / MU_EARTH) ** (2 / 5);
+export const MOON_SPHERE_OF_INFLUENCE_KM = A_EM * (MU_MOON / MU_EARTH) ** (2 / 5);
 
 /**
  * Mean lunar orbital eccentricity.
@@ -121,11 +121,11 @@ export const MU_EM_ORB = N_MOON * N_MOON * A_EM * A_EM * A_EM;
 /** Earth orbital mean motion about Sun (rad/s) — for Sun ephemeris in bary frame */
 export const N_EARTH_SUN = (2 * Math.PI) / (365.256363 * 86400);
 
-/** LEO altitude (km) */
-export const LEO_ALTITUDE = 200;
+/** low Earth orbit altitude (km) */
+export const LOW_EARTH_ORBIT_ALTITUDE = 200;
 
-/** LEO radius from Earth center (km) */
-export const LEO_RADIUS = R_EARTH + LEO_ALTITUDE;
+/** low Earth orbit radius from Earth center (km) */
+export const LOW_EARTH_ORBIT_RADIUS = R_EARTH + LOW_EARTH_ORBIT_ALTITUDE;
 
 /**
  * SpaceX Starbase / Boca Chica, Texas (geodetic, WGS84-ish).
@@ -140,7 +140,7 @@ export const STARBASE_ALT = 0.01;
 /**
  * Peak commanded ascent acceleration (km/s²) ≈ 2.8 g.
  * Actual stack T/W is lower (≈1.6 g at liftoff wet mass) and is further
- * reduced by the A5 throttle schedule (Max-Q dip, MECO ramp) so average
+ * reduced by the A5 throttle schedule (Maximum dynamic pressure dip, main engine cutoff ramp) so average
  * accel lands near ~1.2–1.5 g over the booster burn.
  */
 export const ASCENT_ACCEL = 0.028; // ~2.8 g peak command
@@ -151,11 +151,11 @@ export const ASCENT_ACCEL = 0.028; // ~2.8 g peak command
  */
 export const HOT_STAGE_S = 3.5;
 
-/** Min altitude (km) before hot-stage / MECO is allowed. */
+/** Min altitude (km) before hot-stage / main engine cutoff is allowed. */
 export const STAGE_ALT_MIN_KM = 60;
 
 /**
- * Booster propellant fraction that arms hot-stage (theater MECO).
+ * Booster propellant fraction that arms hot-stage (theater main engine cutoff).
  * Staging fires when alt ≥ STAGE_ALT_MIN_KM and remaining ≤ this.
  */
 export const STAGE_PROP_ARM = 0.1;
@@ -168,28 +168,28 @@ export const STAGE_PROP_ARM = 0.1;
 export const ASCENT_SHIP_ACCEL = 0.06;
 
 /**
- * LEO parking coast before TLI: ~1.25 revolutions so the craft clearly
+ * low Earth orbit parking coast before translunar injection: ~1.25 revolutions so the craft clearly
  * loops with the Moon’s sense of motion (not a short reverse arc).
- * Sidereal LEO period at 200 km ≈ 88.5 min.
+ * Sidereal low Earth orbit period at 200 km ≈ 88.5 min.
  */
-export const LEO_COAST_REVS = 1.25;
-export const LEO_PERIOD_S =
-  2 * Math.PI * Math.sqrt((LEO_RADIUS * LEO_RADIUS * LEO_RADIUS) / MU_EARTH);
-export const LEO_COAST_S = LEO_COAST_REVS * LEO_PERIOD_S;
+export const LOW_EARTH_ORBIT_COAST_REVS = 1.25;
+export const LOW_EARTH_ORBIT_PERIOD_S =
+  2 * Math.PI * Math.sqrt((LOW_EARTH_ORBIT_RADIUS * LOW_EARTH_ORBIT_RADIUS * LOW_EARTH_ORBIT_RADIUS) / MU_EARTH);
+export const LOW_EARTH_ORBIT_COAST_S = LOW_EARTH_ORBIT_COAST_REVS * LOW_EARTH_ORBIT_PERIOD_S;
 
 /** Max continuous thrust acceleration during landing (km/s²) — ~1.2 g for theater */
 export const LANDING_ACCEL = 0.012;
 
 /**
- * Ship acceleration during finite TLI (km/s²).
+ * Ship acceleration during finite translunar injection (km/s²).
  * ~1.8 g so a Hohmann-class ~3.1 km/s inject fits a **~2–4 min** burn window
  * (real Starship is higher thrust; 0.3–0.5 g would need ~10+ min).
  */
-export const TLI_ACCEL = 0.018;
+export const TRANSLUNAR_INJECTION_ACCEL = 0.018;
 
-/** Finite TLI burn duration bounds (s) */
-export const TLI_BURN_MIN_S = 120;
-export const TLI_BURN_MAX_S = 240;
+/** Finite Translunar injection burn duration bounds (s) */
+export const TRANSLUNAR_INJECTION_BURN_MIN_S = 120;
+export const TRANSLUNAR_INJECTION_BURN_MAX_S = 240;
 
 /** Standard gravity (m/s²) — force / Isp bookkeeping */
 export const G0 = 9.80665;
@@ -197,35 +197,35 @@ export const G0 = 9.80665;
 /**
  * Theater stack masses (kg) — Super Heavy / Starship order-of-magnitude.
  * Propellant loads sized for pure rocket-equation ṁ under mass-coupled burns
- * (A4) so ascent + dogleg + TLI + TCM + landing still complete.
+ * (A4) so ascent + dogleg + translunar injection + trajectory correction + landing still complete.
  */
 export const BOOSTER_DRY_KG = 200_000;
 /** Sized for pure-RE multi-g burn lasting a few minutes to ~70+ km. */
 export const BOOSTER_PROP_KG = 9_000_000;
 export const SHIP_DRY_KG = 120_000;
 /**
- * Headroom for A5 upper-stage burn + paid dogleg + finite TLI.
- * Full pure-RE suborbital→LEO on the ship alone would empty tanks; circularize
+ * Headroom for A5 upper-stage burn + paid dogleg + finite translunar injection.
+ * Full pure-RE suborbital → low Earth orbit on the ship alone would empty tanks; circularize
  * uses a short integrated burn + capped RE residual (see ascent.ts).
  */
 export const SHIP_PROP_KG = 5_000_000;
 
 /**
  * Max integrated upper-stage burn after hot-stage (s) before residual settle.
- * Short on purpose: leave ship prop for dogleg + TLI.
+ * Short on purpose: leave ship prop for dogleg + translunar injection.
  */
 export const UPPER_BURN_MAX_S = 18;
 
 /**
  * Cap on residual circularization Δv (km/s) booked via rocket equation after
- * the integrated upper burn. Theater: path is smoothed to circular LEO; prop
+ * the integrated upper burn. Theater: path is smoothed to circular low Earth orbit; prop
  * cost is real but not the full multi-km/s gravity-loss insert.
  */
 export const CIRC_DV_CAP_KM_S = 0.85;
 
 /** Specific impulse (s) — rocket-equation mass flow */
-export const ISP_BOOSTER = 330;
-export const ISP_SHIP = 380;
+export const SPECIFIC_IMPULSE_BOOSTER = 330;
+export const SPECIFIC_IMPULSE_SHIP = 380;
 
 /**
  * Peak thrust (N). Mass-coupled a = F / m(t) (km/s² = F/m/1000).
@@ -244,11 +244,11 @@ export const SHIP_WET_KG = SHIP_DRY_KG + SHIP_PROP_KG;
  * a rises as mass drops.
  */
 export const BOOSTER_THRUST_N = STACK_WET_KG * 0.016 * 1000;
-/** ~1.2 g at full ship wet mass (TLI / landing / TCM). */
+/** ~1.2 g at full ship wet mass (translunar injection / landing / trajectory correction). */
 export const SHIP_THRUST_N = SHIP_WET_KG * 0.012 * 1000;
 /**
  * Peak ship thrust during ascent upper stage / circularization (N) ≈ 4.5 g wet.
- * Higher than SHIP_THRUST_N so suborbital → LEO finishes in ~1–2 min before the
+ * Higher than SHIP_THRUST_N so suborbital → low Earth orbit finishes in ~1–2 min before the
  * loft falls back. Theater-only; not a Raptor count.
  */
 export const SHIP_ASCENT_THRUST_N = SHIP_WET_KG * 0.045 * 1000;
@@ -264,30 +264,30 @@ export const SHIP_MDOT_SCALE = 1;
 export const APPROACH_RANGE = 40_000;
 
 /**
- * Aim altitude above the lunar south pole surface (km) for the TLI inject.
- * Transfer plane + LEO dogleg target the south-pole rendezvous point at
+ * Aim altitude above the lunar south pole surface (km) for the translunar injection inject.
+ * Transfer plane + low Earth orbit dogleg target the south-pole rendezvous point at
  * arrival (Moon center + south·(R_MOON + this)). Pure ballistic coast after
- * TLI (LRO-style); lunar gravity is cleaned up by LOI / PDI, not midcourse TCMs.
+ * translunar injection (lunar-transfer-style); lunar gravity is cleaned up by lunar orbit insertion / powered descent, not midcourse trajectory corrections.
  */
 export const TRANSFER_AIM_ALT_KM = 1_500;
 
-/** Target circular LLO altitude above mean lunar surface (km) */
-export const LLO_ALT_KM = 120;
+/** Target circular low lunar orbit altitude above mean lunar surface (km) */
+export const LOW_LUNAR_ORBIT_ALTITUDE_KM = 120;
 
-/** LLO coast after LOI (revolutions) — scrubber-visible parking */
-export const LLO_COAST_REVS = 0.75;
+/** Low lunar orbit coast after lunar orbit insertion (revolutions) — scrubber-visible parking */
+export const LOW_LUNAR_ORBIT_COAST_REVS = 0.75;
 
-/** Peak accel for LOI capture burn (km/s²) ~1 g */
-export const LOI_ACCEL = 0.01;
+/** Peak accel for lunar orbit insertion capture burn (km/s²) ~1 g */
+export const LUNAR_ORBIT_INSERTION_ACCEL = 0.01;
 
-/** Begin LOI capture burn when lunar altitude falls below this (km) */
-export const LOI_ALT_START_KM = 45_000;
+/** Begin lunar orbit insertion capture burn when lunar altitude falls below this (km) */
+export const LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM = 45_000;
 
-/** LOI complete: |v − v_circ| and |v_rad| thresholds (km/s) */
-export const LOI_V_ERR_OK = 0.15;
-export const LOI_VRAD_OK = 0.1;
+/** lunar orbit insertion complete: |v − v_circ| and |v_rad| thresholds (km/s) */
+export const LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK = 0.15;
+export const LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK = 0.1;
 
-/** Powered descent start altitude above Moon surface (km) — PDI gate */
+/** Powered descent start altitude above Moon surface (km) — powered descent initiation gate */
 export const DESCENT_ALTITUDE = 100;
 
 /** Soft-land speed threshold (km/s) */

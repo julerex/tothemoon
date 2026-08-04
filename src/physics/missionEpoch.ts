@@ -6,7 +6,7 @@
 
 import { setMoonPhase0, setSunPhase0 } from "./bodies";
 import { sunPhase0ForLanding } from "./epoch";
-import { transferTimeEst } from "./tli";
+import { transferTimeEst } from "./translunarInjection";
 
 /** Apply July-2027-consistent ephemeris for a candidate moon phase. */
 export function setEpochPhases(

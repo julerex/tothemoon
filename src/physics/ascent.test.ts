@@ -12,19 +12,19 @@ import { HOT_STAGE_S, STAGE_PROP_ARM } from "./constants.ts";
 import { fuelShipFrac } from "./propellant.ts";
 
 describe("boosterThrottle schedule", () => {
-  it("is full at liftoff and dips near Max-Q", () => {
+  it("is full at liftoff and dips near maximum dynamic pressure", () => {
     const lift = boosterThrottle(0.5, 1, "boost");
-    const maxQ = boosterThrottle(12, 0.7, "boost");
+    const maxDynamicPressure = boosterThrottle(12, 0.7, "boost");
     const high = boosterThrottle(40, 0.5, "boost");
     assert.ok(lift > 0.95, `liftoff throttle ${lift}`);
-    assert.ok(maxQ < lift, `Max-Q ${maxQ} should be below liftoff ${lift}`);
-    assert.ok(high > maxQ * 0.9, "recovers after Max-Q");
+    assert.ok(maxDynamicPressure < lift, `Maximum dynamic pressure ${maxDynamicPressure} should be below liftoff ${lift}`);
+    assert.ok(high > maxDynamicPressure * 0.9, "recovers after maximum dynamic pressure");
   });
 
   it("ramps down when propellant is nearly gone", () => {
     const mid = boosterThrottle(50, 0.5, "boost");
     const low = boosterThrottle(50, STAGE_PROP_ARM * 0.5, "boost");
-    assert.ok(low < mid, `MECO ramp ${low} < ${mid}`);
+    assert.ok(low < mid, `main-engine-cutoff ramp ${low} < ${mid}`);
   });
 
   it("holds a low throttle in hot_stage and zero on upper", () => {
@@ -34,7 +34,7 @@ describe("boosterThrottle schedule", () => {
 });
 
 describe("flyAscent staged profile", () => {
-  it("reaches LEO with hot-stage then ship circularize", () => {
+  it("reaches low Earth orbit with hot-stage then ship circularize", () => {
     const r = flyAscent();
     assert.equal(r.ok, true, r.message);
     assert.ok(r.insertionAlt > 80 && r.insertionAlt < 250, `alt ${r.insertionAlt}`);
@@ -69,7 +69,7 @@ describe("flyAscent staged profile", () => {
     assert.ok(stageT > 90 && stageT < 280, `stageT ${stageT}`);
   });
 
-  it("settles circular LEO without a free zero-dt teleport", () => {
+  it("settles circular low Earth orbit without a free zero-dt teleport", () => {
     const r = flyAscent();
     assert.ok(r.ok, r.message);
     assert.ok(
@@ -83,7 +83,7 @@ describe("flyAscent staged profile", () => {
     }
   });
 
-  it("leaves meaningful ship propellant for dogleg + TLI", () => {
+  it("leaves meaningful ship propellant for dogleg + translunar injection", () => {
     const r = flyAscent();
     assert.ok(r.ok, r.message);
     const fs = fuelShipFrac(r.prop);
@@ -92,7 +92,7 @@ describe("flyAscent staged profile", () => {
     assert.ok(fs < 0.99, `ship fuel ${fs} — expected some upper-stage use`);
   });
 
-  it("records booster throttle below peak during Max-Q band", () => {
+  it("records booster throttle below peak during maximum dynamic pressure band", () => {
     const r = flyAscent();
     assert.ok(r.ok, r.message);
     // Early samples at full-ish thrust; mid-ascent should show variation

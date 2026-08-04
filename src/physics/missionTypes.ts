@@ -9,20 +9,21 @@ import type { V3 } from "./vec3";
 
 /**
  * Discrete mission phases along the theater arc.
- * Ballistic free-coast missions end in `coast` or `impact` (no LOI/PDI).
+ * Ballistic free-coast missions end in `coast` or `impact`
+ * (no lunar orbit insertion / powered descent).
  * Capture missions may use approach → braking → descent → landed.
  */
 export type PhaseId =
   | "launch"
   | "ascent"
-  | "leo"
-  | "tli"
+  | "lowEarthOrbit"
+  | "translunarInjection"
   | "coast"
   | "approach"
   | "braking"
   | "descent"
   | "landed"
-  /** Ballistic lunar surface impact (no capture burns after TLI). */
+  /** Ballistic lunar surface impact (no capture burns after translunar injection). */
   | "impact";
 
 /** One trajectory sample at mission time `t` (s). */
@@ -41,7 +42,7 @@ export type Sample = {
   fuelShip: number;
   /** Thrust force (N); 0 when idle */
   thrustN: number;
-  /** True after booster stage-out at LEO insert */
+  /** True after booster stage-out at low Earth orbit insert */
   staged: boolean;
 };
 
@@ -50,7 +51,7 @@ export type MissionResult = {
   samples: Sample[];
   durationS: number;
   moonPhase0: number;
-  tliDv: number;
+  translunarInjectionDeltaV: number;
   minMoonAlt: number;
   ok: boolean;
   message: string;
@@ -63,23 +64,23 @@ export type MissionResult = {
   peakSpeedKmS?: number;
   /** Mission time (s) of booster stage-out — packed into trajectory.json v2+ */
   stageT?: number | null;
-  /** Max |r_N-body − r_Kepler| (km) on the TLI coast, if computed */
+  /** Max |r_N-body − r_Kepler| (km) on the Translunar injection coast, if computed */
   keplerRefMaxDevKm?: number;
   /** Discrete midcourse corrections executed during coast */
-  tcmCount?: number;
-  /** Total TCM |Δv| (km/s) */
-  tcmTotalDv?: number;
+  trajectoryCorrectionCount?: number;
+  /** Total trajectory correction |Δv| (km/s) */
+  trajectoryCorrectionTotalDeltaV?: number;
 };
 
 const PHASE_LABELS: Record<PhaseId, string> = {
   launch: "Liftoff · Starbase",
-  ascent: "Ascent to LEO",
-  leo: "LEO",
-  tli: "Trans-lunar injection",
-  coast: "Trans-lunar coast (ballistic)",
-  approach: "LOI · capture burn",
-  braking: "LLO coast",
-  descent: "PDI · powered descent",
+  ascent: "Ascent to low Earth orbit",
+  lowEarthOrbit: "Low Earth orbit",
+  translunarInjection: "Translunar injection",
+  coast: "Translunar coast (ballistic)",
+  approach: "Lunar orbit insertion · capture burn",
+  braking: "Low lunar orbit coast",
+  descent: "Powered descent initiation",
   landed: "Landed · south pole",
   impact: "Lunar impact (ballistic)",
 };

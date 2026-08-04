@@ -10,8 +10,8 @@ import {
 const ALL_PHASES: PhaseId[] = [
   "launch",
   "ascent",
-  "leo",
-  "tli",
+  "lowEarthOrbit",
+  "translunarInjection",
   "coast",
   "approach",
   "braking",
@@ -32,8 +32,8 @@ describe("autoCamForPhase", () => {
   it("uses pad framing at liftoff and ship chase for powered early flight", () => {
     assert.equal(autoCamForPhase("launch").mode, "starbase");
     assert.equal(autoCamForPhase("ascent").mode, "chase");
-    assert.equal(autoCamForPhase("leo").mode, "chase");
-    assert.equal(autoCamForPhase("tli").mode, "chase");
+    assert.equal(autoCamForPhase("lowEarthOrbit").mode, "chase");
+    assert.equal(autoCamForPhase("translunarInjection").mode, "chase");
   });
 
   it("uses a wide Earth overview for ballistic coast", () => {
@@ -43,7 +43,7 @@ describe("autoCamForPhase", () => {
     assert.ok((coast.frameScale ?? 1) > 1);
   });
 
-  it("favors Moon for LOI / LLO and Ship for descent / land", () => {
+  it("favors Moon for Lunar orbit insertion / low lunar orbit and Ship for descent / land", () => {
     assert.equal(autoCamForPhase("approach").mode, "moon");
     assert.equal(autoCamForPhase("braking").mode, "moon");
     assert.equal(autoCamForPhase("descent").mode, "chase");
@@ -87,7 +87,7 @@ describe("nextAutoCamCut", () => {
     assert.equal(same.suggestion, null);
 
     const change = nextAutoCamCut(true, "coast", false, {
-      phase: "tli",
+      phase: "translunarInjection",
       staged: true,
     });
     assert.ok(change.suggestion);
@@ -104,8 +104,8 @@ describe("nextAutoCamCut", () => {
   });
 
   it("does not re-fire staging while already staged", () => {
-    const r = nextAutoCamCut(true, "leo", true, {
-      phase: "leo",
+    const r = nextAutoCamCut(true, "lowEarthOrbit", true, {
+      phase: "lowEarthOrbit",
       staged: true,
     });
     assert.equal(r.suggestion, null);

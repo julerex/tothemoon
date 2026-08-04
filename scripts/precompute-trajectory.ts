@@ -40,7 +40,7 @@ export type PackedTrajectory = {
   version: typeof TRAJECTORY_PACK_VERSION;
   generatedAt: string;
   moonPhase0: number;
-  tliDv: number;
+  translunarInjectionDeltaV: number;
   durationS: number;
   /** Mission t at Horizons τ=0 during bake (must match runtime setMissionLandingT). */
   horizonsLandingT?: number;
@@ -52,7 +52,7 @@ export type PackedTrajectory = {
   peakSpeedKmS: number;
   /** Mission time of first staged sample (s), or null */
   stageT: number | null;
-  /** Peak |r_nbody − r_kepler| on TLI coast (km); corridor meta */
+  /** Peak |r_nbody − r_kepler| on Translunar injection coast (km); corridor meta */
   keplerRefMaxDevKm?: number;
   samples: PackedSample[];
 };
@@ -79,7 +79,7 @@ function pack(result: MissionResult): PackedTrajectory {
     version: TRAJECTORY_PACK_VERSION,
     generatedAt: new Date().toISOString(),
     moonPhase0: result.moonPhase0,
-    tliDv: result.tliDv,
+    translunarInjectionDeltaV: result.translunarInjectionDeltaV,
     durationS: result.durationS,
     horizonsLandingT: result.horizonsLandingT,
     ok: result.ok,

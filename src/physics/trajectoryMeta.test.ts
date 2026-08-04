@@ -21,7 +21,7 @@ function sample(
     t,
     pos: opts.pos ?? { x: 7000, y: 0, z: 0 },
     vel: opts.vel ?? { x: 0, y: 7, z: 0 },
-    phase: opts.phase ?? "leo",
+    phase: opts.phase ?? "lowEarthOrbit",
     staged: opts.staged ?? false,
   };
 }

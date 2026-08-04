@@ -41,7 +41,7 @@ describe("solveEccentricAnomaly", () => {
 });
 
 describe("rvToKepler / keplerRvAt", () => {
-  it("round-trips a circular LEO-ish state", () => {
+  it("round-trips a circular low Earth orbit-ish state", () => {
     const r = R_EARTH + 200;
     const v = Math.sqrt(MU_EARTH / r);
     const pos = v3(r, 0, 0);
@@ -58,7 +58,7 @@ describe("rvToKepler / keplerRvAt", () => {
   });
 
   it("conserves specific energy along an elliptical arc", () => {
-    // Elliptical: perigee LEO, apogee ~ lunar-ish distance fraction
+    // Elliptical: perigee low Earth orbit, apogee ~ lunar-ish distance fraction
     const rp = R_EARTH + 300;
     const ra = 50_000;
     const a = 0.5 * (rp + ra);

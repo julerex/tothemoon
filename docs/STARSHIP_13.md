@@ -59,7 +59,7 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 | --- | --- |
 | 00:00:00 | Liftoff |
 | 00:00:58 | Max Q (moment of peak aerodynamic stress on the rocket) |
-| 00:02:18 | Super Heavy MECO (most engines cut off) |
+| 00:02:18 | Super Heavy main engine cutoff (most engines cut off) |
 | 00:02:21 | Hot-staging (Starship Raptor ignition and stage separation) |
 | 00:02:25 | Super Heavy boostback burn start |
 | 00:03:03 | Super Heavy boostback burn shutdown |

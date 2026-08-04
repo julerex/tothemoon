@@ -7,14 +7,14 @@ import { R_MOON } from "./constants";
 import type { PhaseId } from "./mission";
 
 /**
- * Expected phase order for ballistic free-coast mission (no post-TLI burns).
+ * Expected phase order for ballistic free-coast mission (no post-Translunar injection burns).
  * Optional terminal: `impact` if the craft hits the Moon.
  */
 export const EXPECTED_PHASE_ORDER: readonly PhaseId[] = [
   "launch",
   "ascent",
-  "leo",
-  "tli",
+  "lowEarthOrbit",
+  "translunarInjection",
   "coast",
 ] as const;
 
@@ -59,8 +59,8 @@ export type InvariantIssue = {
  * Teleport-style trail holes historically produced multi-10_000 km jumps.
  */
 export const MAX_STEP_KM = 8_000;
-/** |Δr|/Δt should stay near orbital / TLI speeds, not instantaneous jumps. */
-/** Trail continuity; TCM rejoin / polar taxi can peak higher than ballistic coast. */
+/** |Δr|/Δt should stay near orbital / translunar injection speeds, not instantaneous jumps. */
+/** Trail continuity; trajectory correction rejoin / polar taxi can peak higher than ballistic coast. */
 export const MAX_APPARENT_SPEED_KM_S = 80;
 export const MIN_SAMPLES = 500;
 export const MIN_DURATION_H = 24;
@@ -276,19 +276,19 @@ export function checkTrajectoryInvariants(
     });
   }
 
-  // Staging should happen once we're past ascent (by LEO insert in this theater)
-  const leoIdx = s.findIndex((x) => x.phase === "leo");
-  if (leoIdx >= 0) {
-    const afterLeo = s.slice(leoIdx + 10);
+  // Staging should happen once we're past ascent (by low Earth orbit insert in this theater)
+  const lowEarthOrbitIdx = s.findIndex((x) => x.phase === "lowEarthOrbit");
+  if (lowEarthOrbitIdx >= 0) {
+    const afterLeo = s.slice(lowEarthOrbitIdx + 10);
     if (afterLeo.length && !afterLeo.some((x) => x.staged)) {
       issues.push({
         code: "no_staging",
-        message: "expected booster staged by/after LEO",
+        message: "expected booster staged by/after low Earth orbit",
       });
     }
   }
 
-  // Ship should retain some prop after TLI (mass-coupled pure RE burns hard)
+  // Ship should retain some prop after translunar injection (mass-coupled pure RE burns hard)
   const coast = s.find((x) => x.phase === "coast");
   if (coast && coast.fuelShip < 0.15) {
     issues.push({
@@ -318,7 +318,7 @@ export function checkTrajectoryInvariants(
         message: `peakSpeedKmS must be finite ≥ 0, got ${traj.peakSpeedKmS}`,
       });
     } else if (traj.peakSpeedKmS > 80) {
-      // Heliocentric LEO/TLI peaks ~30–40 km/s; 80 is a hard ceiling
+      // Heliocentric low Earth orbit/ translunar injection peaks ~30–40 km/s; 80 is a hard ceiling
       issues.push({
         code: "peak_speed_range",
         message: `peakSpeedKmS ${traj.peakSpeedKmS.toFixed(2)} km/s exceeds 80`,

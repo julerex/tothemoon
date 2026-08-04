@@ -2,7 +2,7 @@
  * Cinematic bookmarks: seek + camera framing for key mission beats.
  *
  * Built from {@link MissionTimeline} events / phase segments so bookmarks stay
- * aligned with the baked trajectory. Missing beats (e.g. no LOI on pure
+ * aligned with the baked trajectory. Missing beats (e.g. no lunar orbit insertion on pure
  * impact arcs) are omitted rather than guessed.
  */
 
@@ -34,9 +34,9 @@ export type CinematicBookmark = {
 export const BOOKMARK_IDS = [
   "pad",
   "staging",
-  "tli",
+  "translunarInjection",
   "halfway",
-  "loi",
+  "lunarOrbitInsertion",
   "touchdown",
 ] as const;
 
@@ -71,12 +71,14 @@ const SPECS: BookmarkSpec[] = [
     resolveT: (tl) => eventT(tl, "staging"),
   },
   {
-    id: "tli",
-    label: "TLI",
-    shortLabel: "TLI",
+    id: "translunarInjection",
+    label: "Translunar injection",
+    shortLabel: "Inject",
     mode: "chase",
     frame: true,
-    resolveT: (tl) => eventT(tl, "tli") ?? segmentT0(tl, "tli"),
+    resolveT: (tl) =>
+      eventT(tl, "translunarInjection") ??
+      segmentT0(tl, "translunarInjection"),
   },
   {
     id: "halfway",
@@ -89,12 +91,13 @@ const SPECS: BookmarkSpec[] = [
     resolveT: (tl) => halfwayCoastT(tl),
   },
   {
-    id: "loi",
-    label: "LOI",
-    shortLabel: "LOI",
+    id: "lunarOrbitInsertion",
+    label: "Lunar orbit insertion",
+    shortLabel: "Capture",
     mode: "moon",
     frame: true,
-    resolveT: (tl) => eventT(tl, "loi") ?? segmentT0(tl, "approach"),
+    resolveT: (tl) =>
+      eventT(tl, "lunarOrbitInsertion") ?? segmentT0(tl, "approach"),
   },
   {
     id: "touchdown",

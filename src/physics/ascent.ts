@@ -1,12 +1,12 @@
 /**
- * Powered ascent from Starbase (Boca Chica, TX) to circular LEO.
+ * Powered ascent from Starbase (Boca Chica, TX) to circular low Earth orbit.
  *
  * Theater model (A5 staged profile):
  * - Gravity turn due-east (parking i ≈ site lat)
  * - Mass-coupled thrust a = F/m with pure rocket-equation ṁ
- * - Booster throttle schedule (Max-Q dip + late MECO ramp) → ~1.2–1.5 g avg
+ * - Booster throttle schedule (Maximum dynamic pressure dip + late main engine cutoff ramp) → ~1.2–1.5 g avg
  * - Hot-stage: booster throttle-down → ship ignition → separation
- * - Short ship upper burn, then residual circularize (path-smoothed LEO with
+ * - Short ship upper burn, then residual circularize (path-smoothed low Earth orbit with
  *   capped rocket-equation Δv — theater, not a free zero-dt teleport)
  *
  * Not ops-grade: timing and throttle tables are approximate Starship-shaped.
@@ -17,8 +17,8 @@ import {
   ASCENT_SHIP_ACCEL,
   CIRC_DV_CAP_KM_S,
   HOT_STAGE_S,
-  LEO_ALTITUDE,
-  LEO_RADIUS,
+  LOW_EARTH_ORBIT_ALTITUDE,
+  LOW_EARTH_ORBIT_RADIUS,
   MU_EARTH,
   R_EARTH,
   SHIP_ASCENT_THRUST_N,
@@ -58,7 +58,7 @@ import {
   v3,
 } from "./vec3";
 
-export type AscentPhase = "launch" | "ascent" | "leo";
+export type AscentPhase = "launch" | "ascent" | "lowEarthOrbit";
 
 /** Internal burn mode for the staged profile. */
 export type AscentBurnMode = "boost" | "hot_stage" | "upper";
@@ -131,9 +131,9 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
  * Booster throttle in [0, 1] — theater schedule for average ~1.2–1.5 g.
  *
  * - Liftoff: near full (need T/W > 1)
- * - Max-Q dip ~8–20 km (Starship-shaped)
- * - Recovery after Max-Q
- * - Late MECO ramp when propellant is nearly gone
+ * - maximum dynamic pressure dip ~8–20 km (Starship-shaped)
+ * - Recovery after maximum dynamic pressure
+ * - Late main engine cutoff ramp when propellant is nearly gone
  * - Hot-stage: deep throttle-down before separation
  *
  * Exported for unit tests.
@@ -146,14 +146,14 @@ export function boosterThrottle(
   if (mode === "upper") return 0;
   if (mode === "hot_stage") {
     // Linear ramp 0.35 → 0 over the hot-stage window is applied by caller
-    // via propFrac; here a base MECO hold.
+    // via propFrac; here a base main engine cutoff hold.
     return 0.2;
   }
 
   // Base schedule: slightly under peak so pure-RE burn lasts ~3 min class
   let thr = 0.88;
 
-  // Max-Q dip (theater envelope ~T+40–80 s / ~8–20 km)
+  // maximum dynamic pressure dip (theater envelope ~T+40–80 s / ~8–20 km)
   if (altKm > 5 && altKm < 28) {
     const dip = 1 - 0.32 * Math.sin(Math.PI * smoothstep(5, 28, altKm));
     // Strongest dip near mid band
@@ -166,7 +166,7 @@ export function boosterThrottle(
   // Liftoff: full available for the first few km (clear tower with margin)
   if (altKm < 2.5) thr = Math.max(thr, 0.98);
 
-  // MECO ramp: taper as tank empties toward STAGE_PROP_ARM
+  // main engine cutoff ramp: taper as tank empties toward STAGE_PROP_ARM
   if (propFrac < STAGE_PROP_ARM * 2.5) {
     const u = propFrac / (STAGE_PROP_ARM * 2.5);
     thr *= Math.max(0.15, u);
@@ -179,8 +179,8 @@ export function boosterThrottle(
  * Unit thrust direction in inertial frame.
  *
  * - Boost: gravity turn (vertical → east) with earlier pitch-over so most Δv
- *   goes horizontal before MECO (theater; real tables differ).
- * - Hot-stage / upper: velocity-to-be-gained toward circular due-east LEO
+ *   goes horizontal before main engine cutoff (theater; real tables differ).
+ * - Hot-stage / upper: velocity-to-be-gained toward circular due-east low Earth orbit
  *   (kill radial, build east) — powered insert, not a lofted ballistic hop.
  *
  * Writes into `out` and returns local geometry.
@@ -205,12 +205,12 @@ function steerDirection(
   const vNorth = dot(_relV, _north);
   const vCirc = Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50));
 
-  // Upper / hot-stage: always closed-loop circular LEO target (even below 100 km)
+  // Upper / hot-stage: always closed-loop circular low Earth orbit target (even below 100 km)
   const closedLoop = mode !== "boost" || alt > 85;
 
   if (closedLoop) {
     // Circularize at *current* altitude once above ~95 km (don't climb to
-    // LEO_ALTITUDE after already orbital — that burned ship prop for nothing).
+    // LOW_EARTH_ORBIT_ALTITUDE after already orbital — that burned ship prop for nothing).
     const speedFrac = Math.min(1, Math.max(0, vEast / Math.max(vCirc, 1)));
     let tgtRad = -0.5 * vRad;
     // Only loft while still deeply suborbital and below ~110 km
@@ -287,7 +287,7 @@ function aCmdForAlt(
       vRad * 2,
       vEast - vCirc,
       vNorth * 2,
-      (alt - LEO_ALTITUDE) * 0.03,
+      (alt - LOW_EARTH_ORBIT_ALTITUDE) * 0.03,
     );
     return Math.min(peak * 1.1, Math.max(0.003, err * 1.0));
   }
@@ -316,7 +316,7 @@ function boosterThrust(
 
   let thr = boosterThrottle(geo.alt, fuelBoosterFrac(prop), mode);
   if (mode === "hot_stage") {
-    // Linear MECO ramp over HOT_STAGE_S
+    // Linear main engine cutoff ramp over HOT_STAGE_S
     const u = Math.max(0, 1 - hotStageAgeS / HOT_STAGE_S);
     thr = 0.35 * u;
   }
@@ -399,16 +399,16 @@ function combineThrust(
 
 /**
  * Stable circular-ish parking above the sensible atmosphere.
- * Target LEO_ALTITUDE is preferred but any ~100–250 km circular orbit is
+ * Target LOW_EARTH_ORBIT_ALTITUDE is preferred but any ~100–250 km circular orbit is
  * accepted so the upper stage does not waste ship prop climbing after
- * already reaching orbital speed (saves fuel for dogleg + TLI).
+ * already reaching orbital speed (saves fuel for dogleg + translunar injection).
  */
 function insertionOk(t: number, pos: V3, vel: V3): boolean {
   const b = getBodies(t);
   sub(_relP, pos, b.earth);
   const r = len(_relP);
   const alt = r - R_EARTH;
-  if (alt < 90 || alt > LEO_ALTITUDE + 50) return false;
+  if (alt < 90 || alt > LOW_EARTH_ORBIT_ALTITUDE + 50) return false;
   sub(_relV, vel, b.earthVel);
   normalize(_up, _relP);
   const vRad = Math.abs(dot(_relV, _up));
@@ -417,13 +417,13 @@ function insertionOk(t: number, pos: V3, vel: V3): boolean {
   return vRad < 0.12 && Math.abs(v - vCirc) < 0.25;
 }
 
-/** Near-circular enough to accept as theater LEO (slightly looser). */
+/** Near-circular enough to accept as theater low Earth orbit (slightly looser). */
 function insertionNear(t: number, pos: V3, vel: V3): boolean {
   const b = getBodies(t);
   sub(_relP, pos, b.earth);
   const r = len(_relP);
   const alt = r - R_EARTH;
-  if (alt < 85 || alt > LEO_ALTITUDE + 60) return false;
+  if (alt < 85 || alt > LOW_EARTH_ORBIT_ALTITUDE + 60) return false;
   sub(_relV, vel, b.earthVel);
   normalize(_up, _relP);
   const vRad = Math.abs(dot(_relV, _up));
@@ -432,13 +432,13 @@ function insertionNear(t: number, pos: V3, vel: V3): boolean {
   return vRad < 0.2 && Math.abs(v - vCirc) < 0.4;
 }
 
-/** Good enough to cut engines early and save ship prop for dogleg + TLI. */
+/** Good enough to cut engines early and save ship prop for dogleg + translunar injection. */
 function insertionGood(t: number, pos: V3, vel: V3): boolean {
   const b = getBodies(t);
   sub(_relP, pos, b.earth);
   const r = len(_relP);
   const alt = r - R_EARTH;
-  if (alt < 90 || alt > LEO_ALTITUDE + 55) return false;
+  if (alt < 90 || alt > LOW_EARTH_ORBIT_ALTITUDE + 55) return false;
   sub(_relV, vel, b.earthVel);
   normalize(_up, _relP);
   const vRad = Math.abs(dot(_relV, _up));
@@ -481,12 +481,12 @@ function successResult(
  * Theater residual circularization after the integrated upper-stage burn.
  *
  * - Books up to CIRC_DV_CAP_KM_S of ship Δv via pure rocket equation
- * - Smooths altitude toward LEO_RADIUS and velocity toward circular east
+ * - Smooths altitude toward LOW_EARTH_ORBIT_RADIUS and velocity toward circular east
  *   over a few seconds (continuous trail; not a zero-dt teleport)
  *
  * Honest about propellant up to the cap; remaining energy gap is theater
  * guidance (full pure-RE insert from deep suborbital would empty tanks and
- * starve dogleg/TLI).
+ * starve dogleg / translunar injection).
  */
 function settleCircularize(
   state: CraftState,
@@ -503,7 +503,7 @@ function settleCircularize(
   const vE0 = dot(_relV, _east);
   const vN0 = dot(_relV, _north);
   const vR0 = dot(_relV, _up);
-  const vCircTgt = Math.sqrt(MU_EARTH / LEO_RADIUS);
+  const vCircTgt = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
   const dvNeeded = Math.hypot(vCircTgt - vE0, vN0, vR0);
   const dvBook = Math.min(CIRC_DV_CAP_KM_S, dvNeeded);
   const settleS = 10;
@@ -524,7 +524,7 @@ function settleCircularize(
     normalize(_up, _relP);
     enuAtPosition(state.t, state.pos, b.earth, _up, _east, _north);
     const rNow = len(_relP);
-    const r = rNow + s * (LEO_RADIUS - rNow);
+    const r = rNow + s * (LOW_EARTH_ORBIT_RADIUS - rNow);
     state.pos.x = b.earth.x + _up.x * r;
     state.pos.y = b.earth.y + _up.y * r;
     state.pos.z = b.earth.z + _up.z * r;
@@ -540,7 +540,7 @@ function settleCircularize(
     pushAscentSample(
       samples,
       state,
-      i < steps ? "ascent" : "leo",
+      i < steps ? "ascent" : "lowEarthOrbit",
       burning,
       prop,
       burning ? thrustN : 0,
@@ -550,7 +550,7 @@ function settleCircularize(
 }
 
 /**
- * Integrate Starbase pad → circular LEO with staged hot-stage profile.
+ * Integrate Starbase pad → circular low Earth orbit with staged hot-stage profile.
  */
 export function flyAscent(): AscentResult {
   const samples: AscentSample[] = [];
@@ -587,8 +587,8 @@ export function flyAscent(): AscentResult {
 
     if (insertionOk(state.t, state.pos, state.vel)) {
       if (!prop.staged) stageBooster(prop, state.t);
-      pushAscentSample(samples, state, "leo", false, prop, 0);
-      return successResult(state, samples, prop, "LEO");
+      pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
+      return successResult(state, samples, prop, "low Earth orbit");
     }
 
     if (alt < -2) {
@@ -648,15 +648,15 @@ export function flyAscent(): AscentResult {
         insertionNear(state.t, state.pos, state.vel);
       if (doneBurn) {
         if (insertionOk(state.t, state.pos, state.vel)) {
-          pushAscentSample(samples, state, "leo", false, prop, 0);
-          return successResult(state, samples, prop, "LEO");
+          pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
+          return successResult(state, samples, prop, "low Earth orbit");
         }
         settleCircularize(state, samples, prop, lastSampleT);
         return successResult(
           state,
           samples,
           prop,
-          "LEO (hot-stage + circularize)",
+          "low Earth orbit (hot-stage + circularize)",
         );
       }
     }
@@ -726,7 +726,7 @@ export function flyAscent(): AscentResult {
   }
   if (prop.staged && alt > 50) {
     settleCircularize(state, samples, prop, lastSampleT);
-    return successResult(state, samples, prop, "LEO (hot-stage + circularize)");
+    return successResult(state, samples, prop, "low Earth orbit (hot-stage + circularize)");
   }
 
   return {

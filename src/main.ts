@@ -408,12 +408,12 @@ function applyMissionState(u: number): void {
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
-  // Never draw the craft under Earth's surface (ascent/LEO numerical dips)
+  // Never draw the craft under Earth's surface (ascent / low Earth orbit numerical dips)
   const nearEarthPhase =
     frame.phase === "launch" ||
     frame.phase === "ascent" ||
-    frame.phase === "leo" ||
-    frame.phase === "tli";
+    frame.phase === "lowEarthOrbit" ||
+    frame.phase === "translunarInjection";
   if (nearEarthPhase) {
     const dx = craftPos.x - b.earth.x;
     const dy = craftPos.y - b.earth.y;
@@ -517,12 +517,12 @@ function applyMissionState(u: number): void {
     notifyAutoCamera(s.mode);
   }
 
-  // Altitude: Earth during launch/LEO/TLI/coast (far from Moon); else Moon
+  // Altitude: Earth during launch/ low Earth orbit/ translunar injection/coast (far from Moon); else Moon
   const nearEarth =
     frame.phase === "launch" ||
     frame.phase === "ascent" ||
-    frame.phase === "leo" ||
-    frame.phase === "tli" ||
+    frame.phase === "lowEarthOrbit" ||
+    frame.phase === "translunarInjection" ||
     frame.phase === "coast";
   const altitude =
     nearEarth && frame.distMoon > 100_000 ? frame.altEarth : frame.altMoon;
@@ -628,7 +628,7 @@ function applyMissionState(u: number): void {
     playbackSpeed: clock.speed,
     missionComplete: showCompleteCard,
     completeKind: landingBeat.kind,
-    tliDv: cache.tliDv,
+    translunarInjectionDeltaV: cache.translunarInjectionDeltaV,
     minMoonAlt: cache.minMoonAlt,
     peakSpeedKmS: cache.peakSpeedKmS,
     stageT: cache.stageT,

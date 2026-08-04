@@ -28,8 +28,8 @@ describe("buildTimeline", () => {
       sample(0, "launch"),
       sample(10, "launch"),
       sample(20, "ascent"),
-      sample(100, "leo", { staged: true }),
-      sample(200, "tli", { staged: true }),
+      sample(100, "lowEarthOrbit", { staged: true }),
+      sample(200, "translunarInjection", { staged: true }),
       sample(300, "coast", { staged: true }),
       sample(900, "impact", { staged: true }),
     ];
@@ -46,14 +46,14 @@ describe("buildTimeline", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: false }),
       sample(50, "ascent", { staged: false, fuelBooster: 0.5 }),
-      sample(100, "leo", { staged: true, fuelBooster: 0 }),
-      sample(120, "leo", {
+      sample(100, "lowEarthOrbit", { staged: true, fuelBooster: 0 }),
+      sample(120, "lowEarthOrbit", {
         staged: true,
         fuelBooster: 0,
         burning: true,
         thrustN: 5e5,
       }),
-      sample(200, "tli", { staged: true }),
+      sample(200, "translunarInjection", { staged: true }),
       sample(300, "coast", { staged: true }),
       sample(700, "impact", { staged: true }),
     ];
@@ -64,7 +64,7 @@ describe("buildTimeline", () => {
     assert.ok(ids.includes("boostback"));
     assert.ok(ids.includes("booster-catch"));
     assert.ok(ids.includes("dogleg"));
-    assert.ok(ids.includes("tli"));
+    assert.ok(ids.includes("translunarInjection"));
     assert.ok(ids.includes("coast"));
     assert.ok(ids.includes("impact"));
     for (let i = 1; i < tl.events.length; i++) {
@@ -83,7 +83,7 @@ describe("buildTimeline", () => {
     const samples: Sample[] = [
       sample(0, "launch"),
       sample(50, "ascent"),
-      sample(100, "leo", { staged: true }),
+      sample(100, "lowEarthOrbit", { staged: true }),
     ];
     const tl = buildTimeline(samples, 200);
     for (const seg of tl.segments) {
@@ -101,8 +101,8 @@ describe("buildTimeline", () => {
       sample(0, "launch"),
       sample(10, "launch"),
       sample(20, "ascent"),
-      sample(100, "leo", { staged: true }),
-      sample(200, "tli", { staged: true }),
+      sample(100, "lowEarthOrbit", { staged: true }),
+      sample(200, "translunarInjection", { staged: true }),
       sample(300, "coast", { staged: true }),
     ];
     const tl = buildTimeline(samples, 300);

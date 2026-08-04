@@ -26,7 +26,7 @@ function result(samples: Sample[]): MissionResult {
     samples,
     durationS: samples[samples.length - 1]?.t ?? 0,
     moonPhase0: 0,
-    tliDv: 3,
+    translunarInjectionDeltaV: 3,
     minMoonAlt: 1000,
     ok: true,
     message: "test",
@@ -38,7 +38,7 @@ describe("downsampleTrajectory", () => {
     const r = result([
       sample(0, "launch"),
       sample(10, "ascent"),
-      sample(20, "leo", { staged: true }),
+      sample(20, "lowEarthOrbit", { staged: true }),
     ]);
     const out = downsampleTrajectory(r, 100);
     assert.equal(out.samples.length, 3);
@@ -50,12 +50,12 @@ describe("downsampleTrajectory", () => {
     for (let i = 1; i < 200; i++) {
       samples.push(sample(i, "coast", { staged: true }));
     }
-    samples.push(sample(200, "tli", { burning: true, staged: true }));
+    samples.push(sample(200, "translunarInjection", { burning: true, staged: true }));
     samples.push(sample(250, "coast", { staged: true }));
     const out = downsampleTrajectory(result(samples), 40);
     assert.ok(out.samples.length <= 40 + 5); // priority may slightly exceed
     assert.equal(out.samples[0]!.phase, "launch");
-    assert.ok(out.samples.some((s) => s.phase === "tli" && s.burning));
+    assert.ok(out.samples.some((s) => s.phase === "translunarInjection" && s.burning));
     assert.equal(out.samples[out.samples.length - 1]!.t, 250);
   });
 });

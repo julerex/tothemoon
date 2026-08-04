@@ -1,5 +1,5 @@
 /**
- * Low-opacity Kepler reference path for the TLI coast corridor.
+ * Low-opacity Kepler reference path for the Translunar injection coast corridor.
  * Toggled with orbit overlays (O). Scrub-static (built once from pack).
  */
 

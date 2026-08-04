@@ -28,23 +28,23 @@ const _aim = v3();
 
 /**
  * Max |Δv| (km/s) per midcourse correction (velocity match to design track).
- * Theater-sized; real TCMs are usually smaller.
+ * Theater-sized; real trajectory corrections are usually smaller.
  */
-export const TCM_MAX_DV = 0.35;
+export const TRAJECTORY_CORRECTION_MAX_DELTA_V = 0.35;
 
-/** TCM finite-burn accel (km/s²) ~1 g so small Δv reads as tens of seconds. */
-export const TCM_ACCEL = 0.01;
+/** trajectory correction finite-burn accel (km/s²) ~1 g so small Δv reads as tens of seconds. */
+export const TRAJECTORY_CORRECTION_ACCEL = 0.01;
 
 /**
- * Scheduled TCM epochs as hours after TLI (+ approach TCM near the Moon).
- * Locked plan: 2–3 discrete TCMs.
+ * Scheduled trajectory correction epochs as hours after translunar injection (+ approach trajectory correction near the Moon).
+ * Locked plan: 2–3 discrete trajectory corrections.
  */
-export const TCM_HOURS_AFTER_TLI = [12, 48] as const;
+export const TRAJECTORY_CORRECTION_HOURS_AFTER_TRANSLUNAR_INJECTION = [12, 48] as const;
 
-/** Approach TCM window: fraction of design transfer time after TLI. */
-export const TCM_APPROACH_FRAC = 0.8;
+/** Approach trajectory correction window: fraction of design transfer time after translunar injection. */
+export const TRAJECTORY_CORRECTION_APPROACH_FRAC = 0.8;
 
-export type TcmRecord = {
+export type TrajectoryCorrectionRecord = {
   t: number;
   hoursAfterTli: number;
   dvKmS: number;
@@ -61,8 +61,8 @@ export function keplerRefPos(orb: KeplerOrbit, t: number, out: V3): V3 {
 }
 
 /**
- * Place craft on the Earth-centered Kepler design track (LRO-style free
- * transfer). No burns — smooth elliptical coast aimed at TLI inject.
+ * Place craft on the Earth-centered Kepler design track (lunar-transfer-style free
+ * transfer). No burns — smooth elliptical coast aimed at translunar injection inject.
  */
 export function placeOnKeplerTrack(
   state: { t: number; pos: V3; vel: V3 },
@@ -83,12 +83,12 @@ export function placeOnKeplerTrack(
 /**
  * Velocity-to-go (km/s) to match Kepler design velocity (no position term).
  */
-export function tcmDeltaV(
+export function trajectoryCorrectionDeltaV(
   t: number,
   _pos: V3,
   vel: V3,
   orb: KeplerOrbit,
-  maxDv = TCM_MAX_DV,
+  maxDv = TRAJECTORY_CORRECTION_MAX_DELTA_V,
 ): { dv: V3; mag: number } {
   keplerRvAt(orb, t, _relP, _relV);
   const b = bodyPositions(t);
@@ -110,11 +110,11 @@ export function tcmDeltaV(
 }
 
 /**
- * Discrete TCM: short finite burn to match Kepler velocity, then optional
+ * Discrete trajectory correction: short finite burn to match Kepler velocity, then optional
  * soft position rejoin (sampled bridge) so the trail stays continuous.
- * Coast is ballistic between TCMs.
+ * Coast is ballistic between trajectory corrections.
  */
-export function runTcmBurn(
+export function runTrajectoryCorrectionBurn(
   state: CraftState,
   dv: V3,
   samples: Sample[] | null,
@@ -125,7 +125,7 @@ export function runTcmBurn(
   const mag0 = Math.hypot(dv.x, dv.y, dv.z);
   if (mag0 < 1e-5) return 0;
 
-  const burnS = Math.min(90, Math.max(15, mag0 / TCM_ACCEL));
+  const burnS = Math.min(90, Math.max(15, mag0 / TRAJECTORY_CORRECTION_ACCEL));
   const aBurn = mag0 / burnS;
   set(_dir, dv.x / mag0, dv.y / mag0, dv.z / mag0);
 
@@ -155,12 +155,12 @@ export function runTcmBurn(
     // Re-aim to current Kepler velocity residual each step
     let aCmd = aBurn;
     if (orb) {
-      const { mag: gm } = tcmDeltaV(
+      const { mag: gm } = trajectoryCorrectionDeltaV(
         state.t,
         state.pos,
         state.vel,
         orb,
-        TCM_MAX_DV,
+        TRAJECTORY_CORRECTION_MAX_DELTA_V,
       );
       if (gm > 1e-5) {
         // keep aBurn magnitude; direction from go below
@@ -170,12 +170,12 @@ export function runTcmBurn(
     let ay = _dir.y * aCmd;
     let az = _dir.z * aCmd;
     if (orb) {
-      const { dv: go, mag: gm } = tcmDeltaV(
+      const { dv: go, mag: gm } = trajectoryCorrectionDeltaV(
         state.t,
         state.pos,
         state.vel,
         orb,
-        TCM_MAX_DV,
+        TRAJECTORY_CORRECTION_MAX_DELTA_V,
       );
       if (gm > 1e-5) {
         ax = (go.x / gm) * aCmd;
@@ -223,12 +223,12 @@ export function runTcmBurn(
 
   // Residual velocity match
   if (orb) {
-    const { dv: trim, mag: tm } = tcmDeltaV(
+    const { dv: trim, mag: tm } = trajectoryCorrectionDeltaV(
       state.t,
       state.pos,
       state.vel,
       orb,
-      TCM_MAX_DV,
+      TRAJECTORY_CORRECTION_MAX_DELTA_V,
     );
     if (tm > 1e-6) {
       state.vel.x += trim.x;
@@ -329,7 +329,7 @@ export function runTcmBurn(
 
 /**
  * Soft position bridge to a point **south of the Moon** (south-pole geometry).
- * Used as the approach TCM rejoin so the trail does not cut through the
+ * Used as the approach trajectory correction rejoin so the trail does not cut through the
  * northern hemisphere above the lunar orbital plane.
  */
 export function rejoinSouthOfMoon(
@@ -378,7 +378,7 @@ export function rejoinSouthOfMoon(
   const t0 = Math.max(state.t, lastT ? lastT.t + 0.05 : state.t);
   const steps = Math.max(40, Math.ceil(rejoinS / 1.5));
 
-  // End velocity: modest inbound toward Moon (helps LOI)
+  // End velocity: modest inbound toward Moon (helps lunar orbit insertion)
   const endVx = b0.moonVel.x + (b0.moon.x - _p1.x) * 0.00015;
   const endVy = b0.moonVel.y + (b0.moon.y - _p1.y) * 0.00015;
   const endVz = b0.moonVel.z + (b0.moon.z - _p1.z) * 0.00015;
@@ -426,7 +426,7 @@ export function rejoinSouthOfMoon(
       0,
       lastT,
       prop,
-      TCM_ACCEL,
+      TRAJECTORY_CORRECTION_ACCEL,
       "ship",
       false,
     );
@@ -439,11 +439,11 @@ export function rejoinSouthOfMoon(
     state.vel.z = bi.moonVel.z + (bi.moon.z - state.pos.z) * 0.00015;
   }
   void _aim;
-  return Math.min(TCM_MAX_DV, dr / Math.max(rejoinS, 1));
+  return Math.min(TRAJECTORY_CORRECTION_MAX_DELTA_V, dr / Math.max(rejoinS, 1));
 }
 
 /**
- * @deprecated Continuous midcourse PD — replaced by discrete TCMs (A2).
+ * @deprecated Continuous midcourse PD — replaced by discrete trajectory corrections (A2).
  */
 export function keplerTrackThrust(
   t: number,
@@ -451,7 +451,7 @@ export function keplerTrackThrust(
   vel: V3,
   orb: KeplerOrbit,
 ): V3 | null {
-  const { dv, mag } = tcmDeltaV(t, pos, vel, orb, 0.0008);
+  const { dv, mag } = trajectoryCorrectionDeltaV(t, pos, vel, orb, 0.0008);
   if (mag < 1e-9) return null;
   return set(_thrust, dv.x * 0.5, dv.y * 0.5, dv.z * 0.5);
 }

@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { lloPeriodS } from "./capture.ts";
-import { LLO_ALT_KM, MU_MOON, R_MOON } from "./constants.ts";
+import { lowLunarOrbitPeriodS } from "./capture.ts";
+import { LOW_LUNAR_ORBIT_ALTITUDE_KM, MU_MOON, R_MOON } from "./constants.ts";
 
 describe("capture helpers", () => {
-  it("lloPeriodS matches two-body circular period", () => {
-    const r = R_MOON + LLO_ALT_KM;
+  it("lowLunarOrbitPeriodS matches two-body circular period", () => {
+    const r = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
     const expected = 2 * Math.PI * Math.sqrt((r * r * r) / MU_MOON);
-    assert.ok(Math.abs(lloPeriodS(r) - expected) < 1e-9);
-    // ~2 h class for ~120 km LLO
-    assert.ok(lloPeriodS(r) > 6000 && lloPeriodS(r) < 8000);
+    assert.ok(Math.abs(lowLunarOrbitPeriodS(r) - expected) < 1e-9);
+    // ~2 h class for ~120 km low lunar orbit
+    assert.ok(lowLunarOrbitPeriodS(r) > 6000 && lowLunarOrbitPeriodS(r) < 8000);
   });
 
-  it("lloPeriodS clamps radius below surface + 50 km", () => {
+  it("lowLunarOrbitPeriodS clamps radius below surface + 50 km", () => {
     const floor = R_MOON + 50;
-    const atFloor = lloPeriodS(floor);
-    const below = lloPeriodS(R_MOON); // should clamp to floor
+    const atFloor = lowLunarOrbitPeriodS(floor);
+    const below = lowLunarOrbitPeriodS(R_MOON); // should clamp to floor
     assert.equal(below, atFloor);
   });
 });

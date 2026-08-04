@@ -10,7 +10,7 @@ Living plan for **tothemoon** after the core mission theater, mission UX, engine
 
 | Area | What’s in place |
 |------|------------------|
-| **Mission arc** | Starbase → ascent → LEO → TLI → N-body coast (Kepler ref) → LOI-style capture → soft landing; trajectory baked at build |
+| **Mission arc** | Starbase → ascent → low Earth orbit → translunar injection → N-body coast (Kepler ref) → lunar orbit insertion-style capture → soft landing; trajectory baked at build |
 | **Mission UX** | Scrubber phase marks, event callouts, Auto speed by phase |
 | **Staging / craft** | Super Heavy + Ship mesh, thrust-scaled plumes, booster fallaway + flash, fuel bars |
 | **Earth theater** | Starbase pad, ascent ground track, atmosphere limb |
@@ -44,10 +44,10 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 | Phase | Framing |
 |-------|---------|
 | Launch | Starbase pad |
-| Ascent / LEO / TLI | Ship chase |
+| Ascent / low Earth orbit / translunar injection | Ship chase |
 | Staging | Ship (close reframe) |
 | Coast | Wide Earth (cislunar overview) |
-| Approach / LOI / LLO | Moon |
+| Approach / Lunar orbit insertion / low lunar orbit | Moon |
 | Descent / land | Ship chase |
 | Impact | Moon |
 
@@ -57,7 +57,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 ### 2. Callout ↔ scrubber coupling — **done**
 
-- Subtle **event ticks** under the scrubber (phase marks stay above); secondary beats (staging, dogleg, RTLS) use a taller tick.
+- Subtle **event ticks** under the scrubber (phase marks stay above); secondary beats (staging, dogleg, return to launch site) use a taller tick.
 - Click a tick → seek + show callout; click the callout (or Enter/Space) → re-seek that beat.
 - Telemetry dims while a callout is visible (`tel-dimmed`).
 - Pure helper: `src/mission/scrubEvents.ts` (+ unit tests).
@@ -81,7 +81,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 ### 5. Cinematic bookmarks — **done**
 
-Preset jumps (buttons + **Shift+1…**): **Pad**, **Staging**, **TLI**, **Halfway**, **LOI**, **Touchdown** (or **Impact**). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
+Preset jumps (buttons + **Shift+1…**): **Pad**, **Staging**, **Translunar injection**, **Halfway**, **Lunar orbit insertion**, **Touchdown** (or **Impact**). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
 
 ### 6. Chase camera quality
 
@@ -99,17 +99,17 @@ A single-line subtitle under the callout for longer beats (“Parking orbit, lun
 
 Stay honest: theater values, not flight-ops ephemerides.
 
-### 8. LOI / coast visual corridor — **done** (corridor track)
+### 8. Lunar orbit insertion / coast visual corridor — **done** (corridor track)
 
-Ballistic free-coast packs have no LOI burn; readability work focuses on the Kepler-vs-n-body story:
+Ballistic free-coast packs have no Lunar orbit insertion burn; readability work focuses on the Kepler-vs-n-body story:
 
 - **Coast corridor** (toggle **O** with orbits): dashed amber Kepler inject ellipse vs n-body trail, sparse |Δr| whiskers.
 - Pure helpers: `coastCorridor.ts` (+ tests); bake tracks `keplerRefMaxDevKm` during coast; metrics **Kepler max |Δr|**.
-- LOI plume/HUD distinctness remains deferred until a capture pack returns (phases/helpers already in `capture.ts`).
+- lunar orbit insertion plume/HUD distinctness remains deferred until a capture pack returns (phases/helpers already in `capture.ts`).
 
 ### 9. Booster recovery silhouette — done (theater)
 
-Kinematic RTLS path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
+Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
 
 ### 10. Epoch & lighting polish
 
@@ -133,13 +133,13 @@ Thin orchestrator in `mission.ts`; flight / search / coast / downsample extracte
 | Module | Role |
 |--------|------|
 | `mission.ts` | `runMission()` only + re-exports |
-| `missionFly.ts` | ascent → dogleg → TLI → coast compose |
+| `missionFly.ts` | ascent → dogleg → translunar injection → coast compose |
 | `missionSearch.ts` | epoch / phase / Δv ballistic search |
 | `ballisticCoast.ts` | free-coast integrate + `probePerilune` |
 | `missionDownsample.ts` | pack thinning |
 | `missionEpoch.ts` | Moon/Sun phase map |
 
-Ascent / TLI / capture / LEO dogleg were already separate. Golden tests pin phase order, duration, stage window, TLI Δv, and pack v2 meta against the bake.
+Ascent / translunar injection / capture / low Earth orbit dogleg were already separate. Golden tests pin phase order, duration, stage window, Translunar injection Δv, and pack v2 meta against the bake.
 
 ### 13. Scene FX module boundary
 
@@ -188,7 +188,7 @@ A practical order for the next few sessions:
 5. ~~**Landing beat** (P0.4)~~ **done**  
 6. ~~**Persist mission stats in precompute pack** (P2.11)~~ **done**  
 7. ~~**Split mission physics modules** (P3.12)~~ **done**  
-8. ~~**LOI / coast visual corridor** (P2.8)~~ **done** (Kepler corridor)  
+8. ~~**Lunar orbit insertion / coast visual corridor** (P2.8)~~ **done** (Kepler corridor)  
 
 Core arc is modular and watchable; chase-camera polish (P1.6) or epoch lighting (P2.10) are optional next.
 
@@ -227,7 +227,7 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-07-21 | Initial plan after mission UX, hygiene, staging/landing/pad theater |
 | 2026-07-28 | ESLint + expanded unit tests (clock, epoch, earthFrame, capture, synthetic invariants) + JSDoc on pure modules |
 | 2026-07-29 | Auto-cam by phase (P0.1): guided framing, C / button toggle, ease distance, unit tests |
-| 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·TLI·Half·LOI·Land buttons + Shift+1…, pure builder + tests |
+| 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·translunar injection·Half·lunar orbit insertion·Land buttons + Shift+1…, pure builder + tests |
 | 2026-08-02 | Callout ↔ scrubber (P0.2): event ticks, click callout to seek, dim telemetry |
 | 2026-08-04 | Booster fallaway (P0.3): dim free-flyer locator ~30 s + boostback ignition flash |
 | 2026-08-04 | Landing beat (P0.4): 1× hold + camera settle + delayed complete card; Malapert site label |

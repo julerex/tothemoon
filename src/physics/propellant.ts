@@ -12,8 +12,8 @@ import {
   BOOSTER_PROP_KG,
   BOOSTER_THRUST_N,
   G0,
-  ISP_BOOSTER,
-  ISP_SHIP,
+  SPECIFIC_IMPULSE_BOOSTER,
+  SPECIFIC_IMPULSE_SHIP,
   SHIP_DRY_KG,
   SHIP_PROP_KG,
   SHIP_THRUST_N,
@@ -28,7 +28,7 @@ export type PropState = {
   shipPropKg: number;
   /** Last sample / burn-account time (s) */
   lastT: number;
-  /** After LEO insert the booster is staged off */
+  /** After low Earth orbit insert the booster is staged off */
   staged: boolean;
 };
 
@@ -146,7 +146,7 @@ export function burnForce(
 
   if (dt <= 0) return forceN;
 
-  const isp = tank === "booster" ? ISP_BOOSTER : ISP_SHIP;
+  const isp = tank === "booster" ? SPECIFIC_IMPULSE_BOOSTER : SPECIFIC_IMPULSE_SHIP;
   // ṁ = F / (Isp g0)  [kg/s] — pure rocket equation
   let dm = (forceN / (isp * G0)) * dt;
   const available = tank === "booster" ? p.boosterPropKg : p.shipPropKg;
@@ -208,7 +208,7 @@ export function applyImpulsiveShipDv(
   if (!hasPropellant(p, "ship")) return 0;
   const m0 = wetMassKg(p);
   const F = m0 * (dvKmS / Math.max(burnS, 1)) * 1000; // N display
-  const ve = (ISP_SHIP * G0) / 1000; // km/s
+  const ve = (SPECIFIC_IMPULSE_SHIP * G0) / 1000; // km/s
   const frac = 1 - Math.exp(-dvKmS / ve);
   const dm = Math.min(p.shipPropKg, m0 * frac);
   p.shipPropKg = Math.max(0, p.shipPropKg - dm);

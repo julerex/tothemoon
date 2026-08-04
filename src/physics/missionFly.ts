@@ -1,26 +1,26 @@
 /**
- * Full flight path: ascent → LEO dogleg → finite TLI → ballistic n-body coast.
+ * Full flight path: ascent → low Earth orbit dogleg → finite translunar injection → ballistic n-body coast.
  *
- * Ends in lunar impact or ballistic flyby (no LOI/PDI/landing burns).
+ * Ends in lunar impact or ballistic flyby (no lunar orbit insertion / powered descent/landing burns).
  */
 
 import { getAscent } from "./ascentCache";
 import { runBallisticCoast } from "./ballisticCoast";
 import {
-  appendAscentAndLeoCoast,
+  appendAscentAndLowEarthOrbitCoast,
   getLastDoglegDvKmS,
-} from "./leoCoast";
+} from "./lowEarthOrbitCoast";
 import type { MissionResult, Sample } from "./missionTypes";
 import { createPropState, fuelShipFrac } from "./propellant";
-import { runFiniteTli } from "./tli";
+import { runFiniteTranslunarInjection } from "./translunarInjection";
 
 /**
- * Full flight: ascent → LEO dogleg → finite TLI → pure n-body ballistic coast.
+ * Full flight: ascent → low Earth orbit dogleg → finite translunar injection → pure n-body ballistic coast.
  * `toa` is reserved for callers that still pass design perilune time.
  */
 export function flyMission(
   moonPhase0: number,
-  tliDv: number,
+  translunarInjectionDeltaV: number,
   toa?: number,
 ): MissionResult {
   void toa;
@@ -33,21 +33,21 @@ export function flyMission(
       samples,
       durationS: 0,
       moonPhase0,
-      tliDv,
+      translunarInjectionDeltaV,
       minMoonAlt: Infinity,
       ok: false,
       message: "Ascent failed",
     };
   }
 
-  const state = appendAscentAndLeoCoast(samples, lastT, prop);
+  const state = appendAscentAndLowEarthOrbitCoast(samples, lastT, prop);
   console.info(
-    `[tothemoon] LEO dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
+    `[tothemoon] low Earth orbit dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
-  const tliBurn = runFiniteTli(state, tliDv, samples, lastT, prop);
+  const translunarInjectionBurn = runFiniteTranslunarInjection(state, translunarInjectionDeltaV, samples, lastT, prop);
   console.info(
-    `[tothemoon] TLI finite burn Δv=${tliBurn.dvDelivered.toFixed(3)} km/s · ` +
-      `${(tliBurn.burnS / 60).toFixed(2)} min · a=${(tliBurn.accel / 0.00980665).toFixed(2)} g · ` +
+    `[tothemoon] translunar injection finite burn Δv=${translunarInjectionBurn.dvDelivered.toFixed(3)} km/s · ` +
+      `${(translunarInjectionBurn.burnS / 60).toFixed(2)} min · a=${(translunarInjectionBurn.accel / 0.00980665).toFixed(2)} g · ` +
       `ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
 
@@ -57,6 +57,6 @@ export function flyMission(
     lastT,
     prop,
     moonPhase0,
-    tliDv,
+    translunarInjectionDeltaV,
   });
 }

@@ -6,7 +6,7 @@ import type { MissionResult, PhaseId, Sample } from "./missionTypes";
 
 /**
  * Downsample a mission result to at most `maxPoints` samples.
- * Never drops phase edges, burns, or early ascent / TLI / impact beats.
+ * Never drops phase edges, burns, or early ascent / translunar injection / impact beats.
  */
 export function downsampleTrajectory(
   result: MissionResult,
@@ -26,8 +26,8 @@ export function downsampleTrajectory(
       sample.burning ||
       sample.phase === "launch" ||
       sample.phase === "ascent" ||
-      sample.phase === "leo" ||
-      sample.phase === "tli" ||
+      sample.phase === "lowEarthOrbit" ||
+      sample.phase === "translunarInjection" ||
       sample.phase === "impact" ||
       sample.phase === "landed" ||
       phaseChange ||
