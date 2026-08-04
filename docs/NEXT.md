@@ -123,17 +123,20 @@ Kinematic RTLS path after stage-out: flip → boostback plume → coast/entry �
 
 ## P3 — Architecture & maintainability
 
-### 12. Split `mission.ts`
+### 12. Split `mission.ts` — **done**
 
-`src/physics/mission.ts` is large (~1.3k lines). Extract without behavior change:
+Thin orchestrator in `mission.ts`; flight / search / coast / downsample extracted:
 
-- `ascent` (already partly separate)
-- `tli` / transfer design
-- `coast` + midcourse
-- `capture` / descent / land
-- thin `runMission()` orchestrator
+| Module | Role |
+|--------|------|
+| `mission.ts` | `runMission()` only + re-exports |
+| `missionFly.ts` | ascent → dogleg → TLI → coast compose |
+| `missionSearch.ts` | epoch / phase / Δv ballistic search |
+| `ballisticCoast.ts` | free-coast integrate + `probePerilune` |
+| `missionDownsample.ts` | pack thinning |
+| `missionEpoch.ts` | Moon/Sun phase map |
 
-Add golden tests: phase order, duration band, stage time window, TLI Δv band against the current bake.
+Ascent / TLI / capture / LEO dogleg were already separate. Golden tests pin phase order, duration, stage window, TLI Δv, and pack v2 meta against the bake.
 
 ### 13. Scene FX module boundary
 
@@ -181,10 +184,10 @@ A practical order for the next few sessions:
 4. ~~**Booster fallaway locator** (P0.3)~~ **done**  
 5. ~~**Landing beat** (P0.4)~~ **done**  
 6. ~~**Persist mission stats in precompute pack** (P2.11)~~ **done**  
-7. **Split mission physics modules** (P3.12) with golden tests — recommended next  
-8. **LOI / coast visual corridor** (P2.8) — optional visual track  
+7. ~~**Split mission physics modules** (P3.12)~~ **done**  
+8. **LOI / coast visual corridor** (P2.8) — optional next  
 
-Watchability + pack meta are solid; architecture split of `mission.ts` is the next maintainability win.
+Core mission architecture is modular; optional LOI corridor or chase-camera polish next.
 
 ---
 
@@ -226,3 +229,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-04 | Booster fallaway (P0.3): dim free-flyer locator ~30 s + boostback ignition flash |
 | 2026-08-04 | Landing beat (P0.4): 1× hold + camera settle + delayed complete card; Malapert site label |
 | 2026-08-04 | Pack meta v2 (P2.11): minMoonAlt + peakSpeedKmS + stageT baked; no load-time re-scan |
+| 2026-08-04 | Split mission.ts (P3.12): fly / search / ballistic coast / downsample modules + golden bands |
