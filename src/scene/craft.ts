@@ -967,6 +967,11 @@ export function craftLengthKm(staged: boolean): number {
   return staged ? SHIP_H_M / 1000 : (SHIP_H_M + BOOST_H_M) / 1000;
 }
 
+/** Super Heavy alone (~71 m) for free-flyer locator sizing after stage-out. */
+export function boosterLengthKm(): number {
+  return BOOST_H_M / 1000;
+}
+
 /**
  * Locator dot: constant on-screen marker whenever the body/craft is too small
  * to read. Hide once the real geometry subtends enough pixels.

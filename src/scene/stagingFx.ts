@@ -1,14 +1,27 @@
 import * as THREE from "three";
 import {
   BOOSTER_VISIBLE_S,
+  boosterLocatorStrength,
+  boostbackFlashStrength,
   buildBoosterKeyframes,
   sampleBoosterRecovery,
   type StageState,
 } from "../physics/boosterRecovery";
-import { CRAFT_MESH_SCALE } from "./craft";
+import {
+  boosterLengthKm,
+  CRAFT_MESH_SCALE,
+  createLocatorSprite,
+  updateLocatorVisibility,
+} from "./craft";
 
 /** Staging flash lifetime (mission s). */
 const FLASH_S = 3.5;
+
+/**
+ * Peak material opacity for the free-flyer locator vs ship red (~1.0).
+ * Dimmer so the ship remains the primary subject in system views.
+ */
+const LOCATOR_OPACITY = 0.55;
 
 /** Reference thrust (N) for detached-booster plume sizing. */
 const BOOSTBACK_THRUST_REF = 7e7; // ~half of ascent field, multi-engine boostback
@@ -25,6 +38,7 @@ export type StageEvent = {
  * → tower catch at Starbase. Fully deterministic in mission time so scrubbing works.
  *
  * Path is kinematic theater (see `boosterRecovery.ts`), not the mission integrator.
+ * Far-range dim locator (~30 s) + brief boostback ignition flash for readability.
  */
 export class StagingFx {
   readonly group = new THREE.Group();
@@ -35,6 +49,11 @@ export class StagingFx {
   }
   private readonly flash: THREE.Mesh;
   private readonly flashMat: THREE.MeshBasicMaterial;
+  private readonly boostbackFlash: THREE.Mesh;
+  private readonly boostbackFlashMat: THREE.MeshBasicMaterial;
+  /** Dim free-flyer locator (amber; dimmer than ship red). */
+  private readonly locator: THREE.Sprite;
+  private readonly locatorMat: THREE.SpriteMaterial;
   private readonly exhaustGlow: THREE.Object3D | null = null;
   private readonly exhaustLight: THREE.PointLight;
   private readonly look = new THREE.Matrix4();
@@ -80,6 +99,32 @@ export class StagingFx {
     this.flash.name = "stage-flash";
     this.flash.visible = false;
     this.group.add(this.flash);
+
+    // Brief boostback ignition cue (smaller / cooler than stage flash)
+    this.boostbackFlashMat = new THREE.MeshBasicMaterial({
+      color: 0xffa060,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.boostbackFlash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 10, 8),
+      this.boostbackFlashMat,
+    );
+    this.boostbackFlash.name = "boostback-flash";
+    this.boostbackFlash.visible = false;
+    this.group.add(this.boostbackFlash);
+
+    // Amber free-flyer locator — dimmer than ship red; ~30 s window in update()
+    this.locator = createLocatorSprite(
+      "#d4944a",
+      "180, 120, 55",
+      "booster-locator",
+    );
+    this.locatorMat = this.locator.material as THREE.SpriteMaterial;
+    this.locatorMat.opacity = LOCATOR_OPACITY;
+    this.group.add(this.locator);
   }
 
   setStageEvent(ev: StageEvent | null): void {
@@ -100,15 +145,19 @@ export class StagingFx {
   /**
    * @param craftPos ship position (flash sticks near craft at t=0+)
    * @param craftQuat unused (kept for call-site compatibility)
+   * @param camera optional — when set, drives far-range free-flyer locator
    */
   update(
     missionT: number,
     craftPos: THREE.Vector3,
     _craftQuat: THREE.Quaternion,
+    camera?: THREE.Camera,
   ): void {
     if (!this.stage || !this.stageState || !this.keyframes) {
       this.booster.visible = false;
       this.flash.visible = false;
+      this.boostbackFlash.visible = false;
+      this.locator.visible = false;
       this.exhaustLight.intensity = 0;
       return;
     }
@@ -117,6 +166,8 @@ export class StagingFx {
     if (age < 0 || age > BOOSTER_VISIBLE_S) {
       this.booster.visible = false;
       this.flash.visible = false;
+      this.boostbackFlash.visible = false;
+      this.locator.visible = false;
       this.exhaustLight.intensity = 0;
       return;
     }
@@ -130,6 +181,8 @@ export class StagingFx {
     if (sample.fade < 0.02 || sample.phase === "done") {
       this.booster.visible = false;
       this.flash.visible = age >= 0 && age <= FLASH_S;
+      this.boostbackFlash.visible = false;
+      this.locator.visible = false;
       this.exhaustLight.intensity = 0;
       if (this.flash.visible) this.updateFlash(age, craftPos);
       return;
@@ -155,6 +208,8 @@ export class StagingFx {
 
     this.updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
     this.updateFlash(age, craftPos);
+    this.updateBoostbackFlash(age);
+    this.updateLocator(age, camera);
   }
 
   private updatePlume(
@@ -207,6 +262,44 @@ export class StagingFx {
     const s = 0.15 + u * 2.2;
     this.flash.scale.setScalar(s);
     this.flashMat.opacity = 0.9 * (1 - u) * (1 - u);
+  }
+
+  /** Tiny theater flash when boostback lights — readable at ship/Earth range. */
+  private updateBoostbackFlash(age: number): void {
+    const strength = boostbackFlashStrength(age);
+    if (strength < 0.02) {
+      this.boostbackFlash.visible = false;
+      return;
+    }
+    this.boostbackFlash.visible = true;
+    // Sit near engine bells (−Z local); world position follows free-flyer
+    this.boostbackFlash.position.copy(this.booster.position);
+    this.nose.set(0, 0, -1).applyQuaternion(this.booster.quaternion);
+    this.boostbackFlash.position.addScaledVector(this.nose, 0.04);
+    // Compact pulse: smaller than stage flash, peaks early then decays
+    const s = 0.06 + strength * 0.55;
+    this.boostbackFlash.scale.setScalar(s);
+    this.boostbackFlashMat.opacity = 0.75 * strength;
+  }
+
+  /**
+   * Dim amber locator for ~30 s after stage when the mesh is sub-pixel.
+   * Strength from pure age helper; pixel sizing matches ship red locator.
+   */
+  private updateLocator(age: number, camera?: THREE.Camera): void {
+    const strength = boosterLocatorStrength(age);
+    if (strength < 0.02 || !camera) {
+      this.locator.visible = false;
+      return;
+    }
+    this.locator.position.copy(this.booster.position);
+    updateLocatorVisibility(this.locator, camera, this.booster.position, {
+      sizeKm: boosterLengthKm(),
+    });
+    // updateLocatorVisibility may hide when mesh is readable — keep that, just dim
+    if (this.locator.visible) {
+      this.locatorMat.opacity = LOCATOR_OPACITY * strength;
+    }
   }
 }
 

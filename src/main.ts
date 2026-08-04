@@ -433,7 +433,7 @@ function applyMissionState(u: number): void {
     altEarth: frame.altEarth,
     sunElev,
   });
-  stagingFx.update(frame.t, craftPos, craft.quaternion);
+  stagingFx.update(frame.t, craftPos, craft.quaternion, camera);
   landingFx.update(frame.t, craftPos, {
     phase: frame.phase,
     burning: frame.burning,

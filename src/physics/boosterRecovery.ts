@@ -51,6 +51,21 @@ export const CATCH_FADE_S = 20;
 export const BOOSTER_VISIBLE_S =
   LANDING_END_S + CATCH_HOLD_S + CATCH_FADE_S;
 
+/**
+ * Far-range free-flyer locator window after stage-out (mission s).
+ * Short on purpose — reads “where did the booster go?” then gets out of the way.
+ */
+export const BOOSTER_LOCATOR_S = 30;
+/** Soft fade-out at the end of the locator window (s). */
+export const BOOSTER_LOCATOR_FADE_S = 6;
+/** Soft fade-in right after sep (s). */
+export const BOOSTER_LOCATOR_FADE_IN_S = 0.5;
+/**
+ * Brief boostback ignition flash duration (s from BOOSTBACK_START_S).
+ * Theater cue so the reverse burn reads at range; not physical plume scale.
+ */
+export const BOOSTBACK_FLASH_S = 2.8;
+
 /** Chopsticks catch height above pad (km) — mid-upper booster ~80 m. */
 export const CATCH_ALT_KM = 0.08;
 /** Landing-burn start altitude AGL (km). */
@@ -501,4 +516,34 @@ export function sampleBoosterRecovery(
 /** Classify phase for tests / HUD without sampling. */
 export function boosterPhaseAt(age: number): BoosterRecoveryPhase {
   return phaseAt(age);
+}
+
+/**
+ * Dim free-flyer locator strength in [0, 1] after stage-out.
+ * Non-zero only for {@link BOOSTER_LOCATOR_S} mission seconds; fades in/out.
+ */
+export function boosterLocatorStrength(age: number): number {
+  if (age < 0 || age > BOOSTER_LOCATOR_S) return 0;
+  let s = 1;
+  if (age < BOOSTER_LOCATOR_FADE_IN_S) {
+    s = clamp01(age / BOOSTER_LOCATOR_FADE_IN_S);
+  }
+  const fadeStart = BOOSTER_LOCATOR_S - BOOSTER_LOCATOR_FADE_S;
+  if (age > fadeStart) {
+    s *= clamp01((BOOSTER_LOCATOR_S - age) / BOOSTER_LOCATOR_FADE_S);
+  }
+  return s;
+}
+
+/**
+ * Theater boostback ignition flash strength in [0, 1].
+ * Peaks shortly after boostback start, then decays over {@link BOOSTBACK_FLASH_S}.
+ */
+export function boostbackFlashStrength(age: number): number {
+  const u = age - BOOSTBACK_START_S;
+  if (u < 0 || u > BOOSTBACK_FLASH_S) return 0;
+  // Fast rise (~0.25 s), quadratic falloff for a soft flash
+  const rise = clamp01(u / 0.25);
+  const fall = 1 - u / BOOSTBACK_FLASH_S;
+  return rise * fall * fall;
 }

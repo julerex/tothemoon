@@ -3,8 +3,13 @@ import { describe, it } from "node:test";
 import { bodyPositions } from "./bodies.ts";
 import {
   BOOSTBACK_END_S,
+  BOOSTBACK_FLASH_S,
   BOOSTBACK_START_S,
+  BOOSTER_LOCATOR_FADE_IN_S,
+  BOOSTER_LOCATOR_S,
   BOOSTER_VISIBLE_S,
+  boostbackFlashStrength,
+  boosterLocatorStrength,
   buildBoosterKeyframes,
   boosterPhaseAt,
   CATCH_ALT_KM,
@@ -154,5 +159,43 @@ describe("sampleBoosterRecovery", () => {
     assert.equal(a.pos.y, b.pos.y);
     assert.equal(a.throttle, b.throttle);
     assert.equal(a.phase, b.phase);
+  });
+});
+
+describe("boosterLocatorStrength", () => {
+  it("is off before stage and after the ~30 s window", () => {
+    assert.equal(boosterLocatorStrength(-0.1), 0);
+    assert.equal(boosterLocatorStrength(BOOSTER_LOCATOR_S + 0.01), 0);
+    assert.equal(boosterLocatorStrength(60), 0);
+  });
+
+  it("fades in, holds, then fades out", () => {
+    const early = boosterLocatorStrength(BOOSTER_LOCATOR_FADE_IN_S * 0.5);
+    assert.ok(early > 0 && early < 1);
+    assert.ok(boosterLocatorStrength(10) > 0.99);
+    const late = boosterLocatorStrength(BOOSTER_LOCATOR_S - 2);
+    assert.ok(late > 0 && late < 1);
+    assert.ok(late < boosterLocatorStrength(10));
+  });
+});
+
+describe("boostbackFlashStrength", () => {
+  it("is zero outside the boostback ignition window", () => {
+    assert.equal(boostbackFlashStrength(0), 0);
+    assert.equal(boostbackFlashStrength(BOOSTBACK_START_S - 0.01), 0);
+    assert.equal(
+      boostbackFlashStrength(BOOSTBACK_START_S + BOOSTBACK_FLASH_S + 0.01),
+      0,
+    );
+  });
+
+  it("peaks early after boostback start then decays", () => {
+    const peak = boostbackFlashStrength(BOOSTBACK_START_S + 0.3);
+    const mid = boostbackFlashStrength(BOOSTBACK_START_S + BOOSTBACK_FLASH_S * 0.5);
+    const end = boostbackFlashStrength(BOOSTBACK_START_S + BOOSTBACK_FLASH_S * 0.9);
+    assert.ok(peak > 0.5);
+    assert.ok(mid < peak);
+    assert.ok(end < mid);
+    assert.ok(end > 0);
   });
 });

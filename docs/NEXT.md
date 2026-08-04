@@ -62,10 +62,11 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 - Telemetry dims while a callout is visible (`tel-dimmed`).
 - Pure helper: `src/mission/scrubEvents.ts` (+ unit tests).
 
-### 3. Booster fallaway readability
+### 3. Booster fallaway readability — **done**
 
-- Short free-flyer **locator** (dimmer than the ship) for ~30 s of mission time after stage-out.
-- Optional tiny boostback plume flash (theater-only, non-physical).
+- Short free-flyer **locator** (dim amber, dimmer than ship red) for ~30 s of mission time after stage-out; pixel-size heuristic matches the ship locator.
+- Tiny boostback ignition flash (theater-only, non-physical) when reverse burn lights.
+- Pure helpers: `boosterLocatorStrength` / `boostbackFlashStrength` in `boosterRecovery.ts` (+ unit tests); rendered by `StagingFx`.
 
 ### 4. Landing beat
 
@@ -174,12 +175,13 @@ A practical order for the next few sessions:
 1. ~~**Auto-cam by phase** (P0.1) + manual override~~ **done**  
 2. ~~**Cinematic bookmarks** (P1.5)~~ **done**  
 3. ~~**Callout ↔ scrubber coupling** (P0.2)~~ **done**  
-4. **Landing beat** (P0.4) or **booster fallaway locator** (P0.3) — recommended next  
-5. **Persist mission stats in precompute pack** (P2.11)  
-6. **Split mission physics modules** (P3.12) with golden tests  
-7. **LOI / coast visual corridor** (P2.8) — optional visual track  
+4. ~~**Booster fallaway locator** (P0.3)~~ **done**  
+5. **Landing beat** (P0.4) — recommended next  
+6. **Persist mission stats in precompute pack** (P2.11)  
+7. **Split mission physics modules** (P3.12) with golden tests  
+8. **LOI / coast visual corridor** (P2.8) — optional visual track  
 
-Watchability track is in good shape; pick a remaining P0 polish or shift to pack metadata / architecture.
+Watchability track is nearly complete; landing beat is the last P0 polish, then pack metadata / architecture.
 
 ---
 
@@ -218,3 +220,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-07-29 | Auto-cam by phase (P0.1): guided framing, C / button toggle, ease distance, unit tests |
 | 2026-08-02 | Cinematic bookmarks (P1.5): Pad·Stage·TLI·Half·LOI·Land buttons + Shift+1…, pure builder + tests |
 | 2026-08-02 | Callout ↔ scrubber (P0.2): event ticks, click callout to seek, dim telemetry |
+| 2026-08-04 | Booster fallaway (P0.3): dim free-flyer locator ~30 s + boostback ignition flash |
