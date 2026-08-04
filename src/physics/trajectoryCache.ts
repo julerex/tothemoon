@@ -7,6 +7,11 @@ import {
   type PhaseId,
   type Sample,
 } from "./mission";
+import {
+  buildCoastCorridor,
+  computeKeplerRefMaxDevKm,
+  type CoastCorridor,
+} from "./coastCorridor";
 import { resolveTrajectoryMeta } from "./trajectoryMeta";
 import { len, type V3, v3 } from "./vec3";
 import packedTrajectory from "../data/trajectory.json";
@@ -47,6 +52,8 @@ type PackedTrajectory = {
   peakSpeedKmS?: number;
   /** v2+ mission time of stage-out (s), or null */
   stageT?: number | null;
+  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  keplerRefMaxDevKm?: number;
   samples: Array<{
     t: number;
     p: number[];
@@ -83,6 +90,11 @@ function unpack(packed: PackedTrajectory): MissionResult {
     },
     samples,
   );
+  const keplerRefMaxDevKm =
+    packed.keplerRefMaxDevKm != null && Number.isFinite(packed.keplerRefMaxDevKm)
+      ? packed.keplerRefMaxDevKm
+      : computeKeplerRefMaxDevKm(samples);
+
   return {
     moonPhase0: packed.moonPhase0,
     tliDv: packed.tliDv,
@@ -93,6 +105,7 @@ function unpack(packed: PackedTrajectory): MissionResult {
     minMoonAlt: meta.minMoonAlt,
     peakSpeedKmS: meta.peakSpeedKmS,
     stageT: meta.stageT,
+    keplerRefMaxDevKm,
     samples,
   };
 }
@@ -109,8 +122,11 @@ export class TrajectoryCache {
   readonly peakSpeedKmS: number;
   /** Mission time (s) of booster stage-out, or null */
   readonly stageT: number | null;
+  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  readonly keplerRefMaxDevKm: number;
   /** Horizons τ=0 mission time used when samples were baked. */
   readonly horizonsLandingT: number;
+  private _corridor: CoastCorridor | null | undefined;
 
   constructor(result: MissionResult) {
     this.samples = result.samples;
@@ -135,6 +151,32 @@ export class TrajectoryCache {
     this.minMoonAlt = meta.minMoonAlt;
     this.peakSpeedKmS = meta.peakSpeedKmS;
     this.stageT = meta.stageT;
+    this.keplerRefMaxDevKm =
+      result.keplerRefMaxDevKm != null &&
+      Number.isFinite(result.keplerRefMaxDevKm)
+        ? result.keplerRefMaxDevKm
+        : computeKeplerRefMaxDevKm(result.samples);
+  }
+
+  /**
+   * Lazy Kepler-vs-n-body coast corridor for scene overlays.
+   * Null when the pack has no post-TLI coast.
+   */
+  getCoastCorridor(): CoastCorridor | null {
+    if (this._corridor === undefined) {
+      this._corridor = buildCoastCorridor(this.samples);
+      // Prefer bake maxDev when corridor was thinned differently
+      if (
+        this._corridor &&
+        this.keplerRefMaxDevKm > this._corridor.maxDevKm
+      ) {
+        this._corridor = {
+          ...this._corridor,
+          maxDevKm: this.keplerRefMaxDevKm,
+        };
+      }
+    }
+    return this._corridor;
   }
 
   /** Load baked trajectory (default). Instant — no RK4 on the main thread. */

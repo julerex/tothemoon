@@ -99,10 +99,13 @@ A single-line subtitle under the callout for longer beats (“Parking orbit, lun
 
 Stay honest: theater values, not flight-ops ephemerides.
 
-### 8. LOI / capture readability
+### 8. LOI / coast visual corridor — **done** (corridor track)
 
-- Make LOI burn duration and plume more distinct in samples / HUD (phase already exists; ensure thrust and fuel draw read clearly).
-- Optional Kepler-vs-N-body corridor ribbon on the TLI coast (debug or low-opacity path) using precompute’s max |Δr| story.
+Ballistic free-coast packs have no LOI burn; readability work focuses on the Kepler-vs-n-body story:
+
+- **Coast corridor** (toggle **O** with orbits): dashed amber Kepler inject ellipse vs n-body trail, sparse |Δr| whiskers.
+- Pure helpers: `coastCorridor.ts` (+ tests); bake tracks `keplerRefMaxDevKm` during coast; metrics **Kepler max |Δr|**.
+- LOI plume/HUD distinctness remains deferred until a capture pack returns (phases/helpers already in `capture.ts`).
 
 ### 9. Booster recovery silhouette — done (theater)
 
@@ -185,9 +188,9 @@ A practical order for the next few sessions:
 5. ~~**Landing beat** (P0.4)~~ **done**  
 6. ~~**Persist mission stats in precompute pack** (P2.11)~~ **done**  
 7. ~~**Split mission physics modules** (P3.12)~~ **done**  
-8. **LOI / coast visual corridor** (P2.8) — optional next  
+8. ~~**LOI / coast visual corridor** (P2.8)~~ **done** (Kepler corridor)  
 
-Core mission architecture is modular; optional LOI corridor or chase-camera polish next.
+Core arc is modular and watchable; chase-camera polish (P1.6) or epoch lighting (P2.10) are optional next.
 
 ---
 
@@ -230,3 +233,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-04 | Landing beat (P0.4): 1× hold + camera settle + delayed complete card; Malapert site label |
 | 2026-08-04 | Pack meta v2 (P2.11): minMoonAlt + peakSpeedKmS + stageT baked; no load-time re-scan |
 | 2026-08-04 | Split mission.ts (P3.12): fly / search / ballistic coast / downsample modules + golden bands |
+| 2026-08-04 | Coast corridor (P2.8): Kepler-vs-n-body path + max |Δr| meta / metrics |

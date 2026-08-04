@@ -19,15 +19,17 @@ import {
   rk4Step,
   type CraftState,
 } from "./integrator";
+import { keplerRvAt } from "./kepler";
 import type { LeoRel } from "./leoCoast";
 import { restoreLeoRel } from "./leoCoast";
 import { pushSample } from "./missionSample";
 import type { MissionResult, Sample } from "./missionTypes";
 import type { PropState } from "./propellant";
-import { runFiniteTli, transferTimeEst } from "./tli";
+import { orbitAfterTli, runFiniteTli, transferTimeEst } from "./tli";
 import { len, normalize, set, sub, v3 } from "./vec3";
 
 const _relP = v3();
+const _relV = v3();
 const _from = v3();
 
 export type ProbeResult = {
@@ -120,9 +122,23 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
   const Tcoast = transferTimeEst();
   let minMoonAlt = Infinity;
   let periluneT = tTli;
-  const keplerRefMaxDevKm = 0;
+  // Osculating 2-body reference at inject — track max |Δr| for corridor meta
+  const keplerRef = orbitAfterTli(state);
+  let keplerRefMaxDevKm = 0;
+
+  function trackKeplerDev(): void {
+    if (!(keplerRef.a > 0) || keplerRef.e >= 1) return;
+    keplerRvAt(keplerRef, state.t, _relP, _relV);
+    const b = getBodies(state.t);
+    const dx = state.pos.x - (b.earth.x + _relP.x);
+    const dy = state.pos.y - (b.earth.y + _relP.y);
+    const dz = state.pos.z - (b.earth.z + _relP.z);
+    const d = Math.hypot(dx, dy, dz);
+    if (Number.isFinite(d) && d > keplerRefMaxDevKm) keplerRefMaxDevKm = d;
+  }
 
   pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
+  trackKeplerDev();
 
   // Integrate through lunar encounter; stop after flyby (do not fall all the
   // way back to Earth on a multi-day return leg).
@@ -136,6 +152,7 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
       minMoonAlt = altM;
       periluneT = state.t;
     }
+    trackKeplerDev();
 
     // Lunar impact — project onto surface, freeze for a short settle
     if (altM < 0) {

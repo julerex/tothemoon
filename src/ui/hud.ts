@@ -98,6 +98,8 @@ export type Telemetry = {
   peakSpeedKmS?: number;
   /** Mission time of booster stage-out (s), or null */
   stageT?: number | null;
+  /** Peak |r_nbody − r_kepler| on TLI coast (km) */
+  keplerRefMaxDevKm?: number;
   /** Camera distance to focus target (km) */
   focusDistance: number;
   /** Detailed metrics (M overlay) */
@@ -218,6 +220,7 @@ export function bindHud(
     minalt: document.querySelector<HTMLElement>("#mx-minalt"),
     peakSpeed: document.querySelector<HTMLElement>("#mx-peak-speed"),
     stageT: document.querySelector<HTMLElement>("#mx-stage-t"),
+    keplerDev: document.querySelector<HTMLElement>("#mx-kepler-dev"),
   };
 
   let scrubbing = false;
@@ -998,6 +1001,14 @@ export function bindHud(
       mx.stageT,
       tel.stageT != null && Number.isFinite(tel.stageT)
         ? formatMissionTimeDetailed(tel.stageT)
+        : "—",
+    );
+    setText(
+      mx.keplerDev,
+      tel.keplerRefMaxDevKm != null &&
+        Number.isFinite(tel.keplerRefMaxDevKm) &&
+        tel.keplerRefMaxDevKm > 0
+        ? formatDistancePrecise(tel.keplerRefMaxDevKm)
         : "—",
     );
   }

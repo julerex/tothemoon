@@ -32,6 +32,7 @@ import {
   updateLocatorVisibility,
 } from "./scene/craft";
 import { updateFatLineResolutions } from "./scene/fatLines";
+import { createCoastCorridorOverlay } from "./scene/coastCorridor";
 import { createTrailFromPoints } from "./scene/trail";
 import { StagingFx, findStageEvent } from "./scene/stagingFx";
 import { LandingFx } from "./scene/landingFx";
@@ -122,6 +123,17 @@ const trailPts = cache.trailPoints(1500);
 const craftTrail = createTrailFromPoints(trailPts);
 // Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
 orbitGroup.add(craftTrail);
+
+// Kepler 2-body reference vs n-body coast (amber dashed + sparse whiskers)
+const coastCorridor = cache.getCoastCorridor();
+if (coastCorridor) {
+  const corridorFx = createCoastCorridorOverlay(coastCorridor);
+  orbitGroup.add(corridorFx);
+  console.info(
+    `[tothemoon] Coast corridor: Kepler max|Δr|=${cache.keplerRefMaxDevKm.toFixed(0)} km ` +
+      `(t=${(coastCorridor.t0 / 3600).toFixed(1)}–${(coastCorridor.t1 / 3600).toFixed(1)} h)`,
+  );
+}
 
 // Moon: solid blue trail of actual location over the mission; dotted blue
 // osculating orbit (through the Moon) parented to Earth so it co-moves.
@@ -620,6 +632,7 @@ function applyMissionState(u: number): void {
     minMoonAlt: cache.minMoonAlt,
     peakSpeedKmS: cache.peakSpeedKmS,
     stageT: cache.stageT,
+    keplerRefMaxDevKm: cache.keplerRefMaxDevKm,
     focusDistance: director.getFocusDistance(),
     altEarth: frame.altEarth,
     altMoon: frame.altMoon,

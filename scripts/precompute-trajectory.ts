@@ -52,6 +52,8 @@ export type PackedTrajectory = {
   peakSpeedKmS: number;
   /** Mission time of first staged sample (s), or null */
   stageT: number | null;
+  /** Peak |r_nbody − r_kepler| on TLI coast (km); corridor meta */
+  keplerRefMaxDevKm?: number;
   samples: PackedSample[];
 };
 
@@ -68,6 +70,10 @@ function pack(result: MissionResult): PackedTrajectory {
       : meta.peakSpeedKmS;
   const stageT =
     result.stageT !== undefined ? result.stageT : meta.stageT;
+  const keplerRefMaxDevKm =
+    result.keplerRefMaxDevKm != null && Number.isFinite(result.keplerRefMaxDevKm)
+      ? result.keplerRefMaxDevKm
+      : undefined;
 
   return {
     version: TRAJECTORY_PACK_VERSION,
@@ -81,6 +87,8 @@ function pack(result: MissionResult): PackedTrajectory {
     minMoonAlt,
     peakSpeedKmS: round(peakSpeedKmS, 6),
     stageT: stageT == null ? null : round(stageT, 3),
+    keplerRefMaxDevKm:
+      keplerRefMaxDevKm != null ? round(keplerRefMaxDevKm, 1) : undefined,
     samples: result.samples.map((s) => ({
       t: round(s.t, 3),
       p: [round(s.pos.x, 4), round(s.pos.y, 4), round(s.pos.z, 4)],
@@ -114,7 +122,10 @@ console.info(
   `[precompute] ${packed.message} · ${packed.samples.length} samples · ${(packed.durationS / 3600).toFixed(2)} h · ${ms.toFixed(0)} ms`,
 );
 console.info(
-  `[precompute] meta v${packed.version}: minMoonAlt=${packed.minMoonAlt.toFixed(1)} km · peak|v|=${packed.peakSpeedKmS.toFixed(3)} km/s · stageT=${packed.stageT == null ? "—" : `${packed.stageT.toFixed(1)} s`}`,
+  `[precompute] meta v${packed.version}: minMoonAlt=${packed.minMoonAlt.toFixed(1)} km · peak|v|=${packed.peakSpeedKmS.toFixed(3)} km/s · stageT=${packed.stageT == null ? "—" : `${packed.stageT.toFixed(1)} s`}` +
+    (packed.keplerRefMaxDevKm != null
+      ? ` · Kepler max|Δr|=${packed.keplerRefMaxDevKm.toFixed(0)} km`
+      : ""),
 );
 console.info(`[precompute] wrote ${outPath}`);
 
