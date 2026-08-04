@@ -61,4 +61,23 @@ describe("baked trajectory.json invariants", () => {
       assert.ok(Number.isFinite(s.vel.x));
     }
   });
+
+  it("ships v2 pack metadata (minMoonAlt, peakSpeed, stageT)", () => {
+    const p = packed as {
+      version?: number;
+      minMoonAlt?: number;
+      peakSpeedKmS?: number;
+      stageT?: number | null;
+    };
+    assert.ok((p.version ?? 0) >= 2, `version=${p.version}`);
+    assert.ok(Number.isFinite(p.minMoonAlt));
+    assert.ok(Number.isFinite(p.peakSpeedKmS) && (p.peakSpeedKmS as number) > 0);
+    assert.ok(p.stageT == null || (Number.isFinite(p.stageT) && p.stageT! > 0));
+    // stage-out should land inside the sample series when present
+    if (p.stageT != null) {
+      const staged = traj.samples.find((s) => s.staged);
+      assert.ok(staged);
+      assert.ok(Math.abs(staged!.t - p.stageT) < 5);
+    }
+  });
 });

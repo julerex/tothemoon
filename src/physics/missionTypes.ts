@@ -59,6 +59,10 @@ export type MissionResult = {
    * call setMissionLandingT with this value so Earth/Moon stay under the craft.
    */
   horizonsLandingT?: number;
+  /** Peak inertial |v| (km/s) over samples — packed into trajectory.json v2+ */
+  peakSpeedKmS?: number;
+  /** Mission time (s) of booster stage-out — packed into trajectory.json v2+ */
+  stageT?: number | null;
   /** Max |r_N-body − r_Kepler| (km) on the TLI coast, if computed */
   keplerRefMaxDevKm?: number;
   /** Discrete midcourse corrections executed during coast */

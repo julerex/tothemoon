@@ -113,10 +113,11 @@ Kinematic RTLS path after stage-out: flip → boostback plume → coast/entry �
 - Landing illumination already targets July 2027 waning gibbous — expose “Sun / Earth / Moon phase” one-liner in telemetry or complete card.
 - Soft Earth night lights or city glints only if they stay cheap (canvas texture already exists for Earth).
 
-### 11. Packed trajectory metadata
+### 11. Packed trajectory metadata — **done**
 
-- Persist real `minMoonAlt` (and maybe peak speed, stage time) in `trajectory.json` at precompute so the complete card doesn’t re-scan samples at load.
-- Version the pack if fields grow; keep `trajectoryInvariants` in sync.
+- Pack **v2** persists `minMoonAlt`, `peakSpeedKmS`, and `stageT` in `trajectory.json` at precompute; load uses packed values (no sample re-scan when finite).
+- Pure helpers: `src/physics/trajectoryMeta.ts` (+ unit tests). Fallback derive for v1 packs.
+- Complete card + metrics (M) show peak |v| and stage-out; invariants require v2 meta fields.
 
 ---
 
@@ -179,11 +180,11 @@ A practical order for the next few sessions:
 3. ~~**Callout ↔ scrubber coupling** (P0.2)~~ **done**  
 4. ~~**Booster fallaway locator** (P0.3)~~ **done**  
 5. ~~**Landing beat** (P0.4)~~ **done**  
-6. **Persist mission stats in precompute pack** (P2.11) — recommended next  
-7. **Split mission physics modules** (P3.12) with golden tests  
+6. ~~**Persist mission stats in precompute pack** (P2.11)~~ **done**  
+7. **Split mission physics modules** (P3.12) with golden tests — recommended next  
 8. **LOI / coast visual corridor** (P2.8) — optional visual track  
 
-Watchability track (P0) is complete; next leverage is pack metadata or architecture.
+Watchability + pack meta are solid; architecture split of `mission.ts` is the next maintainability win.
 
 ---
 
@@ -224,3 +225,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-02 | Callout ↔ scrubber (P0.2): event ticks, click callout to seek, dim telemetry |
 | 2026-08-04 | Booster fallaway (P0.3): dim free-flyer locator ~30 s + boostback ignition flash |
 | 2026-08-04 | Landing beat (P0.4): 1× hold + camera settle + delayed complete card; Malapert site label |
+| 2026-08-04 | Pack meta v2 (P2.11): minMoonAlt + peakSpeedKmS + stageT baked; no load-time re-scan |

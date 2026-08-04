@@ -13,7 +13,7 @@ Interactive **Three.js** mission theater: a spacecraft launching from **Starbase
 - Heliocentric theater (Sun ≈ origin): **JPL Horizons DE441** samples for Earth/Moon over July 2027 (`npm run horizons`); analytic circular Earth + Keplerian Moon as fallback
 - Mission: **Starbase pad** → staged ascent → LEO dogleg → finite TLI → **ballistic n-body coast** → impact or flyby
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through TLI; empty tanks cut engines
-- Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread)
+- Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread). Pack **v2** also stores `minMoonAlt`, peak inertial speed, and stage-out time so the complete card never re-scans samples at load
 
 The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters): ring welds, denser heat-shield tiles, Raptor field, multi-layer additive plumes, exhaust light, Max-Q condensation, and hot-staging dual plumes. The booster stages off at LEO insert with fallaway + flash, a dim amber free-flyer locator (~30 s), and a brief boostback ignition flash; plumes scale with thrust. Starbase pad (flame trench, deluge steam, chopsticks silhouette) and ascent ground track sit on the spinning Earth. Lunar landing site beacon + dust puff mark touchdown. In system views the vehicle is tiny — a **red marker** shows its location. Use the **Ship** camera to see liftoff up close.
 

@@ -94,6 +94,10 @@ export type Telemetry = {
   tliDv: number;
   /** Minimum lunar altitude during approach/capture (km) */
   minMoonAlt: number;
+  /** Peak inertial |v| (km/s) from pack meta */
+  peakSpeedKmS?: number;
+  /** Mission time of booster stage-out (s), or null */
+  stageT?: number | null;
   /** Camera distance to focus target (km) */
   focusDistance: number;
   /** Detailed metrics (M overlay) */
@@ -160,6 +164,8 @@ export function bindHud(
   const mcTli = document.querySelector<HTMLElement>("#mc-tlidv");
   const mcMinAlt = document.querySelector<HTMLElement>("#mc-minalt");
   const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
+  const mcPeakSpeed = document.querySelector<HTMLElement>("#mc-peak-speed");
+  const mcStageT = document.querySelector<HTMLElement>("#mc-stage-t");
   const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
   const hudRoot = document.querySelector<HTMLElement>("#hud");
   const keymapEl = document.querySelector<HTMLElement>("#keymap");
@@ -210,6 +216,8 @@ export function bindHud(
     duration: document.querySelector<HTMLElement>("#mx-duration"),
     tlidv: document.querySelector<HTMLElement>("#mx-tlidv"),
     minalt: document.querySelector<HTMLElement>("#mx-minalt"),
+    peakSpeed: document.querySelector<HTMLElement>("#mx-peak-speed"),
+    stageT: document.querySelector<HTMLElement>("#mx-stage-t"),
   };
 
   let scrubbing = false;
@@ -870,6 +878,18 @@ export function bindHud(
                 : formatDistance(Math.max(0, tel.minMoonAlt));
           }
           if (mcFuel) mcFuel.textContent = formatFuel(tel.fuelShip, "ship");
+          if (mcPeakSpeed) {
+            mcPeakSpeed.textContent =
+              tel.peakSpeedKmS != null && Number.isFinite(tel.peakSpeedKmS)
+                ? formatSpeed(tel.peakSpeedKmS)
+                : "—";
+          }
+          if (mcStageT) {
+            mcStageT.textContent =
+              tel.stageT != null && Number.isFinite(tel.stageT)
+                ? formatMissionTime(tel.stageT)
+                : "—";
+          }
         }
         completeEl.hidden = false;
       } else {
@@ -966,6 +986,18 @@ export function bindHud(
       mx.minalt,
       Number.isFinite(tel.minMoonAlt)
         ? formatDistancePrecise(Math.max(0, tel.minMoonAlt))
+        : "—",
+    );
+    setText(
+      mx.peakSpeed,
+      tel.peakSpeedKmS != null && Number.isFinite(tel.peakSpeedKmS)
+        ? formatSpeedPrecise(tel.peakSpeedKmS)
+        : "—",
+    );
+    setText(
+      mx.stageT,
+      tel.stageT != null && Number.isFinite(tel.stageT)
+        ? formatMissionTimeDetailed(tel.stageT)
         : "—",
     );
   }

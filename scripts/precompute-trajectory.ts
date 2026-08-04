@@ -2,6 +2,9 @@
  * Build-time mission integration → static JSON for instant page load.
  *
  *   npx tsx scripts/precompute-trajectory.ts
+ *
+ * Pack version 2 persists mission summary meta (minMoonAlt, peakSpeedKmS,
+ * stageT) so the runtime HUD never re-scans samples at load.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -12,6 +15,10 @@ import {
   assertTrajectoryInvariants,
   unpackPackedForInvariants,
 } from "../src/physics/trajectoryInvariants.ts";
+import {
+  deriveTrajectoryMeta,
+  TRAJECTORY_PACK_VERSION,
+} from "../src/physics/trajectoryMeta.ts";
 
 export type PackedSample = {
   t: number;
@@ -30,7 +37,7 @@ export type PackedSample = {
 };
 
 export type PackedTrajectory = {
-  version: 1;
+  version: typeof TRAJECTORY_PACK_VERSION;
   generatedAt: string;
   moonPhase0: number;
   tliDv: number;
@@ -39,13 +46,31 @@ export type PackedTrajectory = {
   horizonsLandingT?: number;
   ok: boolean;
   message: string;
+  /** Minimum altitude above mean lunar radius (km) */
   minMoonAlt: number;
+  /** Peak inertial |v| (km/s) */
+  peakSpeedKmS: number;
+  /** Mission time of first staged sample (s), or null */
+  stageT: number | null;
   samples: PackedSample[];
 };
 
 function pack(result: MissionResult): PackedTrajectory {
+  const meta = deriveTrajectoryMeta(result.samples);
+  // Prefer integration minMoonAlt when finite (full-rate coast); fall back to scan
+  const minMoonAlt =
+    result.minMoonAlt != null && Number.isFinite(result.minMoonAlt)
+      ? result.minMoonAlt
+      : meta.minMoonAlt;
+  const peakSpeedKmS =
+    result.peakSpeedKmS != null && Number.isFinite(result.peakSpeedKmS)
+      ? result.peakSpeedKmS
+      : meta.peakSpeedKmS;
+  const stageT =
+    result.stageT !== undefined ? result.stageT : meta.stageT;
+
   return {
-    version: 1,
+    version: TRAJECTORY_PACK_VERSION,
     generatedAt: new Date().toISOString(),
     moonPhase0: result.moonPhase0,
     tliDv: result.tliDv,
@@ -53,7 +78,9 @@ function pack(result: MissionResult): PackedTrajectory {
     horizonsLandingT: result.horizonsLandingT,
     ok: result.ok,
     message: result.message,
-    minMoonAlt: result.minMoonAlt,
+    minMoonAlt,
+    peakSpeedKmS: round(peakSpeedKmS, 6),
+    stageT: stageT == null ? null : round(stageT, 3),
     samples: result.samples.map((s) => ({
       t: round(s.t, 3),
       p: [round(s.pos.x, 4), round(s.pos.y, 4), round(s.pos.z, 4)],
@@ -85,6 +112,9 @@ writeFileSync(outPath, JSON.stringify(packed));
 
 console.info(
   `[precompute] ${packed.message} · ${packed.samples.length} samples · ${(packed.durationS / 3600).toFixed(2)} h · ${ms.toFixed(0)} ms`,
+);
+console.info(
+  `[precompute] meta v${packed.version}: minMoonAlt=${packed.minMoonAlt.toFixed(1)} km · peak|v|=${packed.peakSpeedKmS.toFixed(3)} km/s · stageT=${packed.stageT == null ? "—" : `${packed.stageT.toFixed(1)} s`}`,
 );
 console.info(`[precompute] wrote ${outPath}`);
 

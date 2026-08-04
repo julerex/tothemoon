@@ -618,6 +618,8 @@ function applyMissionState(u: number): void {
     completeKind: landingBeat.kind,
     tliDv: cache.tliDv,
     minMoonAlt: cache.minMoonAlt,
+    peakSpeedKmS: cache.peakSpeedKmS,
+    stageT: cache.stageT,
     focusDistance: director.getFocusDistance(),
     altEarth: frame.altEarth,
     altMoon: frame.altMoon,

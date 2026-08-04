@@ -7,6 +7,7 @@ import {
   type PhaseId,
   type Sample,
 } from "./mission";
+import { resolveTrajectoryMeta } from "./trajectoryMeta";
 import { len, type V3, v3 } from "./vec3";
 import packedTrajectory from "../data/trajectory.json";
 
@@ -40,6 +41,12 @@ type PackedTrajectory = {
   horizonsLandingT?: number;
   ok: boolean;
   message: string;
+  /** v1+ — prefer packed value; do not re-scan when finite */
+  minMoonAlt?: number;
+  /** v2+ peak inertial |v| (km/s) */
+  peakSpeedKmS?: number;
+  /** v2+ mission time of stage-out (s), or null */
+  stageT?: number | null;
   samples: Array<{
     t: number;
     p: number[];
@@ -68,6 +75,14 @@ function unpack(packed: PackedTrajectory): MissionResult {
       s.st ??
       (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
   }));
+  const meta = resolveTrajectoryMeta(
+    {
+      minMoonAlt: packed.minMoonAlt,
+      peakSpeedKmS: packed.peakSpeedKmS,
+      stageT: packed.stageT,
+    },
+    samples,
+  );
   return {
     moonPhase0: packed.moonPhase0,
     tliDv: packed.tliDv,
@@ -75,48 +90,11 @@ function unpack(packed: PackedTrajectory): MissionResult {
     horizonsLandingT: packed.horizonsLandingT,
     ok: packed.ok,
     message: packed.message,
-    minMoonAlt: computeMinMoonAlt(samples),
+    minMoonAlt: meta.minMoonAlt,
+    peakSpeedKmS: meta.peakSpeedKmS,
+    stageT: meta.stageT,
     samples,
   };
-}
-
-/** Scan lunar phases for lowest altitude above mean lunar radius. */
-function computeMinMoonAlt(
-  samples: Array<{ t: number; pos: V3; phase: PhaseId }>,
-): number {
-  let minAlt = Infinity;
-  for (const s of samples) {
-    if (
-      s.phase !== "approach" &&
-      s.phase !== "braking" &&
-      s.phase !== "descent" &&
-      s.phase !== "landed" &&
-      s.phase !== "impact" &&
-      s.phase !== "coast"
-    ) {
-      continue;
-    }
-    // Coast: only late coast near the Moon
-    if (s.phase === "coast") {
-      const b = bodyPositions(s.t);
-      const d = Math.hypot(
-        s.pos.x - b.moon.x,
-        s.pos.y - b.moon.y,
-        s.pos.z - b.moon.z,
-      );
-      if (d > 80_000) continue;
-      minAlt = Math.min(minAlt, d - R_MOON);
-      continue;
-    }
-    const b = bodyPositions(s.t);
-    const d = Math.hypot(
-      s.pos.x - b.moon.x,
-      s.pos.y - b.moon.y,
-      s.pos.z - b.moon.z,
-    );
-    minAlt = Math.min(minAlt, d - R_MOON);
-  }
-  return Number.isFinite(minAlt) ? minAlt : 0;
 }
 
 export class TrajectoryCache {
@@ -127,6 +105,10 @@ export class TrajectoryCache {
   readonly moonPhase0: number;
   readonly tliDv: number;
   readonly minMoonAlt: number;
+  /** Peak inertial |v| (km/s) — from pack meta when present */
+  readonly peakSpeedKmS: number;
+  /** Mission time (s) of booster stage-out, or null */
+  readonly stageT: number | null;
   /** Horizons τ=0 mission time used when samples were baked. */
   readonly horizonsLandingT: number;
 
@@ -141,10 +123,18 @@ export class TrajectoryCache {
       result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
         ? result.horizonsLandingT
         : this.durationS;
-    this.minMoonAlt =
-      result.minMoonAlt > 0 && Number.isFinite(result.minMoonAlt)
-        ? result.minMoonAlt
-        : computeMinMoonAlt(result.samples);
+    // Prefer packed / result meta; only re-scan when fields are missing (v1 packs)
+    const meta = resolveTrajectoryMeta(
+      {
+        minMoonAlt: result.minMoonAlt,
+        peakSpeedKmS: result.peakSpeedKmS,
+        stageT: result.stageT,
+      },
+      result.samples,
+    );
+    this.minMoonAlt = meta.minMoonAlt;
+    this.peakSpeedKmS = meta.peakSpeedKmS;
+    this.stageT = meta.stageT;
   }
 
   /** Load baked trajectory (default). Instant — no RK4 on the main thread. */

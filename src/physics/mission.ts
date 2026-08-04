@@ -42,6 +42,7 @@ import {
 import { pushSample } from "./missionSample";
 import type { MissionResult, PhaseId, Sample } from "./missionTypes";
 import { createPropState, fuelShipFrac } from "./propellant";
+import { deriveTrajectoryMeta } from "./trajectoryMeta";
 import {
   apogeeFromTliDv,
   lroTransfer,
@@ -707,5 +708,9 @@ export function runMission(): MissionResult {
   );
   const out = downsample(flown);
   out.horizonsLandingT = bestLandingT;
+  // Peak speed / stage epoch for pack v2 meta (minMoonAlt already from flyMission)
+  const meta = deriveTrajectoryMeta(out.samples);
+  out.peakSpeedKmS = meta.peakSpeedKmS;
+  out.stageT = meta.stageT;
   return out;
 }

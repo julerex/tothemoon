@@ -3,6 +3,7 @@
  * Used by unit tests and by the precompute script so bad packs fail the build.
  */
 
+import { R_MOON } from "./constants";
 import type { PhaseId } from "./mission";
 
 /**
@@ -41,6 +42,11 @@ export type TrajectoryLike = {
   durationS: number;
   message: string;
   samples: TrajectorySampleLike[];
+  /** Pack schema version when known (v2+ has peak/stage meta) */
+  version?: number;
+  minMoonAlt?: number;
+  peakSpeedKmS?: number;
+  stageT?: number | null;
 };
 
 export type InvariantIssue = {
@@ -291,6 +297,69 @@ export function checkTrajectoryInvariants(
     });
   }
 
+  // Optional pack metadata (v2+): finite bands so complete-card stats stay honest
+  if (traj.minMoonAlt != null) {
+    if (!Number.isFinite(traj.minMoonAlt)) {
+      issues.push({
+        code: "bad_min_moon_alt",
+        message: `minMoonAlt must be finite, got ${traj.minMoonAlt}`,
+      });
+    } else if (traj.minMoonAlt < -R_MOON || traj.minMoonAlt > 500_000) {
+      issues.push({
+        code: "min_moon_alt_range",
+        message: `minMoonAlt ${traj.minMoonAlt} km outside [-R_MOON, 500000]`,
+      });
+    }
+  }
+  if (traj.peakSpeedKmS != null) {
+    if (!Number.isFinite(traj.peakSpeedKmS) || traj.peakSpeedKmS < 0) {
+      issues.push({
+        code: "bad_peak_speed",
+        message: `peakSpeedKmS must be finite ≥ 0, got ${traj.peakSpeedKmS}`,
+      });
+    } else if (traj.peakSpeedKmS > 80) {
+      // Heliocentric LEO/TLI peaks ~30–40 km/s; 80 is a hard ceiling
+      issues.push({
+        code: "peak_speed_range",
+        message: `peakSpeedKmS ${traj.peakSpeedKmS.toFixed(2)} km/s exceeds 80`,
+      });
+    }
+  }
+  if (traj.stageT !== undefined && traj.stageT != null) {
+    if (!Number.isFinite(traj.stageT) || traj.stageT < 0) {
+      issues.push({
+        code: "bad_stage_t",
+        message: `stageT must be finite ≥ 0 or null, got ${traj.stageT}`,
+      });
+    } else if (traj.stageT > traj.durationS + 1) {
+      issues.push({
+        code: "stage_t_range",
+        message: `stageT ${traj.stageT} s exceeds durationS ${traj.durationS}`,
+      });
+    }
+  }
+  // v2 packs must ship the new meta fields
+  if (traj.version != null && traj.version >= 2) {
+    if (traj.minMoonAlt == null || !Number.isFinite(traj.minMoonAlt)) {
+      issues.push({
+        code: "missing_min_moon_alt",
+        message: "pack v2+ requires finite minMoonAlt",
+      });
+    }
+    if (traj.peakSpeedKmS == null || !Number.isFinite(traj.peakSpeedKmS)) {
+      issues.push({
+        code: "missing_peak_speed",
+        message: "pack v2+ requires finite peakSpeedKmS",
+      });
+    }
+    if (!("stageT" in traj)) {
+      issues.push({
+        code: "missing_stage_t",
+        message: "pack v2+ requires stageT (number | null)",
+      });
+    }
+  }
+
   return issues;
 }
 
@@ -309,6 +378,10 @@ export function unpackPackedForInvariants(packed: {
   ok: boolean;
   durationS: number;
   message: string;
+  version?: number;
+  minMoonAlt?: number;
+  peakSpeedKmS?: number;
+  stageT?: number | null;
   samples: Array<{
     t: number;
     p: number[];
@@ -325,6 +398,10 @@ export function unpackPackedForInvariants(packed: {
     ok: packed.ok,
     durationS: packed.durationS,
     message: packed.message,
+    version: packed.version,
+    minMoonAlt: packed.minMoonAlt,
+    peakSpeedKmS: packed.peakSpeedKmS,
+    stageT: packed.stageT,
     samples: packed.samples.map((s) => ({
       t: s.t,
       pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
