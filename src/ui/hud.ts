@@ -330,6 +330,9 @@ export function bindHud(
     if (btnCrossSection) {
       btnCrossSection.setAttribute("aria-pressed", open ? "true" : "false");
     }
+    if (hudRoot) {
+      hudRoot.classList.toggle("cross-section-open", open);
+    }
     if (open) {
       setKeymapOpen(false);
       setMetricsOpen(false);
@@ -498,13 +501,20 @@ export function bindHud(
 
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
-    // Don't steal typing from form controls
+    // Don't steal typing from form controls. Scrubber (range) stays open to
+    // shortcuts so Tab/V still cycle views after seeking.
     const t = e.target;
     if (
-      t instanceof HTMLInputElement ||
+      (t instanceof HTMLInputElement && t.type !== "range") ||
       t instanceof HTMLSelectElement ||
       t instanceof HTMLTextAreaElement
     ) {
+      return;
+    }
+    // Tab cycles cross-section ↔ main display (same as V)
+    if (e.key === "Tab") {
+      e.preventDefault();
+      toggleCrossSection();
       return;
     }
     if (e.key === "h" || e.key === "H") {

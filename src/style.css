@@ -868,11 +868,25 @@ kbd {
   letter-spacing: 0.02em;
 }
 
-/* Ascent / return to launch site cross-section (V) — black & white diagram */
+/* Ascent / return to launch site cross-section (V / Tab) — black & white diagram */
+
+/* Leave the transport strip free so the scrubber stays visible and usable */
+.cross-section {
+  /* Match telemetry clearance above transport + bookmarks + footer */
+  bottom: 7.5rem;
+  align-items: center;
+  padding-bottom: 0.5rem;
+}
+
+/* Keep play / speed / scrubber / bookmarks above the dimmed overlay */
+#hud.cross-section-open .bottom-bar {
+  position: relative;
+  z-index: 25;
+}
 
 .cross-section-card {
   width: min(56rem, 100%);
-  max-height: min(94vh, 48rem);
+  max-height: min(calc(94vh - 7.5rem), 42rem);
   background: #000;
   border-color: rgba(255, 255, 255, 0.35);
   color: #fff;
@@ -975,6 +989,14 @@ kbd {
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
+  }
+
+  .cross-section {
+    bottom: 8.5rem;
+  }
+
+  .cross-section-card {
+    max-height: min(calc(94vh - 8.5rem), 42rem);
   }
 
   .transport {
