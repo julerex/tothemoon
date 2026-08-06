@@ -868,13 +868,14 @@ kbd {
   letter-spacing: 0.02em;
 }
 
-/* Ascent / return to launch site cross-section (V / Tab) — black & white diagram */
+/* Full-bleed theater panels (cross-section · KeyMap) — black board above transport */
 
 /*
  * Full-bleed above the transport strip (play / scrubber / bookmarks / footer).
  * Bottom clearance matches .telemetry so the time slider stays free.
  */
-.cross-section {
+.cross-section,
+.visual-keymap {
   top: 0;
   left: 0;
   right: 0;
@@ -888,13 +889,15 @@ kbd {
 }
 
 /* Keep play / speed / scrubber / bookmarks above the overlay */
-#hud.cross-section-open .bottom-bar {
+#hud.cross-section-open .bottom-bar,
+#hud.keymap-open .bottom-bar {
   position: relative;
   z-index: 25;
 }
 
 /* When HUD chrome is hidden, use the full viewport (no scrubber clearance) */
-#hud.cross-section-open.hud-hidden .cross-section {
+#hud.cross-section-open.hud-hidden .cross-section,
+#hud.keymap-open.hud-hidden .visual-keymap {
   bottom: 0;
 }
 
@@ -966,10 +969,82 @@ kbd {
   border-top-color: rgba(255, 255, 255, 0.15);
 }
 
-#btn-cross-section[aria-pressed="true"] {
+#btn-cross-section[aria-pressed="true"],
+#btn-keymap[aria-pressed="true"] {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.45);
   color: #fff;
+}
+
+/* Visual KeyMap — white line keyboard on black (same shell as cross-section) */
+
+.visual-keymap-card {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+  background: #000;
+  color: #fff;
+  animation: none;
+}
+
+.visual-keymap-header {
+  flex-shrink: 0;
+  padding: 0.55rem 0.85rem 0.4rem;
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+
+.visual-keymap-header h2 {
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: none;
+}
+
+.visual-keymap-card .keymap-close {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.visual-keymap-card .keymap-close:hover,
+.visual-keymap-card .keymap-close:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.visual-keymap-sub {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.45rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.visual-keymap-canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  background: #000;
+  position: relative;
+}
+
+#keymap-canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.visual-keymap-card .metrics-foot {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+  border-top-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Copyright + source: right side of the footer row */
@@ -1022,7 +1097,8 @@ kbd {
     min-width: 10rem;
   }
 
-  .cross-section {
+  .cross-section,
+  .visual-keymap {
     bottom: 8.5rem;
   }
 

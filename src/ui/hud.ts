@@ -32,6 +32,7 @@ import {
   liveCrossSection,
   stageStateFromSamples,
 } from "./crossSection";
+import { drawVisualKeymap } from "./visualKeymap";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
@@ -138,6 +139,7 @@ export function bindHud(
   const btnCrossSection = document.querySelector<HTMLButtonElement>(
     "#btn-cross-section",
   );
+  const btnKeymap = document.querySelector<HTMLButtonElement>("#btn-keymap");
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
@@ -177,6 +179,8 @@ export function bindHud(
   const hudRoot = document.querySelector<HTMLElement>("#hud");
   const keymapEl = document.querySelector<HTMLElement>("#keymap");
   const keymapClose = document.querySelector<HTMLButtonElement>("#keymap-close");
+  const keymapCanvas = document.querySelector<HTMLCanvasElement>("#keymap-canvas");
+  const keymapCtx = keymapCanvas?.getContext("2d") ?? null;
   const metricsEl = document.querySelector<HTMLElement>("#metrics");
   const metricsClose = document.querySelector<HTMLButtonElement>("#metrics-close");
   const crossSectionEl = document.querySelector<HTMLElement>("#cross-section");
@@ -304,14 +308,31 @@ export function bindHud(
   function setKeymapOpen(open: boolean): void {
     keymapOpen = open;
     if (keymapEl) keymapEl.hidden = !open;
+    if (btnKeymap) {
+      btnKeymap.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+    if (hudRoot) {
+      hudRoot.classList.toggle("keymap-open", open);
+    }
     if (open) {
       setMetricsOpen(false);
       setCrossSectionOpen(false);
+      // Draw after layout so canvas has real CSS size
+      requestAnimationFrame(() => redrawKeymap());
     }
   }
 
   function toggleKeymap(): void {
     setKeymapOpen(!keymapOpen);
+  }
+
+  function redrawKeymap(): void {
+    if (!keymapOpen || !keymapCtx || !keymapCanvas) return;
+    const rect = keymapCanvas.getBoundingClientRect();
+    const cssW = Math.max(rect.width, 320);
+    const cssH = Math.max(rect.height, 200);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    drawVisualKeymap(keymapCtx, cssW, cssH, dpr);
   }
 
   function setMetricsOpen(open: boolean): void {
@@ -344,6 +365,21 @@ export function bindHud(
 
   function toggleCrossSection(): void {
     setCrossSectionOpen(!crossSectionOpen);
+  }
+
+  /**
+   * Tab theater cycle: main → cross-section → KeyMap → main.
+   * Metrics stays on M only (not in the cycle).
+   */
+  function cycleTheaterViews(): void {
+    if (!crossSectionOpen && !keymapOpen) {
+      setCrossSectionOpen(true);
+    } else if (crossSectionOpen) {
+      setCrossSectionOpen(false);
+      setKeymapOpen(true);
+    } else {
+      setKeymapOpen(false);
+    }
   }
 
   function redrawCrossSection(missionT: number): void {
@@ -460,6 +496,9 @@ export function bindHud(
   if (btnCrossSection) {
     btnCrossSection.addEventListener("click", () => toggleCrossSection());
   }
+  if (btnKeymap) {
+    btnKeymap.addEventListener("click", () => toggleKeymap());
+  }
   speed.addEventListener("change", () => {
     handlers.onSpeedMode(parseSpeedMode(speed.value));
   });
@@ -514,10 +553,10 @@ export function bindHud(
     ) {
       return;
     }
-    // Tab cycles cross-section ↔ main display
+    // Tab cycles main → cross-section → KeyMap → main
     if (e.key === "Tab") {
       e.preventDefault();
-      toggleCrossSection();
+      cycleTheaterViews();
       return;
     }
     if (e.key === "h" || e.key === "H") {
@@ -952,6 +991,7 @@ export function bindHud(
 
     if (metricsOpen) updateMetrics(tel);
     if (crossSectionOpen) redrawCrossSection(tel.t);
+    if (keymapOpen) redrawKeymap();
   }
 
   function updateMetrics(tel: Telemetry): void {
