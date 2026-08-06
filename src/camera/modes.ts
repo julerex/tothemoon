@@ -375,8 +375,7 @@ export class CameraDirector {
 
   /**
    * Orbit hold keys around the focus:
-   * - Q/E — azimuth about ecliptic north (fixed elevation to orbital plane);
-   *   tumbles up with the same rotation so pitch attitude is kept
+   * - Q/E — yaw about camera.up (view-relative; elevation vs local up fixed)
    * - R/F — pitch about camera-right, tumbling up (allows upside-down)
    * - C/V — roll about the view axis (camera → focus), tumbling up
    */
@@ -576,7 +575,7 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    // Q/E: azimuth about ecliptic north; R/F: pitch about camera-right;
+    // Q/E: yaw about camera.up; R/F: pitch about camera-right;
     // C/V: roll about the view axis (camera → target).
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
@@ -590,16 +589,20 @@ export class CameraDirector {
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
 
     if (camYaw !== 0) {
-      // Revolve about ecliptic north — elevation to the orbital plane fixed.
-      // Carry camera.up with the same spin so any R/F tumble is preserved
-      // (without that, Q/E would bank the horizon).
-      this.orbitQuat.setFromAxisAngle(
-        ECLIPTIC_NORTH,
-        camYaw * ORBIT_RAD_PER_S * dt,
-      );
-      this.orbitOffset.applyQuaternion(this.orbitQuat);
-      this.camera.up.applyQuaternion(this.orbitQuat).normalize();
-      this.syncOrbitControlsUp();
+      // Yaw about current camera.up — same pole as mouse orbit / after C/V roll.
+      // Axis is fixed for this step (not spun with the offset); elev vs up stays.
+      this.tmp.copy(this.camera.up);
+      if (this.tmp.lengthSq() > 1e-12) {
+        this.tmp.normalize();
+        this.orbitQuat.setFromAxisAngle(
+          this.tmp,
+          camYaw * ORBIT_RAD_PER_S * dt,
+        );
+        this.orbitOffset.applyQuaternion(this.orbitQuat);
+        // up is the rotation axis — direction unchanged; still normalize for safety
+        this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+        this.syncOrbitControlsUp();
+      }
     }
 
     if (pitch !== 0) {
