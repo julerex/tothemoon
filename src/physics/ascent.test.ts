@@ -9,6 +9,7 @@ import {
   type AscentBurnMode,
 } from "./ascent.ts";
 import { HOT_STAGE_S, STAGE_PROP_ARM } from "./constants.ts";
+import { altitudeEarth } from "./integrator.ts";
 import { fuelShipFrac } from "./propellant.ts";
 
 describe("boosterThrottle schedule", () => {
@@ -80,6 +81,57 @@ describe("flyAscent staged profile", () => {
     for (let i = 1; i < r.samples.length; i++) {
       const dt = r.samples[i]!.t - r.samples[i - 1]!.t;
       assert.ok(dt >= 0 && dt < 5, `sample dt ${dt} at i=${i}`);
+    }
+  });
+
+  it("does not dip then climb during residual circularize", () => {
+    // Regression: settleCircularize used to freeze the craft in inertial space
+    // while Earth moved, so geocentric altitude fell ~10–25 km then rose steeply
+    // to low Earth orbit (visible as a kink on the ascent cross-section).
+    const r = flyAscent();
+    assert.ok(r.ok, r.message);
+    const stageIdx = r.samples.findIndex((s) => s.staged);
+    assert.ok(stageIdx >= 0, "expected stage-out");
+    // Peak altitude after stage, then ensure we never fall more than a few km
+    // once the residual settle begins (identified by 0.5 s sample cadence near LEO).
+    let peakAlt = -Infinity;
+    let maxDrop = 0;
+    for (let i = stageIdx; i < r.samples.length; i++) {
+      const s = r.samples[i]!;
+      const alt = altitudeEarth(s.t, s.pos);
+      if (alt > peakAlt) peakAlt = alt;
+      else maxDrop = Math.max(maxDrop, peakAlt - alt);
+    }
+    assert.ok(
+      maxDrop < 3,
+      `post-stage altitude drop ${maxDrop.toFixed(2)} km (peak ${peakAlt.toFixed(1)} km) — circularize should climb, not dip`,
+    );
+    // Residual settle itself: once samples are 0.5 s apart after upper burn, altitude
+    // should be nearly monotonic toward insertion.
+    let settleStart = -1;
+    for (let i = 1; i < r.samples.length; i++) {
+      const dt = r.samples[i]!.t - r.samples[i - 1]!.t;
+      if (
+        Math.abs(dt - 0.5) < 1e-9 &&
+        r.samples[i]!.t > r.samples[stageIdx]!.t + 5
+      ) {
+        settleStart = i - 1;
+        break;
+      }
+    }
+    if (settleStart >= 0) {
+      let prev = altitudeEarth(
+        r.samples[settleStart]!.t,
+        r.samples[settleStart]!.pos,
+      );
+      for (let i = settleStart + 1; i < r.samples.length; i++) {
+        const alt = altitudeEarth(r.samples[i]!.t, r.samples[i]!.pos);
+        assert.ok(
+          alt >= prev - 0.5,
+          `circularize alt drop at t=${r.samples[i]!.t.toFixed(2)}: ${prev.toFixed(2)} → ${alt.toFixed(2)} km`,
+        );
+        prev = alt;
+      }
     }
   });
 

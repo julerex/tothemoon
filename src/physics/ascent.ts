@@ -487,6 +487,11 @@ function successResult(
  * Honest about propellant up to the cap; remaining energy gap is theater
  * guidance (full pure-RE insert from deep suborbital would empty tanks and
  * starve dogleg / translunar injection).
+ *
+ * Important: radius is blended from a **fixed** start radius r₀ → low Earth orbit.
+ * Re-measuring geocentric radius each step while leaving the craft frozen in
+ * inertial space (Earth still moves ~15 km / 0.5 s) was producing a spurious
+ * altitude dip then steep climb on the cross-section trail.
  */
 function settleCircularize(
   state: CraftState,
@@ -500,6 +505,7 @@ function settleCircularize(
   sub(_relP, state.pos, b0.earth);
   sub(_relV, state.vel, b0.earthVel);
   enuAtPosition(state.t, state.pos, b0.earth, _up, _east, _north);
+  const r0 = len(_relP);
   const vE0 = dot(_relV, _east);
   const vN0 = dot(_relV, _north);
   const vR0 = dot(_relV, _up);
@@ -513,18 +519,26 @@ function settleCircularize(
       : 0;
 
   const steps = 20;
+  const dt = settleS / steps;
   for (let i = 1; i <= steps; i++) {
     const u = i / steps;
     // Smoothstep for continuous trail
     const s = u * u * (3 - 2 * u);
-    state.t += settleS / steps;
+
+    // Free-fly with current inertial velocity so the craft co-moves with Earth
+    // (and keeps downrange progress) before the radius snap.
+    state.pos.x += state.vel.x * dt;
+    state.pos.y += state.vel.y * dt;
+    state.pos.z += state.vel.z * dt;
+    state.t += dt;
+
     const b = getBodies(state.t);
     sub(_relP, state.pos, b.earth);
-    // Use current radial direction from Earth (follow rotating frame gently)
+    // Radial direction from the free-flown geocentric position
     normalize(_up, _relP);
     enuAtPosition(state.t, state.pos, b.earth, _up, _east, _north);
-    const rNow = len(_relP);
-    const r = rNow + s * (LOW_EARTH_ORBIT_RADIUS - rNow);
+    // Blend from fixed r₀ → LEO (monotonic altitude schedule)
+    const r = r0 + s * (LOW_EARTH_ORBIT_RADIUS - r0);
     state.pos.x = b.earth.x + _up.x * r;
     state.pos.y = b.earth.y + _up.y * r;
     state.pos.z = b.earth.z + _up.z * r;
