@@ -4,6 +4,11 @@ import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import { starbasePadState } from "../physics/earthFrame";
 import { craftLengthKm } from "../scene/craft";
+import {
+  pushOutsideSpheres,
+  solarSystemExclusionSpheres,
+  SURFACE_CLEARANCE_KM,
+} from "./surfaceClamp";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -63,6 +68,8 @@ export class CameraDirector {
   /** Local surface up / east at the pad (opening shot + upright framing). */
   private readonly padUp = new THREE.Vector3();
   private readonly padEast = new THREE.Vector3();
+  /** Scratch for body-surface exclusion after orbit / pan / zoom. */
+  private readonly surfaceClampPos = new THREE.Vector3();
   private orbitQ = false;
   private orbitE = false;
   private orbitR = false;
@@ -184,6 +191,7 @@ export class CameraDirector {
     this.camera.up.copy(this.padUp);
     this.syncOrbitControlsUp();
     this.camera.lookAt(this.controls.target);
+    this.clampOutsideBodies();
   }
 
   getMode(): CameraMode {
@@ -324,6 +332,7 @@ export class CameraDirector {
     this.camera.lookAt(this.controls.target);
     this.syncOrbitControlsUp();
     this.controls.update();
+    this.clampOutsideBodies();
   }
 
   /**
@@ -399,7 +408,18 @@ export class CameraDirector {
   private applyClipPlanes(): void {
     // Keep AU-scale max distance so focus switches never clamp a long zoom.
     this.controls.maxDistance = AU * 3;
-    this.controls.minDistance = this.focus === "sun" ? SUN_MIN_DIST : 0.05;
+    // Body-centered focuses: OrbitControls radius is distance to center, so a
+    // surface floor stops zoom-through. Pad / chase / free use a small floor
+    // and rely on {@link clampOutsideBodies} for mesh exclusion.
+    if (this.focus === "sun") {
+      this.controls.minDistance = SUN_MIN_DIST;
+    } else if (this.focus === "earth") {
+      this.controls.minDistance = R_EARTH + SURFACE_CLEARANCE_KM;
+    } else if (this.focus === "moon") {
+      this.controls.minDistance = R_MOON + SURFACE_CLEARANCE_KM;
+    } else {
+      this.controls.minDistance = 0.05;
+    }
     this.camera.near =
       this.focus === "chase" ||
       this.focus === "starbase" ||
@@ -409,6 +429,29 @@ export class CameraDirector {
         : 0.1;
     this.camera.far = FAR_SOLAR;
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Push the camera outside Sun / Earth / Moon meshes. Call after any free
+   * orbit, pan, zoom, or track step. Fin mounts stay on the craft and skip this.
+   */
+  private clampOutsideBodies(): void {
+    const b = bodyPositions(this.simTime);
+    const spheres = solarSystemExclusionSpheres(b.sun, b.earth, b.moon, {
+      sun: R_SUN,
+      earth: R_EARTH,
+      moon: R_MOON,
+    });
+    this.surfaceClampPos.copy(this.camera.position);
+    const moved = pushOutsideSpheres(
+      this.surfaceClampPos,
+      spheres,
+      this.surfaceClampPos,
+    );
+    if (!moved) return;
+    this.camera.position.copy(this.surfaceClampPos);
+    // Keep the focus under the crosshair after a radial push
+    this.camera.lookAt(this.controls.target);
   }
 
   private computeTarget(mode: CameraMode, outTarget: THREE.Vector3): void {
@@ -660,6 +703,9 @@ export class CameraDirector {
     // camera.up (no view-axis roll); R/F may tumble that up.
     this.controls.update();
     this.applyOrbit(dt);
+    // After all free motion: never sit under a planet/star mesh.
+    // Next OrbitControls.update() re-reads position → spherical, so the clamp sticks.
+    this.clampOutsideBodies();
   }
 
   /** Ease orbit radius toward Auto-cam / guided frame distance (wall-clock). */
