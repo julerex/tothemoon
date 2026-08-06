@@ -870,31 +870,57 @@ kbd {
 
 /* Ascent / return to launch site cross-section (V / Tab) — black & white diagram */
 
-/* Leave the transport strip free so the scrubber stays visible and usable */
+/*
+ * Full-bleed above the transport strip (play / scrubber / bookmarks / footer).
+ * Bottom clearance matches .telemetry so the time slider stays free.
+ */
 .cross-section {
-  /* Match telemetry clearance above transport + bookmarks + footer */
+  top: 0;
+  left: 0;
+  right: 0;
   bottom: 7.5rem;
-  align-items: center;
-  padding-bottom: 0.5rem;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  background: #000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-/* Keep play / speed / scrubber / bookmarks above the dimmed overlay */
+/* Keep play / speed / scrubber / bookmarks above the overlay */
 #hud.cross-section-open .bottom-bar {
   position: relative;
   z-index: 25;
 }
 
+/* When HUD chrome is hidden, use the full viewport (no scrubber clearance) */
+#hud.cross-section-open.hud-hidden .cross-section {
+  bottom: 0;
+}
+
 .cross-section-card {
-  width: min(56rem, 100%);
-  max-height: min(calc(94vh - 7.5rem), 42rem);
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
   background: #000;
-  border-color: rgba(255, 255, 255, 0.35);
   color: #fff;
+  animation: none;
+}
+
+.cross-section-header {
+  flex-shrink: 0;
+  padding: 0.55rem 0.85rem 0.4rem;
+  border-bottom-color: rgba(255, 255, 255, 0.15);
 }
 
 .cross-section-header h2 {
   letter-spacing: 0.06em;
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .cross-section-card .keymap-close {
@@ -908,8 +934,9 @@ kbd {
 }
 
 .cross-section-sub {
+  flex-shrink: 0;
   margin: 0;
-  padding: 0.4rem 0.95rem 0.55rem;
+  padding: 0.35rem 0.85rem 0.45rem;
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 0.03em;
@@ -917,20 +944,24 @@ kbd {
 }
 
 .cross-section-canvas-wrap {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  padding: 0.35rem 0.5rem;
+  padding: 0;
   background: #000;
+  position: relative;
 }
 
 #cross-section-canvas {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: min(58vh, 28rem);
+  height: 100%;
   background: #000;
 }
 
 .cross-section-card .metrics-foot {
+  flex-shrink: 0;
   color: rgba(255, 255, 255, 0.5);
   border-top-color: rgba(255, 255, 255, 0.15);
 }
@@ -993,10 +1024,6 @@ kbd {
 
   .cross-section {
     bottom: 8.5rem;
-  }
-
-  .cross-section-card {
-    max-height: min(calc(94vh - 8.5rem), 42rem);
   }
 
   .transport {
