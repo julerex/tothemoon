@@ -74,6 +74,9 @@ export class CameraDirector {
   private orbitE = false;
   private orbitR = false;
   private orbitF = false;
+  /** View-axis roll (C / V). */
+  private orbitC = false;
+  private orbitV = false;
   private panW = false;
   private panA = false;
   private panS = false;
@@ -375,12 +378,18 @@ export class CameraDirector {
    * - Q/E — azimuth about ecliptic north (fixed elevation to orbital plane);
    *   tumbles up with the same rotation so pitch attitude is kept
    * - R/F — pitch about camera-right, tumbling up (allows upside-down)
+   * - C/V — roll about the view axis (camera → focus), tumbling up
    */
-  setOrbitKey(key: "q" | "e" | "r" | "f", down: boolean): CameraMode {
+  setOrbitKey(
+    key: "q" | "e" | "r" | "f" | "c" | "v",
+    down: boolean,
+  ): CameraMode {
     if (key === "q") this.orbitQ = down;
     else if (key === "e") this.orbitE = down;
     else if (key === "r") this.orbitR = down;
-    else this.orbitF = down;
+    else if (key === "f") this.orbitF = down;
+    else if (key === "c") this.orbitC = down;
+    else this.orbitV = down;
     return this.focus;
   }
 
@@ -567,12 +576,15 @@ export class CameraDirector {
   }
 
   private applyOrbit(dt: number): void {
-    // Q/E: azimuth about ecliptic north; R/F: pitch about camera-right (tumble)
+    // Q/E: azimuth about ecliptic north; R/F: pitch about camera-right;
+    // C/V: roll about the view axis (camera → target).
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
-    if ((camYaw === 0 && pitch === 0) || dt <= 0) return;
+    // C = roll left (CCW on screen), V = roll right
+    const roll = (this.orbitC ? 1 : 0) - (this.orbitV ? 1 : 0);
+    if ((camYaw === 0 && pitch === 0 && roll === 0) || dt <= 0) return;
     // Keyboard orbit is fine with Auto-cam; only cancel the radius ease so
-    // Q/E/R/F are not fighting a distance lerp.
+    // Q/E/R/F/C/V are not fighting a distance lerp.
     this.cancelDistanceEase();
 
     this.orbitOffset.copy(this.camera.position).sub(this.controls.target);
@@ -603,6 +615,22 @@ export class CameraDirector {
           -pitch * ORBIT_RAD_PER_S * dt,
         );
         this.orbitOffset.applyQuaternion(this.orbitQuat);
+        this.camera.up.applyQuaternion(this.orbitQuat).normalize();
+        this.syncOrbitControlsUp();
+      }
+    }
+
+    if (roll !== 0) {
+      // Roll: spin camera.up about the look axis (target ← camera).
+      // Position stays fixed; only the horizon banks.
+      this.tmp.copy(this.controls.target).sub(this.camera.position);
+      if (this.tmp.lengthSq() > 1e-12) {
+        this.tmp.normalize();
+        // Positive angle = CCW when looking along the view (C = left bank)
+        this.orbitQuat.setFromAxisAngle(
+          this.tmp,
+          roll * ORBIT_RAD_PER_S * dt,
+        );
         this.camera.up.applyQuaternion(this.orbitQuat).normalize();
         this.syncOrbitControlsUp();
       }

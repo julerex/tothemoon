@@ -51,7 +51,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 | Descent / land | Ship chase |
 | Impact | Moon |
 
-- Toggle: **Auto-cam** button + **C** (default on; off on manual focus keys, WASD pan, or mouse orbit).
+- Toggle: **Auto-cam** button + **G** (default on; off on manual focus keys, WASD pan, or mouse orbit).
 - `CameraDirector.easeToMode` eases orbit radius; does not fight Free orbit mid-drag.
 - Pure map: `src/camera/autoCam.ts` (+ unit tests).
 

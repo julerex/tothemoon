@@ -22,10 +22,10 @@ The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters)
 - Play / pause, **Auto** speed by phase (or fixed up to 2000×), mission scrubber with phase marks + **event ticks**
 - **Cinematic bookmarks** (Pad · Stage · translunar injection · Half · lunar orbit insertion · Land) — seek + camera; **Shift+1…**
 - Event callouts (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click callout or tick to seek; telemetry dims during toast
-- **Ascent / return to launch site cross-section** (**V** or button) — true-scale black & white launch-plane diagram (Earth surface + 120 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
+- **Ascent / return to launch site cross-section** (**Tab** or button) — true-scale black & white launch-plane diagram (Earth surface + 120 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
-- Cameras: **Auto-cam** by phase (toggle **C**) · Free orbit · Earth · Ship chase · Moon · Solar · Starbase · Ship fin (**6**) · Booster grid fin (**7**)
+- Cameras: **Auto-cam** by phase (toggle **G**) · Free orbit · Earth · Ship chase · Moon · Solar · Starbase · Ship fin (**6**) · Booster grid fin (**7**) · **C**/**V** roll
 - HUD: phase, mission time, distance, altitude, speed, fuel bars + thrust
 - Logarithmic depth buffer for near craft + far Moon
 

@@ -46,8 +46,11 @@ export type HudHandlers = {
    * Falls back to onCamera when omitted.
    */
   onCameraFrame?: (mode: CameraMode) => void;
-  /** Q/E ecliptic-azimuth orbit, R/F pitch around focus (hold) */
-  onOrbitKey: (key: "q" | "e" | "r" | "f", down: boolean) => CameraMode;
+  /** Q/E ecliptic-azimuth orbit, R/F pitch, C/V view-axis roll (hold) */
+  onOrbitKey: (
+    key: "q" | "e" | "r" | "f" | "c" | "v",
+    down: boolean,
+  ) => CameraMode;
   /** WASD — pan (hold) */
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
   /** Z/X — zoom in/out (hold) */
@@ -249,8 +252,8 @@ export function bindHud(
     if (btnAutoCam) {
       btnAutoCam.setAttribute("aria-pressed", enabled ? "true" : "false");
       btnAutoCam.title = enabled
-        ? "Auto-cam on — guided framing by phase (C)"
-        : "Auto-cam off — press C or click to re-enable";
+        ? "Auto-cam on — guided framing by phase (G)"
+        : "Auto-cam off — press G or click to re-enable";
       btnAutoCam.textContent = enabled ? "Auto-cam" : "Auto-cam off";
     }
   }
@@ -268,7 +271,7 @@ export function bindHud(
     if (camToastDetail) {
       camToastDetail.textContent = on
         ? "Camera follows mission phases"
-        : "Manual focus · C to re-enable";
+        : "Manual focus · G to re-enable";
       camToastDetail.hidden = false;
     }
     camToast.hidden = false;
@@ -502,7 +505,7 @@ export function bindHud(
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
     // Don't steal typing from form controls. Scrubber (range) stays open to
-    // shortcuts so Tab/V still cycle views after seeking.
+    // shortcuts so Tab still cycles views after seeking.
     const t = e.target;
     if (
       (t instanceof HTMLInputElement && t.type !== "range") ||
@@ -511,7 +514,7 @@ export function bindHud(
     ) {
       return;
     }
-    // Tab cycles cross-section ↔ main display (same as V)
+    // Tab cycles cross-section ↔ main display
     if (e.key === "Tab") {
       e.preventDefault();
       toggleCrossSection();
@@ -530,11 +533,6 @@ export function bindHud(
     if (e.key === "m" || e.key === "M") {
       e.preventDefault();
       toggleMetrics();
-      return;
-    }
-    if (e.key === "v" || e.key === "V") {
-      e.preventDefault();
-      toggleCrossSection();
       return;
     }
     if (
@@ -580,6 +578,12 @@ export function bindHud(
       handlers.onOrbitKey("r", true);
     } else if (e.key === "f" || e.key === "F") {
       handlers.onOrbitKey("f", true);
+    } else if (e.key === "c" || e.key === "C") {
+      e.preventDefault();
+      handlers.onOrbitKey("c", true);
+    } else if (e.key === "v" || e.key === "V") {
+      e.preventDefault();
+      handlers.onOrbitKey("v", true);
     } else if (e.key === "w" || e.key === "W") {
       noteCameraMode(handlers.onPanKey("w", true));
     } else if (e.key === "a" || e.key === "A") {
@@ -606,7 +610,7 @@ export function bindHud(
     } else if (e.key === "o" || e.key === "O") {
       e.preventDefault();
       handlers.onToggleOrbits?.();
-    } else if (e.key === "c" || e.key === "C") {
+    } else if (e.key === "g" || e.key === "G") {
       e.preventDefault();
       toggleAutoCam();
     }
@@ -621,6 +625,10 @@ export function bindHud(
       handlers.onOrbitKey("r", false);
     } else if (e.key === "f" || e.key === "F") {
       handlers.onOrbitKey("f", false);
+    } else if (e.key === "c" || e.key === "C") {
+      handlers.onOrbitKey("c", false);
+    } else if (e.key === "v" || e.key === "V") {
+      handlers.onOrbitKey("v", false);
     } else if (e.key === "w" || e.key === "W") {
       handlers.onPanKey("w", false);
     } else if (e.key === "a" || e.key === "A") {
@@ -641,6 +649,8 @@ export function bindHud(
     handlers.onOrbitKey("e", false);
     handlers.onOrbitKey("r", false);
     handlers.onOrbitKey("f", false);
+    handlers.onOrbitKey("c", false);
+    handlers.onOrbitKey("v", false);
     handlers.onPanKey("w", false);
     handlers.onPanKey("a", false);
     handlers.onPanKey("s", false);

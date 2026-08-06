@@ -29,7 +29,7 @@
               type="button"
               id="btn-auto-cam"
               aria-pressed="true"
-              title="Auto-cam on — guided framing by phase (C)"
+              title="Auto-cam on — guided framing by phase (G)"
             >
               Auto-cam
             </button>
@@ -37,7 +37,7 @@
               type="button"
               id="btn-cross-section"
               aria-pressed="false"
-              title="Ascent / return to launch site cross-section (V or Tab)"
+              title="Ascent / return to launch site cross-section (Tab)"
             >
               Cross-section
             </button>
@@ -98,13 +98,15 @@
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>M</kbd> metrics</span>
               <span class="footer-sep" aria-hidden="true">·</span>
-              <span><kbd>V</kbd>/<kbd>Tab</kbd> cross-section</span>
+              <span><kbd>Tab</kbd> cross-section</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>H</kbd> hide HUD</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>Space</kbd> play/pause</span>
               <span class="footer-sep" aria-hidden="true">·</span>
-              <span><kbd>C</kbd> auto-cam</span>
+              <span><kbd>G</kbd> auto-cam</span>
+              <span class="footer-sep" aria-hidden="true">·</span>
+              <span><kbd>C</kbd>/<kbd>V</kbd> roll</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>6</kbd> bookmarks</span>
             </p>
@@ -244,7 +246,7 @@
               <section class="keymap-section">
                 <h3>Camera focus</h3>
                 <dl>
-                  <div><dt><kbd>C</kbd></dt><dd>Toggle Auto-cam (guided by phase)</dd></div>
+                  <div><dt><kbd>G</kbd></dt><dd>Toggle Auto-cam (guided by phase)</dd></div>
                   <div><dt><kbd>1</kbd></dt><dd>Sun</dd></div>
                   <div><dt><kbd>2</kbd></dt><dd>Earth</dd></div>
                   <div><dt><kbd>3</kbd></dt><dd>Moon</dd></div>
@@ -261,6 +263,7 @@
                 <dl>
                   <div><dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Orbit left / right (ecliptic)</dd></div>
                   <div><dt><kbd>R</kbd> <kbd>F</kbd></dt><dd>Pitch up / down</dd></div>
+                  <div><dt><kbd>C</kbd> <kbd>V</kbd></dt><dd>Roll left / right (view axis)</dd></div>
                   <div><dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Pan (hold)</dd></div>
                   <div><dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Zoom in / out</dd></div>
                 </dl>
@@ -282,7 +285,7 @@
                   <div><dt>Hover arrow</dt><dd>Show v or a value</dd></div>
                   <div><dt><kbd>K</kbd></dt><dd>This keymap</dd></div>
                   <div><dt><kbd>M</kbd></dt><dd>Mission metrics</dd></div>
-                  <div><dt><kbd>V</kbd> / <kbd>Tab</kbd></dt><dd>Ascent / return to launch site cross-section · cycle with main</dd></div>
+                  <div><dt><kbd>Tab</kbd></dt><dd>Ascent / return to launch site cross-section · cycle with main</dd></div>
                   <div><dt><kbd>Esc</kbd></dt><dd>Close overlay</dd></div>
                 </dl>
               </section>
@@ -404,7 +407,7 @@
               ></canvas>
             </div>
             <p class="metrics-foot">
-              Live at scrubber time · <kbd>Tab</kbd> / <kbd>V</kbd> cycle with main ·
+              Live at scrubber time · <kbd>Tab</kbd> cycle with main ·
               <kbd>Esc</kbd> close · play continues
             </p>
           </div>
