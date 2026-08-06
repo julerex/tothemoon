@@ -38,10 +38,12 @@ const ZOOM_RATE = 1.4;
 const DIST_EASE_S = 0.7;
 
 const FAR_SOLAR = AU * 4;
-/** Opening shot: distance from Earth center (km). */
-const EARTH_OPENING_DIST = R_EARTH * 8;
-/** Opening shot: elevation above the ecliptic. */
-const EARTH_OPENING_TILT = Math.PI / 4;
+/**
+ * Opening shot: elevation above the local horizon at Starbase (45°).
+ * Camera sits on a surface-relative ray so the pad reads as ground, not
+ * ecliptic-tilted space.
+ */
+const PAD_OPENING_ELEV = Math.PI / 4;
 /** Closest comfortable orbit around the Sun (outside outer corona). */
 const SUN_MIN_DIST = R_SUN * 2.5;
 /** Default framing distance when switching to Sun from a much closer zoom. */
@@ -50,7 +52,7 @@ const SUN_DEFAULT_DIST = R_SUN * 8;
 export class CameraDirector {
   readonly controls: OrbitControls;
   /** What we track; OrbitControls stay enabled in every focus. */
-  private focus: CameraMode = "earth";
+  private focus: CameraMode = "starbase";
   private readonly desiredTarget = new THREE.Vector3();
   private readonly prevTarget = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
@@ -58,6 +60,9 @@ export class CameraDirector {
   private readonly panRight = new THREE.Vector3();
   private readonly panOffset = new THREE.Vector3();
   private readonly orbitQuat = new THREE.Quaternion();
+  /** Local surface up / east at the pad (opening shot + upright framing). */
+  private readonly padUp = new THREE.Vector3();
+  private readonly padEast = new THREE.Vector3();
   private orbitQ = false;
   private orbitE = false;
   private orbitR = false;
@@ -105,7 +110,7 @@ export class CameraDirector {
       this.onUserControl?.();
     });
 
-    this.applyEarthOpeningShot();
+    this.applyPadOpeningShot();
     this.applyClipPlanes();
     this.camera.updateProjectionMatrix();
     this.controls.update();
@@ -138,43 +143,45 @@ export class CameraDirector {
   }
 
   /**
-   * Earth-centered opening: 45° above the ecliptic on the night side so the
-   * Sun sits behind Earth in the background.
+   * Starbase pad opening: look at the launch complex from 45° above the local
+   * horizon, with camera.up = surface normal so the ground reads level.
+   * Azimuth is from the west (inland) so the Gulf sits behind the stack.
    */
-  private applyEarthOpeningShot(): void {
-    const b = bodyPositions(0);
-    this.desiredTarget.set(b.earth.x, b.earth.y, b.earth.z);
+  private applyPadOpeningShot(): void {
+    this.focus = "starbase";
+    const pad = starbasePadState(0);
+    this.desiredTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
+    this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
+    this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
 
-    // Anti-sunward in the ecliptic (Sun → Earth → camera)
-    this.orbitOffset.set(
-      b.earth.x - b.sun.x,
-      b.earth.y - b.sun.y,
-      b.earth.z - b.sun.z,
-    );
-    this.orbitOffset.addScaledVector(
-      ECLIPTIC_NORTH,
-      -this.orbitOffset.dot(ECLIPTIC_NORTH),
-    );
+    // Horizontal look-from: west of the pad (−east). Projected east is already
+    // tangent; flip for inland → seaward framing of Starbase.
+    this.orbitOffset.copy(this.padEast).multiplyScalar(-1);
     if (this.orbitOffset.lengthSq() < 1e-12) {
+      // Degenerate east (pole) — any horizontal basis
       this.orbitOffset.set(1, 0, 0);
+      this.orbitOffset.addScaledVector(
+        this.padUp,
+        -this.orbitOffset.dot(this.padUp),
+      );
+      if (this.orbitOffset.lengthSq() < 1e-12) this.orbitOffset.set(0, 1, 0);
+      this.orbitOffset.normalize();
     }
-    this.orbitOffset.normalize();
 
-    // Tilt 45° toward ecliptic north
+    // 45° elevation: cos·horizon + sin·up
     this.tmp
       .copy(this.orbitOffset)
-      .multiplyScalar(Math.cos(EARTH_OPENING_TILT));
-    this.tmp.addScaledVector(
-      ECLIPTIC_NORTH,
-      Math.sin(EARTH_OPENING_TILT),
-    );
+      .multiplyScalar(Math.cos(PAD_OPENING_ELEV));
+    this.tmp.addScaledVector(this.padUp, Math.sin(PAD_OPENING_ELEV));
     this.tmp.normalize();
 
+    const dist = this.frameDistanceFor("starbase");
     this.camera.position
       .copy(this.desiredTarget)
-      .addScaledVector(this.tmp, EARTH_OPENING_DIST);
+      .addScaledVector(this.tmp, dist);
     this.controls.target.copy(this.desiredTarget);
-    this.camera.up.copy(ECLIPTIC_NORTH);
+    // Upright vs local ground (not ecliptic north)
+    this.camera.up.copy(this.padUp);
     this.syncOrbitControlsUp();
     this.camera.lookAt(this.controls.target);
   }
