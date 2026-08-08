@@ -1,5 +1,5 @@
 /**
- * Unit tests for Earth-centric north-polar trajectory helpers.
+ * Unit tests for Earth-centric ecliptic-plane trajectory helpers.
  */
 
 import assert from "node:assert/strict";
@@ -30,11 +30,16 @@ before(() => {
 });
 
 describe("polarBasisLookingNorth", () => {
-  it("is orthonormal with e2 = n × e1", () => {
+  it("aligns with ecliptic J2000 (+Z normal, XY plane)", () => {
     const b = polarBasisLookingNorth();
     assert.ok(Math.abs(len(b.n) - 1) < 1e-9);
     assert.ok(Math.abs(len(b.e1) - 1) < 1e-9);
     assert.ok(Math.abs(len(b.e2) - 1) < 1e-9);
+    // Ecliptic north = theater +Z
+    assert.ok(Math.abs(b.n.x) < 1e-12 && Math.abs(b.n.y) < 1e-12);
+    assert.ok(Math.abs(b.n.z - 1) < 1e-12);
+    assert.ok(Math.abs(b.e1.x - 1) < 1e-12 && Math.abs(b.e1.y) < 1e-12);
+    assert.ok(Math.abs(b.e2.y - 1) < 1e-12 && Math.abs(b.e2.x) < 1e-12);
     const n1 = b.n.x * b.e1.x + b.n.y * b.e1.y + b.n.z * b.e1.z;
     const n2 = b.n.x * b.e2.x + b.n.y * b.e2.y + b.n.z * b.e2.z;
     const e12 = b.e1.x * b.e2.x + b.e1.y * b.e2.y + b.e1.z * b.e2.z;
@@ -45,7 +50,7 @@ describe("polarBasisLookingNorth", () => {
 });
 
 describe("projectEarthCentricPolar", () => {
-  it("maps pure north-pole vectors to the origin", () => {
+  it("maps pure ecliptic-normal vectors to the origin", () => {
     const b = polarBasisLookingNorth();
     const p = projectEarthCentricPolar(
       { x: b.n.x * 1000, y: b.n.y * 1000, z: b.n.z * 1000 },
@@ -54,7 +59,7 @@ describe("projectEarthCentricPolar", () => {
     assert.ok(Math.hypot(p.x, p.y) < 1e-6);
   });
 
-  it("preserves length for equatorial vectors", () => {
+  it("preserves length for in-ecliptic vectors", () => {
     const b = polarBasisLookingNorth();
     const r = 5000;
     const p = projectEarthCentricPolar(
@@ -64,6 +69,13 @@ describe("projectEarthCentricPolar", () => {
     assert.ok(Math.abs(Math.hypot(p.x, p.y) - r) < 1e-6);
     assert.ok(Math.abs(p.x - r) < 1e-6);
     assert.ok(Math.abs(p.y) < 1e-6);
+  });
+
+  it("is just the XY components of Earth-relative position", () => {
+    const b = polarBasisLookingNorth();
+    const p = projectEarthCentricPolar({ x: 12, y: -34, z: 999 }, b);
+    assert.equal(p.x, 12);
+    assert.equal(p.y, -34);
   });
 });
 
@@ -86,14 +98,13 @@ describe("buildPolarTrajectoryModel", () => {
     assert.ok(m.rEarth === R_EARTH);
   });
 
-  it("places liftoff near Earth's surface radius in projection", () => {
+  it("places liftoff near Earth's surface radius in ecliptic projection", () => {
     const m = buildPolarTrajectoryModel(samples)!;
     const s0 = samples[0]!;
-    craftEarthRel(s0);
     const p = projectEarthCentricPolar(craftEarthRel(s0), m.basis);
-    // Equatorial projection of Starbase (~26°N) is R cos(lat) ≈ 0.9 R
+    // Pad is on the surface; ecliptic projection is within ~R_EARTH
     const r = Math.hypot(p.x, p.y);
-    assert.ok(r > R_EARTH * 0.7 && r < R_EARTH * 1.05, `r ${r}`);
+    assert.ok(r > R_EARTH * 0.5 && r < R_EARTH * 1.05, `r ${r}`);
   });
 });
 

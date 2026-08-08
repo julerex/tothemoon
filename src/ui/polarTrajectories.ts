@@ -1,18 +1,18 @@
 /**
- * Earth-centric 2-D trajectories looking down from Earth's north pole.
+ * Earth-centric 2-D trajectories looking down the ecliptic normal.
  *
- * Plots craft and Moon paths in the Earth equatorial plane (component along
- * the north pole dropped). Black & white, true scale. Pure helpers are
- * scrub-safe; canvas draw is live.
+ * Theater frame is heliocentric **ecliptic J2000** (XY = ecliptic plane).
+ * This map drops the component along ecliptic +Z (axis ⟂ Earth's orbital
+ * plane) so craft and Moon paths lie in that plane. Black & white, true scale.
+ * Pure helpers are scrub-safe; canvas draw is live.
  */
 
 import { R_EARTH, R_MOON, A_EM } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
-import { earthNorthPole } from "../physics/earthFrame";
 import type { Sample } from "../physics/missionTypes";
-import { cross, dot, len, normalize, type V3, v3 } from "../physics/vec3";
+import { dot, type V3, v3 } from "../physics/vec3";
 
-/** 2-D point in the Earth equatorial plane (km), looking from +north. */
+/** 2-D point in the ecliptic plane (km), looking from ecliptic north. */
 export type PolarPoint = { x: number; y: number };
 
 export type TimedPolarPoint = PolarPoint & { t: number };
@@ -25,8 +25,8 @@ export type PolarBounds = {
 };
 
 /**
- * Orthonormal frame: e1, e2 span the equatorial plane; n = Earth north.
- * Looking from +n (down onto the pole), +x = e1, +y = e2.
+ * Orthonormal frame: e1, e2 span the ecliptic plane; n = ecliptic north (+Z).
+ * Looking from +n, +x = e1 (ecliptic X), +y = e2 (ecliptic Y).
  */
 export type PolarBasis = {
   n: V3;
@@ -36,7 +36,7 @@ export type PolarBasis = {
 
 export type PolarTrajectoryModel = {
   basis: PolarBasis;
-  /** Ship / stack path (Earth-relative, equatorial projection). */
+  /** Ship / stack path (Earth-relative, ecliptic projection). */
   shipTrail: TimedPolarPoint[];
   /** Moon path over the same mission window. */
   moonTrail: TimedPolarPoint[];
@@ -65,35 +65,26 @@ export type ViewTransform = {
 };
 
 const _rel = v3();
-const _tmp = v3();
-const _tmp2 = v3();
 
 /**
- * Fixed inertial equatorial basis from Earth's north pole.
- * e1 ≈ ecliptic +X projected into the equator; e2 = n × e1.
+ * Fixed theater basis: look along ecliptic +Z (perpendicular to the ecliptic).
+ * e1 = ecliptic +X, e2 = ecliptic +Y, n = ecliptic +Z.
+ *
+ * Named `polarBasisLookingNorth` for API stability; “north” here means
+ * ecliptic north, not Earth's geographic pole.
  */
 export function polarBasisLookingNorth(): PolarBasis {
-  const n = earthNorthPole(v3());
-  // Project inertial +X onto equatorial plane
-  const xDot = n.x; // (1,0,0)·n
-  _tmp.x = 1 - n.x * xDot;
-  _tmp.y = 0 - n.y * xDot;
-  _tmp.z = 0 - n.z * xDot;
-  if (len(_tmp) < 1e-8) {
-    // +X nearly along pole — use +Y instead
-    const yDot = n.y;
-    _tmp.x = 0 - n.x * yDot;
-    _tmp.y = 1 - n.y * yDot;
-    _tmp.z = 0 - n.z * yDot;
-  }
-  const e1 = normalize(v3(), _tmp);
-  const e2 = normalize(v3(), cross(_tmp2, n, e1));
-  return { n, e1, e2 };
+  // Theater ecliptic J2000: XY = ecliptic, +Z = ecliptic north
+  return {
+    n: v3(0, 0, 1),
+    e1: v3(1, 0, 0),
+    e2: v3(0, 1, 0),
+  };
 }
 
 /**
- * Project an Earth-relative inertial vector into the north-looking equatorial plane.
- * Drops the north-pole component (altitude above/below equator is not drawn as height).
+ * Project an Earth-relative inertial vector into the ecliptic plane.
+ * Drops the ecliptic-normal component (z in the theater frame).
  */
 export function projectEarthCentricPolar(
   earthRel: V3,
@@ -354,7 +345,7 @@ export function drawPolarTrajectories(
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // +X / +Y axes (equatorial basis ticks)
+  // Ecliptic +X / +Y axis ticks
   ctx.globalAlpha = 0.35;
   ctx.lineWidth = 1;
   const axisR = Math.min(model.aEm * 0.15, model.bounds.xMax * 0.2);
@@ -366,6 +357,12 @@ export function drawPolarTrajectories(
   ctx.moveTo(c0.x, c0.y);
   ctx.lineTo(py.x, py.y);
   ctx.stroke();
+  ctx.font = "10px ui-monospace, SF Mono, Menlo, monospace";
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("+X", px.x + 4, px.y);
+  ctx.fillText("+Y", py.x + 4, py.y);
   ctx.globalAlpha = 1;
 
   // Moon trail (full path, dim) + progressive
@@ -439,7 +436,7 @@ export function drawPolarTrajectories(
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.globalAlpha = 0.9;
-  ctx.fillText("Earth-centric · north polar view", 12, 10);
+  ctx.fillText("Earth-centric · ecliptic plane view", 12, 10);
   ctx.fillText(`t = ${formatMissionClock(missionT)}`, 12, 26);
   if (live.ship) {
     ctx.fillText(`Ship  r = ${fmtRange(live.shipR)}`, 12, 42);
@@ -451,7 +448,7 @@ export function drawPolarTrajectories(
   ctx.globalAlpha = 0.75;
   ctx.fillText("solid: ship · dashed: Moon", cssW - 12, 10);
   ctx.fillText("ring: mean Earth–Moon a", cssW - 12, 26);
-  ctx.fillText("true scale · look from N pole", cssW - 12, 42);
+  ctx.fillText("true scale · look along ecliptic +Z", cssW - 12, 42);
   ctx.globalAlpha = 1;
 }
 

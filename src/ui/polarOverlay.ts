@@ -1,5 +1,5 @@
 /**
- * Shared open/close for the Earth-centric north-polar trajectory overlay.
+ * Shared open/close for the Earth-centric ecliptic-plane trajectory overlay.
  */
 
 import type { Sample } from "../physics/missionTypes";

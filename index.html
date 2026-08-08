@@ -65,7 +65,7 @@
               type="button"
               id="btn-polar-map"
               aria-pressed="false"
-              title="Earth-centric trajectories · north polar view (Tab)"
+              title="Earth-centric trajectories · ecliptic plane view (Tab)"
             >
               Polar
             </button>
@@ -454,26 +454,26 @@
       >
         <div class="keymap-card panel cross-section-card">
           <header class="keymap-header cross-section-header">
-            <h2 id="polar-map-title">Earth polar trajectories</h2>
+            <h2 id="polar-map-title">Ecliptic plane trajectories</h2>
             <button
               type="button"
               id="polar-map-close"
               class="keymap-close"
               title="Close (Tab or Esc)"
-              aria-label="Close polar trajectory map"
+              aria-label="Close ecliptic trajectory map"
             >
               ×
             </button>
           </header>
           <p class="cross-section-sub" id="polar-map-sub">
-            Earth-centric · look down from north pole · ship &amp; Moon paths · true scale
+            Earth-centric · look along ecliptic +Z (⟂ orbital plane) · ship &amp; Moon · true scale
           </p>
           <div class="cross-section-canvas-wrap">
             <canvas
               id="polar-map-canvas"
               width="960"
               height="540"
-              aria-label="Earth-centric north polar trajectory map"
+              aria-label="Earth-centric ecliptic plane trajectory map"
             ></canvas>
           </div>
           <p class="metrics-foot">
