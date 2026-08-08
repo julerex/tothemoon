@@ -1259,6 +1259,7 @@ kbd {
  */
 .cross-section,
 .earth-gc,
+.polar-map,
 .visual-keymap {
   top: 0;
   left: 0;
@@ -1275,6 +1276,7 @@ kbd {
 /* Keep play / speed / scrubber / bookmarks above the overlay */
 #hud.cross-section-open .bottom-bar,
 #hud.earth-gc-open .bottom-bar,
+#hud.polar-map-open .bottom-bar,
 #hud.keymap-open .bottom-bar {
   position: relative;
   z-index: 25;
@@ -1283,6 +1285,7 @@ kbd {
 /* When HUD chrome is hidden, use the full viewport (no scrubber clearance) */
 #hud.cross-section-open.hud-hidden .cross-section,
 #hud.earth-gc-open.hud-hidden .earth-gc,
+#hud.polar-map-open.hud-hidden .polar-map,
 #hud.keymap-open.hud-hidden .visual-keymap {
   bottom: 0;
 }
@@ -1294,7 +1297,8 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   z-index: 30;
 }
 
-.earth-gc:not([hidden]) {
+.earth-gc:not([hidden]),
+.polar-map:not([hidden]) {
   display: flex;
 }
 
@@ -1352,7 +1356,8 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 }
 
 #cross-section-canvas,
-#earth-gc-canvas {
+#earth-gc-canvas,
+#polar-map-canvas {
   display: block;
   position: absolute;
   inset: 0;
@@ -1497,6 +1502,7 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
   .cross-section,
   .earth-gc,
+  .polar-map,
   .visual-keymap {
     bottom: 8.5rem;
   }

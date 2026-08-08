@@ -239,3 +239,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-04 | Coast corridor (P2.8): Kepler-vs-n-body path + max |Δr| meta / metrics |
 | 2026-08-08 | Multi-mission shell: main menu → Mission Menu; lunar theater + Flight 13 briefing; hash routes |
 | 2026-08-08 | Earth great-circle section (Flight 13 corridor: Starbase · Gauteng · splash · Australia) |
+| 2026-08-08 | Earth-centric north-polar trajectory map (ship + Moon) |

@@ -63,6 +63,14 @@
             </button>
             <button
               type="button"
+              id="btn-polar-map"
+              aria-pressed="false"
+              title="Earth-centric trajectories · north polar view (Tab)"
+            >
+              Polar
+            </button>
+            <button
+              type="button"
               id="btn-keymap"
               aria-pressed="false"
               title="KeyMap — keyboard actions (K or Tab)"
@@ -389,7 +397,7 @@
               ></canvas>
             </div>
             <p class="metrics-foot">
-              Live at scrubber time · <kbd>Tab</kbd> cycle main · cross-section · Earth GC · KeyMap ·
+              Live at scrubber time · <kbd>Tab</kbd> cycle main · cross-section · Earth GC · Polar · KeyMap ·
               <kbd>Esc</kbd> close · play continues
             </p>
           </div>
@@ -430,8 +438,46 @@
             ></canvas>
           </div>
           <p class="metrics-foot">
-            <kbd>Tab</kbd> cycle main · cross-section · Earth GC · KeyMap ·
+            <kbd>Tab</kbd> cycle main · cross-section · Earth GC · Polar · KeyMap ·
             <kbd>Esc</kbd> close
+          </p>
+        </div>
+      </div>
+
+      <div
+        id="polar-map"
+        class="keymap cross-section polar-map"
+        hidden
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="polar-map-title"
+      >
+        <div class="keymap-card panel cross-section-card">
+          <header class="keymap-header cross-section-header">
+            <h2 id="polar-map-title">Earth polar trajectories</h2>
+            <button
+              type="button"
+              id="polar-map-close"
+              class="keymap-close"
+              title="Close (Tab or Esc)"
+              aria-label="Close polar trajectory map"
+            >
+              ×
+            </button>
+          </header>
+          <p class="cross-section-sub" id="polar-map-sub">
+            Earth-centric · look down from north pole · ship &amp; Moon paths · true scale
+          </p>
+          <div class="cross-section-canvas-wrap">
+            <canvas
+              id="polar-map-canvas"
+              width="960"
+              height="540"
+              aria-label="Earth-centric north polar trajectory map"
+            ></canvas>
+          </div>
+          <p class="metrics-foot">
+            Live at scrubber time · <kbd>Tab</kbd> cycle · <kbd>Esc</kbd> close · play continues
           </p>
         </div>
       </div>

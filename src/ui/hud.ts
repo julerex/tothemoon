@@ -38,6 +38,14 @@ import {
   redrawEarthGcOverlay,
   setEarthGcOverlayOpen,
 } from "./earthGcOverlay";
+import {
+  ensurePolarOverlayBound,
+  isPolarOverlayOpen,
+  redrawPolarOverlay,
+  setPolarOverlayMissionT,
+  setPolarOverlayOpen,
+  setPolarOverlaySamples,
+} from "./polarOverlay";
 import { drawVisualKeymap } from "./visualKeymap";
 
 export type HudHandlers = {
@@ -146,6 +154,7 @@ export function bindHud(
     "#btn-cross-section",
   );
   const btnEarthGc = document.querySelector<HTMLButtonElement>("#btn-earth-gc");
+  const btnPolarMap = document.querySelector<HTMLButtonElement>("#btn-polar-map");
   const btnKeymap = document.querySelector<HTMLButtonElement>("#btn-keymap");
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
@@ -199,6 +208,8 @@ export function bindHud(
   );
   const crossSectionCtx = crossSectionCanvas?.getContext("2d") ?? null;
   ensureEarthGcOverlayBound();
+  ensurePolarOverlayBound();
+  setPolarOverlaySamples(samples);
   const stageState = stageStateFromSamples(samples);
   const crossModel =
     samples.length > 0
@@ -326,6 +337,7 @@ export function bindHud(
       setMetricsOpen(false);
       setCrossSectionOpen(false);
       setEarthGcOpen(false);
+      setPolarMapOpen(false);
       // Draw after layout so canvas has real CSS size
       requestAnimationFrame(() => redrawKeymap());
     }
@@ -351,6 +363,7 @@ export function bindHud(
       setKeymapOpen(false);
       setCrossSectionOpen(false);
       setEarthGcOpen(false);
+      setPolarMapOpen(false);
     }
   }
 
@@ -371,6 +384,7 @@ export function bindHud(
       setKeymapOpen(false);
       setMetricsOpen(false);
       setEarthGcOpen(false);
+      setPolarMapOpen(false);
     }
   }
 
@@ -390,6 +404,7 @@ export function bindHud(
       setKeymapOpen(false);
       setMetricsOpen(false);
       setCrossSectionOpen(false);
+      setPolarMapOpen(false);
     }
   }
 
@@ -397,19 +412,43 @@ export function bindHud(
     setEarthGcOpen(!isEarthGcOverlayOpen());
   }
 
+  function setPolarMapOpen(open: boolean): void {
+    setPolarOverlayOpen(open);
+    if (btnPolarMap) {
+      btnPolarMap.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+    if (hudRoot) {
+      hudRoot.classList.toggle("polar-map-open", open);
+    }
+    if (open) {
+      setKeymapOpen(false);
+      setMetricsOpen(false);
+      setCrossSectionOpen(false);
+      setEarthGcOpen(false);
+    }
+  }
+
+  function togglePolarMap(): void {
+    setPolarMapOpen(!isPolarOverlayOpen());
+  }
+
   /**
-   * Tab theater cycle: main → ascent CS → Earth GC → KeyMap → main.
+   * Tab theater cycle: main → ascent CS → Earth GC → Polar → KeyMap → main.
    * Metrics stays on M only (not in the cycle).
    */
   function cycleTheaterViews(): void {
     const earthGcOpen = isEarthGcOverlayOpen();
-    if (!crossSectionOpen && !earthGcOpen && !keymapOpen) {
+    const polarOpen = isPolarOverlayOpen();
+    if (!crossSectionOpen && !earthGcOpen && !polarOpen && !keymapOpen) {
       setCrossSectionOpen(true);
     } else if (crossSectionOpen) {
       setCrossSectionOpen(false);
       setEarthGcOpen(true);
     } else if (earthGcOpen) {
       setEarthGcOpen(false);
+      setPolarMapOpen(true);
+    } else if (polarOpen) {
+      setPolarMapOpen(false);
       setKeymapOpen(true);
     } else {
       setKeymapOpen(false);
@@ -577,6 +616,9 @@ export function bindHud(
   if (btnEarthGc) {
     btnEarthGc.addEventListener("click", () => toggleEarthGc());
   }
+  if (btnPolarMap) {
+    btnPolarMap.addEventListener("click", () => togglePolarMap());
+  }
 
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
@@ -590,7 +632,7 @@ export function bindHud(
     ) {
       return;
     }
-    // Tab cycles main → ascent CS → Earth GC → KeyMap → main
+    // Tab cycles main → ascent CS → Earth GC → Polar → KeyMap → main
     if (e.key === "Tab") {
       e.preventDefault();
       cycleTheaterViews();
@@ -616,11 +658,13 @@ export function bindHud(
       (keymapOpen ||
         metricsOpen ||
         crossSectionOpen ||
-        isEarthGcOverlayOpen())
+        isEarthGcOverlayOpen() ||
+        isPolarOverlayOpen())
     ) {
       e.preventDefault();
       if (crossSectionOpen) setCrossSectionOpen(false);
       else if (isEarthGcOverlayOpen()) setEarthGcOpen(false);
+      else if (isPolarOverlayOpen()) setPolarMapOpen(false);
       else if (metricsOpen) setMetricsOpen(false);
       else setKeymapOpen(false);
       return;
@@ -1033,6 +1077,8 @@ export function bindHud(
     if (metricsOpen) updateMetrics(tel);
     if (crossSectionOpen) redrawCrossSection(tel.t);
     if (isEarthGcOverlayOpen()) redrawEarthGcOverlay();
+    setPolarOverlayMissionT(tel.t);
+    if (isPolarOverlayOpen()) redrawPolarOverlay();
     if (keymapOpen) redrawKeymap();
   }
 
