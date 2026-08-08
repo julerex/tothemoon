@@ -12,6 +12,10 @@ import {
   STARBASE_LAT,
   STARBASE_LON,
 } from "../physics/constants";
+import {
+  FLIGHT13_SPLASH_LAT,
+  FLIGHT13_SPLASH_LON,
+} from "../physics/flight13Mission";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
 import { cross, dot, normalize, type V3, v3 } from "../physics/vec3";
 
@@ -86,12 +90,7 @@ export type ViewTransform = {
 export const GAUTENG_LAT = (-26.2041 * Math.PI) / 180;
 export const GAUTENG_LON = (28.0473 * Math.PI) / 180;
 
-/**
- * Starship Flight 13 Indian Ocean splashdown (theater).
- * West of Australia / planned soft splashdown zone — not a surveyed fix.
- */
-export const FLIGHT13_SPLASH_LAT = (-31.5 * Math.PI) / 180;
-export const FLIGHT13_SPLASH_LON = (95.0 * Math.PI) / 180;
+export { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "../physics/flight13Mission";
 
 /** Approximate geographic center of Australia (label only). */
 export const AUSTRALIA_LAT = (-25.2744 * Math.PI) / 180;

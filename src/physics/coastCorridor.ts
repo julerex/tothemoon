@@ -38,7 +38,9 @@ function isCoastPhase(phase: string): boolean {
     phase === "approach" ||
     phase === "braking" ||
     phase === "descent" ||
-    phase === "landed"
+    phase === "landed" ||
+    phase === "entry" ||
+    phase === "splashdown"
   );
 }
 

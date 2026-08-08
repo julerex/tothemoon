@@ -30,6 +30,8 @@ export function downsampleTrajectory(
       sample.phase === "translunarInjection" ||
       sample.phase === "impact" ||
       sample.phase === "landed" ||
+      sample.phase === "entry" ||
+      sample.phase === "splashdown" ||
       phaseChange ||
       i === 0 ||
       i === s.length - 1;

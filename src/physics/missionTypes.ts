@@ -24,7 +24,11 @@ export type PhaseId =
   | "descent"
   | "landed"
   /** Ballistic lunar surface impact (no capture burns after translunar injection). */
-  | "impact";
+  | "impact"
+  /** Atmospheric entry (flight-test / reentry theater). */
+  | "entry"
+  /** Soft ocean splashdown complete (flight-test terminal). */
+  | "splashdown";
 
 /** One trajectory sample at mission time `t` (s). */
 export type Sample = {
@@ -83,6 +87,8 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   descent: "Powered descent initiation",
   landed: "Landed · south pole",
   impact: "Lunar impact (ballistic)",
+  entry: "Atmospheric entry",
+  splashdown: "Splashdown · Indian Ocean",
 };
 
 /** Human-readable phase label for HUD / timeline. */

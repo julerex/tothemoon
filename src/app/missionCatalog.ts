@@ -34,13 +34,13 @@ export const MISSIONS: readonly MissionDef[] = [
   {
     id: "flight-13",
     title: "Starship Flight 13",
-    subtitle: "July 2026 · Starbase · flight test profile",
+    subtitle: "July 2026 · Starbase · flight test · true scale",
     blurb:
-      "Recent Starship / Super Heavy V3 flight test: Gulf of America booster " +
-      "landing burn, Starlink V3 deploy demo, Raptor in-space relight, " +
-      "Indian Ocean splashdown. Theater in progress — briefing + timeline ready.",
-    badge: "Briefing",
-    status: "preview",
+      "Full theater: staged ascent, hot-stage, suborbital coast, Raptor relight, " +
+      "entry, and Indian Ocean splashdown on the public Flight 13 timeline. " +
+      "Same visual stack as the lunar mission (pad, craft, cameras, HUD).",
+    badge: "Full theater",
+    status: "ready",
     path: "flight-13",
   },
 ] as const;

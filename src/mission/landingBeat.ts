@@ -31,7 +31,13 @@ export function classifyLandingBeat(
   missionComplete: boolean,
 ): LandingBeatKind | null {
   if (!missionComplete) return null;
-  if (phase === "landed" || phase === "descent") return "landed";
+  if (
+    phase === "landed" ||
+    phase === "descent" ||
+    phase === "splashdown"
+  ) {
+    return "landed";
+  }
   if (phase === "impact") return "impact";
   return "flyby";
 }

@@ -15,6 +15,8 @@ import {
 import { resolveTrajectoryMeta } from "./trajectoryMeta";
 import { len, type V3, v3 } from "./vec3";
 import packedTrajectory from "../data/trajectory.json";
+import packedFlight13 from "../data/flight13-trajectory.json";
+import { runFlight13Mission } from "./flight13Mission";
 
 export type FrameState = {
   t: number;
@@ -192,7 +194,7 @@ export class TrajectoryCache {
     return this._corridor;
   }
 
-  /** Load baked trajectory (default). Instant — no RK4 on the main thread. */
+  /** Load baked lunar trajectory (default). Instant — no RK4 on the main thread. */
   static loadPrecomputed(): TrajectoryCache {
     const result = unpack(packedTrajectory as unknown as PackedTrajectory);
     console.info(
@@ -201,12 +203,31 @@ export class TrajectoryCache {
     return new TrajectoryCache(result);
   }
 
-  /** Re-run integration in the browser (slow). Use `?recompute=1`. */
+  /** Load baked Flight 13 trajectory pack. */
+  static loadFlight13(): TrajectoryCache {
+    const result = unpack(packedFlight13 as unknown as PackedTrajectory);
+    console.info(
+      `[flight13] Loaded precomputed trajectory — ${result.message}, ${result.samples.length} samples, ${(result.durationS / 60).toFixed(1)} min`,
+    );
+    return new TrajectoryCache(result);
+  }
+
+  /** Re-run lunar integration in the browser (slow). Use `?recompute=1`. */
   static compute(): TrajectoryCache {
     const t0 = performance.now();
     const result = runMission();
     console.info(
       `[tothemoon] Runtime recompute ${(performance.now() - t0).toFixed(0)}ms — ${result.message}, ${result.samples.length} samples, ${(result.durationS / 3600).toFixed(2)} h`,
+    );
+    return new TrajectoryCache(result);
+  }
+
+  /** Re-run Flight 13 integration in the browser (slow). Use `?recompute=1`. */
+  static computeFlight13(): TrajectoryCache {
+    const t0 = performance.now();
+    const result = runFlight13Mission();
+    console.info(
+      `[flight13] Runtime recompute ${(performance.now() - t0).toFixed(0)}ms — ${result.message}, ${result.samples.length} samples`,
     );
     return new TrajectoryCache(result);
   }

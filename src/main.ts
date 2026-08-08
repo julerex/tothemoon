@@ -41,8 +41,12 @@ async function startMission(path: string): Promise<void> {
   }
 
   if (def.id === "flight-13") {
-    // Briefing does not start WebGL; allow re-entry
-    theaterStarted = false;
+    if (theaterStarted) {
+      setShellView("theater");
+      return;
+    }
+    theaterStarted = true;
+    setShellView("theater");
     const { startFlight13Mission } = await import("./missions/flight13");
     startFlight13Mission();
     return;

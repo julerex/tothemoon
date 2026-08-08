@@ -49,6 +49,8 @@ export function autoCamForPhase(phase: PhaseId): AutoCamSuggestion {
       return { mode: "moon", frame: true };
     case "descent":
     case "landed":
+    case "entry":
+    case "splashdown":
       return { mode: "chase", frame: true };
     case "impact":
       return { mode: "moon", frame: true };

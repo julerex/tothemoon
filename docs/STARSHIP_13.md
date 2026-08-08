@@ -86,6 +86,13 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 
 See also: [starship-flight-mission-profile.jpg](./starship-flight-mission-profile.jpg)
 
+### App theater
+
+Full interactive theater (same class as Starbase → Moon): baked RK4 pack
+`src/data/flight13-trajectory.json`, pad/craft/staging FX, cameras, HUD scrubber.
+Phases: launch → ascent → coast → entry → descent → splashdown. Rebuild with
+`npm run precompute:flight13`.
+
 ### Earth great-circle section (app)
 
 Theater whole-Earth cross-section plane is a **best-fit great circle** through:

@@ -46,7 +46,7 @@ describe("missionCatalog", () => {
 
   it("resolves by path", () => {
     assert.equal(missionByPath("to-the-moon")?.id, "to-the-moon");
-    assert.equal(missionByPath("flight-13")?.status, "preview");
+    assert.equal(missionByPath("flight-13")?.status, "ready");
   });
 });
 

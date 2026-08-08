@@ -18,6 +18,8 @@ const ALL_PHASES: PhaseId[] = [
   "descent",
   "landed",
   "impact",
+  "entry",
+  "splashdown",
 ];
 
 describe("autoCamForPhase", () => {

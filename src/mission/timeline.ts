@@ -19,6 +19,8 @@ const PHASE_SHORT: Record<PhaseId, string> = {
   descent: "Descent",
   landed: "Land",
   impact: "Impact",
+  entry: "Entry",
+  splashdown: "Splash",
 };
 
 export type PhaseSegment = {
@@ -188,6 +190,17 @@ function buildEvents(
           seg.t0,
           "Lunar impact",
           "Ballistic · no post-Translunar injection burns",
+        );
+        break;
+      case "entry":
+        add("entry", seg.t0, "Entry interface", "Atmospheric entry");
+        break;
+      case "splashdown":
+        add(
+          "splashdown",
+          seg.t0,
+          "Splashdown",
+          "Soft landing · Indian Ocean",
         );
         break;
     }
