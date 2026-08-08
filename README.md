@@ -30,6 +30,7 @@ The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters)
 - **Cinematic bookmarks** (Pad · Stage · translunar injection · Half · lunar orbit insertion · Land) — seek + camera; **Shift+1…**
 - Event callouts (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click callout or tick to seek; telemetry dims during toast
 - **Ascent / return to launch site cross-section** (**Tab** cycle or button) — true-scale black & white launch-plane diagram (Earth surface + 120 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
+- **Earth great-circle section** (**Earth GC** / **Tab**) — whole-Earth B&W slice on the Flight 13 corridor (Starbase · Gauteng · Indian Ocean landing · Australia); also from the Flight 13 briefing
 - **KeyMap** (**K**, **Tab** cycle, or button) — white-outline keyboard on black with the action under each key
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card

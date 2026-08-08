@@ -37,7 +37,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "⌫", w: 1.5 },
   ],
   [
-    { label: "Tab", action: "Cycle views", w: 1.5 },
+    { label: "Tab", action: "CS · Earth · Map", w: 1.5 },
     { label: "Q", action: "Yaw ←" },
     { label: "W", action: "Pan fwd" },
     { label: "E", action: "Yaw →" },

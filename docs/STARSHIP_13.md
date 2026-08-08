@@ -86,6 +86,19 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 
 See also: [starship-flight-mission-profile.jpg](./starship-flight-mission-profile.jpg)
 
+### Earth great-circle section (app)
+
+Theater whole-Earth cross-section plane is a **best-fit great circle** through:
+
+| Site | Approx. coordinates (theater) |
+|------|-------------------------------|
+| Starbase | 25.997°N, 97.156°W |
+| Gauteng (Johannesburg) | 26.20°S, 28.05°E |
+| Indian Ocean splashdown | 31.5°S, 95.0°E (west of Australia; not a surveyed fix) |
+| Australia (label) | 25.27°S, 133.78°E |
+
+Open from Flight 13 briefing (**Earth great circle**) or the theater **Earth GC** button / **Tab** cycle.
+
 ---
 
 © 2026 SpaceX. Text sourced from https://www.spacex.com/launches/starship-flight-13 for reference.

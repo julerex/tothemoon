@@ -55,6 +55,14 @@
             </button>
             <button
               type="button"
+              id="btn-earth-gc"
+              aria-pressed="false"
+              title="Whole-Earth great-circle section — Flight 13 corridor (Tab)"
+            >
+              Earth GC
+            </button>
+            <button
+              type="button"
               id="btn-keymap"
               aria-pressed="false"
               title="KeyMap — keyboard actions (K or Tab)"
@@ -119,6 +127,8 @@
               <span><kbd>M</kbd> metrics</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>Tab</kbd> cycle views</span>
+              <span class="footer-sep" aria-hidden="true">·</span>
+              <span>Earth GC</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>H</kbd> hide HUD</span>
               <span class="footer-sep" aria-hidden="true">·</span>
@@ -379,12 +389,51 @@
               ></canvas>
             </div>
             <p class="metrics-foot">
-              Live at scrubber time · <kbd>Tab</kbd> cycle main · cross-section · KeyMap ·
+              Live at scrubber time · <kbd>Tab</kbd> cycle main · cross-section · Earth GC · KeyMap ·
               <kbd>Esc</kbd> close · play continues
             </p>
           </div>
         </div>
 
+      </div>
+
+      <div
+        id="earth-gc"
+        class="keymap cross-section earth-gc"
+        hidden
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="earth-gc-title"
+      >
+        <div class="keymap-card panel cross-section-card">
+          <header class="keymap-header cross-section-header">
+            <h2 id="earth-gc-title">Earth great circle</h2>
+            <button
+              type="button"
+              id="earth-gc-close"
+              class="keymap-close"
+              title="Close (Tab or Esc)"
+              aria-label="Close Earth great-circle section"
+            >
+              ×
+            </button>
+          </header>
+          <p class="cross-section-sub" id="earth-gc-sub">
+            Flight 13 · true scale · whole Earth · Starbase · Gauteng · Indian Ocean landing · Australia
+          </p>
+          <div class="cross-section-canvas-wrap">
+            <canvas
+              id="earth-gc-canvas"
+              width="960"
+              height="540"
+              aria-label="Whole-Earth great-circle cross-section diagram"
+            ></canvas>
+          </div>
+          <p class="metrics-foot">
+            <kbd>Tab</kbd> cycle main · cross-section · Earth GC · KeyMap ·
+            <kbd>Esc</kbd> close
+          </p>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

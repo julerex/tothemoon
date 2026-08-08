@@ -32,6 +32,12 @@ import {
   liveCrossSection,
   stageStateFromSamples,
 } from "./crossSection";
+import {
+  ensureEarthGcOverlayBound,
+  isEarthGcOverlayOpen,
+  redrawEarthGcOverlay,
+  setEarthGcOverlayOpen,
+} from "./earthGcOverlay";
 import { drawVisualKeymap } from "./visualKeymap";
 
 export type HudHandlers = {
@@ -139,6 +145,7 @@ export function bindHud(
   const btnCrossSection = document.querySelector<HTMLButtonElement>(
     "#btn-cross-section",
   );
+  const btnEarthGc = document.querySelector<HTMLButtonElement>("#btn-earth-gc");
   const btnKeymap = document.querySelector<HTMLButtonElement>("#btn-keymap");
   const speed = el<HTMLSelectElement>("#speed");
   const scrub = el<HTMLInputElement>("#scrub");
@@ -191,6 +198,7 @@ export function bindHud(
     "#cross-section-canvas",
   );
   const crossSectionCtx = crossSectionCanvas?.getContext("2d") ?? null;
+  ensureEarthGcOverlayBound();
   const stageState = stageStateFromSamples(samples);
   const crossModel =
     samples.length > 0
@@ -317,6 +325,7 @@ export function bindHud(
     if (open) {
       setMetricsOpen(false);
       setCrossSectionOpen(false);
+      setEarthGcOpen(false);
       // Draw after layout so canvas has real CSS size
       requestAnimationFrame(() => redrawKeymap());
     }
@@ -341,6 +350,7 @@ export function bindHud(
     if (open) {
       setKeymapOpen(false);
       setCrossSectionOpen(false);
+      setEarthGcOpen(false);
     }
   }
 
@@ -360,6 +370,7 @@ export function bindHud(
     if (open) {
       setKeymapOpen(false);
       setMetricsOpen(false);
+      setEarthGcOpen(false);
     }
   }
 
@@ -367,15 +378,38 @@ export function bindHud(
     setCrossSectionOpen(!crossSectionOpen);
   }
 
+  function setEarthGcOpen(open: boolean): void {
+    setEarthGcOverlayOpen(open);
+    if (btnEarthGc) {
+      btnEarthGc.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+    if (hudRoot) {
+      hudRoot.classList.toggle("earth-gc-open", open);
+    }
+    if (open) {
+      setKeymapOpen(false);
+      setMetricsOpen(false);
+      setCrossSectionOpen(false);
+    }
+  }
+
+  function toggleEarthGc(): void {
+    setEarthGcOpen(!isEarthGcOverlayOpen());
+  }
+
   /**
-   * Tab theater cycle: main → cross-section → KeyMap → main.
+   * Tab theater cycle: main → ascent CS → Earth GC → KeyMap → main.
    * Metrics stays on M only (not in the cycle).
    */
   function cycleTheaterViews(): void {
-    if (!crossSectionOpen && !keymapOpen) {
+    const earthGcOpen = isEarthGcOverlayOpen();
+    if (!crossSectionOpen && !earthGcOpen && !keymapOpen) {
       setCrossSectionOpen(true);
     } else if (crossSectionOpen) {
       setCrossSectionOpen(false);
+      setEarthGcOpen(true);
+    } else if (earthGcOpen) {
+      setEarthGcOpen(false);
       setKeymapOpen(true);
     } else {
       setKeymapOpen(false);
@@ -540,6 +574,9 @@ export function bindHud(
       if (ev.target === crossSectionEl) setCrossSectionOpen(false);
     });
   }
+  if (btnEarthGc) {
+    btnEarthGc.addEventListener("click", () => toggleEarthGc());
+  }
 
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
@@ -553,7 +590,7 @@ export function bindHud(
     ) {
       return;
     }
-    // Tab cycles main → cross-section → KeyMap → main
+    // Tab cycles main → ascent CS → Earth GC → KeyMap → main
     if (e.key === "Tab") {
       e.preventDefault();
       cycleTheaterViews();
@@ -576,10 +613,14 @@ export function bindHud(
     }
     if (
       e.key === "Escape" &&
-      (keymapOpen || metricsOpen || crossSectionOpen)
+      (keymapOpen ||
+        metricsOpen ||
+        crossSectionOpen ||
+        isEarthGcOverlayOpen())
     ) {
       e.preventDefault();
       if (crossSectionOpen) setCrossSectionOpen(false);
+      else if (isEarthGcOverlayOpen()) setEarthGcOpen(false);
       else if (metricsOpen) setMetricsOpen(false);
       else setKeymapOpen(false);
       return;
@@ -991,6 +1032,7 @@ export function bindHud(
 
     if (metricsOpen) updateMetrics(tel);
     if (crossSectionOpen) redrawCrossSection(tel.t);
+    if (isEarthGcOverlayOpen()) redrawEarthGcOverlay();
     if (keymapOpen) redrawKeymap();
   }
 

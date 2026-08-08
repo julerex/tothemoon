@@ -5,6 +5,10 @@
  */
 
 import { navigate, setTheaterVisible } from "../app/shell";
+import {
+  ensureEarthGcOverlayBound,
+  setEarthGcOverlayOpen,
+} from "../ui/earthGcOverlay";
 
 /** Approximate T+ events from the SpaceX Flight 13 mission profile. */
 const FLIGHT_EVENTS: ReadonlyArray<{ t: string; label: string }> = [
@@ -109,7 +113,10 @@ export function startFlight13Mission(): void {
       </div>
 
       <div class="flight13-actions">
-        <button type="button" class="menu-btn menu-btn-primary" data-f13="back">
+        <button type="button" class="menu-btn menu-btn-primary" data-f13="earth-gc">
+          Earth great circle
+        </button>
+        <button type="button" class="menu-btn menu-btn-ghost" data-f13="back">
           Back to Mission Menu
         </button>
         <button type="button" class="menu-btn menu-btn-ghost" data-f13="soon" disabled title="3D theater coming next">
@@ -119,12 +126,17 @@ export function startFlight13Mission(): void {
     </div>
   `;
 
+  ensureEarthGcOverlayBound();
+
   briefing.onclick = (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>("[data-f13]");
     if (!t) return;
     if (t.dataset.f13 === "back") {
+      setEarthGcOverlayOpen(false);
       briefing!.hidden = true;
       navigate("/missions");
+    } else if (t.dataset.f13 === "earth-gc") {
+      setEarthGcOverlayOpen(true);
     }
   };
 }
