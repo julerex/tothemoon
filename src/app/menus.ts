@@ -1,7 +1,11 @@
 /**
- * Main menu and Mission Menu screens. Pure DOM bind; routing stays in main.
+ * Main menu, Mission Menu, and Glossary screens. Pure DOM bind; routing stays in main.
  */
 
+import {
+  glossaryGrouped,
+  type GlossaryEntry,
+} from "./glossary";
 import { MISSIONS, type MissionDef } from "./missionCatalog";
 import { navigate } from "./shell";
 
@@ -18,6 +22,30 @@ function missionCard(m: MissionDef): string {
       <span class="mission-card-cta">${statusLabel} →</span>
     </button>
   `;
+}
+
+function glossaryEntryHtml(e: GlossaryEntry): string {
+  return `
+    <div class="glossary-entry" id="glossary-${escapeAttr(e.id)}">
+      <dt class="glossary-term">${escapeHtml(e.term)}</dt>
+      <dd class="glossary-def">${escapeHtml(e.definition)}</dd>
+    </div>
+  `;
+}
+
+function glossaryBodyHtml(): string {
+  return glossaryGrouped()
+    .map(
+      (g) => `
+      <section class="glossary-section" aria-labelledby="glossary-cat-${g.category}">
+        <h2 class="glossary-cat" id="glossary-cat-${g.category}">${escapeHtml(g.label)}</h2>
+        <dl class="glossary-list">
+          ${g.entries.map(glossaryEntryHtml).join("")}
+        </dl>
+      </section>
+    `,
+    )
+    .join("");
 }
 
 function escapeHtml(s: string): string {
@@ -38,8 +66,11 @@ function escapeAttr(s: string): string {
 export function bindMenus(): void {
   const main = document.getElementById("main-menu");
   const missions = document.getElementById("mission-menu");
-  if (!main || !missions) {
-    throw new Error("Menu roots #main-menu / #mission-menu not found");
+  const glossary = document.getElementById("glossary-menu");
+  if (!main || !missions || !glossary) {
+    throw new Error(
+      "Menu roots #main-menu / #mission-menu / #glossary-menu not found",
+    );
   }
 
   main.innerHTML = `
@@ -53,6 +84,9 @@ export function bindMenus(): void {
       <nav class="menu-actions" aria-label="Main menu">
         <button type="button" class="menu-btn menu-btn-primary" data-nav="missions">
           Mission Menu
+        </button>
+        <button type="button" class="menu-btn menu-btn-ghost" data-nav="glossary">
+          Glossary
         </button>
         <a
           class="menu-btn menu-btn-ghost"
@@ -83,11 +117,35 @@ export function bindMenus(): void {
     </div>
   `;
 
+  glossary.innerHTML = `
+    <div class="menu-panel menu-panel-wide glossary-panel">
+      <header class="menu-header-row">
+        <button type="button" class="menu-back" data-nav="main" title="Back to main menu">
+          ← Main menu
+        </button>
+        <div>
+          <p class="menu-kicker">Reference</p>
+          <h1 class="menu-title menu-title-sm">Glossary</h1>
+          <p class="menu-card-sub-static">
+            Terms used in the theater UI, timelines, and physics notes.
+          </p>
+        </div>
+      </header>
+      <div class="glossary-body">
+        ${glossaryBodyHtml()}
+      </div>
+      <p class="menu-foot">
+        Theater-grade explanations · not flight-ops documentation
+      </p>
+    </div>
+  `;
+
   main.addEventListener("click", (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>("[data-nav]");
     if (!t) return;
     const nav = t.dataset.nav;
     if (nav === "missions") navigate("/missions");
+    if (nav === "glossary") navigate("/glossary");
   });
 
   missions.addEventListener("click", (e) => {
@@ -101,5 +159,11 @@ export function bindMenus(): void {
     }
     const path = t.dataset.mission;
     if (path) navigate(`/mission/${path}`);
+  });
+
+  glossary.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-nav]");
+    if (!t) return;
+    if (t.dataset.nav === "main") navigate("/");
   });
 }

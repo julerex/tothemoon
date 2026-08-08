@@ -3,7 +3,7 @@
  * Theater is the canvas + mission HUD; menus sit above a static backdrop.
  */
 
-export type ShellView = "main" | "missions" | "theater";
+export type ShellView = "main" | "missions" | "glossary" | "theater";
 
 let currentView: ShellView = "main";
 
@@ -27,13 +27,14 @@ export function setTheaterVisible(visible: boolean): void {
 }
 
 /**
- * Switch between main menu, mission picker, and (after a mission starts) theater.
- * Does not start mission code — only DOM visibility.
+ * Switch between main menu, mission picker, glossary, and (after a mission
+ * starts) theater. Does not start mission code — only DOM visibility.
  */
 export function setShellView(view: ShellView): void {
   currentView = view;
   const mainMenu = el("main-menu");
   const missionMenu = el("mission-menu");
+  const glossaryMenu = el("glossary-menu");
   const menusRoot = el("menus");
 
   if (view === "theater") {
@@ -49,6 +50,7 @@ export function setShellView(view: ShellView): void {
 
   if (mainMenu) mainMenu.hidden = view !== "main";
   if (missionMenu) missionMenu.hidden = view !== "missions";
+  if (glossaryMenu) glossaryMenu.hidden = view !== "glossary";
 }
 
 export function getShellView(): ShellView {
@@ -68,15 +70,17 @@ export function navigate(hashPath: string): void {
 
 /**
  * Parse location.hash into a route.
- * `#/` or empty → main; `#/missions` → picker; `#/mission/<id>` → mission.
+ * `#/` or empty → main; `#/missions` → picker; `#/glossary` → glossary;
+ * `#/mission/<id>` → mission.
  */
 export function parseRoute(hash = location.hash): {
-  kind: "main" | "missions" | "mission";
+  kind: "main" | "missions" | "glossary" | "mission";
   missionPath?: string;
 } {
   const raw = (hash.replace(/^#/, "") || "/").replace(/\/+$/, "") || "/";
   if (raw === "/" || raw === "") return { kind: "main" };
   if (raw === "/missions" || raw === "missions") return { kind: "missions" };
+  if (raw === "/glossary" || raw === "glossary") return { kind: "glossary" };
   const m = raw.match(/^\/?mission\/([^/]+)$/);
   if (m?.[1]) return { kind: "mission", missionPath: m[1] };
   // Unknown → main menu

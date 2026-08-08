@@ -9,7 +9,7 @@ Interactive **Three.js** mission theaters. Open the site to a **main menu**, the
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
 
-Deep links: `#/` main · `#/missions` Mission Menu · `#/mission/to-the-moon` · `#/mission/flight-13`
+Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13`
 
 ## Physics
 

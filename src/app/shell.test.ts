@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseRoute } from "./shell";
 import { missionByPath, MISSIONS } from "./missionCatalog";
+import {
+  GLOSSARY,
+  glossaryById,
+  glossaryGrouped,
+} from "./glossary";
 
 describe("parseRoute", () => {
   it("maps empty and root to main", () => {
@@ -13,6 +18,11 @@ describe("parseRoute", () => {
   it("maps missions path", () => {
     assert.equal(parseRoute("#/missions").kind, "missions");
     assert.equal(parseRoute("#missions").kind, "missions");
+  });
+
+  it("maps glossary path", () => {
+    assert.equal(parseRoute("#/glossary").kind, "glossary");
+    assert.equal(parseRoute("#glossary").kind, "glossary");
   });
 
   it("maps mission paths", () => {
@@ -37,5 +47,30 @@ describe("missionCatalog", () => {
   it("resolves by path", () => {
     assert.equal(missionByPath("to-the-moon")?.id, "to-the-moon");
     assert.equal(missionByPath("flight-13")?.status, "preview");
+  });
+});
+
+describe("glossary", () => {
+  it("has unique ids and non-empty definitions", () => {
+    const ids = new Set<string>();
+    for (const e of GLOSSARY) {
+      assert.ok(e.term.length > 0);
+      assert.ok(e.definition.length > 10);
+      assert.ok(!ids.has(e.id), `duplicate id ${e.id}`);
+      ids.add(e.id);
+    }
+    assert.ok(GLOSSARY.length >= 12);
+  });
+
+  it("groups by category without dropping entries", () => {
+    const grouped = glossaryGrouped();
+    const n = grouped.reduce((s, g) => s + g.entries.length, 0);
+    assert.equal(n, GLOSSARY.length);
+    assert.ok(grouped.every((g) => g.entries.length > 0));
+  });
+
+  it("resolves known terms", () => {
+    assert.equal(glossaryById("tli")?.term.includes("Translunar"), true);
+    assert.equal(glossaryById("ecliptic")?.category, "physics");
   });
 });

@@ -4,6 +4,7 @@
  * Routes (hash):
  *   #/                  Main menu
  *   #/missions          Mission Menu
+ *   #/glossary          Glossary
  *   #/mission/<path>    Start that mission (to-the-moon | flight-13)
  */
 import "./style.css";
@@ -24,8 +25,7 @@ async function startMission(path: string): Promise<void> {
   }
 
   // Hide flight-13 briefing if leaving it
-  const briefing = document.getElementById("flight13-briefing");
-  if (briefing) briefing.hidden = true;
+  hideBriefing();
 
   if (def.id === "to-the-moon") {
     if (theaterStarted) {
@@ -51,6 +51,11 @@ async function startMission(path: string): Promise<void> {
   navigate("/missions");
 }
 
+function hideBriefing(): void {
+  const briefing = document.getElementById("flight13-briefing");
+  if (briefing) briefing.hidden = true;
+}
+
 function applyRoute(): void {
   const route = parseRoute();
   if (route.kind === "main") {
@@ -59,8 +64,7 @@ function applyRoute(): void {
       location.reload();
       return;
     }
-    const briefing = document.getElementById("flight13-briefing");
-    if (briefing) briefing.hidden = true;
+    hideBriefing();
     setShellView("main");
     document.title = "tothemoon";
     return;
@@ -70,10 +74,19 @@ function applyRoute(): void {
       location.reload();
       return;
     }
-    const briefing = document.getElementById("flight13-briefing");
-    if (briefing) briefing.hidden = true;
+    hideBriefing();
     setShellView("missions");
     document.title = "tothemoon — Mission Menu";
+    return;
+  }
+  if (route.kind === "glossary") {
+    if (theaterStarted) {
+      location.reload();
+      return;
+    }
+    hideBriefing();
+    setShellView("glossary");
+    document.title = "tothemoon — Glossary";
     return;
   }
   if (route.kind === "mission" && route.missionPath) {

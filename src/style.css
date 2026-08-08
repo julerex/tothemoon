@@ -406,6 +406,69 @@ body.menus-active {
   margin-top: 1.25rem;
 }
 
+/* ── Glossary ── */
+
+.glossary-panel {
+  max-height: min(88vh, 52rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.glossary-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0.35rem;
+  padding-right: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glossary-section {
+  padding: 1rem 0 0.35rem;
+}
+
+.glossary-section + .glossary-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glossary-cat {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.glossary-list {
+  margin: 0;
+  padding: 0;
+}
+
+.glossary-entry {
+  margin: 0 0 0.85rem;
+}
+
+.glossary-entry:last-child {
+  margin-bottom: 0.35rem;
+}
+
+.glossary-term {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.glossary-def {
+  margin: 0.28rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 #hud {
   position: absolute;
   inset: 0;
