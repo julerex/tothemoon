@@ -6,16 +6,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Interactive Three.js mission theater: Starbase Texas launch to a lunar landing"
+      content="Interactive Three.js mission theaters: Starbase → Moon and Starship flight tests"
     />
-    <title>tothemoon — Starbase → Moon</title>
+    <title>tothemoon</title>
   </head>
-  <body>
+  <body class="menus-active">
     <div id="app">
-      <canvas id="c"></canvas>
+      <div id="menus" class="menus" aria-live="polite">
+        <div id="main-menu" class="menu-screen" role="dialog" aria-label="Main menu"></div>
+        <div
+          id="mission-menu"
+          class="menu-screen"
+          role="dialog"
+          aria-label="Mission Menu"
+          hidden
+        ></div>
+      </div>
 
-      <div id="hud" aria-label="Mission controls">
+      <canvas id="c" hidden></canvas>
+
+      <div id="hud" aria-label="Mission controls" hidden>
         <header class="hud-header hud-chrome">
+          <a class="hud-menu-link" href="#/missions" title="Back to Mission Menu">← Missions</a>
           <h1>Starbase → Moon</h1>
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>

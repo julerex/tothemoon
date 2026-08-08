@@ -1,8 +1,15 @@
 # tothemoon
 
-Interactive **Three.js** mission theater: a spacecraft launching from **Starbase (Boca Chica, Texas)** to a **lunar landing**.
+Interactive **Three.js** mission theaters. Open the site to a **main menu**, then **Mission Menu** to pick a flight:
+
+| Mission | Status |
+|---------|--------|
+| **Starbase → Moon** | Full theater (ascent → low Earth orbit → translunar coast → lunar arrival) |
+| **Starship Flight 13** | Briefing + official timeline (3D theater next) |
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
+
+Deep links: `#/` main · `#/missions` Mission Menu · `#/mission/to-the-moon` · `#/mission/flight-13`
 
 ## Physics
 

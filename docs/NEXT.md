@@ -32,6 +32,7 @@ Use this order unless a bug or production issue supersedes it.
 | **P2** | Physics / fidelity (theater-grade) | Deepens credibility without ops-grade claims |
 | **P3** | Architecture & scale | Keeps `mission.ts` and scene code maintainable |
 | **P4** | Stretch / optional | Nice if motivated; easy to defer |
+| **P1+** | Multi-mission shell | **Started** — main menu → Mission Menu; Flight 13 briefing |
 
 ---
 
@@ -169,7 +170,7 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 | Idea | Notes |
 |------|--------|
 | **Return to Earth** | Full second half of a free-return or reentry theater — large scope; design mission phases first |
-| **Multi-mission select** | Alternate epochs or landing sites via query param + alternate precomputes |
+| **Multi-mission select** | **Shell done** (main → Mission Menu, hash routes). Next: Flight 13 kinematic / baked theater from `docs/STARSHIP_13.md` timeline; more packs as needed |
 | **Audio** | Ambient pad rumble / callout stingers; keep mute default |
 | **Mobile layout** | Telemetry + transport already constrained; test pad label / complete card on narrow viewports |
 | **WebGPU / post** | Only if WebGL path stays first-class |
@@ -190,7 +191,9 @@ A practical order for the next few sessions:
 7. ~~**Split mission physics modules** (P3.12)~~ **done**  
 8. ~~**Lunar orbit insertion / coast visual corridor** (P2.8)~~ **done** (Kepler corridor)  
 
-Core arc is modular and watchable; chase-camera polish (P1.6) or epoch lighting (P2.10) are optional next.
+Core arc is modular and watchable. **Multi-mission shell** is in: main menu → Mission Menu → `to-the-moon` | `flight-13` (briefing).  
+**Next for Flight 13:** bake a ~65 min trajectory pack + theater reuse (ascent / staging / booster recovery / ship entry) against `docs/STARSHIP_13.md`.  
+Optional parallel: chase-camera polish (P1.6) or epoch lighting (P2.10).
 
 ---
 
@@ -234,3 +237,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-04 | Pack meta v2 (P2.11): minMoonAlt + peakSpeedKmS + stageT baked; no load-time re-scan |
 | 2026-08-04 | Split mission.ts (P3.12): fly / search / ballistic coast / downsample modules + golden bands |
 | 2026-08-04 | Coast corridor (P2.8): Kepler-vs-n-body path + max |Δr| meta / metrics |
+| 2026-08-08 | Multi-mission shell: main menu → Mission Menu; lunar theater + Flight 13 briefing; hash routes |

@@ -44,6 +44,353 @@ body {
   touch-action: none;
 }
 
+#c[hidden] {
+  display: none;
+}
+
+/* ── Menu shell (main + Mission Menu + briefings) ── */
+
+body.menus-active {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(40, 70, 120, 0.45), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(30, 50, 90, 0.35), transparent 50%),
+    var(--bg);
+}
+
+.menus {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  overflow: auto;
+  pointer-events: auto;
+}
+
+.menus[hidden] {
+  display: none;
+}
+
+.menu-screen {
+  width: min(100%, 52rem);
+}
+
+.menu-screen[hidden] {
+  display: none;
+}
+
+.menu-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 1.75rem 1.85rem 1.35rem;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+}
+
+.menu-panel-wide {
+  width: min(100%, 52rem);
+}
+
+.menu-kicker {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.menu-title {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.85rem, 4vw, 2.45rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.menu-title-sm {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+}
+
+.menu-lead {
+  margin: 0.85rem 0 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+.menu-btn {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--btn);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.65rem 1.15rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.menu-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+  border-color: rgba(140, 180, 255, 0.35);
+}
+
+.menu-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-btn-primary {
+  background: var(--btn-active);
+  border-color: rgba(126, 200, 255, 0.45);
+}
+
+.menu-btn-primary:hover:not(:disabled) {
+  background: #4a8fc9;
+}
+
+.menu-btn-ghost {
+  background: transparent;
+}
+
+.menu-foot {
+  margin: 1.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.menu-header-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+
+.menu-back {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.menu-back:hover {
+  text-decoration: underline;
+}
+
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+  gap: 0.85rem;
+}
+
+.mission-card {
+  appearance: none;
+  text-align: left;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: rgba(8, 14, 28, 0.72);
+  color: inherit;
+  font: inherit;
+  padding: 1rem 1.05rem 0.95rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 12.5rem;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+
+.mission-card:hover {
+  border-color: rgba(126, 200, 255, 0.45);
+  background: rgba(18, 30, 52, 0.88);
+  transform: translateY(-1px);
+}
+
+.mission-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mission-card-badge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.mission-card-preview .mission-card-badge {
+  color: #c8b48a;
+  background: rgba(200, 180, 120, 0.14);
+}
+
+.mission-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.mission-card-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.mission-card-blurb {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  opacity: 0.88;
+  flex: 1;
+}
+
+.mission-card-cta {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.menu-card-sub-static {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Flight 13 briefing */
+
+.flight13-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .flight13-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.flight13-h2 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.flight13-approx {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.flight13-overview p {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.flight13-note {
+  color: var(--muted) !important;
+  font-size: 0.85rem !important;
+}
+
+.flight13-objectives {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.15rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.flight13-objectives li {
+  margin-bottom: 0.35rem;
+}
+
+.flight13-source {
+  font-size: 0.75rem !important;
+  color: var(--muted) !important;
+}
+
+.flight13-source a {
+  color: var(--accent);
+}
+
+.flight13-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(52vh, 28rem);
+  overflow: auto;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.flight13-events li {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.55rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(140, 180, 255, 0.08);
+}
+
+.flight13-events li:last-child {
+  border-bottom: none;
+}
+
+.flight13-t {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.flight13-label {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.flight13-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
 #hud {
   position: absolute;
   inset: 0;
@@ -65,6 +412,21 @@ body {
 .hud-header {
   pointer-events: none;
   max-width: 22rem;
+}
+
+.hud-menu-link {
+  pointer-events: auto;
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+}
+
+.hud-menu-link:hover {
+  text-decoration: underline;
 }
 
 .hud-header h1 {
