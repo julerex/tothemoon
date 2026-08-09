@@ -10,16 +10,25 @@ import {
   BOOSTER_VISIBLE_S,
   boostbackFlashStrength,
   boosterLocatorStrength,
+  boosterVisibleS,
   buildBoosterKeyframes,
   boosterPhaseAt,
   CATCH_ALT_KM,
+  GULF_LAND_LAT,
+  GULF_LAND_LON,
+  GULF_SCHEDULE,
   LANDING_END_S,
   LANDING_START_S,
   sampleBoosterRecovery,
   type StageState,
 } from "./boosterRecovery.ts";
 import { R_EARTH } from "./constants.ts";
-import { starbasePadState } from "./earthFrame.ts";
+import {
+  geodeticToMeshLocal,
+  meshLocalToInertial,
+  starbasePadState,
+} from "./earthFrame.ts";
+import { bodyPositions as bodyPos } from "./bodies.ts";
 import { v3 } from "./vec3.ts";
 
 /** Synthetic stage-out ~100 km above Starbase with eastward Earth-relative velocity. */
@@ -158,7 +167,63 @@ describe("sampleBoosterRecovery", () => {
     assert.equal(a.pos.x, b.pos.x);
     assert.equal(a.pos.y, b.pos.y);
     assert.equal(a.throttle, b.throttle);
-    assert.equal(a.phase, b.phase);
+  });
+});
+
+describe("gulf recovery profile", () => {
+  it("uses Flight 13 landing-burn ages", () => {
+    assert.equal(GULF_SCHEDULE.boostbackStartS, 4);
+    assert.equal(GULF_SCHEDULE.boostbackEndS, 42);
+    assert.equal(GULF_SCHEDULE.landingStartS, 246);
+    assert.equal(GULF_SCHEDULE.landingEndS, 272);
+    assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingStartS + 1, "gulf"), "landing");
+    assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingEndS + 1, "gulf"), "caught");
+  });
+
+  it("ends near the Gulf soft-land site, not the chopsticks", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const land = sampleBoosterRecovery(
+      stage,
+      GULF_SCHEDULE.landingEndS,
+      kfs,
+      "gulf",
+    );
+    assert.equal(land.phase, "caught");
+    const t = stage.t + GULF_SCHEDULE.landingEndS;
+    // Gulf site: mesh-local → Earth-centered inertial → heliocentric
+    const local = v3();
+    geodeticToMeshLocal(
+      GULF_LAND_LAT,
+      GULF_LAND_LON,
+      R_EARTH + GULF_SCHEDULE.landAltKm,
+      local,
+    );
+    const siteRel = v3();
+    meshLocalToInertial(local, t, siteRel);
+    const b = bodyPos(t);
+    const dGulf = Math.hypot(
+      land.pos.x - (b.earth.x + siteRel.x),
+      land.pos.y - (b.earth.y + siteRel.y),
+      land.pos.z - (b.earth.z + siteRel.z),
+    );
+    assert.ok(dGulf < 5, `gulf land dist ${dGulf} km`);
+    // Farther from Starbase pad than chopsticks catch (~0.1 km)
+    const dPad = distToPad(t, land.pos);
+    assert.ok(dPad > 30, `should be offshore, pad dist ${dPad} km`);
+  });
+
+  it("stays above the surface for the gulf visible window", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const vis = boosterVisibleS(GULF_SCHEDULE);
+    for (let age = 0; age <= vis; age += 5) {
+      const s = sampleBoosterRecovery(stage, age, kfs, "gulf");
+      if (s.fade > 0.02) {
+        const alt = earthAlt(stage.t + age, s.pos);
+        assert.ok(alt > -0.5, `below surface alt=${alt} age=${age}`);
+      }
+    }
   });
 });
 

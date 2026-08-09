@@ -18,9 +18,11 @@ import {
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
 import {
-  BOOSTER_VISIBLE_S,
+  boosterVisibleS,
   buildBoosterKeyframes,
+  recoverySchedule,
   sampleBoosterRecovery,
+  type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
 import type { Sample } from "../physics/missionTypes";
@@ -162,6 +164,7 @@ function expandBounds(
 export function buildCrossSectionModel(
   samples: Sample[],
   stage: StageState | null,
+  recovery: RecoveryProfile = "chopsticks",
 ): CrossSectionModel {
   const basis = launchPlaneBasis();
   const rEarth = R_EARTH;
@@ -203,12 +206,13 @@ export function buildCrossSectionModel(
     }
   }
 
-  // return to launch site path after stage-out
+  // Booster recovery path after stage-out (chopsticks RTLS or gulf)
   if (stage) {
-    const kfs = buildBoosterKeyframes(stage);
+    const kfs = buildBoosterKeyframes(stage, recovery);
+    const vis = boosterVisibleS(recoverySchedule(recovery));
     const dt = 1.0;
-    for (let age = 0; age <= BOOSTER_VISIBLE_S; age += dt) {
-      const rec = sampleBoosterRecovery(stage, age, kfs);
+    for (let age = 0; age <= vis; age += dt) {
+      const rec = sampleBoosterRecovery(stage, age, kfs, recovery);
       if (rec.phase === "done" || rec.fade < 0.02) {
         if (age > LANDING_HOLD_CUT) break;
         continue;
@@ -285,6 +289,7 @@ export function liveCrossSection(
   stage: StageState | null,
   t: number,
   keyframes?: ReturnType<typeof buildBoosterKeyframes> | null,
+  recovery: RecoveryProfile = "chopsticks",
 ): CrossSectionLive {
   const basis = model.basis;
   const shipPt: PlanePoint = { x: 0, y: 0 };
@@ -305,7 +310,12 @@ export function liveCrossSection(
   if (stage && t + 1e-9 >= stage.t) {
     staged = true;
     const age = t - stage.t;
-    const rec = sampleBoosterRecovery(stage, age, keyframes ?? undefined);
+    const rec = sampleBoosterRecovery(
+      stage,
+      age,
+      keyframes ?? undefined,
+      recovery,
+    );
     boosterFade = rec.fade;
     if (rec.phase !== "done" && rec.fade >= 0.02) {
       const pos = v3(rec.pos.x, rec.pos.y, rec.pos.z);

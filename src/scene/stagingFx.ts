@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import {
-  BOOSTER_VISIBLE_S,
   boosterLocatorStrength,
   boostbackFlashStrength,
+  boosterVisibleS,
   buildBoosterKeyframes,
+  recoverySchedule,
   sampleBoosterRecovery,
+  type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
 import {
@@ -64,6 +66,7 @@ export class StagingFx {
   private stage: StageEvent | null = null;
   private stageState: StageState | null = null;
   private keyframes: ReturnType<typeof buildBoosterKeyframes> | null = null;
+  private recoveryProfile: RecoveryProfile = "chopsticks";
 
   constructor(boosterPrototype: THREE.Object3D, meshScale = CRAFT_MESH_SCALE) {
     this.booster = boosterPrototype.clone(true) as THREE.Group;
@@ -127,8 +130,15 @@ export class StagingFx {
     this.group.add(this.locator);
   }
 
-  setStageEvent(ev: StageEvent | null): void {
+  /**
+   * @param recovery chopsticks (RTLS / tower) or gulf (Flight 13 offshore)
+   */
+  setStageEvent(
+    ev: StageEvent | null,
+    recovery: RecoveryProfile = "chopsticks",
+  ): void {
     this.stage = ev;
+    this.recoveryProfile = recovery;
     if (!ev) {
       this.stageState = null;
       this.keyframes = null;
@@ -139,7 +149,7 @@ export class StagingFx {
       pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
       vel: { x: ev.vel.x, y: ev.vel.y, z: ev.vel.z },
     };
-    this.keyframes = buildBoosterKeyframes(this.stageState);
+    this.keyframes = buildBoosterKeyframes(this.stageState, recovery);
   }
 
   /**
@@ -163,7 +173,8 @@ export class StagingFx {
     }
 
     const age = missionT - this.stage.t;
-    if (age < 0 || age > BOOSTER_VISIBLE_S) {
+    const visS = boosterVisibleS(recoverySchedule(this.recoveryProfile));
+    if (age < 0 || age > visS) {
       this.booster.visible = false;
       this.flash.visible = false;
       this.boostbackFlash.visible = false;
@@ -176,6 +187,7 @@ export class StagingFx {
       this.stageState,
       age,
       this.keyframes,
+      this.recoveryProfile,
     );
 
     if (sample.fade < 0.02 || sample.phase === "done") {

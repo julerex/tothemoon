@@ -190,7 +190,8 @@ const _moonVelV = new THREE.Vector3();
 const boosterProto = craft.getObjectByName("booster");
 const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
 const stageEvent = findStageEvent(cache.samples);
-stagingFx.setStageEvent(stageEvent);
+// Flight 13: Super Heavy soft-lands offshore in the Gulf of America
+stagingFx.setStageEvent(stageEvent, "gulf");
 const stageT = stageEvent?.t ?? null;
 scene.add(stagingFx.group);
 // Grid-fin cam follows the free-flyer after stage-out
@@ -291,61 +292,67 @@ function disableAutoCam(): void {
   setAutoCamUi(false);
 }
 
-const hud = bindHud(clock, timeline, {
-  onPlayToggle: () => clock.toggle(),
-  onSpeedMode: (rate) => {
-    clock.setSpeed(rate);
+const hud = bindHud(
+  clock,
+  timeline,
+  {
+    onPlayToggle: () => clock.toggle(),
+    onSpeedMode: (rate) => {
+      clock.setSpeed(rate);
+    },
+    onSpeedNudge: (dir) => {
+      const next = nudgePlaybackSpeed(clock.speed, dir);
+      clock.setSpeed(next);
+      return next;
+    },
+    onScrub: (t) => clock.seek(t),
+    onCamera: (mode: CameraMode) => {
+      disableAutoCam();
+      director.setMode(mode);
+    },
+    onCameraFrame: (mode: CameraMode) => {
+      disableAutoCam();
+      director.frameMode(mode);
+    },
+    onOrbitKey: (key, down) => director.setOrbitKey(key, down),
+    onPanKey: (key, down) => {
+      const mode = director.setPanKey(key, down);
+      if (down) disableAutoCam();
+      return mode;
+    },
+    onZoomKey: (key, down) => director.setZoomKey(key, down),
+    onToggleLabels: () => {
+      toggleZoomLabels();
+    },
+    onToggleOrbits: () => {
+      toggleOrbits();
+    },
+    onAutoCamToggle: () => {
+      autoCam.enabled = !autoCam.enabled;
+      if (autoCam.enabled) {
+        // Re-apply framing for the current phase on the next mission tick.
+        autoCam.phase = null;
+      }
+      return autoCam.enabled;
+    },
+    /**
+     * Seek + ease camera without turning Auto-cam off. Sync phase/staged so the
+     * next tick does not immediately re-cut on the same beat.
+     */
+    onBookmark: (bm: CinematicBookmark) => {
+      clock.seek(bm.u);
+      const frame = cache.sampleAtProgress(bm.u);
+      autoCam.phase = frame.phase;
+      autoCam.staged = frame.staged;
+      director.easeToMode(bm.mode, {
+        frame: bm.frame,
+        frameScale: bm.frameScale,
+      });
+    },
   },
-  onSpeedNudge: (dir) => {
-    const next = nudgePlaybackSpeed(clock.speed, dir);
-    clock.setSpeed(next);
-    return next;
-  },
-  onScrub: (t) => clock.seek(t),
-  onCamera: (mode: CameraMode) => {
-    disableAutoCam();
-    director.setMode(mode);
-  },
-  onCameraFrame: (mode: CameraMode) => {
-    disableAutoCam();
-    director.frameMode(mode);
-  },
-  onOrbitKey: (key, down) => director.setOrbitKey(key, down),
-  onPanKey: (key, down) => {
-    const mode = director.setPanKey(key, down);
-    if (down) disableAutoCam();
-    return mode;
-  },
-  onZoomKey: (key, down) => director.setZoomKey(key, down),
-  onToggleLabels: () => {
-    toggleZoomLabels();
-  },
-  onToggleOrbits: () => {
-    toggleOrbits();
-  },
-  onAutoCamToggle: () => {
-    autoCam.enabled = !autoCam.enabled;
-    if (autoCam.enabled) {
-      // Re-apply framing for the current phase on the next mission tick.
-      autoCam.phase = null;
-    }
-    return autoCam.enabled;
-  },
-  /**
-   * Seek + ease camera without turning Auto-cam off. Sync phase/staged so the
-   * next tick does not immediately re-cut on the same beat.
-   */
-  onBookmark: (bm: CinematicBookmark) => {
-    clock.seek(bm.u);
-    const frame = cache.sampleAtProgress(bm.u);
-    autoCam.phase = frame.phase;
-    autoCam.staged = frame.staged;
-    director.easeToMode(bm.mode, {
-      frame: bm.frame,
-      frameScale: bm.frameScale,
-    });
-  },
-}, cache.samples);
+  cache.samples,
+  "gulf",
+);
 setAutoCamUi = hud.setAutoCamEnabled;
 notifyAutoCamera = hud.notifyAutoCamera;
 

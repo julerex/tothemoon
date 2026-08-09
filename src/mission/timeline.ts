@@ -220,9 +220,9 @@ function buildEvents(
     );
     add(
       "booster-catch",
-      s.t + 278,
-      "Booster catch",
-      "Landing burn · tower catch at Starbase",
+      s.t + 272,
+      "Booster landing",
+      "Landing burn · recovery zone (chopsticks or Gulf)",
     );
   } else if (stageIdx === 0 && samples[0]?.staged) {
     // already staged at t0 — skip

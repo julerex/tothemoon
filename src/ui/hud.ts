@@ -25,7 +25,10 @@ import {
   SHIP_DRY_KG,
   SHIP_PROP_KG,
 } from "../physics/constants";
-import { buildBoosterKeyframes } from "../physics/boosterRecovery";
+import {
+  buildBoosterKeyframes,
+  type RecoveryProfile,
+} from "../physics/boosterRecovery";
 import {
   buildCrossSectionModel,
   drawCrossSection,
@@ -139,6 +142,8 @@ export function bindHud(
   handlers: HudHandlers,
   /** Baked samples for live cross-section (optional; empty disables diagram data). */
   samples: Sample[] = [],
+  /** Super Heavy recovery path for cross-section (default chopsticks RTLS). */
+  recoveryProfile: RecoveryProfile = "chopsticks",
 ): {
   update: (tel: Telemetry) => void;
   /** Sync Auto-cam button when main disables (manual camera / mouse). */
@@ -213,10 +218,12 @@ export function bindHud(
   const stageState = stageStateFromSamples(samples);
   const crossModel =
     samples.length > 0
-      ? buildCrossSectionModel(samples, stageState)
+      ? buildCrossSectionModel(samples, stageState, recoveryProfile)
       : null;
   const boosterKeyframes =
-    stageState != null ? buildBoosterKeyframes(stageState) : null;
+    stageState != null
+      ? buildBoosterKeyframes(stageState, recoveryProfile)
+      : null;
   const bookmarks = buildBookmarks(timeline);
   const scrubEventTicks = buildScrubEventTicks(timeline.events);
   /** Event currently shown in the callout (for click-to-seek). */
@@ -474,6 +481,7 @@ export function bindHud(
       stageState,
       missionT,
       boosterKeyframes,
+      recoveryProfile,
     );
     drawCrossSection(
       crossSectionCtx,

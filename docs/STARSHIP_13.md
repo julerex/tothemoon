@@ -93,6 +93,11 @@ Full interactive theater (same class as Starbase → Moon): baked RK4 pack
 Phases: launch → ascent → coast → entry → descent → splashdown. Rebuild with
 `npm run precompute:flight13`.
 
+**Booster recovery:** kinematic **Gulf of America** offshore soft-land path
+(`recovery: "gulf"`) — boostback ~T+2:25–3:03 and landing burn ~T+6:27–6:53
+after stage-out, targeting ~25.55°N 96.15°W (theater, not a surveyed buoy).
+Chopsticks RTLS remains the default for the lunar mission.
+
 ### Earth great-circle section (app)
 
 Theater whole-Earth cross-section plane is a **best-fit great circle** through:
