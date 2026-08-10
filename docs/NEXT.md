@@ -242,3 +242,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-08 | Earth-centric ecliptic-plane trajectory map (ship + Moon; look along +Z) |
 | 2026-08-08 | Flight 13 full theater: RK4 pack, staging, coast, entry, splashdown |
 | 2026-08-10 | Flight 13 entry/landing realism: lofted ballistic arc, belly-flop aero, plasma, ocean splash, 3→2→1, attitude flip |
+| 2026-08-10 | Flight 13 physics honesty: remove approach glide, SECO circularize, relight deorbit, entry bank, natural early splash |

@@ -6,13 +6,14 @@
  * mass-coupled thrust. Steering aims along the Starbase → Indian Ocean
  * great-circle corridor (same plane as the Earth GC view).
  *
- * Profile (theater-grade, not ops):
+ * Profile (theater-grade, not ops — but intentionally more ballistic):
  * - Gravity-turn ascent + hot-stage along the corridor
- * - Upper burn builds near-circular horizontal speed so the free coast stays
- *   above the dense atmosphere until the public entry window (~T+47 min)
- * - In-space relight is a short retrograde deorbit demo
- * - Entry is ballistic (drag + J₂); landing burn brakes into splash
- * - Soft settle only in the final seconds at the theater splash fix
+ * - Upper burn builds near-circular horizontal speed (low radial rate at SECO)
+ * - Free coast is pure ballistic (no midcourse PD / altitude-hold glide)
+ * - In-space relight is a real retrograde deorbit burn (theater-lengthened
+ *   vs the public ~12 s demo so periapsis drops before the entry mark)
+ * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
+ * - Landing burn brakes near the splash fix; soft snap only in the last ~1 s
  *
  * Splash coordinates are theater (west of Australia), not a surveyed buoy.
  */
@@ -79,8 +80,13 @@ export const F13 = {
   SECO: 485,
   PAYLOAD_START: 1000,
   PAYLOAD_END: 1659,
+  /** Public table ~T+38:58; burn window theater-lengthened for deorbit Δv. */
   RELIGHT: 2338,
-  RELIGHT_END: 2350,
+  /**
+   * End of single-engine deorbit. Public demo is ~12 s; theater uses ~20 s
+   * for a modest periapsis drop (~0.15–0.3 km/s) without killing the coast.
+   */
+  RELIGHT_END: 2358,
   ENTRY: 2850,
   TRANSONIC: 3743,
   SUBSONIC: 3781,
@@ -92,24 +98,34 @@ export const F13 = {
 } as const;
 
 /** Keep this fraction of ship prop for relight + landing burn. */
-const SHIP_PROP_RESERVE = 0.08;
+const SHIP_PROP_RESERVE = 0.07;
 
 /**
  * Target horizontal speed fraction of local circular at SECO.
- * Slightly subcircular so the free coast eventually reenters near the
- * public entry window without multi-rev orbit.
+ * Near-circular for a long coast; deorbit is the relight's job.
  */
-const SECO_VCIRC_FRAC = 0.982;
+const SECO_VCIRC_FRAC = 0.985;
 
 /**
- * Belly-flop Cd·A/m (km²/kg) — ~20× the ascent stack factor so entry
- * actually bleeds hypersonic speed in the public T+47–65 min window.
- * Theater only; not a CFD table.
+ * Max |v_radial| (km/s) at SECO energy cut — keep loft modest without
+ * forcing a shallow low-altitude ellipse that reenters halfway to splash.
  */
-const BELLY_CD_A_OVER_M = 2.5e-10;
+const SECO_VRAD_MAX = 0.18;
 
-/** Lift-to-drag theater fraction of the belly drag magnitude (outward). */
-const BELLY_L_OVER_D = 0.35;
+/** Prefer not to declare SECO energy until this altitude (km). */
+const SECO_ALT_MIN_KM = 165;
+
+/**
+ * Belly-flop Cd·A/m (km²/kg) — high-AoA entry (ascent stack factor is much
+ * smaller). Theater only; not a CFD table.
+ */
+const BELLY_CD_A_OVER_M = 1.6e-10;
+
+/**
+ * Lift-to-drag fraction of belly drag (outward). Tuned so the hypersonic
+ * corridor covers the last ~1–2e3 km to splash without a powered altitude-hold.
+ */
+const BELLY_L_OVER_D = 0.42;
 
 const _up = v3();
 const _east = v3();
@@ -287,17 +303,12 @@ function steer(
   }
 
   if (mode === "relight") {
-    // Retrograde deorbit demo — kill horizontal speed slightly
+    // Pure retrograde deorbit — anti-horizontal velocity (drop periapsis)
     if (vHoriz > 0.05) {
       set(out, -_horiz.x / vHoriz, -_horiz.y / vHoriz, -_horiz.z / vHoriz);
     } else {
       set(out, -along.x, -along.y, -along.z);
     }
-    // Slight downward component to drop periapsis
-    out.x -= _up.x * 0.12;
-    out.y -= _up.y * 0.12;
-    out.z -= _up.z * 0.12;
-    normalize(out, out);
     return;
   }
 
@@ -319,41 +330,55 @@ function steer(
     return;
   }
 
-  // ── Hot-stage / upper: lofted then flatten for long suborbital coast ──
+  // ── Hot-stage / upper: climb to ~170–200 km then near-circular ──
   // Pitch 0 = vertical, π/2 = pure corridor-horizontal.
   const vTarget = SECO_VCIRC_FRAC * vCirc;
   const speedFrac = Math.min(1, vHoriz / Math.max(vTarget, 1));
 
-  // Start lofted after stage (~40–50° from horizontal = pitch ~0.7–0.9 rad from vertical)
-  // then flatten as speed builds so most late Δv is horizontal.
-  let pitch = (Math.PI / 2) * (0.55 + 0.4 * smoothstep(1.5, 6.5, vHoriz));
-  // Hold altitude if falling while still under target speed
-  if (vRad < -0.05 && speedFrac < 0.95 && alt < 120) {
-    pitch = Math.max(0.4, pitch - 0.35);
-  }
-  // Don't loft forever once above ~150 km
-  if (alt > 150) {
-    pitch = Math.min((Math.PI / 2) * 0.97, pitch + 0.1);
+  // While below insert altitude, keep a loft component so SECO is not at 100 km
+  if (alt < SECO_ALT_MIN_KM) {
+    let pitch = (Math.PI / 2) * (0.5 + 0.4 * smoothstep(1.0, 5.5, vHoriz));
+    // Climb bias if not rising
+    if (vRad < 0.05) pitch = Math.max(0.35, pitch - 0.25);
+    // Don't loft forever if already fast
+    if (speedFrac > 0.9) pitch = Math.min((Math.PI / 2) * 0.92, pitch + 0.12);
+    const cosP = Math.cos(pitch);
+    const sinP = Math.sin(pitch);
+    set(
+      out,
+      _up.x * cosP + along.x * sinP,
+      _up.y * cosP + along.y * sinP,
+      _up.z * cosP + along.z * sinP,
+    );
+    normalize(out, out);
+    return;
   }
 
-  const cosP = Math.cos(pitch);
-  const sinP = Math.sin(pitch);
+  // Above insert altitude: kill radial hard, then push horizontal to vTarget
+  const tgtRad = -1.1 * vRad; // strong radial damp
+  const needH = Math.max(0, vTarget - vHoriz);
+  // Weight radial fix higher when |vr| is large
+  const radW = Math.min(0.55, 0.2 + Math.abs(vRad) * 1.2);
+  const horizW = 1 - radW;
+  // Prefer more horizontal once radial is calm
+  const hBoost = needH > 0.05 ? 0.15 : 0;
   set(
     out,
-    _up.x * cosP + along.x * sinP,
-    _up.y * cosP + along.y * sinP,
-    _up.z * cosP + along.z * sinP,
+    along.x * (horizW + hBoost) + _up.x * tgtRad,
+    along.y * (horizW + hBoost) + _up.y * tgtRad,
+    along.z * (horizW + hBoost) + _up.z * tgtRad,
   );
+  if (len(out) < 1e-8) set(out, along.x, along.y, along.z);
   normalize(out, out);
 }
 
 function throttleFor(t: number, alt: number, mode: BurnMode): number {
   if (mode === "idle") return 0;
   if (mode === "hot_stage") return 0.55;
-  if (mode === "relight") return 0.45;
+  // Single-engine deorbit: moderate throttle (Δv ~0.2–0.3 km/s over ~20 s)
+  if (mode === "relight") return 0.5;
   if (mode === "land") {
-    if (t < F13.LAND_BURN) return 0;
-    // 3-engine light → 2 → 1 (matches public cadence)
+    // 3 → 2 → 1 cadence (public marks; early light still uses same steps)
     if (t < F13.LAND_3TO2) return 0.95;
     if (t < F13.LAND_2TO1) return 0.62;
     return 0.38;
@@ -376,7 +401,8 @@ function peakForceN(mode: BurnMode, thr: number): number {
     return BOOSTER_THRUST_N * 0.18 * thr + SHIP_THRUST_N * 0.95;
   // Sustained ship thrust through SECO (pure-RE Δv over ~5–6 min class)
   if (mode === "upper") return SHIP_THRUST_N * thr;
-  if (mode === "relight") return SHIP_THRUST_N * 0.33 * thr;
+  // ~1 of 3 Raptors (theater single-engine deorbit)
+  if (mode === "relight") return SHIP_THRUST_N * 0.34 * thr;
   if (mode === "land") return SHIP_THRUST_N * thr;
   return 0;
 }
@@ -429,20 +455,20 @@ export function runFlight13Mission(): MissionResult {
     let aeroAx = 0;
     let aeroAy = 0;
     let aeroAz = 0;
-    // High-AoA aero only while still hypersonic / supersonic — not during
-    // the low-speed approach glide (drag would pin the craft in place).
+    // High-AoA belly aero while hypersonic/supersonic in the atmosphere.
+    // No powered altitude-hold glide — ballistic + aero (+ bank toward splash).
     if (
       prop.staged &&
-      (mode === "idle" || mode === "land") &&
-      t >= F13.ENTRY - 600 &&
-      alt > 3 &&
-      alt < 110 &&
-      vRel > 1.2
+      mode === "idle" &&
+      t >= F13.RELIGHT_END &&
+      alt > 8 &&
+      alt < 120 &&
+      vRel > 0.8
     ) {
       const rho = atmDensity(alt);
       // a_drag = ½ (CdA/m) ρ |v|  along −v  (km/s²)
       const aDrag = Math.min(
-        0.05,
+        0.04,
         0.5 * BELLY_CD_A_OVER_M * rho * vRel,
       );
       if (aDrag > 1e-9) {
@@ -450,36 +476,26 @@ export function runFlight13Mission(): MissionResult {
         aeroAy -= (_relV.y / vRel) * aDrag;
         aeroAz -= (_relV.z / vRel) * aDrag;
       }
-      // Lift outward while descending — stretches the corridor (theater L/D)
-      if (mode === "idle" && vRad < 0 && vRel > 1.5 && alt > 8) {
-        const aLift = Math.min(0.02, aDrag * BELLY_L_OVER_D);
+      // Lift while descending: stretches the corridor at mid-altitudes
+      if (vRad < 0 && vRel > 1.5 && alt > 12 && alt < 95) {
+        const band =
+          alt > 25 && alt < 65 ? 1.1 : alt < 25 ? 0.65 : 1.0;
+        const aLift = Math.min(0.015, aDrag * BELLY_L_OVER_D * band);
         aeroAx += _up.x * aLift;
         aeroAy += _up.y * aLift;
         aeroAz += _up.z * aLift;
       }
-    }
-
-    // Theater approach glide: after hypersonic energy is bled, cruise toward
-    // splash at ~8–12 km rather than skidding on the surface for 15 min.
-    if (
-      prop.staged &&
-      mode === "idle" &&
-      t >= F13.ENTRY &&
-      t < F13.LAND_BURN - 5 &&
-      alt < 40 &&
-      vRel < 2.5
-    ) {
-      const splash = splashSurfaceInertial(t, _tmp2);
-      const bG = getBodies(t);
-      set(
-        _tmp3,
-        bG.earth.x + splash.x * (R_EARTH + 10) - pos.x,
-        bG.earth.y + splash.y * (R_EARTH + 10) - pos.y,
-        bG.earth.z + splash.z * (R_EARTH + 10) - pos.z,
-      );
-      const dist = len(_tmp3);
-      if (dist > 20) {
-        normalize(_tmp3, _tmp3);
+      // Bank toward splash (theater entry guidance — not RCS)
+      if (vRel > 1.0 && alt > 12 && alt < 90) {
+        const splash = splashSurfaceInertial(t, _tmp2);
+        const bG = getBodies(t);
+        set(
+          _tmp3,
+          bG.earth.x + splash.x * (R_EARTH + alt) - pos.x,
+          bG.earth.y + splash.y * (R_EARTH + alt) - pos.y,
+          bG.earth.z + splash.z * (R_EARTH + alt) - pos.z,
+        );
+        // Horizontal desired heading
         const rd = dot(_tmp3, _up);
         set(
           _horiz,
@@ -487,24 +503,39 @@ export function runFlight13Mission(): MissionResult {
           _tmp3.y - _up.y * rd,
           _tmp3.z - _up.z * rd,
         );
-        if (len(_horiz) > 1e-8) {
+        const hLen = len(_horiz);
+        if (hLen > 1e-6) {
           normalize(_horiz, _horiz);
-          // Target cruise ~0.7 km/s along-track (covers ~600 km in ~15 min)
-          const vAlong = dot(_relV, _horiz);
-          const aH = Math.max(-0.008, Math.min(0.01, (0.7 - vAlong) * 0.6));
-          aeroAx += _horiz.x * aH;
-          aeroAy += _horiz.y * aH;
-          aeroAz += _horiz.z * aH;
+          // Current horizontal velocity unit
+          set(
+            _tmp3,
+            _relV.x - _up.x * vRad,
+            _relV.y - _up.y * vRad,
+            _relV.z - _up.z * vRad,
+          );
+          const vh = len(_tmp3);
+          if (vh > 0.3) {
+            normalize(_tmp3, _tmp3);
+            // Lateral = desired × current (turn direction), magnitude from misalignment
+            const align = dot(_horiz, _tmp3);
+            if (align < 0.98) {
+              // Sideways unit in horizontal plane: horiz − proj onto v_h
+              set(
+                _tmp2,
+                _horiz.x - _tmp3.x * align,
+                _horiz.y - _tmp3.y * align,
+                _horiz.z - _tmp3.z * align,
+              );
+              if (len(_tmp2) > 1e-8) {
+                normalize(_tmp2, _tmp2);
+                const aBank = Math.min(0.008, aDrag * 0.45 * (1 - align));
+                aeroAx += _tmp2.x * aBank;
+                aeroAy += _tmp2.y * aBank;
+                aeroAz += _tmp2.z * aBank;
+              }
+            }
+          }
         }
-        // Hold ~10 km altitude
-        const tgtAlt = 10;
-        const aV = Math.max(
-          -0.01,
-          Math.min(0.012, (tgtAlt - alt) * 0.004 - vRad * 0.8),
-        );
-        aeroAx += _up.x * aV;
-        aeroAy += _up.y * aV;
-        aeroAz += _up.z * aV;
       }
     }
 
@@ -581,14 +612,21 @@ export function runFlight13Mission(): MissionResult {
       );
       const vHoriz = len(_horiz);
       const vCirc = Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50));
-      // Cut when near-circular horizontal speed is reached (prevents escape burns)
-      const vTot = len(_relV);
+      // Cut when near-circular at insert altitude (or public SECO / prop floor).
+      // Prefer waiting a few seconds past energy to kill residual radial rate.
       const energyOk =
-        vHoriz >= SECO_VCIRC_FRAC * vCirc * 0.995 ||
-        vTot >= SECO_VCIRC_FRAC * vCirc * 1.02;
-      // Also cut on the public SECO mark or prop reserve
+        alt >= SECO_ALT_MIN_KM &&
+        vHoriz >= SECO_VCIRC_FRAC * vCirc * 0.998 &&
+        Math.abs(vRad) <= SECO_VRAD_MAX;
+      const speedCap =
+        alt >= SECO_ALT_MIN_KM &&
+        vHoriz >= SECO_VCIRC_FRAC * vCirc * 1.025;
       const propLow = fuelShipFrac(prop) <= SHIP_PROP_RESERVE;
-      if (t >= F13.SECO || energyOk || propLow) {
+      // Don't cut solely on the clock if still deeply lofted and have prop
+      const clockCut =
+        t >= F13.SECO &&
+        (Math.abs(vRad) <= SECO_VRAD_MAX * 1.5 || propLow || alt < 100);
+      if (energyOk || speedCap || propLow || clockCut) {
         mode = "idle";
       }
     }
@@ -598,35 +636,42 @@ export function runFlight13Mission(): MissionResult {
     if (mode === "relight" && t >= F13.RELIGHT_END) {
       mode = "idle";
     }
-    // Landing burn: public mark, or early if low and near splash after entry
-    if (mode !== "land" && t < F13.SPLASH && t >= F13.ENTRY) {
-      const splash = splashSurfaceInertial(t, _tmp2);
+    // Landing burn only after aero has bled most of the speed (or public mark).
+    // Lighting at hypersonic would empty the tank and leave a surface skid.
+    if (mode !== "land" && mode !== "relight" && t >= F13.ENTRY - 90) {
       const bL = getBodies(t);
+      sub(_relV, state.vel, bL.earthVel);
+      const vRel = len(_relV);
+      const splash = splashSurfaceInertial(t, _tmp2);
       sub(_relP, state.pos, bL.earth);
       normalize(_tmp3, _relP);
-      const ang = Math.acos(Math.min(1, Math.max(-1, dot(_tmp3, splash))));
-      const rangeKm = ang * R_EARTH;
-      const nearSplash = rangeKm < 600;
+      const rangeKm =
+        Math.acos(Math.min(1, Math.max(-1, dot(_tmp3, splash)))) * R_EARTH;
       if (
         t >= F13.LAND_BURN ||
-        (alt < 20 && nearSplash && t >= F13.LAND_BURN - 120)
+        (alt < 12 && vRel < 0.9 && rangeKm < 600 && t >= F13.ENTRY - 60) ||
+        (alt < 4 && vRel < 0.55 && t >= F13.ENTRY)
       ) {
         mode = "land";
       }
     }
-    if (t >= F13.SPLASH) {
+    if (t >= F13.SPLASH + 5) {
       mode = "idle";
     }
 
-    // Phase id for HUD — monotonic in mission time (matches public timeline)
+    // Phase id for HUD — dynamics-driven after SECO (not only public clock)
     let phase: PhaseId;
     if (t < 12) phase = "launch";
     else if (t < F13.SECO) phase = "ascent";
-    else if (t < F13.ENTRY) phase = "coast";
-    else if (mode === "land" || t >= F13.LAND_BURN) {
-      phase = t >= F13.SPLASH ? "splashdown" : "descent";
-    } else if (t < F13.SPLASH) phase = "entry";
-    else phase = "splashdown";
+    else if (mode === "land") phase = "descent";
+    else if (
+      prop.staged &&
+      t >= F13.RELIGHT &&
+      alt < 120
+    ) {
+      // Atmospheric interface by altitude after deorbit window opens
+      phase = "entry";
+    } else phase = "coast";
 
     // Step size
     let dt = 1.0;
@@ -639,38 +684,28 @@ export function runFlight13Mission(): MissionResult {
 
     rk4Step(state, dt, thrustFn);
 
-    // Surface clamp: never tunnel underground. During approach glide keep
-    // horizontal speed so we can cruise toward splash at low altitude.
+    // Surface clamp only: never tunnel underground (no altitude-hold floor)
     {
       const b = getBodies(state.t);
       sub(_relP, state.pos, b.earth);
       const L = len(_relP) || 1;
       const curAlt = L - R_EARTH;
-      const gliding =
-        prop.staged &&
-        mode === "idle" &&
-        state.t >= F13.ENTRY &&
-        state.t < F13.LAND_BURN;
-      if (curAlt < (gliding ? 3 : 0.02) && state.t < F13.SPLASH - 1) {
-        const floorAlt = gliding ? 8 : 0.02;
-        const holdR = R_EARTH + floorAlt;
+      if (curAlt < 0.02 && state.t < F13.SPLASH - 1) {
+        const holdR = R_EARTH + 0.02;
         state.pos.x = b.earth.x + (_relP.x / L) * holdR;
         state.pos.y = b.earth.y + (_relP.y / L) * holdR;
         state.pos.z = b.earth.z + (_relP.z / L) * holdR;
         sub(_relV, state.vel, b.earthVel);
         const vr = dot(_relV, _relP) / L;
         if (vr < 0) {
-          // Kill inward radial only
           state.vel.x -= (_relP.x / L) * vr;
           state.vel.y -= (_relP.y / L) * vr;
           state.vel.z -= (_relP.z / L) * vr;
         }
-        if (!gliding) {
-          // Heavy horizontal damp only when truly decked (not gliding)
-          state.vel.x = b.earthVel.x + (state.vel.x - b.earthVel.x) * 0.92;
-          state.vel.y = b.earthVel.y + (state.vel.y - b.earthVel.y) * 0.92;
-          state.vel.z = b.earthVel.z + (state.vel.z - b.earthVel.z) * 0.92;
-        }
+        // Surface friction once decked (skid, not powered cruise)
+        state.vel.x = b.earthVel.x + (state.vel.x - b.earthVel.x) * 0.96;
+        state.vel.y = b.earthVel.y + (state.vel.y - b.earthVel.y) * 0.96;
+        state.vel.z = b.earthVel.z + (state.vel.z - b.earthVel.z) * 0.96;
       }
     }
 
@@ -687,42 +722,44 @@ export function runFlight13Mission(): MissionResult {
       coastProp(prop, state.t);
     }
 
-    // Soft settle toward splash during late landing (theater terminal guidance)
-    if (t >= F13.LAND_BURN - 5 && t < F13.SPLASH) {
+    // Natural splashdown: low, slow, and near the theater fix — or public clock
+    {
       const b = getBodies(state.t);
       const surf = splashSurfaceInertial(state.t, _tmp);
-      const targetR = R_EARTH + Math.max(0.02, Math.min(alt, 8));
-      const tx = b.earth.x + surf.x * targetR;
-      const ty = b.earth.y + surf.y * targetR;
-      const tz = b.earth.z + surf.z * targetR;
-      // Ease in: gentle from land burn, firm in last 2 s
-      const blend =
-        0.015 +
-        0.08 * smoothstep(F13.LAND_BURN, F13.SPLASH - 2, state.t) +
-        0.55 * smoothstep(F13.SPLASH - 2, F13.SPLASH, state.t);
-      state.pos.x += (tx - state.pos.x) * blend;
-      state.pos.y += (ty - state.pos.y) * blend;
-      state.pos.z += (tz - state.pos.z) * blend;
-      // Damp residual velocity near the end
-      if (state.t >= F13.SPLASH - 3) {
-        const damp = smoothstep(F13.SPLASH - 3, F13.SPLASH, state.t);
-        state.vel.x = state.vel.x * (1 - damp) + b.earthVel.x * damp;
-        state.vel.y = state.vel.y * (1 - damp) + b.earthVel.y * damp;
-        state.vel.z = state.vel.z * (1 - damp) + b.earthVel.z * damp;
+      sub(_relP, state.pos, b.earth);
+      const L = len(_relP) || 1;
+      const curAlt = L - R_EARTH;
+      sub(_relV, state.vel, b.earthVel);
+      const vRel = len(_relV);
+      const ang = Math.acos(
+        Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))),
+      );
+      const rangeKm = ang * R_EARTH;
+      const naturalDone =
+        mode === "land" &&
+        curAlt < 2.5 &&
+        vRel < 0.35 &&
+        rangeKm < 180 &&
+        t >= F13.ENTRY;
+      const clockDone = t >= F13.SPLASH - 0.1;
+      if (naturalDone || clockDone) {
+        const targetR = R_EARTH + 0.02;
+        if (rangeKm < 200) {
+          state.pos.x = b.earth.x + surf.x * targetR;
+          state.pos.y = b.earth.y + surf.y * targetR;
+          state.pos.z = b.earth.z + surf.z * targetR;
+        } else {
+          // Dynamics miss: land under the craft, not a multi-Mm teleport
+          state.pos.x = b.earth.x + (_relP.x / L) * targetR;
+          state.pos.y = b.earth.y + (_relP.y / L) * targetR;
+          state.pos.z = b.earth.z + (_relP.z / L) * targetR;
+        }
+        state.vel.x = b.earthVel.x;
+        state.vel.y = b.earthVel.y;
+        state.vel.z = b.earthVel.z;
+        pushSample(samples, state, "splashdown", false, prop, 0);
+        break;
       }
-    }
-    if (t >= F13.SPLASH - 0.05) {
-      const b = getBodies(state.t);
-      const surf = splashSurfaceInertial(state.t, _tmp);
-      const targetR = R_EARTH + 0.02;
-      state.pos.x = b.earth.x + surf.x * targetR;
-      state.pos.y = b.earth.y + surf.y * targetR;
-      state.pos.z = b.earth.z + surf.z * targetR;
-      state.vel.x = b.earthVel.x;
-      state.vel.y = b.earthVel.y;
-      state.vel.z = b.earthVel.z;
-      pushSample(samples, state, "splashdown", false, prop, 0);
-      break;
     }
 
     const burning = lastThrustN > 1e3;
