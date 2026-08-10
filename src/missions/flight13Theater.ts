@@ -226,8 +226,9 @@ const timeline = timelineWithPrelaunch(
   buildTimeline(cache.samples, physicsDurationS),
   physicsDurationS,
 );
-// Default real-time mission pace until the HUD binds the speed select
+// Start at 1× real-time immediately (no Play click required)
 clock.setSpeed(1);
+clock.play();
 
 const craftPos = new THREE.Vector3();
 const craftVel = new THREE.Vector3();
