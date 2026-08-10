@@ -101,9 +101,8 @@ splash; landing burn only after aero has bled speed; splash when dynamics
 arrive (may finish before the public T+65:21 mark). Not ops ephemerides.
 
 **Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window
-open, 5:45 p.m. CDT). Analytic Earth/Sun (not the July 2027 Horizons table).
-Solar longitude is theater-nudged so pad sun elevation is clearly daytime
-(`applyFlight13Epoch` / `sunPhase0ForFlight13Daylight`). Sun directional light
+open, **5:45 p.m. CDT** — no time shift). Solar longitude matches that UTC.
+Analytic Earth/Sun (not the July 2027 Horizons table). Sun directional light
 is unit-scale aimed at Earth each frame (`applySunLight`).
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian

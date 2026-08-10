@@ -13,14 +13,15 @@ import {
 } from "./horizonsEpoch.ts";
 
 describe("applyFlight13Epoch", () => {
-  it("puts the Sun well above the Starbase horizon at liftoff", () => {
+  it("puts the Sun above the Starbase horizon at the real window-open time", () => {
     const prevHorizons = isHorizonsEnabled();
     try {
       const { padSunElev } = applyFlight13Epoch(0, 3600);
       const elev = starbaseSunElev(0);
+      // 5:45 p.m. CDT in late July ≈ mid-afternoon elev (~30°+), not night
       assert.ok(
-        elev > 0.55,
-        `expected strong daytime sun elev, got sin(el)=${elev.toFixed(3)}`,
+        elev > 0.2,
+        `expected daytime sun elev at 5:45 p.m. CDT, got sin(el)=${elev.toFixed(3)}`,
       );
       assert.ok(Math.abs(elev - padSunElev) < 1e-9);
       assert.equal(isHorizonsEnabled(), false);
