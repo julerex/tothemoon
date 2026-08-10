@@ -10,7 +10,9 @@ import {
   formatTickerCrawl,
   formatTickerText,
   isFlightTestTimeline,
+  NEWS_TICKER_BASE_PERIOD_S,
   newsAtMissionTime,
+  newsTickerPeriodS,
 } from "./newsTicker.ts";
 import type { MissionTimeline } from "./timeline.ts";
 
@@ -186,17 +188,25 @@ describe("buildNewsBeats + newsAtMissionTime", () => {
     assert.deepEqual(a, b);
   });
 
-  it("formatTickerText includes wire tag", () => {
+  it("formatTickerText is headline only (no wire / BREAKING)", () => {
     const beats = buildNewsBeats(lunarTimeline());
     const b = newsAtMissionTime(beats, 0)!;
     const text = formatTickerText(b);
-    assert.ok(text.includes("·"));
     assert.ok(text.length > 10);
+    assert.ok(!/^BREAKING/i.test(text));
+    assert.ok(!text.includes("LAUNCH  ·"));
   });
 
   it("formatTickerCrawl joins a trail of beats", () => {
     const beats = buildNewsBeats(flight13Timeline());
     const crawl = formatTickerCrawl(beats, 200, 2);
-    assert.ok(crawl.includes("★") || crawl.length > 20);
+    assert.ok(crawl.length > 20);
+  });
+
+  it("newsTickerPeriodS scales with |playback rate|", () => {
+    assert.equal(newsTickerPeriodS(1), NEWS_TICKER_BASE_PERIOD_S);
+    assert.equal(newsTickerPeriodS(10), NEWS_TICKER_BASE_PERIOD_S / 10);
+    assert.equal(newsTickerPeriodS(-10), NEWS_TICKER_BASE_PERIOD_S / 10);
+    assert.ok(newsTickerPeriodS(0) >= NEWS_TICKER_BASE_PERIOD_S);
   });
 });

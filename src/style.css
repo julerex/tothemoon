@@ -536,7 +536,8 @@ body.menus-active {
   box-shadow: none;
 }
 
-/* Mission-time news crawl — first row of the bottom bar, above the scrubber */
+/* Mission-time news crawl — first row of the bottom bar, above the scrubber.
+ * Scroll duration/direction are set from playback rate in hud.ts. */
 .news-ticker {
   display: flex;
   align-items: stretch;
@@ -544,46 +545,13 @@ body.menus-active {
   width: 100%;
   height: 1.65rem;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    rgba(8, 10, 14, 0.96) 0%,
-    rgba(12, 14, 20, 0.92) 40%,
-    rgba(8, 10, 14, 0.96) 100%
-  );
-  border-top: 1px solid rgba(255, 80, 60, 0.4);
+  background: rgba(0, 0, 0, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.72rem;
   letter-spacing: 0.03em;
   overflow: hidden;
   box-sizing: border-box;
-}
-
-.news-ticker-live {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  padding: 0 0.55rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: #fff;
-  background: #c4281c;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-}
-
-.news-ticker-wire {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  padding: 0 0.55rem;
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: #ffb4a8;
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(196, 40, 28, 0.12);
-  min-width: 4.5rem;
 }
 
 .news-ticker-viewport {
@@ -605,7 +573,10 @@ body.menus-active {
   align-items: center;
   height: 100%;
   gap: 3rem;
-  animation: news-ticker-scroll 28s linear infinite;
+  /* Base 1× period; hud sets --news-ticker-dur and direction from playback rate */
+  --news-ticker-dur: 28s;
+  animation: news-ticker-scroll var(--news-ticker-dur) linear infinite;
+  animation-direction: var(--news-ticker-dir, normal);
   will-change: transform;
 }
 

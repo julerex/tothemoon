@@ -14,6 +14,7 @@ import {
   buildNewsBeats,
   formatTickerCrawl,
   newsAtMissionTime,
+  newsTickerPeriodS,
 } from "../mission/newsTicker";
 import type {
   MissionEvent,
@@ -178,7 +179,6 @@ export function bindHud(
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
   const newsTickerEl = document.querySelector<HTMLElement>("#news-ticker");
-  const newsWireEl = document.querySelector<HTMLElement>("#news-ticker-wire");
   const newsTextEl = document.querySelector<HTMLElement>("#news-ticker-text");
   const newsTextDupEl = document.querySelector<HTMLElement>(
     "#news-ticker-text-dup",
@@ -186,6 +186,7 @@ export function bindHud(
   const newsTrackEl = document.querySelector<HTMLElement>("#news-ticker-track");
   const newsBeats = buildNewsBeats(timeline);
   let lastNewsId: string | null = null;
+  let lastNewsRate = Number.NaN;
   const dateEl = document.querySelector<HTMLElement>("#date");
   const distEl = el<HTMLElement>("#distance");
   const progEl = el<HTMLElement>("#progress");
@@ -1039,7 +1040,24 @@ export function bindHud(
     }
   }
 
-  function updateNewsTicker(missionT: number, playing: boolean): void {
+  function applyNewsTickerRate(playbackRate: number, playing: boolean): void {
+    if (!newsTrackEl) return;
+    const rate = Number.isFinite(playbackRate) ? playbackRate : 1;
+    const period = newsTickerPeriodS(rate);
+    const dir = rate < 0 ? "reverse" : "normal";
+    newsTrackEl.style.setProperty("--news-ticker-dur", `${period}s`);
+    newsTrackEl.style.setProperty("--news-ticker-dir", dir);
+    // Pause when stopped or rate is effectively zero
+    const paused = !playing || Math.abs(rate) < 1e-6;
+    newsTrackEl.classList.toggle("news-ticker-pause", paused);
+    lastNewsRate = rate;
+  }
+
+  function updateNewsTicker(
+    missionT: number,
+    playing: boolean,
+    playbackRate: number,
+  ): void {
     if (!newsTickerEl || !newsTextEl) return;
     const beat = newsAtMissionTime(newsBeats, missionT);
     if (!beat) {
@@ -1047,32 +1065,35 @@ export function bindHud(
       return;
     }
     newsTickerEl.hidden = false;
-    if (newsWireEl) newsWireEl.textContent = beat.wire;
     // Crawl: current + short trail so the marquee stays dense
     const crawl = formatTickerCrawl(newsBeats, missionT, 2);
     const line = crawl || beat.line;
-    if (beat.id !== lastNewsId || newsTextEl.textContent !== line) {
+    const textChanged =
+      beat.id !== lastNewsId || newsTextEl.textContent !== line;
+    if (textChanged) {
       lastNewsId = beat.id;
       newsTextEl.textContent = line;
       if (newsTextDupEl) newsTextDupEl.textContent = line;
-      // Restart marquee so a new headline starts from the left edge
+    }
+    const rateChanged =
+      !Number.isFinite(lastNewsRate) ||
+      Math.abs(lastNewsRate - playbackRate) > 1e-9;
+    if (textChanged || rateChanged) {
+      // Re-bind animation so duration/direction take effect cleanly
       if (newsTrackEl) {
         newsTrackEl.style.animation = "none";
         void newsTrackEl.offsetWidth;
         newsTrackEl.style.animation = "";
       }
     }
-    // Pause crawl when playback is stopped (still show current line)
-    if (newsTrackEl) {
-      newsTrackEl.classList.toggle("news-ticker-pause", !playing);
-    }
+    applyNewsTickerRate(playbackRate, playing);
   }
 
   function update(tel: Telemetry): void {
     const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
     phaseEl.textContent = tel.phase;
     timeEl.textContent = formatMissionTime(tel.t);
-    updateNewsTicker(tel.t, tel.playing);
+    updateNewsTicker(tel.t, tel.playing, tel.playbackSpeed);
     if (dateEl) dateEl.textContent = tel.dateUtc;
     distEl.textContent = formatDistance(tel.distanceToMoon);
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;

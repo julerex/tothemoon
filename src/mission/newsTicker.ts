@@ -70,11 +70,11 @@ type CopySpec = {
 /** Bespoke wire copy keyed by timeline event id. */
 const COPY_BY_ID: Record<string, CopySpec> = {
   liftoff: {
-    wire: "BREAKING",
+    wire: "LAUNCH",
     line: (ft) =>
       ft
-        ? "BREAKING: Starship Flight 13 lifts off from Starbase as Super Heavy lights the Raptor field."
-        : "BREAKING: Stack clears the tower at Starbase — Super Heavy and Starship are climbing for the Moon.",
+        ? "Starship Flight 13 lifts off from Starbase as Super Heavy lights the Raptor field."
+        : "Stack clears the tower at Starbase — Super Heavy and Starship are climbing for the Moon.",
   },
   "max-q": {
     wire: "ASCENT",
@@ -369,14 +369,14 @@ export function newsAtMissionTime(
   return best;
 }
 
-/** Full marquee string for a beat (wire prefix + line). */
+/** Marquee string for a beat (headline only — no wire / BREAKING tags). */
 export function formatTickerText(beat: NewsBeat): string {
-  return `${beat.wire}  ·  ${beat.line}`;
+  return beat.line;
 }
 
 /**
  * Build a multi-item crawl string: current headline plus a short trail of
- * prior beats (news-desk style). Used when the ticker wants more motion.
+ * prior beats. Used when the ticker wants more motion.
  */
 export function formatTickerCrawl(
   beats: readonly NewsBeat[],
@@ -389,7 +389,22 @@ export function formatTickerCrawl(
   const idx = beats.findIndex((b) => b.id === active.id && b.t === active.t);
   const start = Math.max(0, idx - trail);
   const slice = beats.slice(start, idx + 1);
-  return slice.map((b) => formatTickerText(b)).join("     ★     ");
+  return slice.map((b) => formatTickerText(b)).join("     ·     ");
+}
+
+/**
+ * CSS animation period (s) for one full marquee loop at the given playback
+ * rate. 1× → {@link NEWS_TICKER_BASE_PERIOD_S}; faster rates shorten the period
+ * proportionally; reverse uses the same period (direction is separate).
+ */
+export const NEWS_TICKER_BASE_PERIOD_S = 28;
+
+export function newsTickerPeriodS(playbackRate: number): number {
+  const mag = Math.abs(playbackRate);
+  if (!Number.isFinite(mag) || mag < 1e-6) return NEWS_TICKER_BASE_PERIOD_S;
+  // Clamp so extreme rates stay readable (0.05s … 120s)
+  const period = NEWS_TICKER_BASE_PERIOD_S / mag;
+  return Math.min(120, Math.max(0.05, period));
 }
 
 /** @internal test helper — phase ambient table coverage. */
