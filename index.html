@@ -48,49 +48,51 @@
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
 
-        <div
-          id="news-ticker"
-          class="news-ticker hud-chrome"
-          role="status"
-          aria-live="polite"
-          aria-label="Mission news ticker"
-        >
-          <div class="news-ticker-viewport">
-            <div class="news-ticker-track" id="news-ticker-track">
-              <span class="news-ticker-text" id="news-ticker-text"
-                >Awaiting mission clock…</span
-              >
-              <span
-                class="news-ticker-text news-ticker-text-dup"
-                id="news-ticker-text-dup"
-                aria-hidden="true"
-                >Awaiting mission clock…</span
-              >
+        <div class="bottom-bar hud-chrome">
+          <div
+            id="news-ticker"
+            class="news-ticker"
+            role="status"
+            aria-live="polite"
+            aria-label="Mission news ticker"
+          >
+            <div class="news-ticker-viewport">
+              <div class="news-ticker-track" id="news-ticker-track">
+                <span class="news-ticker-text" id="news-ticker-text"
+                  >Awaiting mission clock…</span
+                >
+                <span
+                  class="news-ticker-text news-ticker-text-dup"
+                  id="news-ticker-text-dup"
+                  aria-hidden="true"
+                  >Awaiting mission clock…</span
+                >
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="bottom-bar hud-chrome">
+          <!-- Speed select kept for keyboard (, / .) + hud.ts; not shown in chrome -->
+          <label class="speed-sr-only" title="Playback speed (, / . to nudge)">
+            Speed
+            <select id="speed" aria-label="Playback speed">
+              <option value="-2000">−2000×</option>
+              <option value="-1000">−1000×</option>
+              <option value="-500">−500×</option>
+              <option value="-100">−100×</option>
+              <option value="-50">−50×</option>
+              <option value="-10">−10×</option>
+              <option value="-1">−1×</option>
+              <option value="1" selected>1×</option>
+              <option value="10">10×</option>
+              <option value="50">50×</option>
+              <option value="100">100×</option>
+              <option value="500">500×</option>
+              <option value="1000">1000×</option>
+              <option value="2000">2000×</option>
+            </select>
+          </label>
+
           <section class="panel transport" aria-label="Playback">
-            <label class="speed" title="Playback speed (, / . to nudge)">
-              Speed
-              <select id="speed" aria-label="Playback speed">
-                <option value="-2000">−2000×</option>
-                <option value="-1000">−1000×</option>
-                <option value="-500">−500×</option>
-                <option value="-100">−100×</option>
-                <option value="-50">−50×</option>
-                <option value="-10">−10×</option>
-                <option value="-1">−1×</option>
-                <option value="1" selected>1×</option>
-                <option value="10">10×</option>
-                <option value="50">50×</option>
-                <option value="100">100×</option>
-                <option value="500">500×</option>
-                <option value="1000">1000×</option>
-                <option value="2000">2000×</option>
-              </select>
-            </label>
             <div class="scrubber">
               <span class="scrubber-label">Mission</span>
               <div class="scrub-wrap">

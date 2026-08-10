@@ -566,14 +566,10 @@ body.menus-active {
   box-shadow: none;
 }
 
-/* Mission-time news crawl — full viewport width, above the scrubber bar.
+/* Mission-time news crawl — full width strip above the scrubber (in-flow).
  * Scroll duration/direction are set from playback rate in hud.ts. */
 .news-ticker {
-  position: absolute;
-  left: 0;
-  right: 0;
-  /* Sit on top of transport + footer (no ticker inside bottom-bar) */
-  bottom: 5.7rem;
+  position: relative;
   z-index: 7;
   display: flex;
   align-items: stretch;
@@ -589,6 +585,19 @@ body.menus-active {
   letter-spacing: 0.03em;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Speed select lives in the DOM for keyboard + hud.ts; not a visible bar */
+.speed-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .news-ticker-viewport {
@@ -680,8 +689,8 @@ body.menus-active {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.75rem;
-  padding: 0.4rem 1.1rem 0.4rem;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 1.1rem 0.4rem;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -694,7 +703,7 @@ body.menus-active {
   pointer-events: auto;
 }
 
-/* Cinematic bookmarks — full-width row under speed / scrubber */
+/* Cinematic bookmarks — full-width row under the scrubber */
 .bookmarks {
   display: flex;
   flex-wrap: wrap;
@@ -782,8 +791,8 @@ body.menus-active {
   top: 0;
   right: 0;
   bottom: 0;
-  /* Leave room for full-bleed ticker + scrubber + bookmarks + footer */
-  margin-bottom: 7.35rem;
+  /* Leave room for ticker + scrubber + bookmarks + footer */
+  margin-bottom: 8.25rem;
   width: 12.25rem;
   max-width: min(12.25rem, 38vw);
   padding: 0.85rem 0.75rem 0.75rem;
@@ -1000,7 +1009,6 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-.speed,
 .scrubber {
   display: flex;
   align-items: center;
@@ -1511,7 +1519,7 @@ kbd {
   -webkit-backdrop-filter: none;
 }
 
-/* Keep ticker / speed / scrubber / bookmarks above the overlay */
+/* Keep ticker / scrubber / bookmarks above the overlay */
 #hud.cross-section-open .bottom-bar,
 #hud.earth-gc-open .bottom-bar,
 #hud.polar-map-open .bottom-bar,
@@ -1756,7 +1764,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   }
 
   .news-ticker {
-    bottom: 6.6rem;
     height: 1.5rem;
     font-size: 0.66rem;
   }
@@ -1776,15 +1783,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
   .scrubber {
     flex: 1 1 100%;
-    order: 2;
-  }
-
-  .speed {
-    order: 1;
-  }
-
-  .bookmarks {
-    order: 3;
   }
 
   .bookmark-btn {
