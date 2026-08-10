@@ -177,7 +177,9 @@ export function bindHud(
   const eventsEl = document.querySelector<HTMLElement>("#scrub-events");
   const bookmarksEl = document.querySelector<HTMLElement>("#bookmarks");
   const phaseEl = el<HTMLElement>("#phase");
-  const timeEl = el<HTMLElement>("#time");
+  const missionClockEl = document.querySelector<HTMLElement>(
+    "#mission-clock-value",
+  );
   const newsTickerEl = document.querySelector<HTMLElement>("#news-ticker");
   const newsTextEl = document.querySelector<HTMLElement>("#news-ticker-text");
   const newsTextDupEl = document.querySelector<HTMLElement>(
@@ -1092,7 +1094,9 @@ export function bindHud(
   function update(tel: Telemetry): void {
     const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
     phaseEl.textContent = tel.phase;
-    timeEl.textContent = formatMissionTime(tel.t);
+    if (missionClockEl) {
+      missionClockEl.textContent = formatWebcastMissionTime(tel.t);
+    }
     updateNewsTicker(tel.t, tel.playing, tel.playbackSpeed);
     if (dateEl) dateEl.textContent = tel.dateUtc;
     distEl.textContent = formatDistance(tel.distanceToMoon);
@@ -1431,6 +1435,22 @@ function formatMissionTime(seconds: number): string {
   const m = Math.floor((s % 3600) / 60);
   if (d > 0) return `${d}d ${h}h ${String(m).padStart(2, "0")}m`;
   return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
+/**
+ * SpaceX webcast-style mission clock: T+HH:MM:SS (or T− for pre-liftoff).
+ * Hours grow past 24 for multi-day coasts (no day field).
+ */
+function formatWebcastMissionTime(seconds: number): string {
+  const neg = seconds < 0;
+  const s = Math.floor(Math.abs(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  // Match webcast badge: T+00:01:14 — hours always two digits when &lt; 100
+  const hh = h < 100 ? pad(h) : String(h);
+  return `${neg ? "T−" : "T+"}${hh}:${pad(m)}:${pad(sec)}`;
 }
 
 /** Metrics panel: include seconds. */

@@ -33,6 +33,15 @@
       <canvas id="c" hidden></canvas>
 
       <div id="hud" aria-label="Mission controls" hidden>
+        <div
+          id="mission-clock"
+          class="mission-clock hud-chrome"
+          role="timer"
+          aria-live="off"
+          aria-label="Mission elapsed time"
+        >
+          <span id="mission-clock-value">T+00:00:00</span>
+        </div>
         <header class="hud-header hud-chrome">
           <a class="hud-menu-link" href="#/missions" title="Back to Mission Menu">← Missions</a>
           <h1>Starbase → Moon</h1>
@@ -175,7 +184,6 @@
         >
           <div><span class="label">Phase</span> <span id="phase">—</span></div>
           <div><span class="label">Date</span> <span id="date">—</span></div>
-          <div><span class="label">Time</span> <span id="time">0h 00m</span></div>
           <div><span class="label">Range</span> <span id="distance">—</span></div>
           <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
           <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>

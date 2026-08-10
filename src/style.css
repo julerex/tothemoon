@@ -487,9 +487,39 @@ body.menus-active {
   pointer-events: none;
 }
 
+/* SpaceX-style mission clock (top-left) */
+.mission-clock {
+  position: absolute;
+  top: 0.85rem;
+  left: 1.1rem;
+  z-index: 8;
+  pointer-events: none;
+  padding: 0.4rem 0.9rem 0.42rem;
+  background: rgba(12, 16, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mission-clock #mission-clock-value {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.45rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  color: #f2f5f8;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
 .hud-header {
   pointer-events: none;
   max-width: 22rem;
+  /* Clear the mission clock badge above */
+  margin-top: 3.15rem;
 }
 
 .hud-menu-link {
@@ -1686,6 +1716,20 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 }
 
 @media (max-width: 640px) {
+  .mission-clock {
+    top: 0.65rem;
+    left: 0.75rem;
+    padding: 0.32rem 0.7rem;
+  }
+
+  .mission-clock #mission-clock-value {
+    font-size: 1.15rem;
+  }
+
+  .hud-header {
+    margin-top: 2.65rem;
+  }
+
   .telemetry {
     width: 9.75rem;
     max-width: 34vw;
