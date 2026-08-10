@@ -48,28 +48,29 @@
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
 
-        <div class="bottom-bar hud-chrome">
-          <div
-            id="news-ticker"
-            class="news-ticker"
-            role="status"
-            aria-live="polite"
-            aria-label="Mission news ticker"
-          >
-            <div class="news-ticker-viewport">
-              <div class="news-ticker-track" id="news-ticker-track">
-                <span class="news-ticker-text" id="news-ticker-text"
-                  >Awaiting mission clock…</span
-                >
-                <span
-                  class="news-ticker-text news-ticker-text-dup"
-                  id="news-ticker-text-dup"
-                  aria-hidden="true"
-                  >Awaiting mission clock…</span
-                >
-              </div>
+        <div
+          id="news-ticker"
+          class="news-ticker hud-chrome"
+          role="status"
+          aria-live="polite"
+          aria-label="Mission news ticker"
+        >
+          <div class="news-ticker-viewport">
+            <div class="news-ticker-track" id="news-ticker-track">
+              <span class="news-ticker-text" id="news-ticker-text"
+                >Awaiting mission clock…</span
+              >
+              <span
+                class="news-ticker-text news-ticker-text-dup"
+                id="news-ticker-text-dup"
+                aria-hidden="true"
+                >Awaiting mission clock…</span
+              >
             </div>
           </div>
+        </div>
+
+        <div class="bottom-bar hud-chrome">
           <section class="panel transport" aria-label="Playback">
             <label class="speed" title="Playback speed (, / . to nudge)">
               Speed
