@@ -354,10 +354,19 @@ function injectMidPhaseBeats(
  * Active news beat at mission time `t` (last beat with beat.t ≤ t).
  * Returns null only if the beat list is empty.
  */
+/** Pad hold copy during the T−2:00 pre-liftoff window. */
+export const PRELAUNCH_NEWS_BEAT: NewsBeat = {
+  t: -120,
+  id: "prelaunch",
+  wire: "PAD",
+  line: "T−2:00 and counting — Starship is vertical at Starbase, awaiting liftoff.",
+};
+
 export function newsAtMissionTime(
   beats: readonly NewsBeat[],
   t: number,
 ): NewsBeat | null {
+  if (t < 0) return PRELAUNCH_NEWS_BEAT;
   if (beats.length === 0) return null;
   if (t < beats[0]!.t) return beats[0]!;
   // Linear scan is fine for <200 beats; keep simple + testable

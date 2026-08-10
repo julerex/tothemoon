@@ -6,6 +6,7 @@ import { R_EARTH, R_MOON } from "../physics/constants";
 import {
   EARTH_SPIN_RATE,
   earthNorthPole,
+  starbasePadState,
 } from "../physics/earthFrame";
 import {
   clearMissionClockEpochUtc,
@@ -58,6 +59,12 @@ import {
   type LandingBeatKind,
 } from "../mission/landingBeat";
 import { buildTimeline } from "../mission/timeline";
+import {
+  physicsTToSampleU,
+  timelineWithPrelaunch,
+  transportDurationS,
+  transportUToPhysicsT,
+} from "../mission/prelaunch";
 import type { PhaseId } from "../physics/missionTypes";
 import { bindHud } from "../ui/hud";
 import { setTheaterVisible } from "../app/shell";
@@ -201,7 +208,12 @@ landingFx.setLanding(lastSample.pos, lastSample.t);
 scene.add(landingFx.group);
 
 const clock = new MissionClock();
-const timeline = buildTimeline(cache.samples, cache.durationS);
+const physicsDurationS = cache.durationS;
+const transportS = transportDurationS(physicsDurationS);
+const timeline = timelineWithPrelaunch(
+  buildTimeline(cache.samples, physicsDurationS),
+  physicsDurationS,
+);
 // Default real-time mission pace until the HUD binds the speed select
 clock.setSpeed(1);
 
@@ -414,11 +426,22 @@ function orientCraft(
 }
 
 function applyMissionState(u: number): void {
-  const frame = cache.sampleAtProgress(u);
-  craftPos.set(frame.pos.x, frame.pos.y, frame.pos.z);
-  craftVel.set(frame.vel.x, frame.vel.y, frame.vel.z);
+  const physicsT = transportUToPhysicsT(u, physicsDurationS);
+  const prelaunch = physicsT < 0;
+  const frame = cache.sampleAtProgress(
+    physicsTToSampleU(physicsT, physicsDurationS),
+  );
+  if (prelaunch) {
+    const pad = starbasePadState(physicsT);
+    craftPos.set(pad.pos.x, pad.pos.y, pad.pos.z);
+    craftVel.set(pad.vel.x, pad.vel.y, pad.vel.z);
+  } else {
+    craftPos.set(frame.pos.x, frame.pos.y, frame.pos.z);
+    craftVel.set(frame.vel.x, frame.vel.y, frame.vel.z);
+  }
 
-  const b = bodyPositions(frame.t);
+  const simT = prelaunch ? physicsT : frame.t;
+  const b = bodyPositions(simT);
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
@@ -445,6 +468,8 @@ function applyMissionState(u: number): void {
   }
 
   craft.position.copy(craftPos);
+  const showBurning = prelaunch ? false : frame.burning;
+  const showThrustN = prelaunch ? 0 : frame.thrustN;
   // Use surface-relative attitude through early cislunar; pure inertial beyond
   const attitudeNearEarth =
     nearEarthPhase ||
@@ -452,13 +477,13 @@ function applyMissionState(u: number): void {
   orientCraft(craftVel, _earthPos, _earthVel, attitudeNearEarth);
 
   updateCraftVisuals(craft, {
-    staged: frame.staged,
-    burning: frame.burning,
-    thrustN: frame.thrustN,
-    missionT: frame.t,
+    staged: prelaunch ? false : frame.staged,
+    burning: showBurning,
+    thrustN: showThrustN,
+    missionT: Math.max(0, physicsT),
     stageT,
-    altEarth: frame.altEarth,
-    phase: frame.phase,
+    altEarth: prelaunch ? 0.01 : frame.altEarth,
+    phase: prelaunch ? "launch" : frame.phase,
   });
   // Sun elevation at Starbase (for night floodlights / day fill)
   starbasePad.getWorldPosition(_padWorld);
@@ -473,19 +498,19 @@ function applyMissionState(u: number): void {
   const sunElev =
     (sunDx * padUpX + sunDy * padUpY + sunDz * padUpZ) / (sunLen * upLen);
   updateStarbaseLaunchFx(starbasePad, {
-    missionT: frame.t,
-    phase: frame.phase,
-    burning: frame.burning,
-    altEarth: frame.altEarth,
+    missionT: Math.max(0, physicsT),
+    phase: prelaunch ? "launch" : frame.phase,
+    burning: showBurning,
+    altEarth: prelaunch ? 0.01 : frame.altEarth,
     sunElev,
   });
-  stagingFx.update(frame.t, craftPos, craft.quaternion, camera);
-  landingFx.update(frame.t, craftPos, {
+  stagingFx.update(Math.max(0, physicsT), craftPos, craft.quaternion, camera);
+  landingFx.update(Math.max(0, physicsT), craftPos, {
     phase: frame.phase,
-    burning: frame.burning,
+    burning: showBurning,
     altMoon: frame.altMoon,
   });
-  updateBodies(frame.t, bodies);
+  updateBodies(simT, bodies);
   // Osculating Earth–Moon ring — always intersects the Moon at this epoch
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);
 
@@ -620,18 +645,18 @@ function applyMissionState(u: number): void {
       landingBeatCardReady((nowMs - landingBeat.holdStartMs) / 1000));
 
   hud.update({
-    phase: frame.phaseLabel,
-    phaseId: frame.phase,
-    t: frame.t,
-    durationS: cache.durationS,
+    phase: prelaunch ? "Countdown" : frame.phaseLabel,
+    phaseId: prelaunch ? "launch" : frame.phase,
+    t: physicsT,
+    durationS: transportS,
     distanceToMoon: Math.max(0, frame.distMoon - R_MOON),
-    altitude,
-    speed: frame.speed,
+    altitude: prelaunch ? 0.01 : altitude,
+    speed: prelaunch ? 0 : frame.speed,
     fuelBooster: frame.fuelBooster,
     fuelShip: frame.fuelShip,
-    thrustN: frame.thrustN,
+    thrustN: showThrustN,
     playing: clock.playing,
-    dateUtc: formatMissionDateUtc(frame.t, cache.horizonsLandingT),
+    dateUtc: formatMissionDateUtc(physicsT, cache.horizonsLandingT),
     playbackSpeed: clock.speed,
     missionComplete: showCompleteCard,
     completeKind: landingBeat.kind,
@@ -641,13 +666,13 @@ function applyMissionState(u: number): void {
     stageT: cache.stageT,
     keplerRefMaxDevKm: cache.keplerRefMaxDevKm,
     focusDistance: director.getFocusDistance(),
-    altEarth: frame.altEarth,
+    altEarth: prelaunch ? 0.01 : frame.altEarth,
     altMoon: frame.altMoon,
     distMoon: frame.distMoon,
-    speedEarth,
+    speedEarth: prelaunch ? 0 : speedEarth,
     speedMoon,
-    staged: frame.staged,
-    burning: frame.burning,
+    staged: prelaunch ? false : frame.staged,
+    burning: showBurning,
   });
 
   // Auto-pause at end after the landing-beat hold (card may then steal focus)
@@ -676,12 +701,13 @@ function frame(): void {
   resize();
 
   const dt = Math.min(wall.getDelta(), 0.05);
-  clock.tick(dt, cache.durationS);
+  clock.tick(dt, transportS);
   applyMissionState(clock.t);
 
   pulsePadBeacon(starbasePad, wall.elapsedTime);
   spinBodies(bodies, dt);
-  director.update(dt, cache.sampleAtProgress(clock.t).t, craftPos, craftVel);
+  const simT = transportUToPhysicsT(clock.t, physicsDurationS);
+  director.update(dt, Math.max(0, simT), craftPos, craftVel);
   updateZoomLabels(scene, camera);
 
   // Pad / low-altitude sky (fades out once the camera leaves the atmosphere)
