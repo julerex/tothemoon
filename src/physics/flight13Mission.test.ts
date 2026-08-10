@@ -63,4 +63,30 @@ describe("runFlight13Mission", () => {
     assert.ok(coast);
     assert.equal(coast!.burning, false);
   });
+
+  it("coasts at high altitude through mid-mission (not surface hover)", () => {
+    // At T+20 min the free coast should still be well above the atmosphere
+    const mid = result.samples.reduce((best, cur) =>
+      Math.abs(cur.t - 1200) < Math.abs(best.t - 1200) ? cur : best,
+    );
+    const a = altitudeEarth(mid.t, mid.pos);
+    assert.ok(a > 150, `mid-coast alt ${a} km — expected lofted suborbital`);
+  });
+
+  it("enters with remaining altitude near the public entry mark", () => {
+    const ent = result.samples.reduce((best, cur) =>
+      Math.abs(cur.t - F13.ENTRY) < Math.abs(best.t - F13.ENTRY) ? cur : best,
+    );
+    const a = altitudeEarth(ent.t, ent.pos);
+    assert.ok(a > 20, `entry alt ${a} km too low`);
+    assert.ok(a < 200, `entry alt ${a} km too high`);
+  });
+
+  it("fires a landing burn before splashdown", () => {
+    const land = result.samples.find(
+      (s) => s.phase === "descent" && s.burning && s.thrustN > 1e3,
+    );
+    assert.ok(land, "expected descent burn sample");
+    assert.ok(land!.t >= F13.LAND_BURN - 150, `land burn t=${land!.t}`);
+  });
 });

@@ -14,6 +14,12 @@ const SECONDARY_IDS = new Set([
   "boostback",
   "booster-catch",
   "dogleg",
+  "max-q",
+  "seco",
+  "relight",
+  "land-flip",
+  "land-3to2",
+  "land-2to1",
 ]);
 
 export type ScrubEventTick = {

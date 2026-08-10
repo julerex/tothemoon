@@ -241,7 +241,59 @@ function buildEvents(
     );
   }
 
-  // No midcourse trajectory corrections on the lunar-transfer-style ballistic coast (burns only at lunar orbit insertion/powered descent initiation).
+  // Flight-test beats when the pack includes atmospheric entry / splashdown
+  const hasFlightTest = samples.some(
+    (s) => s.phase === "entry" || s.phase === "splashdown",
+  );
+  if (hasFlightTest) {
+    add("max-q", 58, "Max Q", "Peak aerodynamic stress");
+    // SECO: last burning sample before coast
+    const seco = samples.find(
+      (s, i) =>
+        s.burning &&
+        s.staged &&
+        samples[i + 1] &&
+        !samples[i + 1]!.burning &&
+        (samples[i + 1]!.phase === "coast" || samples[i + 1]!.phase === "ascent"),
+    );
+    if (seco) {
+      add("seco", seco.t, "SECO", "Starship engine cutoff · suborbital coast");
+    }
+    // Relight: burning sample during coast
+    const relight = samples.find(
+      (s) => s.phase === "coast" && s.burning && s.thrustN > 1e3,
+    );
+    if (relight) {
+      add(
+        "relight",
+        relight.t,
+        "Raptor relight",
+        "In-space single-engine demo",
+      );
+    }
+    // Landing flip / engine step-down near descent start
+    const descent = segments.find((s) => s.phase === "descent");
+    if (descent) {
+      add(
+        "land-flip",
+        descent.t0 + 2,
+        "Landing flip",
+        "Belly → engines-first",
+      );
+      add(
+        "land-3to2",
+        descent.t0 + 11,
+        "3 → 2 engines",
+        "Landing burn throttle-down",
+      );
+      add(
+        "land-2to1",
+        descent.t0 + 18,
+        "2 → 1 engine",
+        "Single-engine landing",
+      );
+    }
+  }
 
   // Stable order by time, then id (dedupe same t)
   events.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));

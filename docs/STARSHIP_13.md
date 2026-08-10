@@ -93,6 +93,14 @@ Full interactive theater (same class as Starbase → Moon): baked RK4 pack
 Phases: launch → ascent → coast → entry → descent → splashdown. Rebuild with
 `npm run precompute:flight13`.
 
+**Ship path (theater-grade):** near-circular upper-stage insert along the
+Starbase → Indian Ocean corridor, free ballistic coast, high-AoA belly-flop
+drag/lift during entry, approach glide toward the splash fix, then landing
+burn (3→2→1 engines) with a short soft settle. Not ops ephemerides.
+
+**Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian
+Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery.
+
 **Booster recovery:** kinematic **Gulf of America** offshore soft-land path
 (`recovery: "gulf"`) — boostback ~T+2:25–3:03 and landing burn ~T+6:27–6:53
 after stage-out, targeting ~25.55°N 96.15°W (theater, not a surveyed buoy).

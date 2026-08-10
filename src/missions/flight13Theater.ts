@@ -34,11 +34,17 @@ import {
 import { updateFatLineResolutions } from "../scene/fatLines";
 import { createTrailFromPoints } from "../scene/trail";
 import { StagingFx, findStageEvent } from "../scene/stagingFx";
-import { LandingFx } from "../scene/landingFx";
+import { EntryFx } from "../scene/entryFx";
+import { SplashFx } from "../scene/splashFx";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
 } from "../physics/flight13Mission";
+import {
+  landingEngineCount,
+  landingFlipBlend,
+  shipAttitudeMode,
+} from "../physics/flight13Attitude";
 import {
   geodeticToMeshLocal,
   meshLocalToInertial,
@@ -197,11 +203,14 @@ scene.add(stagingFx.group);
 // Grid-fin cam follows the free-flyer after stage-out
 director.setDetachedBooster(stagingFx.detachedBooster);
 
-// Splashdown site marker (Indian Ocean) + dust-style FX at terminal sample
-const landingFx = new LandingFx();
+// Indian Ocean splash site (Earth-fixed) + entry plasma on the craft
+const splashFx = new SplashFx();
 const lastSample = cache.samples[cache.samples.length - 1]!;
-landingFx.setLanding(lastSample.pos, lastSample.t);
-scene.add(landingFx.group);
+splashFx.setSplashTime(lastSample.t);
+bodies.earth.add(splashFx.group);
+
+const entryFx = new EntryFx();
+craft.add(entryFx.group);
 
 // Scratch for splash-site range (mesh-local → inertial)
 const _splashMesh = { x: 0, y: 0, z: 0 };
@@ -368,6 +377,11 @@ canvas.addEventListener("pointerleave", () => {
   vectorArrows.setPointer(null, camera, canvas);
 });
 
+/** Scratch for belly / engines-first basis. */
+const _nose = new THREE.Vector3();
+const _belly = new THREE.Vector3();
+const _side = new THREE.Vector3();
+
 /**
  * Point craft local +Z (nose) along `heading`, with engines (−Z) aft.
  * Matrix4.lookAt is camera-convention; swap eye/target like Object3D.lookAt.
@@ -387,16 +401,42 @@ function applyCraftHeading(heading: THREE.Vector3): void {
 }
 
 /**
+ * Set craft basis from nose (+Z) and belly (+Y) world directions.
+ * Mesh: +Z nose, +Y windward tiles, −Z engines.
+ */
+function applyCraftBasis(nose: THREE.Vector3, belly: THREE.Vector3): void {
+  _nose.copy(nose).normalize();
+  _belly.copy(belly).normalize();
+  // x = y × z
+  _side.crossVectors(_belly, _nose);
+  if (_side.lengthSq() < 1e-12) {
+    applyCraftHeading(_nose);
+    return;
+  }
+  _side.normalize();
+  // Re-orthogonalize belly = z × x
+  _belly.crossVectors(_nose, _side).normalize();
+  _look.makeBasis(_side, _belly, _nose);
+  _quat.setFromRotationMatrix(_look);
+  craft.quaternion.copy(_quat);
+}
+
+/**
  * Attitude for the stack:
- * - Pad / tower: local radial up (inertial vel is Earth spin → would lay horizontal)
- * - Near-Earth flight: surface-relative velocity (climb + gravity turn)
- * - Deep space: inertial velocity
+ * - Pad / tower: local radial up
+ * - Ascent / coast: air-relative prograde
+ * - Entry: belly-flop (heat shield +Y into wind)
+ * - Landing burn: engines-first after flip blend
  */
 function orientCraft(
   vel: THREE.Vector3,
   earthPos: THREE.Vector3,
   earthVel: THREE.Vector3,
   nearEarth: boolean,
+  missionT: number,
+  phase: PhaseId,
+  burning: boolean,
+  altEarth: number,
 ): void {
   _localUp.set(
     craftPos.x - earthPos.x,
@@ -410,10 +450,54 @@ function orientCraft(
     _localUp.set(0, 1, 0);
   }
 
+  // v_air = v − v_earth − ω × r  (ground-relative)
+  _spinVel.crossVectors(_omega, _localUp).multiplyScalar(r);
+  _airVel.copy(vel).sub(earthVel).sub(_spinVel);
+
+  const mode = shipAttitudeMode(missionT, phase, altEarth, burning);
+
+  if (mode === "radial_up") {
+    applyCraftHeading(_localUp);
+    return;
+  }
+
+  if (
+    _airVel.lengthSq() < AIR_VEL_ATTITUDE_MIN * AIR_VEL_ATTITUDE_MIN &&
+    mode === "prograde"
+  ) {
+    applyCraftHeading(_localUp);
+    return;
+  }
+
+  if (mode === "belly" || mode === "engines_first") {
+    const speed = _airVel.length();
+    if (speed < 1e-6) {
+      applyCraftHeading(_localUp);
+      return;
+    }
+    const flip = landingFlipBlend(missionT);
+    // Belly pose: +Y (tiles) into air-relative velocity
+    _belly.copy(_airVel).multiplyScalar(1 / speed);
+    _nose.crossVectors(_localUp, _belly);
+    if (_nose.lengthSq() < 1e-10) {
+      _nose.set(0, 1, 0).cross(_belly);
+    }
+    _nose.normalize().addScaledVector(_localUp, 0.15).normalize();
+
+    if (mode === "engines_first" || flip > 0.01) {
+      // Engines-first: nose anti-velocity, belly roughly radial
+      _side.copy(_airVel).multiplyScalar(-1 / speed); // target nose
+      // blend nose/belly from belly-flop → engines-first
+      const u = mode === "engines_first" ? Math.max(flip, 0.01) : flip;
+      _nose.lerp(_side, u).normalize();
+      _belly.lerp(_localUp, u).normalize();
+    }
+    applyCraftBasis(_nose, _belly);
+    return;
+  }
+
+  // Prograde
   if (nearEarth) {
-    // v_air = v − v_earth − ω × r  (ground-relative)
-    _spinVel.crossVectors(_omega, _localUp).multiplyScalar(r);
-    _airVel.copy(vel).sub(earthVel).sub(_spinVel);
     if (_airVel.lengthSq() < AIR_VEL_ATTITUDE_MIN * AIR_VEL_ATTITUDE_MIN) {
       applyCraftHeading(_localUp);
       return;
@@ -435,12 +519,16 @@ function applyMissionState(u: number): void {
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
-  // Never draw the craft under Earth's surface (ascent / low Earth orbit numerical dips)
+  // Never draw the craft under Earth's surface
   const nearEarthPhase =
     frame.phase === "launch" ||
     frame.phase === "ascent" ||
     frame.phase === "lowEarthOrbit" ||
-    frame.phase === "translunarInjection";
+    frame.phase === "translunarInjection" ||
+    frame.phase === "coast" ||
+    frame.phase === "entry" ||
+    frame.phase === "descent" ||
+    frame.phase === "splashdown";
   if (nearEarthPhase) {
     const dx = craftPos.x - b.earth.x;
     const dy = craftPos.y - b.earth.y;
@@ -458,12 +546,26 @@ function applyMissionState(u: number): void {
   }
 
   craft.position.copy(craftPos);
-  // Use surface-relative attitude through early cislunar; pure inertial beyond
+  // Flight 13 is always Earth-local for attitude
   const attitudeNearEarth =
     nearEarthPhase ||
+    frame.phase === "coast" ||
+    frame.phase === "entry" ||
+    frame.phase === "descent" ||
+    frame.phase === "splashdown" ||
     (Number.isFinite(frame.altEarth) && frame.altEarth < 50_000);
-  orientCraft(craftVel, _earthPos, _earthVel, attitudeNearEarth);
+  orientCraft(
+    craftVel,
+    _earthPos,
+    _earthVel,
+    attitudeNearEarth,
+    frame.t,
+    frame.phase,
+    frame.burning,
+    frame.altEarth,
+  );
 
+  const engCount = landingEngineCount(frame.t);
   updateCraftVisuals(craft, {
     staged: frame.staged,
     burning: frame.burning,
@@ -472,6 +574,7 @@ function applyMissionState(u: number): void {
     stageT,
     altEarth: frame.altEarth,
     phase: frame.phase,
+    shipEngineCount: engCount > 0 ? engCount : undefined,
   });
   // Sun elevation at Starbase (for night floodlights / day fill)
   starbasePad.getWorldPosition(_padWorld);
@@ -493,11 +596,17 @@ function applyMissionState(u: number): void {
     sunElev,
   });
   stagingFx.update(frame.t, craftPos, craft.quaternion, camera);
-  landingFx.update(frame.t, craftPos, {
+  splashFx.update(frame.t, craftPos, {
     phase: frame.phase,
-    burning: frame.burning,
-    altMoon: frame.altMoon,
+    altEarth: frame.altEarth,
   });
+  // Surface-relative speed for plasma
+  const speedAir = Math.hypot(
+    craftVel.x - b.earthVel.x,
+    craftVel.y - b.earthVel.y,
+    craftVel.z - b.earthVel.z,
+  );
+  entryFx.update(frame.t, frame.phase, frame.altEarth, speedAir);
   updateBodies(frame.t, bodies);
   // Osculating Earth–Moon ring — always intersects the Moon at this epoch
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);

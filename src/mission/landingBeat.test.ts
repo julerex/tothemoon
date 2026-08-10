@@ -54,4 +54,11 @@ describe("landingBeatCompleteSubtitle", () => {
     assert.match(landingBeatCompleteSubtitle("impact"), /impact/i);
     assert.match(landingBeatCompleteSubtitle("flyby"), /flyby/i);
   });
+
+  it("names Indian Ocean splashdown for Flight 13", () => {
+    assert.match(
+      landingBeatCompleteSubtitle("landed", { splashdown: true }),
+      /Indian Ocean/i,
+    );
+  });
 });

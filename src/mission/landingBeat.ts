@@ -68,7 +68,11 @@ export function landingBeatCardReady(
 /** Subtitle copy for the mission-complete card. */
 export function landingBeatCompleteSubtitle(
   kind: LandingBeatKind | null | undefined,
+  opts?: { splashdown?: boolean },
 ): string {
+  if (opts?.splashdown) {
+    return "Starbase → Indian Ocean splashdown · Flight 13";
+  }
   switch (kind) {
     case "landed":
       return `Starbase → ${LANDING_SITE_LABEL} · July 2027`;

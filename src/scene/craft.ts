@@ -775,6 +775,11 @@ export type CraftVisualState = {
   /** Altitude above Earth (km) — maximum dynamic pressure condensation envelope */
   altEarth?: number;
   phase?: string;
+  /**
+   * Active ship landing engines (1–3) for Flight 13 3→2→1 step-down.
+   * Undefined / 0 → full ship plume when burning.
+   */
+  shipEngineCount?: number;
 };
 
 /** Reference thrust (N) for plume size normalization. */
@@ -904,8 +909,13 @@ export function updateCraftVisuals(
       // Mesh stack frame: booster engines at 0, ship engines at BOOST_H
       exhaustLight.position.set(0, 0, -0.05 + mix * BOOST_H * 0.5);
     } else if (showShip || hotPre > 0) {
+      const engN =
+        state.shipEngineCount != null && state.shipEngineCount > 0
+          ? state.shipEngineCount
+          : 3;
+      const engFrac = Math.max(0.25, engN / 3);
       const u = state.staged
-        ? Math.min(1, state.thrustN / SHIP_THRUST_REF)
+        ? Math.min(1, state.thrustN / SHIP_THRUST_REF) * engFrac
         : 0.35 + 0.55 * hotPre;
       exhaustLight.intensity = (0.6 + 1.4 * u) * flicker;
       exhaustLight.color.setHex(0x88ccff);
@@ -914,6 +924,35 @@ export function updateCraftVisuals(
       exhaustLight.position.set(0, 0, state.staged ? -0.02 : BOOST_H - 0.02);
     } else {
       exhaustLight.intensity = 0;
+    }
+  }
+
+  // Dim inactive ship SL bells during 3→2→1 landing step-down
+  const shipBells = group.getObjectByName("ship-engines");
+  if (shipBells && state.staged) {
+    const n =
+      state.shipEngineCount != null && state.shipEngineCount > 0
+        ? state.shipEngineCount
+        : 3;
+    // First 3 children are SL triad (see createCraft); vac bells follow
+    for (let i = 0; i < Math.min(3, shipBells.children.length); i++) {
+      const child = shipBells.children[i]!;
+      const active = !state.burning || i < n;
+      child.visible = true;
+      child.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          const mats = Array.isArray(obj.material)
+            ? obj.material
+            : [obj.material];
+          for (const m of mats) {
+            if (m && "opacity" in m) {
+              const mat = m as THREE.Material & { opacity: number };
+              mat.transparent = true;
+              mat.opacity = active ? 1 : 0.22;
+            }
+          }
+        }
+      });
     }
   }
 

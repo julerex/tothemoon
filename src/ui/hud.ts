@@ -1026,7 +1026,9 @@ export function bindHud(
         if (!completeShown) {
           completeShown = true;
           if (mcSub) {
-            mcSub.textContent = landingBeatCompleteSubtitle(tel.completeKind);
+            mcSub.textContent = landingBeatCompleteSubtitle(tel.completeKind, {
+              splashdown: tel.phaseId === "splashdown",
+            });
           }
           if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
           if (mcTranslunarInjectionDeltaV) {
