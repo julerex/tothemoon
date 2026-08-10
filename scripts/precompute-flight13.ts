@@ -6,6 +6,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyFlight13Epoch } from "../src/physics/flight13Epoch.ts";
 import { runFlight13Mission } from "../src/physics/flight13Mission.ts";
 import type { Sample } from "../src/physics/missionTypes.ts";
 import { TRAJECTORY_PACK_VERSION } from "../src/physics/trajectoryMeta.ts";
@@ -59,6 +60,8 @@ const outPath = resolve(root, "src/data/flight13-trajectory.json");
 
 console.info("[precompute-flight13] Integrating Flight 13…");
 const t0 = performance.now();
+// Daytime Starbase launch epoch (must match runtime flight13Theater)
+applyFlight13Epoch(0, 0);
 const result = runFlight13Mission();
 const packed = pack(result);
 mkdirSync(dirname(outPath), { recursive: true });

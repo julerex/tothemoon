@@ -8,6 +8,7 @@ import {
   earthNorthPole,
 } from "../physics/earthFrame";
 import {
+  clearMissionClockEpochUtc,
   daysPastFullAtLanding,
   formatMissionDateUtc,
   sunPhase0ForLanding,
@@ -15,6 +16,7 @@ import {
 import {
   hasHorizonsEpoch,
   horizonsSource,
+  setHorizonsEnabled,
   setMissionLandingT,
 } from "../physics/horizonsEpoch";
 import {
@@ -80,6 +82,9 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing trajectory…";
 }
+// Restore lunar epoch if returning from Flight 13 (liftoff clock / Horizons off)
+clearMissionClockEpochUtc();
+setHorizonsEnabled(true);
 const cache = recompute
   ? TrajectoryCache.compute()
   : TrajectoryCache.loadPrecomputed();

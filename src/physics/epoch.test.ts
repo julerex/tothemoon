@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  clearMissionClockEpochUtc,
   daysPastFullAtLanding,
+  FLIGHT13_LIFTOFF_UTC_MS,
   formatMissionDateUtc,
   FULL_MOON_UTC_MS,
   greenwichMeanSiderealTimeRad,
   LANDING_UTC_MS,
   missionUtcMs,
   moonElongationPastFullRad,
+  setMissionClockEpochUtc,
   sunEclipticLongitudeAtLanding,
+  sunPhase0ForFlight13Liftoff,
+  sunPhase0ForUtc,
 } from "./epoch.ts";
 
 describe("epoch · July 2027 theater", () => {
@@ -60,5 +65,35 @@ describe("epoch · July 2027 theater", () => {
     const d = wrap(b - a);
     const circ = Math.min(d, 2 * Math.PI - d);
     assert.ok(circ < 2e-3, `residual ${circ}`);
+  });
+});
+
+describe("epoch · Flight 13 daytime launch", () => {
+  it("liftoff is 2026-07-23 22:45 UTC (5:45 p.m. CDT)", () => {
+    assert.equal(
+      new Date(FLIGHT13_LIFTOFF_UTC_MS).toISOString(),
+      "2026-07-23T22:45:00.000Z",
+    );
+  });
+
+  it("missionUtcMs follows liftoff clock when epoch is pinned", () => {
+    setMissionClockEpochUtc(FLIGHT13_LIFTOFF_UTC_MS);
+    try {
+      assert.equal(missionUtcMs(0, 999), FLIGHT13_LIFTOFF_UTC_MS);
+      assert.equal(
+        missionUtcMs(60, 999),
+        FLIGHT13_LIFTOFF_UTC_MS + 60_000,
+      );
+      assert.match(formatMissionDateUtc(0, 0), /^2026-07-23 22:45 UTC$/);
+    } finally {
+      clearMissionClockEpochUtc();
+    }
+  });
+
+  it("sunPhase0ForFlight13Liftoff is finite and matches Utc helper", () => {
+    const a = sunPhase0ForFlight13Liftoff();
+    const b = sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
+    assert.ok(Number.isFinite(a));
+    assert.equal(a, b);
   });
 });

@@ -100,6 +100,10 @@ altitude-hold glide); single-engine **relight as a real retrograde deorbit**
 splash; landing burn only after aero has bled speed; splash when dynamics
 arrive (may finish before the public T+65:21 mark). Not ops ephemerides.
 
+**Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window
+open, 5:45 p.m. CDT) so Starbase is in **daytime**. Analytic Earth/Sun (not
+the July 2027 Horizons lunar table). See `applyFlight13Epoch`.
+
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian
 Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery.
 

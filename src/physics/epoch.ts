@@ -1,24 +1,48 @@
 /**
- * Mission calendar epoch — July 2027 theater.
+ * Mission calendar epochs.
  *
- * Landing is fixed at 2027-07-20 12:00 UTC. Relative Sun–Earth–Moon geometry
- * is tuned to that date:
+ * **Lunar theater:** landing fixed at 2027-07-20 12:00 UTC. Relative
+ * Sun–Earth–Moon geometry is tuned to that date (waning gibbous Moon).
+ * Preferred runtime ephemeris: JPL Horizons DE441 in `horizons-epoch.json`.
  *
- * - Full Moon / penumbral lunar eclipse greatest: 2027-07-18 16:02:53 UTC
- *   (NASA/Wikipedia LE2027Jul18N).
- * - On landing day the Moon is a waning gibbous ~1.83 d past full
- *   (≈97% illuminated; TheSkyLive ~96.9% on 2027-07-20).
- * - Apparent solar ecliptic longitude ≈ 117.6° (USNO low-precision formula).
- *
- * Preferred runtime ephemeris: JPL Horizons DE441 samples in
- * `horizons-epoch.json`. Analytic sunPhase0 / Kepler Moon is the fallback.
+ * **Flight 13:** liftoff at the public window open (theater) — 2026-07-23
+ * 22:45 UTC = 5:45 p.m. CDT — so Starbase is in daytime. Uses analytic
+ * Earth/Sun (Horizons table is the July 2027 lunar window only).
  */
 
 import { N_EARTH_SUN } from "./constants";
 import { moonEclipticLongitude } from "./bodies";
 
-/** Touchdown epoch (UTC). */
+/** Touchdown epoch (UTC) — lunar mission Horizons τ = 0. */
 export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
+
+/**
+ * Flight 13 theater liftoff (UTC).
+ * Public window: 5:45 p.m. CT (CDT = UTC−5 in July) → 22:45 UTC, 2026-07-23.
+ * See docs/STARSHIP_13.md.
+ */
+export const FLIGHT13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 23, 22, 45, 0);
+
+/**
+ * When set, {@link missionUtcMs} maps mission t=0 to this UTC (ms) and
+ * advances with mission time. Used by Flight 13 so pad lighting / GMST match
+ * the launch window. Null → lunar landing-relative mapping.
+ */
+let clockEpochUtcMs: number | null = null;
+
+/** Pin mission clock t = 0 to an absolute UTC (Flight 13 launch). */
+export function setMissionClockEpochUtc(utcMsAtT0: number): void {
+  clockEpochUtcMs = utcMsAtT0;
+}
+
+/** Restore landing-relative mission clock (lunar theater default). */
+export function clearMissionClockEpochUtc(): void {
+  clockEpochUtcMs = null;
+}
+
+export function getMissionClockEpochUtc(): number | null {
+  return clockEpochUtcMs;
+}
 
 /**
  * Full-Moon reference: penumbral eclipse greatest eclipse
@@ -43,17 +67,21 @@ export function moonElongationPastFullRad(): number {
 }
 
 /**
- * Approximate geocentric solar ecliptic longitude (rad) at landing,
+ * Approximate geocentric solar ecliptic longitude (rad) at a UTC instant,
  * USNO low-precision algorithm (good to ~1′).
  */
-export function sunEclipticLongitudeAtLanding(): number {
-  // JD for 2027-07-20 12:00 UTC
-  const jd = 2_461_607.0;
+export function sunEclipticLongitudeAtUtc(utcMs: number): number {
+  const jd = utcMs / 86_400_000 + 2_440_587.5;
   const d = jd - 2_451_545.0;
   const g = ((357.529 + 0.985_600_28 * d) * Math.PI) / 180;
   const q = 280.459 + 0.985_647_36 * d;
   const L = q + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g);
   return (((L % 360) + 360) % 360) * (Math.PI / 180);
+}
+
+/** Solar ecliptic longitude at the lunar landing epoch. */
+export function sunEclipticLongitudeAtLanding(): number {
+  return sunEclipticLongitudeAtUtc(LANDING_UTC_MS);
 }
 
 /**
@@ -80,15 +108,34 @@ export function sunPhase0ForLanding(
 /**
  * Absolute UTC (ms) for a mission clock time.
  *
- * Horizons τ = 0 is fixed at {@link LANDING_UTC_MS}. Mission time maps as
- * `τ = missionT − landingMissionT`, so pass the packed `horizonsLandingT`
- * (not necessarily mission duration — flyby coasts can continue past τ = 0).
+ * - If {@link setMissionClockEpochUtc} is active (Flight 13):  
+ *   `utc = epochUtc + missionT · 1000`
+ * - Else (lunar): Horizons τ = 0 at {@link LANDING_UTC_MS};  
+ *   `utc = LANDING_UTC + (missionT − landingMissionT) · 1000`
  */
 export function missionUtcMs(
   missionT: number,
   landingMissionT: number,
 ): number {
+  if (clockEpochUtcMs != null) {
+    return clockEpochUtcMs + missionT * 1000;
+  }
   return LANDING_UTC_MS + (missionT - landingMissionT) * 1000;
+}
+
+/**
+ * Analytic `sunPhase0` so Earth–Sun season matches `utcMs` at mission t = 0.
+ *
+ * Heliocentric Earth angle θ_e; geocentric solar longitude ≈ θ_e + π,
+ * so sunPhase0 = L_sun − π.
+ */
+export function sunPhase0ForUtc(utcMs: number): number {
+  return sunEclipticLongitudeAtUtc(utcMs) - Math.PI;
+}
+
+/** Flight 13: sunPhase0 for daytime Starbase launch (public window open). */
+export function sunPhase0ForFlight13Liftoff(): number {
+  return sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
 }
 
 /** Compact UTC label for the HUD, e.g. "2027-07-20 11:42 UTC". */

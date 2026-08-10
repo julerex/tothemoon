@@ -1,21 +1,15 @@
 import * as THREE from "three";
 import { MissionClock } from "../mission/clock";
 import { TrajectoryCache } from "../physics/trajectoryCache";
-import { bodyPositions, setMoonPhase0, setSunPhase0 } from "../physics/bodies";
+import { bodyPositions } from "../physics/bodies";
 import { R_EARTH, R_MOON } from "../physics/constants";
 import {
   EARTH_SPIN_RATE,
   earthNorthPole,
 } from "../physics/earthFrame";
-import {
-  formatMissionDateUtc,
-  sunPhase0ForLanding,
-} from "../physics/epoch";
-import {
-  hasHorizonsEpoch,
-  horizonsSource,
-  setMissionLandingT,
-} from "../physics/horizonsEpoch";
+import { formatMissionDateUtc } from "../physics/epoch";
+import { applyFlight13Epoch } from "../physics/flight13Epoch";
+import { hasHorizonsEpoch, horizonsSource } from "../physics/horizonsEpoch";
 import {
   createMoonPathThroughSim,
   createMoonRelativeOrbit,
@@ -108,19 +102,18 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing Flight 13…";
 }
+// Epoch first so runtime recompute + pad/sun use daytime launch lighting
+const { sunPhase0: sun0 } = applyFlight13Epoch(0, 0);
 const cache = recompute
   ? TrajectoryCache.computeFlight13()
   : TrajectoryCache.loadFlight13();
-setMoonPhase0(cache.moonPhase0);
-setMissionLandingT(cache.horizonsLandingT);
-const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
-setSunPhase0(sun0);
+// Re-apply after load (cache may not touch epoch; keep splash mission-T bookkeeping)
+applyFlight13Epoch(cache.moonPhase0, cache.horizonsLandingT);
 console.info(
   `[flight13] Launch theater · duration ${(cache.durationS / 60).toFixed(1)} min · ` +
     `stageT=${cache.stageT?.toFixed(0) ?? "—"}s · peak |v|=${cache.peakSpeedKmS.toFixed(2)} km/s · ` +
-    (hasHorizonsEpoch()
-      ? `ephemeris=${horizonsSource()}`
-      : `analytic epoch · sunPhase0=${sun0.toFixed(4)}`),
+    `daytime launch epoch · sunPhase0=${sun0.toFixed(4)}` +
+    (hasHorizonsEpoch() ? ` · ephemeris=${horizonsSource()}` : " · analytic Earth/Sun"),
 );
 
 const renderer = new THREE.WebGLRenderer({

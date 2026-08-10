@@ -34,12 +34,27 @@ const samples = pack.samples;
 /** Mission time (s) at which landing occurs — used to map t → Horizons τ. */
 let missionLandingT = 0;
 
+/**
+ * When false, {@link hasHorizonsEpoch} reports no table so callers use analytic
+ * bodies. Flight 13 uses this (Horizons pack is the July 2027 lunar window).
+ */
+let horizonsEnabled = true;
+
 export function setMissionLandingT(tLanding: number): void {
   missionLandingT = tLanding;
 }
 
 export function getMissionLandingT(): number {
   return missionLandingT;
+}
+
+/** Enable/disable the Horizons sample table at runtime. */
+export function setHorizonsEnabled(on: boolean): void {
+  horizonsEnabled = on;
+}
+
+export function isHorizonsEnabled(): boolean {
+  return horizonsEnabled;
 }
 
 export function horizonsSource(): string {
@@ -51,7 +66,7 @@ export function horizonsLandingUtc(): string {
 }
 
 export function hasHorizonsEpoch(): boolean {
-  return samples.length >= 2;
+  return horizonsEnabled && samples.length >= 2;
 }
 
 function lerp6(
