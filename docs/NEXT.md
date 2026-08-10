@@ -90,9 +90,13 @@ Preset jumps (buttons + **Shift+1…**): **Pad**, **Staging**, **Translunar inje
 - Widen framing when `craftLengthKm` is tiny at high speed multipliers.
 - Optional look-ahead along the trail for coast.
 
-### 7. Narration strip (optional)
+### 7. Narration strip / news ticker — **done** (mission-time LIVE crawl)
 
-A single-line subtitle under the callout for longer beats (“Parking orbit, lunar plane · coast ~1.25 revs”) driven by the same event table as `timeline.ts`. Keep copy short; avoid wall-of-text.
+Scrolling **LIVE** news ticker above the transport bar. Beats from
+`buildNewsBeats(timeline)` (`src/mission/newsTicker.ts`); active line is
+`newsAtMissionTime` at the mission clock (scrub-safe). Wire tags + expanded
+copy for lunar and Flight 13; mid-phase ambient on long coasts. Marquee
+pauses when playback is paused; `prefers-reduced-motion` shows a static line.
 
 ---
 
@@ -243,3 +247,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-08 | Flight 13 full theater: RK4 pack, staging, coast, entry, splashdown |
 | 2026-08-10 | Flight 13 entry/landing realism: lofted ballistic arc, belly-flop aero, plasma, ocean splash, 3→2→1, attitude flip |
 | 2026-08-10 | Flight 13 physics honesty: remove approach glide, SECO circularize, relight deorbit, entry bank, natural early splash |
+| 2026-08-10 | Mission-time LIVE news ticker (scrub-safe beats from timeline; lunar + Flight 13 copy) |

@@ -10,6 +10,11 @@ import {
   type LandingBeatKind,
 } from "../mission/landingBeat";
 import { buildScrubEventTicks } from "../mission/scrubEvents";
+import {
+  buildNewsBeats,
+  formatTickerCrawl,
+  newsAtMissionTime,
+} from "../mission/newsTicker";
 import type {
   MissionEvent,
   MissionTimeline,
@@ -168,6 +173,15 @@ export function bindHud(
   const bookmarksEl = document.querySelector<HTMLElement>("#bookmarks");
   const phaseEl = el<HTMLElement>("#phase");
   const timeEl = el<HTMLElement>("#time");
+  const newsTickerEl = document.querySelector<HTMLElement>("#news-ticker");
+  const newsWireEl = document.querySelector<HTMLElement>("#news-ticker-wire");
+  const newsTextEl = document.querySelector<HTMLElement>("#news-ticker-text");
+  const newsTextDupEl = document.querySelector<HTMLElement>(
+    "#news-ticker-text-dup",
+  );
+  const newsTrackEl = document.querySelector<HTMLElement>("#news-ticker-track");
+  const newsBeats = buildNewsBeats(timeline);
+  let lastNewsId: string | null = null;
   const dateEl = document.querySelector<HTMLElement>("#date");
   const distEl = el<HTMLElement>("#distance");
   const progEl = el<HTMLElement>("#progress");
@@ -997,10 +1011,40 @@ export function bindHud(
     }
   }
 
+  function updateNewsTicker(missionT: number, playing: boolean): void {
+    if (!newsTickerEl || !newsTextEl) return;
+    const beat = newsAtMissionTime(newsBeats, missionT);
+    if (!beat) {
+      newsTickerEl.hidden = true;
+      return;
+    }
+    newsTickerEl.hidden = false;
+    if (newsWireEl) newsWireEl.textContent = beat.wire;
+    // Crawl: current + short trail so the marquee stays dense
+    const crawl = formatTickerCrawl(newsBeats, missionT, 2);
+    const line = crawl || beat.line;
+    if (beat.id !== lastNewsId || newsTextEl.textContent !== line) {
+      lastNewsId = beat.id;
+      newsTextEl.textContent = line;
+      if (newsTextDupEl) newsTextDupEl.textContent = line;
+      // Restart marquee so a new headline starts from the left edge
+      if (newsTrackEl) {
+        newsTrackEl.style.animation = "none";
+        void newsTrackEl.offsetWidth;
+        newsTrackEl.style.animation = "";
+      }
+    }
+    // Pause crawl when playback is stopped (still show current line)
+    if (newsTrackEl) {
+      newsTrackEl.classList.toggle("news-ticker-pause", !playing);
+    }
+  }
+
   function update(tel: Telemetry): void {
     const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
     phaseEl.textContent = tel.phase;
     timeEl.textContent = formatMissionTime(tel.t);
+    updateNewsTicker(tel.t, tel.playing);
     if (dateEl) dateEl.textContent = tel.dateUtc;
     distEl.textContent = formatDistance(tel.distanceToMoon);
     progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
