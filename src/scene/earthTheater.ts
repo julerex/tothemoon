@@ -19,8 +19,9 @@ import { createFatLine } from "./fatLines";
  * Pad is parented under the spinning Earth mesh so it co-rotates correctly.
  *
  * Dual scale:
- *  - True-scale OLM + Mechazilla + concrete apron / GSE / wetlands for Ship cam
- *    (stack is 9 m / ~123 m; apron ~200 m; marsh out to ~1–2 km)
+ *  - True-scale OLM + Mechazilla + OLP-2 hardstand / tank farm / GSE for Ship cam
+ *    (layout loosely follows the public satellite footprint: tower SW, tanks E/NE,
+ *    warehouse + Boca Chica Blvd north, tan coastal scrub outside the concrete)
  *  - Large thin annular landmark for Earth cam (never a solid disc through the rocket)
  *
  * Pad origin matches craft engines at t≈0 (R_EARTH + pad altitude). Local +Y = up.
@@ -43,37 +44,37 @@ export function createStarbasePad(): THREE.Group {
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
 
-  // Ground plane, wetlands, lagoons, roads, tank farm (true-scale + mid-field)
+  // Satellite-style hardstand, tank farm, road, scrub (true-scale + mid-field)
   pad.add(createPadSurroundings());
 
-  // --- Earth-cam landmark: marsh annulus + concrete inner (hole for stack) ---
+  // --- Earth-cam landmark: tan scrub + concrete industrial core ---
   const groundOffset = {
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   } as const;
-  // Outer wetland band (reads green from LEO)
-  const landmarkMarsh = new THREE.Mesh(
-    new THREE.RingGeometry(0.35, 2.7, 64, 1),
+  // Outer Boca Chica scrub (tan / olive, not marsh green)
+  const landmarkScrub = new THREE.Mesh(
+    new THREE.RingGeometry(0.4, 2.7, 64, 1),
     new THREE.MeshStandardMaterial({
-      color: 0x3d5a3a,
-      metalness: 0.08,
-      roughness: 0.95,
+      color: 0x8a7a5c,
+      metalness: 0.05,
+      roughness: 0.97,
       ...groundOffset,
     }),
   );
-  landmarkMarsh.rotation.x = -Math.PI / 2;
-  landmarkMarsh.position.y = -0.01;
-  landmarkMarsh.name = "pad-landmark-marsh";
-  pad.add(landmarkMarsh);
+  landmarkScrub.rotation.x = -Math.PI / 2;
+  landmarkScrub.position.y = -0.01;
+  landmarkScrub.name = "pad-landmark-scrub";
+  pad.add(landmarkScrub);
 
-  // Inner concrete / industrial band
+  // Inner concrete / industrial band (reads gray from LEO)
   const landmarkConcrete = new THREE.Mesh(
-    new THREE.RingGeometry(0.12, 0.55, 48, 1),
+    new THREE.RingGeometry(0.08, 0.48, 48, 1),
     new THREE.MeshStandardMaterial({
-      color: 0x6a6e72,
-      metalness: 0.25,
-      roughness: 0.82,
+      color: 0x7a7e84,
+      metalness: 0.22,
+      roughness: 0.85,
       ...groundOffset,
     }),
   );
@@ -84,11 +85,11 @@ export function createStarbasePad(): THREE.Group {
 
   // Soft outer coast rim
   const landmarkRim = new THREE.Mesh(
-    new THREE.TorusGeometry(2.65, 0.03, 8, 64),
+    new THREE.TorusGeometry(2.65, 0.028, 8, 64),
     new THREE.MeshStandardMaterial({
-      color: 0x4a6a78,
-      metalness: 0.15,
-      roughness: 0.85,
+      color: 0x6a7a70,
+      metalness: 0.12,
+      roughness: 0.9,
     }),
   );
   landmarkRim.rotation.x = Math.PI / 2;
@@ -172,20 +173,21 @@ export function createStarbasePad(): THREE.Group {
   }
   pad.add(steamGroup);
 
-  // Tank-farm / GSE vent steam (prelaunch hold + early flight) — larger plumes
+  // Tank-farm vent steam (prelaunch hold) — over the white tank rows (+X / +Z)
   const ventSteam = new THREE.Group();
   ventSteam.name = "pad-vent-steam";
   ventSteam.visible = false;
-  // Cluster over tank farm (+X / +Z of pad, clear of tower at +X)
   const ventAnchors: [number, number, number][] = [
-    [0.055, 0.012, 0.04],
-    [0.07, 0.014, 0.055],
-    [0.048, 0.01, 0.07],
-    [0.08, 0.016, 0.03],
-    [0.062, 0.013, 0.09],
-    [0.09, 0.015, 0.06],
-    [0.04, 0.011, 0.05],
-    [0.075, 0.018, 0.08],
+    [0.095, 0.014, 0.035],
+    [0.11, 0.016, 0.05],
+    [0.085, 0.013, 0.055],
+    [0.12, 0.018, 0.04],
+    [0.1, 0.015, 0.07],
+    [0.13, 0.017, 0.055],
+    [0.075, 0.012, 0.04],
+    [0.115, 0.02, 0.065],
+    [0.14, 0.015, 0.08],
+    [0.09, 0.014, 0.085],
   ];
   for (let i = 0; i < ventAnchors.length; i++) {
     const [x, y, z] = ventAnchors[i]!;
@@ -242,8 +244,15 @@ export function createStarbasePad(): THREE.Group {
 }
 
 /**
- * True-scale pad deck, roads, wetlands, lagoons, and tank-farm silhouette.
- * Scene units = km. Keeps a hole under the stack so OLM / engines stay clear.
+ * OLP-2-style pad complex (theater massing from public satellite layout).
+ *
+ * Local frame (km): origin = stack / OLM, +Y up, tower at +X.
+ *  - Large gray concrete hardstand (angular, not a round disc)
+ *  - Dense white horizontal tank rows E/NE of the tower
+ *  - Pipe racks, warehouse, Boca Chica Blvd + parking to the north
+ *  - Tan coastal scrub outside the fence line
+ *
+ * Scene units = km. Keeps clearance under the stack so OLM / engines stay clear.
  */
 function createPadSurroundings(): THREE.Group {
   const g = new THREE.Group();
@@ -255,82 +264,138 @@ function createPadSurroundings(): THREE.Group {
     polygonOffsetUnits: -1,
   } as const;
 
+  // Satellite palette: light industrial concrete, darker service pads, tan dirt
   const concrete = new THREE.MeshStandardMaterial({
-    color: 0x8a8e94,
-    metalness: 0.22,
+    color: 0x9a9ea4,
+    metalness: 0.18,
+    roughness: 0.9,
+    ...groundOff,
+  });
+  const concreteLight = new THREE.MeshStandardMaterial({
+    color: 0xb0b4b8,
+    metalness: 0.15,
     roughness: 0.88,
     ...groundOff,
   });
   const concreteDark = new THREE.MeshStandardMaterial({
-    color: 0x5c6066,
-    metalness: 0.28,
-    roughness: 0.82,
+    color: 0x6a6e74,
+    metalness: 0.22,
+    roughness: 0.86,
     ...groundOff,
   });
-  const gravel = new THREE.MeshStandardMaterial({
-    color: 0x6e6458,
-    metalness: 0.1,
-    roughness: 0.95,
+  const scrub = new THREE.MeshStandardMaterial({
+    color: 0x9a8a68,
+    metalness: 0.04,
+    roughness: 0.98,
     ...groundOff,
   });
-  const asphalt = new THREE.MeshStandardMaterial({
-    color: 0x3a3c40,
-    metalness: 0.15,
-    roughness: 0.9,
-    ...groundOff,
-  });
-  const marsh = new THREE.MeshStandardMaterial({
-    color: 0x4a6b3e,
-    metalness: 0.05,
+  const scrubDark = new THREE.MeshStandardMaterial({
+    color: 0x7a6a4e,
+    metalness: 0.04,
     roughness: 0.97,
     ...groundOff,
   });
-  const marshDry = new THREE.MeshStandardMaterial({
-    color: 0x6a6a48,
+  const dirt = new THREE.MeshStandardMaterial({
+    color: 0xb0a080,
     metalness: 0.05,
     roughness: 0.96,
     ...groundOff,
   });
-  const water = new THREE.MeshStandardMaterial({
-    color: 0x3a6a78,
-    metalness: 0.45,
-    roughness: 0.35,
+  const asphalt = new THREE.MeshStandardMaterial({
+    color: 0x4a4c50,
+    metalness: 0.12,
+    roughness: 0.92,
     ...groundOff,
   });
-  const waterDark = new THREE.MeshStandardMaterial({
-    color: 0x2a4a58,
-    metalness: 0.5,
+  const water = new THREE.MeshStandardMaterial({
+    color: 0x4a6a62,
+    metalness: 0.4,
     roughness: 0.4,
     ...groundOff,
   });
   const steel = new THREE.MeshStandardMaterial({
-    color: 0x9aa0a8,
-    metalness: 0.7,
-    roughness: 0.4,
+    color: 0x8a9098,
+    metalness: 0.72,
+    roughness: 0.42,
   });
   const steelDark = new THREE.MeshStandardMaterial({
-    color: 0x5a6068,
+    color: 0x4a5058,
     metalness: 0.65,
     roughness: 0.5,
   });
   const tankWhite = new THREE.MeshStandardMaterial({
-    color: 0xc8ccd0,
-    metalness: 0.55,
-    roughness: 0.45,
+    color: 0xd8dce0,
+    metalness: 0.5,
+    roughness: 0.4,
+  });
+  const warehouseRoof = new THREE.MeshStandardMaterial({
+    color: 0xc4b8a0,
+    metalness: 0.25,
+    roughness: 0.75,
+  });
+  const warehouseWall = new THREE.MeshStandardMaterial({
+    color: 0xb8b0a0,
+    metalness: 0.2,
+    roughness: 0.8,
+  });
+  const carPaint = new THREE.MeshStandardMaterial({
+    color: 0x3a3e48,
+    metalness: 0.4,
+    roughness: 0.55,
   });
 
-  // --- Main concrete apron (~200 m radius; top near y=0) ---
-  const apron = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.11, 0.115, 0.003, 40),
-    concrete,
-  );
-  apron.position.y = -0.0025;
-  apron.name = "pad-apron";
-  g.add(apron);
+  // --- Tan scrub / dirt outside the complex (Boca Chica coastal plain) ---
+  const scrubPatches: { r: number; pos: [number, number]; mat: THREE.MeshStandardMaterial }[] = [
+    { r: 0.9, pos: [-0.55, -0.4], mat: scrub },
+    { r: 0.7, pos: [0.55, -0.65], mat: scrubDark },
+    { r: 0.85, pos: [-0.7, 0.35], mat: dirt },
+    { r: 0.6, pos: [0.85, 0.15], mat: scrub },
+    { r: 0.75, pos: [0.2, 0.85], mat: scrubDark },
+    { r: 0.5, pos: [-0.3, -0.85], mat: dirt },
+    { r: 0.55, pos: [0.95, -0.35], mat: scrub },
+    { r: 0.45, pos: [-0.9, -0.1], mat: scrubDark },
+  ];
+  for (const p of scrubPatches) {
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(p.r, 24), p.mat);
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.set(p.pos[0], -0.007, p.pos[1]);
+    g.add(disc);
+  }
 
-  // Scorched / stained ring under OLM
+  // Small green water / drainage pond (satellite N edge near Starhopper)
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(0.08, 20), water);
+  pond.rotation.x = -Math.PI / 2;
+  pond.position.set(0.05, -0.0058, 0.42);
+  g.add(pond);
+
+  // --- Main OLP hardstand: angular concrete (satellite is a big irregular pad) ---
+  // Layered boxes approximate the SW tower apron + NE industrial yard.
+  // Dimensions in km: 0.001 = 1 m.
+  const padSlabs: {
+    size: [number, number, number];
+    pos: [number, number, number];
+    mat: THREE.MeshStandardMaterial;
+  }[] = [
+    // Tower apron around stack (light gray)
+    { size: [0.16, 0.0028, 0.14], pos: [0.02, -0.0024, 0.0], mat: concreteLight },
+    // Main industrial yard E of tower (tank farm sits here)
+    { size: [0.22, 0.0026, 0.2], pos: [0.14, -0.0026, 0.06], mat: concrete },
+    // NW service apron toward the road
+    { size: [0.18, 0.0025, 0.12], pos: [0.04, -0.0028, 0.14], mat: concreteDark },
+    // SE extension
+    { size: [0.12, 0.0025, 0.1], pos: [0.12, -0.0028, -0.08], mat: concrete },
+    // NE warehouse approach
+    { size: [0.14, 0.0025, 0.1], pos: [0.22, -0.0027, 0.12], mat: concreteLight },
+  ];
+  for (const s of padSlabs) {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), s.mat);
+    slab.position.set(...s.pos);
+    g.add(slab);
+  }
+
+  // Scorch / stained ring under OLM
   const scorch = new THREE.Mesh(
-    new THREE.RingGeometry(0.012, 0.035, 28, 1),
+    new THREE.RingGeometry(0.012, 0.04, 28, 1),
     new THREE.MeshStandardMaterial({
       color: 0x3a3834,
       metalness: 0.2,
@@ -339,138 +404,152 @@ function createPadSurroundings(): THREE.Group {
     }),
   );
   scorch.rotation.x = -Math.PI / 2;
-  scorch.position.y = -0.0006;
+  scorch.position.y = -0.0005;
   g.add(scorch);
 
-  // Outer gravel / fill shoulder
-  const shoulder = new THREE.Mesh(
-    new THREE.RingGeometry(0.11, 0.22, 48, 1),
-    gravel,
+  // Perimeter fence-line shadow (dark strip along pad edge)
+  const fence = new THREE.Mesh(
+    new THREE.BoxGeometry(0.32, 0.0015, 0.004),
+    steelDark,
   );
-  shoulder.rotation.x = -Math.PI / 2;
-  shoulder.position.y = -0.0035;
-  g.add(shoulder);
+  fence.position.set(0.08, -0.001, -0.12);
+  g.add(fence);
+  const fence2 = new THREE.Mesh(
+    new THREE.BoxGeometry(0.004, 0.0015, 0.28),
+    steelDark,
+  );
+  fence2.position.set(-0.08, -0.001, 0.04);
+  g.add(fence2);
 
-  // Secondary industrial hardstand (tank farm side, +X/+Z)
-  const hardstand = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 0.0025, 0.14),
+  // --- Boca Chica Blvd (E–W asphalt north of complex) ---
+  const blvd = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.002, 0.014),
+    asphalt,
+  );
+  blvd.position.set(0.1, -0.0035, 0.28);
+  blvd.name = "pad-boca-chica-blvd";
+  g.add(blvd);
+
+  // Road shoulder / dirt verge
+  const verge = new THREE.Mesh(
+    new THREE.BoxGeometry(0.72, 0.0015, 0.03),
+    dirt,
+  );
+  verge.position.set(0.1, -0.004, 0.28);
+  g.add(verge);
+
+  // Parking lot N of hardstand / S of road
+  const parking = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.002, 0.04),
     concreteDark,
   );
-  hardstand.position.set(0.07, -0.003, 0.06);
-  g.add(hardstand);
+  parking.position.set(-0.05, -0.003, 0.22);
+  g.add(parking);
 
-  // Access roads (asphalt strips)
-  const roadSpecs: { size: [number, number, number]; pos: [number, number, number] }[] = [
-    { size: [0.012, 0.002, 0.55], pos: [-0.08, -0.0038, 0.05] }, // inland approach
-    { size: [0.45, 0.002, 0.01], pos: [0.05, -0.0038, -0.1] }, // cross road
-    { size: [0.01, 0.002, 0.28], pos: [0.14, -0.0038, 0.08] }, // tank farm service
-  ];
-  for (const r of roadSpecs) {
-    const road = new THREE.Mesh(new THREE.BoxGeometry(...r.size), asphalt);
-    road.position.set(...r.pos);
-    g.add(road);
-  }
-
-  // --- Wetland / marsh patches (mid-field, reads in pad cam) ---
-  const marshPatches: {
-    r: number;
-    pos: [number, number];
-    mat: THREE.MeshStandardMaterial;
-    y?: number;
-  }[] = [
-    { r: 0.35, pos: [-0.45, 0.25], mat: marsh },
-    { r: 0.28, pos: [-0.55, -0.35], mat: marshDry },
-    { r: 0.42, pos: [0.35, -0.55], mat: marsh },
-    { r: 0.22, pos: [0.55, 0.4], mat: marshDry },
-    { r: 0.5, pos: [-0.2, 0.7], mat: marsh },
-    { r: 0.38, pos: [0.7, -0.15], mat: marsh },
-    { r: 0.3, pos: [-0.75, 0.1], mat: marshDry },
-    { r: 0.25, pos: [0.15, 0.55], mat: marsh },
-    { r: 0.6, pos: [-0.4, -0.85], mat: marsh },
-    { r: 0.33, pos: [0.9, 0.35], mat: marshDry },
-  ];
-  for (const p of marshPatches) {
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(p.r, 28),
-      p.mat,
+  // Cars along the road (tiny blocks)
+  for (let i = 0; i < 14; i++) {
+    const car = new THREE.Mesh(
+      new THREE.BoxGeometry(0.0045, 0.0016, 0.0022),
+      carPaint,
     );
-    disc.rotation.x = -Math.PI / 2;
-    disc.position.set(p.pos[0], p.y ?? -0.006, p.pos[1]);
-    g.add(disc);
-  }
-
-  // Lagoons / tidal channels (elongated water)
-  const lagoons: {
-    size: [number, number];
-    pos: [number, number];
-    rot: number;
-    mat: THREE.MeshStandardMaterial;
-  }[] = [
-    { size: [0.55, 0.12], pos: [-0.35, 0.4], rot: 0.4, mat: water },
-    { size: [0.4, 0.09], pos: [0.45, -0.4], rot: -0.55, mat: waterDark },
-    { size: [0.7, 0.14], pos: [-0.15, -0.65], rot: 0.15, mat: water },
-    { size: [0.3, 0.08], pos: [0.65, 0.2], rot: 1.1, mat: waterDark },
-    { size: [0.48, 0.1], pos: [-0.7, -0.2], rot: -0.3, mat: water },
-  ];
-  for (const L of lagoons) {
-    const pond = new THREE.Mesh(
-      new THREE.PlaneGeometry(L.size[0], L.size[1], 1, 1),
-      L.mat,
+    const side = i < 8 ? 1 : -1;
+    car.position.set(
+      -0.12 + (i % 8) * 0.018,
+      -0.0015,
+      0.22 + side * 0.012 + (i % 3) * 0.002,
     );
-    pond.rotation.x = -Math.PI / 2;
-    pond.rotation.z = L.rot;
-    pond.position.set(L.pos[0], -0.0055, L.pos[1]);
-    g.add(pond);
+    g.add(car);
   }
 
-  // --- Tank farm / GSE block (simplified industrial massing) ---
+  // --- Tank farm + GSE (satellite: dense white tanks E of tower) ---
   const farm = new THREE.Group();
   farm.name = "pad-tank-farm";
-  farm.position.set(0.065, 0, 0.055);
+  // Origin of farm ≈ center of tank rows relative to stack
+  farm.position.set(0.09, 0, 0.04);
 
-  // Horizontal LOX / CH4 tanks
-  const tankSpecs: { r: number; len: number; pos: [number, number, number]; yaw: number }[] = [
-    { r: 0.0045, len: 0.028, pos: [0.02, 0.005, 0.01], yaw: 0.2 },
-    { r: 0.0045, len: 0.028, pos: [0.02, 0.005, 0.022], yaw: 0.2 },
-    { r: 0.0055, len: 0.035, pos: [0.035, 0.006, 0.035], yaw: -0.4 },
-    { r: 0.0035, len: 0.02, pos: [0.01, 0.004, 0.038], yaw: 1.2 },
-    { r: 0.004, len: 0.024, pos: [0.045, 0.005, 0.012], yaw: 0.8 },
-  ];
-  for (const t of tankSpecs) {
+  // Primary white horizontal tank bank (rows like satellite)
+  // Real-ish: ~3–4 m diameter, ~25–30 m long → 0.0035–0.004 r, 0.028 len
+  const tankR = 0.0038;
+  const tankLen = 0.03;
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 4; col++) {
+      const tank = new THREE.Mesh(
+        new THREE.CylinderGeometry(tankR, tankR, tankLen, 14),
+        tankWhite,
+      );
+      // Horizontal along +Z (N–S rows on satellite, slightly angled)
+      tank.rotation.x = Math.PI / 2;
+      tank.position.set(
+        0.01 + col * 0.011,
+        tankR + 0.001,
+        -0.02 + row * 0.012,
+      );
+      farm.add(tank);
+      // End caps (slightly larger)
+      for (const end of [-1, 1] as const) {
+        const cap = new THREE.Mesh(
+          new THREE.SphereGeometry(tankR * 1.02, 10, 8),
+          tankWhite,
+        );
+        cap.position.set(
+          0.01 + col * 0.011,
+          tankR + 0.001,
+          -0.02 + row * 0.012 + end * (tankLen * 0.5),
+        );
+        farm.add(cap);
+      }
+    }
+  }
+
+  // Second bank of shorter tanks (satellite has staggered groups)
+  for (let col = 0; col < 3; col++) {
     const tank = new THREE.Mesh(
-      new THREE.CylinderGeometry(t.r, t.r, t.len, 12),
+      new THREE.CylinderGeometry(0.0032, 0.0032, 0.022, 12),
       tankWhite,
     );
-    tank.rotation.z = Math.PI / 2;
-    tank.rotation.y = t.yaw;
-    tank.position.set(...t.pos);
+    tank.rotation.x = Math.PI / 2;
+    tank.position.set(0.055 + col * 0.01, 0.0042, 0.03);
     farm.add(tank);
   }
 
-  // Vertical bullet tanks / vents
-  for (let i = 0; i < 5; i++) {
-    const h = 0.012 + (i % 3) * 0.004;
+  // Vertical bullet / sphere tanks
+  for (let i = 0; i < 6; i++) {
+    const h = 0.01 + (i % 3) * 0.003;
     const bullet = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0022, 0.0022, h, 10),
+      new THREE.CylinderGeometry(0.002, 0.002, h, 10),
       steel,
     );
-    bullet.position.set(0.008 + i * 0.007, h * 0.5, 0.048);
+    bullet.position.set(-0.02 + i * 0.008, h * 0.5, 0.045);
     farm.add(bullet);
-    // Cap
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.0022, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
-      tankWhite,
-    );
-    cap.position.set(0.008 + i * 0.007, h, 0.048);
-    farm.add(cap);
   }
 
-  // Equipment blocks / pipe racks
+  // Dark pipe-rack lattice (satellite: dense dark grid W of white tanks)
+  for (let i = 0; i < 5; i++) {
+    const rack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.028, 0.006 + (i % 2) * 0.003, 0.01),
+      steelDark,
+    );
+    rack.position.set(-0.02, 0.005, -0.025 + i * 0.012);
+    farm.add(rack);
+  }
+  // Cross pipes
+  for (let i = 0; i < 4; i++) {
+    const pipe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0006, 0.0006, 0.05, 6),
+      steel,
+    );
+    pipe.rotation.z = Math.PI / 2;
+    pipe.position.set(0.01, 0.008, -0.02 + i * 0.014);
+    farm.add(pipe);
+  }
+
+  // Equipment skids / electrical yards (dark rectangular pads of gear)
   const equip: { size: [number, number, number]; pos: [number, number, number] }[] = [
-    { size: [0.03, 0.006, 0.018], pos: [0.03, 0.004, -0.005] },
-    { size: [0.018, 0.01, 0.014], pos: [0.05, 0.006, 0.05] },
-    { size: [0.012, 0.008, 0.022], pos: [-0.005, 0.005, 0.02] },
-    { size: [0.04, 0.003, 0.008], pos: [0.025, 0.008, 0.028] }, // pipe rack
+    { size: [0.022, 0.008, 0.016], pos: [0.07, 0.005, -0.01] },
+    { size: [0.016, 0.01, 0.02], pos: [0.08, 0.006, 0.04] },
+    { size: [0.03, 0.005, 0.012], pos: [0.04, 0.004, 0.055] },
+    { size: [0.012, 0.012, 0.012], pos: [-0.03, 0.007, 0.02] },
+    { size: [0.018, 0.004, 0.018], pos: [0.06, 0.003, -0.04] },
   ];
   for (const e of equip) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(...e.size), steelDark);
@@ -478,47 +557,104 @@ function createPadSurroundings(): THREE.Group {
     farm.add(box);
   }
 
-  // Vent / flare stacks (tall thin)
+  // Vent / flare stacks
   for (const [sx, sz, h] of [
-    [0.055, 0.04, 0.028],
-    [0.042, 0.055, 0.022],
-    [0.06, 0.02, 0.018],
+    [0.05, 0.06, 0.03],
+    [0.07, 0.05, 0.024],
+    [0.03, 0.065, 0.02],
+    [0.085, 0.03, 0.018],
   ] as const) {
     const stack = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0008, 0.001, h, 8),
+      new THREE.CylinderGeometry(0.0007, 0.0009, h, 8),
       steelDark,
     );
     stack.position.set(sx, h * 0.5, sz);
     farm.add(stack);
   }
 
-  // Low retaining wall around farm
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(0.1, 0.004, 0.002),
-    concreteDark,
-  );
-  wall.position.set(0.03, 0.001, -0.02);
-  farm.add(wall);
-  const wall2 = new THREE.Mesh(
-    new THREE.BoxGeometry(0.002, 0.004, 0.09),
-    concreteDark,
-  );
-  wall2.position.set(-0.015, 0.001, 0.025);
-  farm.add(wall2);
-
   g.add(farm);
 
-  // Small support building / trailers near apron edge
-  const trailer = new THREE.Mesh(
-    new THREE.BoxGeometry(0.014, 0.004, 0.006),
-    new THREE.MeshStandardMaterial({
-      color: 0xb0b4b8,
-      metalness: 0.35,
-      roughness: 0.65,
-    }),
+  // --- Large warehouse / hangar (satellite NE of tank farm, pale roof) ---
+  const warehouse = new THREE.Group();
+  warehouse.name = "pad-warehouse";
+  warehouse.position.set(0.22, 0, 0.12);
+  const whBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.055, 0.012, 0.035),
+    warehouseWall,
   );
-  trailer.position.set(-0.09, 0.001, 0.04);
-  g.add(trailer);
+  whBody.position.y = 0.006;
+  warehouse.add(whBody);
+  const whRoof = new THREE.Mesh(
+    new THREE.BoxGeometry(0.058, 0.002, 0.038),
+    warehouseRoof,
+  );
+  whRoof.position.y = 0.013;
+  warehouse.add(whRoof);
+  // Adjacent smaller shed
+  const shed = new THREE.Mesh(
+    new THREE.BoxGeometry(0.028, 0.008, 0.02),
+    steelDark,
+  );
+  shed.position.set(-0.04, 0.004, -0.01);
+  warehouse.add(shed);
+  g.add(warehouse);
+
+  // Secondary equipment yard further east (satellite far-right dark blocks)
+  const eastYard = new THREE.Group();
+  eastYard.position.set(0.28, 0, 0.05);
+  for (let i = 0; i < 8; i++) {
+    const unit = new THREE.Mesh(
+      new THREE.BoxGeometry(0.01, 0.006, 0.008),
+      i % 2 === 0 ? steelDark : steel,
+    );
+    unit.position.set((i % 4) * 0.014, 0.003, Math.floor(i / 4) * 0.015);
+    eastYard.add(unit);
+  }
+  g.add(eastYard);
+
+  // --- Starhopper site silhouette (N of road) ---
+  const hopperPad = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.038, 0.002, 24),
+    concreteDark,
+  );
+  hopperPad.position.set(0.05, -0.0035, 0.42);
+  g.add(hopperPad);
+  // Tiny Starhopper stand-in (cone + cylinder)
+  const hopper = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.004, 0.005, 0.012, 10),
+    steel,
+  );
+  hopper.position.set(0.05, 0.005, 0.42);
+  g.add(hopper);
+
+  // Construction / crane-ish boom near tower apron (satellite has clutter SW)
+  const craneBase = new THREE.Mesh(
+    new THREE.BoxGeometry(0.008, 0.004, 0.008),
+    steelDark,
+  );
+  craneBase.position.set(-0.04, 0.002, -0.05);
+  g.add(craneBase);
+  const craneBoom = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.0012, 0.0012),
+    steel,
+  );
+  craneBoom.position.set(-0.02, 0.012, -0.05);
+  craneBoom.rotation.z = -0.35;
+  g.add(craneBoom);
+
+  // Trailers / portable buildings along NW edge
+  for (let i = 0; i < 4; i++) {
+    const trailer = new THREE.Mesh(
+      new THREE.BoxGeometry(0.012, 0.0035, 0.005),
+      new THREE.MeshStandardMaterial({
+        color: 0xc0c4c8,
+        metalness: 0.3,
+        roughness: 0.7,
+      }),
+    );
+    trailer.position.set(-0.06 + i * 0.02, 0.001, 0.16);
+    g.add(trailer);
+  }
 
   return g;
 }
