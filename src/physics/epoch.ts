@@ -133,11 +133,6 @@ export function sunPhase0ForUtc(utcMs: number): number {
   return sunEclipticLongitudeAtUtc(utcMs) - Math.PI;
 }
 
-/** Flight 13: sunPhase0 for daytime Starbase launch (public window open). */
-export function sunPhase0ForFlight13Liftoff(): number {
-  return sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
-}
-
 /** Compact UTC label for the HUD, e.g. "2027-07-20 11:42 UTC". */
 export function formatMissionDateUtc(
   missionT: number,

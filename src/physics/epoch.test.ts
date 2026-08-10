@@ -12,7 +12,6 @@ import {
   moonElongationPastFullRad,
   setMissionClockEpochUtc,
   sunEclipticLongitudeAtLanding,
-  sunPhase0ForFlight13Liftoff,
   sunPhase0ForUtc,
 } from "./epoch.ts";
 
@@ -90,10 +89,8 @@ describe("epoch · Flight 13 daytime launch", () => {
     }
   });
 
-  it("sunPhase0ForFlight13Liftoff is finite and matches Utc helper", () => {
-    const a = sunPhase0ForFlight13Liftoff();
-    const b = sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
+  it("sunPhase0ForUtc is finite", () => {
+    const a = sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
     assert.ok(Number.isFinite(a));
-    assert.equal(a, b);
   });
 });

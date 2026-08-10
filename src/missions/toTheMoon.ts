@@ -25,6 +25,7 @@ import {
   createScene,
   updateMoonRelativeOrbit,
 } from "../scene/createScene";
+import { applySunLight } from "../scene/sunLight";
 import { createBodies, spinBodies, updateBodies } from "../scene/bodies";
 import {
   CRAFT_MESH_SCALE,
@@ -488,17 +489,10 @@ function applyMissionState(u: number): void {
   // Osculating Earth–Moon ring — always intersects the Moon at this epoch
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);
 
-  // Sun light from ephemeris (direction only — avoid AU-scale light positions)
-  sunLight.position.set(
-    b.sun.x - b.earth.x,
-    b.sun.y - b.earth.y,
-    b.sun.z - b.earth.z,
-  );
-  sunLight.target.position.set(0, 0, 0);
-  sunLight.target.updateMatrixWorld();
+  // Unit-scale sun light aimed at Earth
+  applySunLight(sunLight, b.sun, b.earth, _skySun);
   // Cache for ground-sky update after the camera moves this frame
   _skyEarth.copy(_earthPos);
-  _skySun.copy(sunLight.position);
 
   updateLocatorVisibility(locator, camera, craftPos, {
     sizeKm: craftLengthKm(frame.staged),

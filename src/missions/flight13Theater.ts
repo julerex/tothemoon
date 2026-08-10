@@ -16,6 +16,7 @@ import {
   createScene,
   updateMoonRelativeOrbit,
 } from "../scene/createScene";
+import { applySunLight } from "../scene/sunLight";
 // Flight 13 reuses Moon path for scale context; no coast corridor overlay.
 import { createBodies, spinBodies, updateBodies } from "../scene/bodies";
 import {
@@ -103,16 +104,19 @@ if (recompute) {
   if (phaseBoot) phaseBoot.textContent = "Recomputing Flight 13…";
 }
 // Epoch first so runtime recompute + pad/sun use daytime launch lighting
-const { sunPhase0: sun0 } = applyFlight13Epoch(0, 0);
+applyFlight13Epoch(0, 0);
 const cache = recompute
   ? TrajectoryCache.computeFlight13()
   : TrajectoryCache.loadFlight13();
 // Re-apply after load (cache may not touch epoch; keep splash mission-T bookkeeping)
-applyFlight13Epoch(cache.moonPhase0, cache.horizonsLandingT);
+const { sunPhase0: sun0, padSunElev } = applyFlight13Epoch(
+  cache.moonPhase0,
+  cache.horizonsLandingT,
+);
 console.info(
   `[flight13] Launch theater · duration ${(cache.durationS / 60).toFixed(1)} min · ` +
     `stageT=${cache.stageT?.toFixed(0) ?? "—"}s · peak |v|=${cache.peakSpeedKmS.toFixed(2)} km/s · ` +
-    `daytime launch epoch · sunPhase0=${sun0.toFixed(4)}` +
+    `daytime pad sin(el)=${padSunElev.toFixed(3)} · sunPhase0=${sun0.toFixed(4)}` +
     (hasHorizonsEpoch() ? ` · ephemeris=${horizonsSource()}` : " · analytic Earth/Sun"),
 );
 
@@ -125,7 +129,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+// Slightly brighter for stainless stack + afternoon pad (day launch)
+renderer.toneMappingExposure = 1.2;
 
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
@@ -604,17 +609,10 @@ function applyMissionState(u: number): void {
   // Osculating Earth–Moon ring — always intersects the Moon at this epoch
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);
 
-  // Sun light from ephemeris (direction only — avoid AU-scale light positions)
-  sunLight.position.set(
-    b.sun.x - b.earth.x,
-    b.sun.y - b.earth.y,
-    b.sun.z - b.earth.z,
-  );
-  sunLight.target.position.set(0, 0, 0);
-  sunLight.target.updateMatrixWorld();
+  // Unit-scale sun light aimed at Earth (AU-scale light.pos left pad unlit-looking)
+  applySunLight(sunLight, b.sun, b.earth, _skySun);
   // Cache for ground-sky update after the camera moves this frame
   _skyEarth.copy(_earthPos);
-  _skySun.copy(sunLight.position);
 
   updateLocatorVisibility(locator, camera, craftPos, {
     sizeKm: craftLengthKm(frame.staged),

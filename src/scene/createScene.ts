@@ -217,11 +217,12 @@ export function createScene(): SceneBundle {
   orbitGroup.add(createEarthOrbitPath());
   scene.add(orbitGroup);
 
-  scene.add(new THREE.AmbientLight(0x334466, 0.22));
-  scene.add(new THREE.HemisphereLight(0x8899bb, 0x080810, 0.28));
+  // Day-readable pad / stack: ambient was too low for stainless metalness
+  scene.add(new THREE.AmbientLight(0x556688, 0.42));
+  scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x1a1520, 0.45));
 
-  // Sun light — direction updated each frame from ephemeris (unit-scale offset)
-  const sunLight = new THREE.DirectionalLight(0xfff2dd, 2.4);
+  // Sun light — direction updated each frame via applySunLight (unit offset)
+  const sunLight = new THREE.DirectionalLight(0xfff2dd, 3.4);
   sunLight.position.set(-1, 0.2, 0.3);
   scene.add(sunLight);
   scene.add(sunLight.target);
