@@ -19,7 +19,8 @@ import { createFatLine } from "./fatLines";
  * Pad is parented under the spinning Earth mesh so it co-rotates correctly.
  *
  * Dual scale:
- *  - True-scale OLM + Mechazilla + thin apron for Ship cam (stack is 9 m / ~123 m)
+ *  - True-scale OLM + Mechazilla + concrete apron / GSE / wetlands for Ship cam
+ *    (stack is 9 m / ~123 m; apron ~200 m; marsh out to ~1–2 km)
  *  - Large thin annular landmark for Earth cam (never a solid disc through the rocket)
  *
  * Pad origin matches craft engines at t≈0 (R_EARTH + pad altitude). Local +Y = up.
@@ -42,51 +43,57 @@ export function createStarbasePad(): THREE.Group {
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
 
-  // --- Earth-cam landmark: thin annulus around the complex (hole for stack) ---
-  const landmarkMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3f48,
-    metalness: 0.35,
-    roughness: 0.72,
-    // Slight lift off the globe via geometry; polygon offset fights z-fight
+  // Ground plane, wetlands, lagoons, roads, tank farm (true-scale + mid-field)
+  pad.add(createPadSurroundings());
+
+  // --- Earth-cam landmark: marsh annulus + concrete inner (hole for stack) ---
+  const groundOffset = {
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
-  });
-  // RingGeometry is in XY; rotate to horizontal XZ. Inner hole clears ~150 m.
-  const landmarkRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.15, 2.6, 64, 1),
-    landmarkMat,
-  );
-  landmarkRing.rotation.x = -Math.PI / 2;
-  landmarkRing.position.y = -0.008;
-  landmarkRing.name = "pad-landmark-ring";
-  pad.add(landmarkRing);
-
-  // Soft outer apron rim (reads from low Earth orbit)
-  const landmarkRim = new THREE.Mesh(
-    new THREE.TorusGeometry(2.55, 0.035, 8, 64),
+  } as const;
+  // Outer wetland band (reads green from LEO)
+  const landmarkMarsh = new THREE.Mesh(
+    new THREE.RingGeometry(0.35, 2.7, 64, 1),
     new THREE.MeshStandardMaterial({
-      color: 0x4a5058,
-      metalness: 0.4,
-      roughness: 0.65,
+      color: 0x3d5a3a,
+      metalness: 0.08,
+      roughness: 0.95,
+      ...groundOffset,
+    }),
+  );
+  landmarkMarsh.rotation.x = -Math.PI / 2;
+  landmarkMarsh.position.y = -0.01;
+  landmarkMarsh.name = "pad-landmark-marsh";
+  pad.add(landmarkMarsh);
+
+  // Inner concrete / industrial band
+  const landmarkConcrete = new THREE.Mesh(
+    new THREE.RingGeometry(0.12, 0.55, 48, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0x6a6e72,
+      metalness: 0.25,
+      roughness: 0.82,
+      ...groundOffset,
+    }),
+  );
+  landmarkConcrete.rotation.x = -Math.PI / 2;
+  landmarkConcrete.position.y = -0.008;
+  landmarkConcrete.name = "pad-landmark-ring";
+  pad.add(landmarkConcrete);
+
+  // Soft outer coast rim
+  const landmarkRim = new THREE.Mesh(
+    new THREE.TorusGeometry(2.65, 0.03, 8, 64),
+    new THREE.MeshStandardMaterial({
+      color: 0x4a6a78,
+      metalness: 0.15,
+      roughness: 0.85,
     }),
   );
   landmarkRim.rotation.x = Math.PI / 2;
-  landmarkRim.position.y = -0.004;
+  landmarkRim.position.y = -0.005;
   pad.add(landmarkRim);
-
-  // --- True-scale close-up apron under the stack ---
-  const apron = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.045, 0.05, 0.004, 24),
-    new THREE.MeshStandardMaterial({
-      color: 0x5a6068,
-      metalness: 0.45,
-      roughness: 0.6,
-    }),
-  );
-  // Top of apron at y≈0 (engine plane / OLM deck)
-  apron.position.y = -0.002;
-  pad.add(apron);
 
   // Flame trench / water deluge channel (true-scale-ish under OLM)
   const trench = new THREE.Mesh(
@@ -139,13 +146,14 @@ export function createStarbasePad(): THREE.Group {
   tongues.userData.mat = tongueMat;
   pad.add(tongues);
 
-  // Deluge steam — normal blend (additive reads as yellow haze against the sun)
+  const steamTex = makeSteamTexture();
+
+  // Deluge steam around OLM (liftoff)
   const steamGroup = new THREE.Group();
   steamGroup.name = "pad-steam";
   steamGroup.visible = false;
-  const steamTex = makeSteamTexture();
-  for (let i = 0; i < 6; i++) {
-    const ang = (i / 6) * Math.PI * 2;
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: steamTex,
@@ -157,12 +165,49 @@ export function createStarbasePad(): THREE.Group {
       }),
     );
     sprite.position.set(Math.cos(ang) * 0.04, 0.02, Math.sin(ang) * 0.04);
-    sprite.scale.setScalar(0.08);
+    sprite.scale.setScalar(0.1);
     sprite.userData.baseAng = ang;
     sprite.userData.phase = i * 0.9;
     steamGroup.add(sprite);
   }
   pad.add(steamGroup);
+
+  // Tank-farm / GSE vent steam (prelaunch hold + early flight) — larger plumes
+  const ventSteam = new THREE.Group();
+  ventSteam.name = "pad-vent-steam";
+  ventSteam.visible = false;
+  // Cluster over tank farm (+X / +Z of pad, clear of tower at +X)
+  const ventAnchors: [number, number, number][] = [
+    [0.055, 0.012, 0.04],
+    [0.07, 0.014, 0.055],
+    [0.048, 0.01, 0.07],
+    [0.08, 0.016, 0.03],
+    [0.062, 0.013, 0.09],
+    [0.09, 0.015, 0.06],
+    [0.04, 0.011, 0.05],
+    [0.075, 0.018, 0.08],
+  ];
+  for (let i = 0; i < ventAnchors.length; i++) {
+    const [x, y, z] = ventAnchors[i]!;
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: steamTex,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+        color: 0xe8ecf0,
+      }),
+    );
+    sprite.position.set(x, y, z);
+    sprite.scale.setScalar(0.12);
+    sprite.userData.baseX = x;
+    sprite.userData.baseY = y;
+    sprite.userData.baseZ = z;
+    sprite.userData.phase = i * 1.1;
+    ventSteam.add(sprite);
+  }
+  pad.add(ventSteam);
 
   // True-scale Mechazilla + OLM (engines sit on OLM at y≈0)
   pad.add(createMechazillaTower());
@@ -194,6 +239,288 @@ export function createStarbasePad(): THREE.Group {
   pad.add(groundBloom);
 
   return pad;
+}
+
+/**
+ * True-scale pad deck, roads, wetlands, lagoons, and tank-farm silhouette.
+ * Scene units = km. Keeps a hole under the stack so OLM / engines stay clear.
+ */
+function createPadSurroundings(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "pad-surroundings";
+
+  const groundOff = {
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  } as const;
+
+  const concrete = new THREE.MeshStandardMaterial({
+    color: 0x8a8e94,
+    metalness: 0.22,
+    roughness: 0.88,
+    ...groundOff,
+  });
+  const concreteDark = new THREE.MeshStandardMaterial({
+    color: 0x5c6066,
+    metalness: 0.28,
+    roughness: 0.82,
+    ...groundOff,
+  });
+  const gravel = new THREE.MeshStandardMaterial({
+    color: 0x6e6458,
+    metalness: 0.1,
+    roughness: 0.95,
+    ...groundOff,
+  });
+  const asphalt = new THREE.MeshStandardMaterial({
+    color: 0x3a3c40,
+    metalness: 0.15,
+    roughness: 0.9,
+    ...groundOff,
+  });
+  const marsh = new THREE.MeshStandardMaterial({
+    color: 0x4a6b3e,
+    metalness: 0.05,
+    roughness: 0.97,
+    ...groundOff,
+  });
+  const marshDry = new THREE.MeshStandardMaterial({
+    color: 0x6a6a48,
+    metalness: 0.05,
+    roughness: 0.96,
+    ...groundOff,
+  });
+  const water = new THREE.MeshStandardMaterial({
+    color: 0x3a6a78,
+    metalness: 0.45,
+    roughness: 0.35,
+    ...groundOff,
+  });
+  const waterDark = new THREE.MeshStandardMaterial({
+    color: 0x2a4a58,
+    metalness: 0.5,
+    roughness: 0.4,
+    ...groundOff,
+  });
+  const steel = new THREE.MeshStandardMaterial({
+    color: 0x9aa0a8,
+    metalness: 0.7,
+    roughness: 0.4,
+  });
+  const steelDark = new THREE.MeshStandardMaterial({
+    color: 0x5a6068,
+    metalness: 0.65,
+    roughness: 0.5,
+  });
+  const tankWhite = new THREE.MeshStandardMaterial({
+    color: 0xc8ccd0,
+    metalness: 0.55,
+    roughness: 0.45,
+  });
+
+  // --- Main concrete apron (~200 m radius; top near y=0) ---
+  const apron = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.115, 0.003, 40),
+    concrete,
+  );
+  apron.position.y = -0.0025;
+  apron.name = "pad-apron";
+  g.add(apron);
+
+  // Scorched / stained ring under OLM
+  const scorch = new THREE.Mesh(
+    new THREE.RingGeometry(0.012, 0.035, 28, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0x3a3834,
+      metalness: 0.2,
+      roughness: 0.92,
+      ...groundOff,
+    }),
+  );
+  scorch.rotation.x = -Math.PI / 2;
+  scorch.position.y = -0.0006;
+  g.add(scorch);
+
+  // Outer gravel / fill shoulder
+  const shoulder = new THREE.Mesh(
+    new THREE.RingGeometry(0.11, 0.22, 48, 1),
+    gravel,
+  );
+  shoulder.rotation.x = -Math.PI / 2;
+  shoulder.position.y = -0.0035;
+  g.add(shoulder);
+
+  // Secondary industrial hardstand (tank farm side, +X/+Z)
+  const hardstand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.0025, 0.14),
+    concreteDark,
+  );
+  hardstand.position.set(0.07, -0.003, 0.06);
+  g.add(hardstand);
+
+  // Access roads (asphalt strips)
+  const roadSpecs: { size: [number, number, number]; pos: [number, number, number] }[] = [
+    { size: [0.012, 0.002, 0.55], pos: [-0.08, -0.0038, 0.05] }, // inland approach
+    { size: [0.45, 0.002, 0.01], pos: [0.05, -0.0038, -0.1] }, // cross road
+    { size: [0.01, 0.002, 0.28], pos: [0.14, -0.0038, 0.08] }, // tank farm service
+  ];
+  for (const r of roadSpecs) {
+    const road = new THREE.Mesh(new THREE.BoxGeometry(...r.size), asphalt);
+    road.position.set(...r.pos);
+    g.add(road);
+  }
+
+  // --- Wetland / marsh patches (mid-field, reads in pad cam) ---
+  const marshPatches: {
+    r: number;
+    pos: [number, number];
+    mat: THREE.MeshStandardMaterial;
+    y?: number;
+  }[] = [
+    { r: 0.35, pos: [-0.45, 0.25], mat: marsh },
+    { r: 0.28, pos: [-0.55, -0.35], mat: marshDry },
+    { r: 0.42, pos: [0.35, -0.55], mat: marsh },
+    { r: 0.22, pos: [0.55, 0.4], mat: marshDry },
+    { r: 0.5, pos: [-0.2, 0.7], mat: marsh },
+    { r: 0.38, pos: [0.7, -0.15], mat: marsh },
+    { r: 0.3, pos: [-0.75, 0.1], mat: marshDry },
+    { r: 0.25, pos: [0.15, 0.55], mat: marsh },
+    { r: 0.6, pos: [-0.4, -0.85], mat: marsh },
+    { r: 0.33, pos: [0.9, 0.35], mat: marshDry },
+  ];
+  for (const p of marshPatches) {
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(p.r, 28),
+      p.mat,
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.set(p.pos[0], p.y ?? -0.006, p.pos[1]);
+    g.add(disc);
+  }
+
+  // Lagoons / tidal channels (elongated water)
+  const lagoons: {
+    size: [number, number];
+    pos: [number, number];
+    rot: number;
+    mat: THREE.MeshStandardMaterial;
+  }[] = [
+    { size: [0.55, 0.12], pos: [-0.35, 0.4], rot: 0.4, mat: water },
+    { size: [0.4, 0.09], pos: [0.45, -0.4], rot: -0.55, mat: waterDark },
+    { size: [0.7, 0.14], pos: [-0.15, -0.65], rot: 0.15, mat: water },
+    { size: [0.3, 0.08], pos: [0.65, 0.2], rot: 1.1, mat: waterDark },
+    { size: [0.48, 0.1], pos: [-0.7, -0.2], rot: -0.3, mat: water },
+  ];
+  for (const L of lagoons) {
+    const pond = new THREE.Mesh(
+      new THREE.PlaneGeometry(L.size[0], L.size[1], 1, 1),
+      L.mat,
+    );
+    pond.rotation.x = -Math.PI / 2;
+    pond.rotation.z = L.rot;
+    pond.position.set(L.pos[0], -0.0055, L.pos[1]);
+    g.add(pond);
+  }
+
+  // --- Tank farm / GSE block (simplified industrial massing) ---
+  const farm = new THREE.Group();
+  farm.name = "pad-tank-farm";
+  farm.position.set(0.065, 0, 0.055);
+
+  // Horizontal LOX / CH4 tanks
+  const tankSpecs: { r: number; len: number; pos: [number, number, number]; yaw: number }[] = [
+    { r: 0.0045, len: 0.028, pos: [0.02, 0.005, 0.01], yaw: 0.2 },
+    { r: 0.0045, len: 0.028, pos: [0.02, 0.005, 0.022], yaw: 0.2 },
+    { r: 0.0055, len: 0.035, pos: [0.035, 0.006, 0.035], yaw: -0.4 },
+    { r: 0.0035, len: 0.02, pos: [0.01, 0.004, 0.038], yaw: 1.2 },
+    { r: 0.004, len: 0.024, pos: [0.045, 0.005, 0.012], yaw: 0.8 },
+  ];
+  for (const t of tankSpecs) {
+    const tank = new THREE.Mesh(
+      new THREE.CylinderGeometry(t.r, t.r, t.len, 12),
+      tankWhite,
+    );
+    tank.rotation.z = Math.PI / 2;
+    tank.rotation.y = t.yaw;
+    tank.position.set(...t.pos);
+    farm.add(tank);
+  }
+
+  // Vertical bullet tanks / vents
+  for (let i = 0; i < 5; i++) {
+    const h = 0.012 + (i % 3) * 0.004;
+    const bullet = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0022, 0.0022, h, 10),
+      steel,
+    );
+    bullet.position.set(0.008 + i * 0.007, h * 0.5, 0.048);
+    farm.add(bullet);
+    // Cap
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.0022, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+      tankWhite,
+    );
+    cap.position.set(0.008 + i * 0.007, h, 0.048);
+    farm.add(cap);
+  }
+
+  // Equipment blocks / pipe racks
+  const equip: { size: [number, number, number]; pos: [number, number, number] }[] = [
+    { size: [0.03, 0.006, 0.018], pos: [0.03, 0.004, -0.005] },
+    { size: [0.018, 0.01, 0.014], pos: [0.05, 0.006, 0.05] },
+    { size: [0.012, 0.008, 0.022], pos: [-0.005, 0.005, 0.02] },
+    { size: [0.04, 0.003, 0.008], pos: [0.025, 0.008, 0.028] }, // pipe rack
+  ];
+  for (const e of equip) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(...e.size), steelDark);
+    box.position.set(...e.pos);
+    farm.add(box);
+  }
+
+  // Vent / flare stacks (tall thin)
+  for (const [sx, sz, h] of [
+    [0.055, 0.04, 0.028],
+    [0.042, 0.055, 0.022],
+    [0.06, 0.02, 0.018],
+  ] as const) {
+    const stack = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0008, 0.001, h, 8),
+      steelDark,
+    );
+    stack.position.set(sx, h * 0.5, sz);
+    farm.add(stack);
+  }
+
+  // Low retaining wall around farm
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 0.004, 0.002),
+    concreteDark,
+  );
+  wall.position.set(0.03, 0.001, -0.02);
+  farm.add(wall);
+  const wall2 = new THREE.Mesh(
+    new THREE.BoxGeometry(0.002, 0.004, 0.09),
+    concreteDark,
+  );
+  wall2.position.set(-0.015, 0.001, 0.025);
+  farm.add(wall2);
+
+  g.add(farm);
+
+  // Small support building / trailers near apron edge
+  const trailer = new THREE.Mesh(
+    new THREE.BoxGeometry(0.014, 0.004, 0.006),
+    new THREE.MeshStandardMaterial({
+      color: 0xb0b4b8,
+      metalness: 0.35,
+      roughness: 0.65,
+    }),
+  );
+  trailer.position.set(-0.09, 0.001, 0.04);
+  g.add(trailer);
+
+  return g;
 }
 
 /** Cool-white flood + warm plume fill under the stack. */
@@ -267,6 +594,10 @@ function createPadLights(): THREE.Group {
 }
 
 export type LaunchPadFxState = {
+  /**
+   * Mission time in seconds. Liftoff = 0; negative = pre-liftoff countdown
+   * (tank-farm vent steam / pad-ops lights).
+   */
   missionT: number;
   phase: string;
   burning: boolean;
@@ -280,8 +611,11 @@ export type LaunchPadFxState = {
 };
 
 /**
- * Drive flame trench, deluge steam, and pad lighting from mission state.
- * Day/night flood balance uses `sunElev`; scrub-safe.
+ * Drive flame trench, deluge steam, vent plumes, and pad lighting from mission
+ * state. Day/night flood balance uses `sunElev`; scrub-safe.
+ *
+ * `missionT` may be negative (pre-liftoff countdown) so tank-farm vent steam
+ * reads during the T− hold like the webcast.
  */
 export function updateStarbaseLaunchFx(
   pad: THREE.Object3D,
@@ -293,16 +627,18 @@ export function updateStarbaseLaunchFx(
   const nearPad =
     state.phase === "launch" ||
     (state.phase === "ascent" && state.altEarth < 8) ||
-    (state.missionT >= 0 && state.missionT < 30 && state.altEarth < 2);
+    state.missionT < 30;
   const active = state.burning && onPadPhase && state.missionT >= 0;
 
   // Intensity falls with altitude and fades after leaving thick atmosphere theater
   const altFade = THREE.MathUtils.clamp(1 - state.altEarth / 18, 0, 1);
   const t = state.missionT;
+  // Animation clock: keep prelaunch steam drifting (t is negative on hold)
+  const animT = t;
   const flicker =
     0.9 +
-    0.06 * Math.sin(t * 41.2) +
-    0.04 * Math.sin(t * 77.5 + 0.7);
+    0.06 * Math.sin(Math.max(0, t) * 41.2) +
+    0.04 * Math.sin(Math.max(0, t) * 77.5 + 0.7);
   const strength = active ? altFade * flicker : 0;
 
   // Day factor: 1 midday, 0 deep night (soft twilight band)
@@ -340,24 +676,59 @@ export function updateStarbaseLaunchFx(
       if (!(obj instanceof THREE.Sprite)) return;
       const mat = obj.material as THREE.SpriteMaterial;
       const phase = (obj.userData.phase as number) ?? 0;
-      const wobble = 0.85 + 0.15 * Math.sin(t * 3.1 + phase);
+      const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + phase);
       // Slightly brighter steam at night (backlit by floods / plume)
-      mat.opacity = (0.22 + 0.12 * night) * steamStr * wobble;
-      const grow = 0.05 + steamStr * 0.08 + 0.015 * Math.sin(t * 2.2 + phase);
+      mat.opacity = (0.28 + 0.14 * night) * steamStr * wobble;
+      const grow = 0.06 + steamStr * 0.12 + 0.02 * Math.sin(animT * 2.2 + phase);
       obj.scale.setScalar(grow);
       const ang = (obj.userData.baseAng as number) ?? 0;
-      const r = 0.035 + steamStr * 0.04 + 0.008 * Math.sin(t * 1.7 + phase);
+      const r = 0.04 + steamStr * 0.06 + 0.01 * Math.sin(animT * 1.7 + phase);
       obj.position.set(
-        Math.cos(ang + t * 0.05) * r,
-        0.015 + steamStr * 0.04 + 0.008 * Math.sin(t * 2.5 + phase),
-        Math.sin(ang + t * 0.05) * r,
+        Math.cos(ang + animT * 0.05) * r,
+        0.02 + steamStr * 0.06 + 0.01 * Math.sin(animT * 2.5 + phase),
+        Math.sin(ang + animT * 0.05) * r,
+      );
+    });
+  }
+
+  // Tank-farm vent steam: strong on countdown hold, eases after liftoff
+  const vent = pad.getObjectByName("pad-vent-steam");
+  if (vent) {
+    let ventStr = 0;
+    if (state.missionT < 0) {
+      // Full hold plume (SpaceX webcast look)
+      ventStr = 0.85 + 0.15 * Math.sin(animT * 0.7);
+    } else if (state.missionT < 90 && state.altEarth < 12) {
+      ventStr = THREE.MathUtils.clamp(1 - state.missionT / 90, 0, 1) * 0.75;
+    }
+    // Dim slightly once engines light (deluge takes visual priority)
+    if (strength > 0.2) ventStr *= 0.55;
+    vent.visible = ventStr > 0.04;
+    vent.traverse((obj) => {
+      if (!(obj instanceof THREE.Sprite)) return;
+      const mat = obj.material as THREE.SpriteMaterial;
+      const phase = (obj.userData.phase as number) ?? 0;
+      const wobble = 0.8 + 0.2 * Math.sin(animT * 1.8 + phase);
+      mat.opacity = (0.35 + 0.2 * night) * ventStr * wobble;
+      const grow =
+        0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + phase);
+      obj.scale.set(grow * 1.15, grow * 1.4, 1);
+      const bx = (obj.userData.baseX as number) ?? 0;
+      const by = (obj.userData.baseY as number) ?? 0;
+      const bz = (obj.userData.baseZ as number) ?? 0;
+      obj.position.set(
+        bx + 0.012 * Math.sin(animT * 0.4 + phase),
+        by + ventStr * 0.08 + 0.02 * Math.sin(animT * 1.1 + phase),
+        bz + 0.01 * Math.cos(animT * 0.35 + phase),
       );
     });
   }
 
   // Floodlights: strong at night on pad, dim day fill; drop once stack is gone
   const padOps =
-    nearPad || (state.phase === "launch" && state.missionT < 120);
+    nearPad ||
+    state.missionT < 0 ||
+    (state.phase === "launch" && state.missionT < 120);
   const floodBase = padOps ? 0.15 * day + 1.15 * night : 0;
   for (let i = 0; i < 3; i++) {
     const spot = pad.getObjectByName(`pad-flood-${i}`) as

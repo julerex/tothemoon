@@ -617,7 +617,8 @@ function applyMissionState(u: number): void {
   const sunElev =
     (sunDx * padUpX + sunDy * padUpY + sunDz * padUpZ) / (sunLen * upLen);
   updateStarbaseLaunchFx(starbasePad, {
-    missionT: Math.max(0, physicsT),
+    // Negative during T− hold so vent steam / pad ops stay live
+    missionT: physicsT,
     phase: displayPhase,
     burning: showBurning,
     altEarth: displayAltEarth,
