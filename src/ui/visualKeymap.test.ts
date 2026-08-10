@@ -18,13 +18,13 @@ describe("visualKeymap layout", () => {
         if (k.action) actions.set(k.label, k.action);
       }
     }
-    assert.equal(actions.get("`"), "Cycle cam");
+    assert.equal(actions.get("`"), "Cycle cameras");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
     assert.equal(actions.get("C"), "Roll ←");
     assert.equal(actions.get("V"), "Roll →");
     assert.equal(actions.get("G"), "Auto-cam");
-    assert.equal(actions.get("Tab"), "CS · GC · Polar");
+    assert.equal(actions.get("Tab"), "Dashboards");
     assert.equal(actions.get("Space"), "Play / pause");
     assert.equal(actions.get("K"), "KeyMap");
   });

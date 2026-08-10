@@ -21,7 +21,7 @@ export type KeyRow = readonly KeyCap[];
  */
 export const KEYMAP_ROWS: readonly KeyRow[] = [
   [
-    { label: "`", action: "Cycle cam" },
+    { label: "`", action: "Cycle cameras" },
     { label: "1", action: "Sun" },
     { label: "2", action: "Earth" },
     { label: "3", action: "Moon" },
@@ -37,7 +37,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "⌫", w: 1.5 },
   ],
   [
-    { label: "Tab", action: "CS · GC · Polar", w: 1.5 },
+    { label: "Tab", action: "Dashboards", w: 1.5 },
     { label: "Q", action: "Yaw ←" },
     { label: "W", action: "Pan fwd" },
     { label: "E", action: "Yaw →" },
