@@ -700,6 +700,10 @@ export function bindHud(
     if (e.code === "Space") {
       e.preventDefault();
       handlers.onPlayToggle();
+    } else if (e.code === "Backquote" || e.key === "`" || e.key === "~") {
+      // ` cycle cameras (Shift+` still cycles — same order as 1–7)
+      e.preventDefault();
+      cycleCamera();
     } else if (e.shiftKey && e.code.startsWith("Digit")) {
       // Shift+1… — use e.code (Shift+1 is "!" on many layouts, not "1")
       const digit = Number(e.code.slice("Digit".length));
@@ -975,6 +979,24 @@ export function bindHud(
         camToast.classList.remove("cam-toast-out");
       }, 300);
     }, CAM_TOAST_MS);
+  }
+
+  /** Focus modes cycled by ` (backtick) — same order as number keys 1–7. */
+  const CAMERA_CYCLE: readonly CameraMode[] = [
+    "sun",
+    "earth",
+    "moon",
+    "chase",
+    "starbase",
+    "fin",
+    "gridfin",
+  ];
+
+  /** Advance focus to the next preset (skip free / unlisted). */
+  function cycleCamera(): void {
+    const i = CAMERA_CYCLE.indexOf(lastCamMode);
+    const next = CAMERA_CYCLE[(i < 0 ? 0 : i + 1) % CAMERA_CYCLE.length]!;
+    switchCamera(next);
   }
 
   /**

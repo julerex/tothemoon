@@ -18,6 +18,7 @@ describe("visualKeymap layout", () => {
         if (k.action) actions.set(k.label, k.action);
       }
     }
+    assert.equal(actions.get("`"), "Cycle cam");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
     assert.equal(actions.get("C"), "Roll ←");
