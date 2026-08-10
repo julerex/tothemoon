@@ -536,30 +536,26 @@ body.menus-active {
   box-shadow: none;
 }
 
-/* Mission-time news crawl (scrub-safe; content from mission clock) */
+/* Mission-time news crawl — first row of the bottom bar, above the scrubber */
 .news-ticker {
-  position: absolute;
-  left: 0;
-  right: 0;
-  /* Sit just above the transport / bookmark bottom bar */
-  bottom: 7.35rem;
-  z-index: 6;
   display: flex;
   align-items: stretch;
-  height: 1.7rem;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 1.65rem;
   pointer-events: none;
   background: linear-gradient(
     90deg,
-    rgba(8, 10, 14, 0.94) 0%,
-    rgba(12, 14, 20, 0.88) 40%,
-    rgba(8, 10, 14, 0.92) 100%
+    rgba(8, 10, 14, 0.96) 0%,
+    rgba(12, 14, 20, 0.92) 40%,
+    rgba(8, 10, 14, 0.96) 100%
   );
-  border-top: 1px solid rgba(255, 80, 60, 0.35);
+  border-top: 1px solid rgba(255, 80, 60, 0.4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.45);
   font-size: 0.72rem;
   letter-spacing: 0.03em;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .news-ticker-live {
@@ -674,21 +670,22 @@ body.menus-active {
 .transport {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.45rem 0.9rem;
-  padding: 0.55rem 1.1rem 0.45rem;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.4rem 1.1rem 0.4rem;
   width: 100%;
   max-width: none;
   margin: 0;
   box-sizing: border-box;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: 0;
   border-left: none;
   border-right: none;
+  border-top: none;
   border-bottom: 1px solid var(--panel-border);
   pointer-events: auto;
 }
 
-/* Cinematic bookmarks — full-width row under play / speed / scrubber */
+/* Cinematic bookmarks — full-width row under speed / scrubber */
 .bookmarks {
   display: flex;
   flex-wrap: wrap;
@@ -696,7 +693,7 @@ body.menus-active {
   gap: 0.3rem 0.35rem;
   flex: 1 1 100%;
   min-width: 0;
-  padding-top: 0.1rem;
+  padding-top: 0.05rem;
 }
 
 .bookmarks[hidden] {
@@ -772,8 +769,8 @@ body.menus-active {
 
 .telemetry {
   position: absolute;
-  /* Sit above news ticker + full-width bottom bar */
-  bottom: 9.2rem;
+  /* Sit above compact bottom bar (ticker + scrubber + bookmarks + footer) */
+  bottom: 7.6rem;
   right: 1.1rem;
   padding: 0.65rem 0.85rem;
   font-family: var(--mono);
@@ -1438,7 +1435,7 @@ kbd {
 /* Full-bleed theater panels (cross-section · KeyMap) — black board above transport */
 
 /*
- * Full-bleed above the transport strip (play / scrubber / bookmarks / footer).
+ * Full-bleed above the bottom bar (ticker / scrubber / bookmarks / footer).
  * Bottom clearance matches .telemetry so the time slider stays free.
  */
 .cross-section,
@@ -1448,8 +1445,8 @@ kbd {
   top: 0;
   left: 0;
   right: 0;
-  /* Clear news ticker + transport strip */
-  bottom: 9.1rem;
+  /* Clear compact bottom bar (ticker + scrubber + footer) */
+  bottom: 7.5rem;
   align-items: stretch;
   justify-content: stretch;
   padding: 0;
@@ -1458,7 +1455,7 @@ kbd {
   -webkit-backdrop-filter: none;
 }
 
-/* Keep play / speed / scrubber / bookmarks above the overlay */
+/* Keep ticker / speed / scrubber / bookmarks above the overlay */
 #hud.cross-section-open .bottom-bar,
 #hud.earth-gc-open .bottom-bar,
 #hud.polar-map-open .bottom-bar,
@@ -1555,13 +1552,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   flex-shrink: 0;
   color: rgba(255, 255, 255, 0.5);
   border-top-color: rgba(255, 255, 255, 0.15);
-}
-
-#btn-cross-section[aria-pressed="true"],
-#btn-keymap[aria-pressed="true"] {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.45);
-  color: #fff;
 }
 
 /* Visual KeyMap — white line keyboard on black (same shell as cross-section) */
@@ -1679,15 +1669,14 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
 @media (max-width: 640px) {
   .telemetry {
-    bottom: 10rem;
+    bottom: 8.5rem;
     right: 0.75rem;
     font-size: 0.7rem;
     min-width: 10rem;
   }
 
   .news-ticker {
-    bottom: 8.6rem;
-    height: 1.55rem;
+    height: 1.5rem;
     font-size: 0.66rem;
   }
 
@@ -1695,21 +1684,26 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   .earth-gc,
   .polar-map,
   .visual-keymap {
-    bottom: 10rem;
+    bottom: 8.5rem;
   }
 
   .transport {
     flex-wrap: wrap;
-    gap: 0.45rem 0.65rem;
+    gap: 0.35rem 0.55rem;
+    padding: 0.35rem 0.75rem 0.35rem;
   }
 
   .scrubber {
     flex: 1 1 100%;
-    order: 3;
+    order: 2;
+  }
+
+  .speed {
+    order: 1;
   }
 
   .bookmarks {
-    order: 4;
+    order: 3;
   }
 
   .bookmark-btn {

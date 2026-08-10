@@ -158,7 +158,9 @@ export function bindHud(
    */
   notifyAutoCamera: (mode: CameraMode) => void;
 } {
-  const btnPlay = el<HTMLButtonElement>("#btn-play");
+  // Transport action buttons removed from the chrome (keyboard still works).
+  // Optional querySelector so older HTML with buttons still binds if present.
+  const btnPlay = document.querySelector<HTMLButtonElement>("#btn-play");
   const btnAutoCam = document.querySelector<HTMLButtonElement>("#btn-auto-cam");
   const btnCrossSection = document.querySelector<HTMLButtonElement>(
     "#btn-cross-section",
@@ -167,6 +169,8 @@ export function bindHud(
   const btnPolarMap = document.querySelector<HTMLButtonElement>("#btn-polar-map");
   const btnKeymap = document.querySelector<HTMLButtonElement>("#btn-keymap");
   const speed = el<HTMLSelectElement>("#speed");
+  /** Last playing state from telemetry (for complete-card Replay). */
+  let lastPlaying = false;
   const scrub = el<HTMLInputElement>("#scrub");
   const markersEl = document.querySelector<HTMLElement>("#scrub-markers");
   const eventsEl = document.querySelector<HTMLElement>("#scrub-events");
@@ -583,7 +587,9 @@ export function bindHud(
     showBookmarkToast(bm);
   }
 
-  btnPlay.addEventListener("click", () => handlers.onPlayToggle());
+  if (btnPlay) {
+    btnPlay.addEventListener("click", () => handlers.onPlayToggle());
+  }
   if (btnAutoCam) {
     btnAutoCam.addEventListener("click", () => toggleAutoCam());
     setAutoCamEnabled(true);
@@ -812,7 +818,7 @@ export function bindHud(
     mcReplay.addEventListener("click", () => {
       handlers.onScrub(0);
       // Start playback if paused
-      if (btnPlay.getAttribute("aria-pressed") !== "true") {
+      if (!lastPlaying) {
         handlers.onPlayToggle();
       }
       if (completeEl) completeEl.hidden = true;
@@ -1061,8 +1067,11 @@ export function bindHud(
       barShip.style.width = `${Math.round(clamp01(tel.fuelShip) * 100)}%`;
     }
 
-    btnPlay.textContent = tel.playing ? "Pause" : "Play";
-    btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
+    lastPlaying = tel.playing;
+    if (btnPlay) {
+      btnPlay.textContent = tel.playing ? "Pause" : "Play";
+      btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
+    }
 
     // Mission complete panel (main delays this until landing-beat hold elapses)
     if (completeEl) {

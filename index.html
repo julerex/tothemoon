@@ -39,76 +39,32 @@
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
 
-        <div
-          id="news-ticker"
-          class="news-ticker hud-chrome"
-          role="status"
-          aria-live="polite"
-          aria-label="Mission news ticker"
-        >
-          <span class="news-ticker-live" aria-hidden="true">LIVE</span>
-          <span class="news-ticker-wire" id="news-ticker-wire">STANDBY</span>
-          <div class="news-ticker-viewport">
-            <div class="news-ticker-track" id="news-ticker-track">
-              <span class="news-ticker-text" id="news-ticker-text"
-                >Awaiting mission clock…</span
-              >
-              <span
-                class="news-ticker-text news-ticker-text-dup"
-                id="news-ticker-text-dup"
-                aria-hidden="true"
-                >Awaiting mission clock…</span
-              >
+        <div class="bottom-bar hud-chrome">
+          <div
+            id="news-ticker"
+            class="news-ticker"
+            role="status"
+            aria-live="polite"
+            aria-label="Mission news ticker"
+          >
+            <span class="news-ticker-live" aria-hidden="true">LIVE</span>
+            <span class="news-ticker-wire" id="news-ticker-wire">STANDBY</span>
+            <div class="news-ticker-viewport">
+              <div class="news-ticker-track" id="news-ticker-track">
+                <span class="news-ticker-text" id="news-ticker-text"
+                  >Awaiting mission clock…</span
+                >
+                <span
+                  class="news-ticker-text news-ticker-text-dup"
+                  id="news-ticker-text-dup"
+                  aria-hidden="true"
+                  >Awaiting mission clock…</span
+                >
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="bottom-bar hud-chrome">
           <section class="panel transport" aria-label="Playback">
-            <button type="button" id="btn-play" aria-pressed="false" title="Play / pause (Space)">
-              Play
-            </button>
-            <button
-              type="button"
-              id="btn-auto-cam"
-              aria-pressed="true"
-              title="Auto-cam on — guided framing by phase (G)"
-            >
-              Auto-cam
-            </button>
-            <button
-              type="button"
-              id="btn-cross-section"
-              aria-pressed="false"
-              title="Ascent / return to launch site cross-section (Tab)"
-            >
-              Cross-section
-            </button>
-            <button
-              type="button"
-              id="btn-earth-gc"
-              aria-pressed="false"
-              title="Whole-Earth great-circle section — Flight 13 corridor (Tab)"
-            >
-              Earth GC
-            </button>
-            <button
-              type="button"
-              id="btn-polar-map"
-              aria-pressed="false"
-              title="Earth-centric trajectories · ecliptic plane view (Tab)"
-            >
-              Polar
-            </button>
-            <button
-              type="button"
-              id="btn-keymap"
-              aria-pressed="false"
-              title="KeyMap — keyboard actions (K or Tab)"
-            >
-              KeyMap
-            </button>
-            <label class="speed">
+            <label class="speed" title="Playback speed (, / . to nudge)">
               Speed
               <select id="speed" aria-label="Playback speed">
                 <option value="-2000">−2000×</option>
