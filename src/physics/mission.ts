@@ -1,14 +1,15 @@
 /**
- * Mission orchestrator: Starbase → low Earth orbit → translunar injection → pure ballistic n-body coast.
+ * Mission orchestrator: Starbase → low Earth orbit → translunar injection →
+ * n-body coast → lunar orbit insertion → low lunar orbit → powered descent → land.
  *
- * After translunar injection there are **no burns** (no trajectory corrections, no lunar orbit insertion / powered descent). The craft coasts under
- * restricted n-body gravity (Earth + Moon + solar tide + J₂). Outcome is lunar
- * impact or ballistic flyby — not a powered landing.
+ * After translunar injection the craft coasts under restricted n-body gravity,
+ * then captures into polar low lunar orbit and soft-lands at the south pole
+ * (theater LOI / LLO / PDI — not flight-ops tables).
  *
  * Heavy lifting lives in focused modules:
- * - {@link flyMission} — ascent + dogleg + translunar injection + ballistic coast
- * - {@link searchBallisticTransfer} — epoch / phase / Δv search
- * - {@link runBallisticCoast} / {@link probePerilune} — free-coast dynamics
+ * - {@link flyMission} — ascent + dogleg + translunar injection + capture
+ * - {@link searchBallisticTransfer} — epoch / phase / Δv search (close perilune)
+ * - {@link runLunarCapture} — coast + LOI + LLO + descent
  * - {@link downsampleTrajectory} — pack thinning
  */
 
@@ -34,8 +35,8 @@ export type { PhaseId, Sample, MissionResult } from "./missionTypes";
 export { phaseLabel } from "./missionTypes";
 
 /**
- * Starbase → low Earth orbit → translunar injection → ballistic free coast (no post-Translunar injection burns).
- * Outcome: lunar impact or flyby. Probe search aims for a close Moon pass.
+ * Starbase → low Earth orbit → translunar injection → capture → south-pole land.
+ * Probe search aims for a close Moon pass so LOI can light.
  */
 export function runMission(): MissionResult {
   const xfer = designLunarTransfer();

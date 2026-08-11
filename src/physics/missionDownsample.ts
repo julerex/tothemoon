@@ -28,6 +28,9 @@ export function downsampleTrajectory(
       sample.phase === "ascent" ||
       sample.phase === "lowEarthOrbit" ||
       sample.phase === "translunarInjection" ||
+      sample.phase === "approach" ||
+      sample.phase === "braking" ||
+      sample.phase === "descent" ||
       sample.phase === "impact" ||
       sample.phase === "landed" ||
       sample.phase === "entry" ||

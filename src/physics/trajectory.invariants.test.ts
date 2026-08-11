@@ -28,15 +28,13 @@ describe("baked trajectory.json invariants", () => {
     assert.doesNotThrow(() => assertTrajectoryInvariants(traj));
   });
 
-  it("contains core ballistic phases in order", () => {
+  it("contains capture phases in order through soft land", () => {
     const seq: string[] = [];
     for (const s of traj.samples) {
       if (seq[seq.length - 1] !== s.phase) seq.push(s.phase);
     }
-    const core = seq.filter((p) => p !== "impact");
-    assert.deepEqual(core, [...EXPECTED_PHASE_ORDER]);
-    const end = seq[seq.length - 1];
-    assert.ok(end === "coast" || end === "impact", `end=${end}`);
+    assert.deepEqual(seq, [...EXPECTED_PHASE_ORDER]);
+    assert.equal(seq[seq.length - 1], "landed");
   });
 
   it("builds a timeline with markers and events", () => {
@@ -45,9 +43,15 @@ describe("baked trajectory.json invariants", () => {
     assert.ok(tl.segments.length >= EXPECTED_PHASE_ORDER.length - 1);
     assert.ok(tl.events.some((e) => e.id === "liftoff"));
     assert.ok(
-      tl.events.some((e) => e.id === "coast" || e.id === "impact" || e.id === "translunarInjection"),
+      tl.events.some(
+        (e) =>
+          e.id === "lunarOrbitInsertion" ||
+          e.id === "coast" ||
+          e.id === "translunarInjection",
+      ),
     );
-    // Coast should dominate wall-clock progress on the scrubber
+    assert.ok(tl.events.some((e) => e.id === "touchdown"));
+    // Coast still dominates wall-clock progress on the scrubber
     const coast = tl.segments.find((s) => s.phase === "coast");
     assert.ok(coast);
     assert.ok(coast!.u1 - coast!.u0 > 0.4);

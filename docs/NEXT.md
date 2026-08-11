@@ -203,7 +203,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 **Good next slices:**
 1. ~~**Flight 13 Auto-cam story**~~ **done** (trench → ship → gridfin → entry chase)  
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
-3. **Lunar LOI / soft landing pack** (if a capture ending is wanted again)  
+3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
 4. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
@@ -259,3 +259,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Sky phase one-liner (Moon % lit + Sun λ) on telemetry / Metrics / complete card; Flight 13 Metrics force-check row |
 | 2026-08-11 | Cameras reordered 1–8; flame-trench under-pad cam; prelaunch pad-cam epoch fix |
 | 2026-08-11 | Watchability: Flight 13 Auto-cam profile + chase look-ahead / bank / speed widen |
+| 2026-08-11 | Lunar LOI restored: n-body coast → capture burn → polar LLO → powered descent → south-pole land |

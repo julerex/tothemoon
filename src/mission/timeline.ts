@@ -153,8 +153,8 @@ function buildEvents(
         add(
           "coast",
           seg.t0,
-          "Translunar injection complete",
-          "Ballistic 4-body coast · no further burns",
+          "Translunar coast",
+          "Restricted n-body coast · capture pending",
         );
         break;
       case "approach":
