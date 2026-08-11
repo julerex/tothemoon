@@ -8,7 +8,7 @@
  */
 
 import { R_EARTH, R_MOON, A_EM } from "../physics/constants";
-import { bodyPositions } from "../physics/bodies";
+import { bodyPositions, osculatingMoonOrbitPoints } from "../physics/bodies";
 import type { Sample } from "../physics/missionTypes";
 import { dot, type V3, v3 } from "../physics/vec3";
 
@@ -153,6 +153,14 @@ export function buildPolarTrajectoryModel(
     maxR = Math.max(maxR, Math.hypot(mp.x, mp.y), A_EM);
   }
 
+  // Frame the osculating lunar orbit (may reach past the mission-arc moon trail)
+  for (const t of [samples[0]!.t, samples[n - 1]!.t]) {
+    for (const p of osculatingMoonOrbitPoints(t, 64)) {
+      const mp = projectEarthCentricPolar(p, basis);
+      maxR = Math.max(maxR, Math.hypot(mp.x, mp.y));
+    }
+  }
+
   const pad = maxR * 0.08 + R_EARTH;
   const bounds: PolarBounds = {
     xMin: -maxR - pad,
@@ -252,21 +260,63 @@ function sampleTrailAt(
   };
 }
 
-/** Trail points with t ≤ missionT (for progressive path draw). */
+/**
+ * Trail points up through missionT (for progressive path draw).
+ * When missionT falls between samples, appends a linearly interpolated
+ * endpoint so the stroked path meets the live marker instead of stopping
+ * short at the previous sample.
+ */
 export function trailUpTo(
   trail: TimedPolarPoint[],
   missionT: number,
 ): TimedPolarPoint[] {
   if (trail.length === 0) return [];
-  let end = trail.length;
-  for (let i = 0; i < trail.length; i++) {
-    if (trail[i]!.t > missionT) {
-      end = i;
-      break;
-    }
+  const first = trail[0]!;
+  if (missionT <= first.t) {
+    return [{ x: first.x, y: first.y, t: first.t }];
   }
-  if (end === 0) return [trail[0]!];
-  return trail.slice(0, end);
+  const last = trail[trail.length - 1]!;
+  if (missionT >= last.t) {
+    return trail.slice();
+  }
+  // Binary search: lo = last index with t ≤ missionT
+  let lo = 0;
+  let hi = trail.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (trail[mid]!.t <= missionT) lo = mid;
+    else hi = mid;
+  }
+  const a = trail[lo]!;
+  const b = trail[hi]!;
+  const out = trail.slice(0, lo + 1);
+  if (missionT > a.t + 1e-12) {
+    const dt = b.t - a.t;
+    const u = dt > 1e-12 ? (missionT - a.t) / dt : 0;
+    out.push({
+      x: a.x + (b.x - a.x) * u,
+      y: a.y + (b.y - a.y) * u,
+      t: missionT,
+    });
+  }
+  return out;
+}
+
+/**
+ * Project the osculating geocentric lunar orbit at mission time t into the
+ * ecliptic plane. The live Moon always lies on this closed curve.
+ */
+export function projectedMoonOrbit(
+  basis: PolarBasis,
+  t: number,
+  samples = 128,
+): PolarPoint[] {
+  const pts3 = osculatingMoonOrbitPoints(t, samples);
+  const out: PolarPoint[] = [];
+  for (const p of pts3) {
+    out.push(projectEarthCentricPolar(p, basis));
+  }
+  return out;
 }
 
 export function fitPolarView(
@@ -324,12 +374,17 @@ export function drawPolarTrajectories(
   const view = fitPolarView(model.bounds, cssW, cssH, dpr);
   const c0 = worldToCanvas({ x: 0, y: 0 }, view);
 
-  // Mean lunar distance ring
+  // Osculating lunar orbit (ecliptic projection) — always through the Moon
+  const moonOrbit = projectedMoonOrbit(model.basis, missionT, 160);
   ctx.beginPath();
-  ctx.arc(c0.x, c0.y, model.aEm * view.scale, 0, Math.PI * 2);
+  for (let i = 0; i < moonOrbit.length; i++) {
+    const c = worldToCanvas(moonOrbit[i]!, view);
+    if (i === 0) ctx.moveTo(c.x, c.y);
+    else ctx.lineTo(c.x, c.y);
+  }
   ctx.strokeStyle = "#fff";
-  ctx.globalAlpha = 0.22;
-  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.28;
+  ctx.lineWidth = 1.1;
   ctx.setLineDash([6, 8]);
   ctx.stroke();
   ctx.setLineDash([]);
@@ -365,9 +420,18 @@ export function drawPolarTrajectories(
   ctx.fillText("+Y", py.x + 4, py.y);
   ctx.globalAlpha = 1;
 
-  // Moon trail (full path, dim) + progressive
+  // Moon trail (full path, dim) + progressive (ends at live Moon)
   const moonFull = model.moonTrail;
   const moonSoFar = trailUpTo(model.moonTrail, missionT);
+  if (live.moon) {
+    const tip = moonSoFar[moonSoFar.length - 1];
+    if (
+      !tip ||
+      Math.hypot(tip.x - live.moon.x, tip.y - live.moon.y) > 1e-6
+    ) {
+      moonSoFar.push({ x: live.moon.x, y: live.moon.y, t: missionT });
+    }
+  }
   ctx.lineWidth = 1.1;
   ctx.strokeStyle = "#fff";
   ctx.globalAlpha = 0.2;
@@ -378,9 +442,18 @@ export function drawPolarTrajectories(
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  // Ship trail
+  // Ship trail (progressive ends at live ship)
   const shipFull = model.shipTrail;
   const shipSoFar = trailUpTo(model.shipTrail, missionT);
+  if (live.ship) {
+    const tip = shipSoFar[shipSoFar.length - 1];
+    if (
+      !tip ||
+      Math.hypot(tip.x - live.ship.x, tip.y - live.ship.y) > 1e-6
+    ) {
+      shipSoFar.push({ x: live.ship.x, y: live.ship.y, t: missionT });
+    }
+  }
   ctx.lineWidth = 1.15;
   ctx.globalAlpha = 0.22;
   strokeTrail(ctx, view, shipFull);
@@ -446,8 +519,8 @@ export function drawPolarTrajectories(
 
   ctx.textAlign = "right";
   ctx.globalAlpha = 0.75;
-  ctx.fillText("solid: ship · dashed: Moon", cssW - 12, 10);
-  ctx.fillText("ring: mean Earth–Moon a", cssW - 12, 26);
+  ctx.fillText("solid: ship · dashed: Moon path", cssW - 12, 10);
+  ctx.fillText("ring: Moon orbit (osculating)", cssW - 12, 26);
   ctx.fillText("true scale · look along ecliptic +Z", cssW - 12, 42);
   ctx.globalAlpha = 1;
 }

@@ -512,8 +512,8 @@ function applyMissionState(u: number): void {
     altMoon: frame.altMoon,
   });
   updateBodies(simT, bodies);
-  // Osculating Earth–Moon ring — always intersects the Moon at this epoch
-  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, frame.t);
+  // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
+  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT);
 
   // Unit-scale sun light aimed at Earth
   applySunLight(sunLight, b.sun, b.earth, _skySun);

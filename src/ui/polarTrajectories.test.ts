@@ -17,6 +17,7 @@ import {
   moonEarthRel,
   polarBasisLookingNorth,
   projectEarthCentricPolar,
+  projectedMoonOrbit,
   trailUpTo,
 } from "./polarTrajectories.ts";
 
@@ -127,6 +128,35 @@ describe("trailUpTo", () => {
     const partial = trailUpTo(m.shipTrail, mid);
     assert.ok(partial.length >= 1);
     assert.ok(partial[partial.length - 1]!.t <= mid + 1e-9);
+  });
+
+  it("appends an interpolated endpoint between samples", () => {
+    const trail = [
+      { x: 0, y: 0, t: 0 },
+      { x: 10, y: 0, t: 10 },
+      { x: 20, y: 0, t: 20 },
+    ];
+    const partial = trailUpTo(trail, 15);
+    assert.equal(partial.length, 3);
+    assert.equal(partial[partial.length - 1]!.t, 15);
+    assert.ok(Math.abs(partial[partial.length - 1]!.x - 15) < 1e-9);
+  });
+});
+
+describe("projectedMoonOrbit", () => {
+  it("places the live Moon on the osculating orbit ring", () => {
+    const m = buildPolarTrajectoryModel(samples)!;
+    const mid = samples[Math.floor(samples.length / 2)]!.t;
+    const live = livePolar(m, samples, mid);
+    assert.ok(live.moon);
+    const orbit = projectedMoonOrbit(m.basis, mid, 256);
+    let minD = Infinity;
+    for (const p of orbit) {
+      const d = Math.hypot(p.x - live.moon!.x, p.y - live.moon!.y);
+      if (d < minD) minD = d;
+    }
+    // Projection of a 3-D ellipse through the Moon; vertex spacing ~1.5°
+    assert.ok(minD < 500, `Moon–orbit distance ${minD} km`);
   });
 });
 

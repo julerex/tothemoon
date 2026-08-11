@@ -122,7 +122,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Polar map",
     category: "views",
     definition:
-      "Earth-centric 2-D map of ship and Moon paths looking along ecliptic +Z (perpendicular to Earth’s orbital plane). Solid ship trail, dashed Moon trail, mean lunar-distance ring.",
+      "Earth-centric 2-D map of ship and Moon paths looking along ecliptic +Z (perpendicular to Earth’s orbital plane). Solid ship trail, dashed Moon path, osculating lunar-orbit ring through the Moon.",
   },
   {
     id: "raptor",
