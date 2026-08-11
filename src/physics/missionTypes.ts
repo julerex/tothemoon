@@ -61,7 +61,7 @@ export type MissionResult = {
   message: string;
   /**
    * Mission time t used as Horizons τ=0 while baking samples. Playback must
-   * call setMissionLandingT with this value so Earth/Moon stay under the craft.
+   * set EphemerisEpoch.horizonsLandingT to this so Earth/Moon stay under the craft.
    */
   horizonsLandingT?: number;
   /** Peak inertial |v| (km/s) over samples — packed into trajectory.json v2+ */

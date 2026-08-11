@@ -8,10 +8,14 @@
  * **Flight 13:** liftoff at the public window open (theater) — 2026-07-23
  * 22:45 UTC = 5:45 p.m. CDT — so Starbase is in daytime. Uses analytic
  * Earth/Sun (Horizons table is the July 2027 lunar window only).
+ *
+ * Pure: wall-clock mapping takes an explicit UTC epoch or landing map —
+ * no module mutable state.
  */
 
 import { N_EARTH_SUN } from "./constants";
 import { moonEclipticLongitude } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
 
 /** Touchdown epoch (UTC) — lunar mission Horizons τ = 0. */
 export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
@@ -22,27 +26,6 @@ export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
  * See docs/STARSHIP_13.md.
  */
 export const FLIGHT13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 23, 22, 45, 0);
-
-/**
- * When set, {@link missionUtcMs} maps mission t=0 to this UTC (ms) and
- * advances with mission time. Used by Flight 13 so pad lighting / GMST match
- * the launch window. Null → lunar landing-relative mapping.
- */
-let clockEpochUtcMs: number | null = null;
-
-/** Pin mission clock t = 0 to an absolute UTC (Flight 13 launch). */
-export function setMissionClockEpochUtc(utcMsAtT0: number): void {
-  clockEpochUtcMs = utcMsAtT0;
-}
-
-/** Restore landing-relative mission clock (lunar theater default). */
-export function clearMissionClockEpochUtc(): void {
-  clockEpochUtcMs = null;
-}
-
-export function getMissionClockEpochUtc(): number | null {
-  return clockEpochUtcMs;
-}
 
 /**
  * Full-Moon reference: penumbral eclipse greatest eclipse
@@ -90,37 +73,49 @@ export function sunEclipticLongitudeAtLanding(): number {
  *
  * Heliocentric frame: EM barycenter at angle θ_e about the Sun; Earth→Sun
  * points toward the origin (angle θ_e + π). Moon ecliptic longitude λ_m
- * (Earth→Moon from the Keplerian orbit):
+ * (Earth→Moon from the Keplerian / Horizons orbit):
  *   full:      λ_m = θ_e
  *   waning +δ: λ_m = θ_e + δ
  *   θ_e = sunPhase0 + N_EARTH_SUN · landingT
  *   sunPhase0 = λ_m − δ − N_EARTH_SUN · landingT
+ *
+ * @param epoch partial ephemeris used only for moon longitude (Horizons map)
  */
 export function sunPhase0ForLanding(
   moonPhase0: number,
   landingT: number,
+  epoch: EphemerisEpoch,
 ): number {
   const δ = moonElongationPastFullRad();
-  const λm = moonEclipticLongitude(landingT, moonPhase0);
+  const λm = moonEclipticLongitude(landingT, epoch, moonPhase0);
   return λm - δ - N_EARTH_SUN * landingT;
 }
 
 /**
  * Absolute UTC (ms) for a mission clock time.
  *
- * - If {@link setMissionClockEpochUtc} is active (Flight 13):  
+ * - If `clockUtcMsAtT0` is set (Flight 13):
  *   `utc = epochUtc + missionT · 1000`
- * - Else (lunar): Horizons τ = 0 at {@link LANDING_UTC_MS};  
+ * - Else (lunar): Horizons τ = 0 at {@link LANDING_UTC_MS};
  *   `utc = LANDING_UTC + (missionT − landingMissionT) · 1000`
  */
 export function missionUtcMs(
   missionT: number,
   landingMissionT: number,
+  clockUtcMsAtT0: number | null = null,
 ): number {
-  if (clockEpochUtcMs != null) {
-    return clockEpochUtcMs + missionT * 1000;
+  if (clockUtcMsAtT0 != null) {
+    return clockUtcMsAtT0 + missionT * 1000;
   }
   return LANDING_UTC_MS + (missionT - landingMissionT) * 1000;
+}
+
+/** UTC from a full {@link EphemerisEpoch}. */
+export function missionUtcMsFromEpoch(
+  missionT: number,
+  epoch: EphemerisEpoch,
+): number {
+  return missionUtcMs(missionT, epoch.horizonsLandingT, epoch.clockUtcMsAtT0);
 }
 
 /**
@@ -137,14 +132,26 @@ export function sunPhase0ForUtc(utcMs: number): number {
 export function formatMissionDateUtc(
   missionT: number,
   landingMissionT: number,
+  clockUtcMsAtT0: number | null = null,
 ): string {
-  const d = new Date(missionUtcMs(missionT, landingMissionT));
+  const d = new Date(missionUtcMs(missionT, landingMissionT, clockUtcMsAtT0));
   const y = d.getUTCFullYear();
   const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   const h = String(d.getUTCHours()).padStart(2, "0");
   const mi = String(d.getUTCMinutes()).padStart(2, "0");
   return `${y}-${mo}-${day} ${h}:${mi} UTC`;
+}
+
+export function formatMissionDateUtcFromEpoch(
+  missionT: number,
+  epoch: EphemerisEpoch,
+): string {
+  return formatMissionDateUtc(
+    missionT,
+    epoch.horizonsLandingT,
+    epoch.clockUtcMsAtT0,
+  );
 }
 
 /**

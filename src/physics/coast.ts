@@ -1,5 +1,7 @@
 import { DT_BURN, R_MOON, TRANSFER_AIM_ALT_KM } from "./constants";
 import { bodyPositions, moonSouthUnit } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   rk4Step,
   type CraftState,
@@ -54,9 +56,14 @@ export type TrajectoryCorrectionRecord = {
 /**
  * Earth-centered Kepler reference position at time t.
  */
-export function keplerRefPos(orb: KeplerOrbit, t: number, out: V3): V3 {
+export function keplerRefPos(
+  orb: KeplerOrbit,
+  t: number,
+  out: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
   keplerRvAt(orb, t, _relP, _relV);
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   return set(out, b.earth.x + _relP.x, b.earth.y + _relP.y, b.earth.z + _relP.z);
 }
 
@@ -68,9 +75,10 @@ export function placeOnKeplerTrack(
   state: { t: number; pos: V3; vel: V3 },
   orb: KeplerOrbit,
   t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
   keplerRvAt(orb, t, _relP, _relV);
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   state.t = t;
   state.pos.x = b.earth.x + _relP.x;
   state.pos.y = b.earth.y + _relP.y;
@@ -89,9 +97,10 @@ export function trajectoryCorrectionDeltaV(
   vel: V3,
   orb: KeplerOrbit,
   maxDv = TRAJECTORY_CORRECTION_MAX_DELTA_V,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): { dv: V3; mag: number } {
   keplerRvAt(orb, t, _relP, _relV);
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   let dvx = b.earthVel.x + _relV.x - vel.x;
   let dvy = b.earthVel.y + _relV.y - vel.y;
   let dvz = b.earthVel.z + _relV.z - vel.z;
@@ -121,6 +130,7 @@ export function runTrajectoryCorrectionBurn(
   lastT: { t: number } | null,
   prop: PropState | null,
   orb?: KeplerOrbit,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
   const mag0 = Math.hypot(dv.x, dv.y, dv.z);
   if (mag0 < 1e-5) return 0;
@@ -161,6 +171,7 @@ export function runTrajectoryCorrectionBurn(
         state.vel,
         orb,
         TRAJECTORY_CORRECTION_MAX_DELTA_V,
+        epoch,
       );
       if (gm > 1e-5) {
         // keep aBurn magnitude; direction from go below
@@ -176,6 +187,7 @@ export function runTrajectoryCorrectionBurn(
         state.vel,
         orb,
         TRAJECTORY_CORRECTION_MAX_DELTA_V,
+        epoch,
       );
       if (gm > 1e-5) {
         ax = (go.x / gm) * aCmd;
@@ -196,7 +208,7 @@ export function runTrajectoryCorrectionBurn(
     }
     const thrustFn: ThrustFn = () => set(_thrust, ax, ay, az);
     const tBefore = state.t;
-    rk4Step(state, step, thrustFn);
+    rk4Step(state, step, thrustFn, { epoch });
     delivered += aCmd * step;
 
     if (prop && forceN > 0) {
@@ -229,6 +241,7 @@ export function runTrajectoryCorrectionBurn(
       state.vel,
       orb,
       TRAJECTORY_CORRECTION_MAX_DELTA_V,
+      epoch,
     );
     if (tm > 1e-6) {
       state.vel.x += trim.x;
@@ -241,7 +254,7 @@ export function runTrajectoryCorrectionBurn(
   // Soft position rejoin onto the Kepler design track (sampled chord).
   if (orb) {
     keplerRvAt(orb, state.t, _relP, _relV);
-    const b = bodyPositions(state.t);
+    const b = bodyPositions(state.t, epoch);
     set(_p0, state.pos.x, state.pos.y, state.pos.z);
     set(_p1, b.earth.x + _relP.x, b.earth.y + _relP.y, b.earth.z + _relP.z);
     const dr = Math.hypot(_p1.x - _p0.x, _p1.y - _p0.y, _p1.z - _p0.z);
@@ -268,7 +281,7 @@ export function runTrajectoryCorrectionBurn(
       for (let pass = 0; pass < 3; pass++) {
         const tEnd = t0 + rejoinS;
         keplerRvAt(orb, tEnd, _relP, _relV);
-        const be = bodyPositions(tEnd);
+        const be = bodyPositions(tEnd, epoch);
         set(_p1, be.earth.x + _relP.x, be.earth.y + _relP.y, be.earth.z + _relP.z);
         vxe = be.earthVel.x + _relV.x;
         vye = be.earthVel.y + _relV.y;
@@ -338,8 +351,9 @@ export function rejoinSouthOfMoon(
   lastT: { t: number } | null,
   prop: PropState | null,
   southAimKm = R_MOON + TRANSFER_AIM_ALT_KM,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
-  const b0 = bodyPositions(state.t);
+  const b0 = bodyPositions(state.t, epoch);
   moonSouthUnit(_south);
   // Aim: above lunar south pole (legacy helper; mission no longer calls this)
   const aimR = Math.max(R_MOON + 2_500, Math.abs(southAimKm));
@@ -385,7 +399,7 @@ export function rejoinSouthOfMoon(
 
   if (!samples || !lastT) {
     state.t = t0 + rejoinS;
-    const bi = bodyPositions(state.t);
+    const bi = bodyPositions(state.t, epoch);
     // Rebuild aim at end time
     moonSouthUnit(_south);
     const ux = tx;
@@ -403,7 +417,7 @@ export function rejoinSouthOfMoon(
   for (let i = 1; i <= steps; i++) {
     const u = i / steps;
     state.t = t0 + rejoinS * u;
-    const bi = bodyPositions(state.t);
+    const bi = bodyPositions(state.t, epoch);
     // Chord in moon-relative frame so the Moon’s motion doesn’t stretch the trail
     const mx0 = _p0.x - b0.moon.x;
     const my0 = _p0.y - b0.moon.y;
@@ -433,7 +447,7 @@ export function rejoinSouthOfMoon(
   }
   // Match end velocity to moon frame inbound
   {
-    const bi = bodyPositions(state.t);
+    const bi = bodyPositions(state.t, epoch);
     state.vel.x = bi.moonVel.x + (bi.moon.x - state.pos.x) * 0.00015;
     state.vel.y = bi.moonVel.y + (bi.moon.y - state.pos.y) * 0.00015;
     state.vel.z = bi.moonVel.z + (bi.moon.z - state.pos.z) * 0.00015;
@@ -450,8 +464,9 @@ export function keplerTrackThrust(
   pos: V3,
   vel: V3,
   orb: KeplerOrbit,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 | null {
-  const { dv, mag } = trajectoryCorrectionDeltaV(t, pos, vel, orb, 0.0008);
+  const { dv, mag } = trajectoryCorrectionDeltaV(t, pos, vel, orb, 0.0008, epoch);
   if (mag < 1e-9) return null;
   return set(_thrust, dv.x * 0.5, dv.y * 0.5, dv.z * 0.5);
 }

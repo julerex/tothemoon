@@ -42,7 +42,7 @@ export type PackedTrajectory = {
   moonPhase0: number;
   translunarInjectionDeltaV: number;
   durationS: number;
-  /** Mission t at Horizons τ=0 during bake (must match runtime setMissionLandingT). */
+  /** Mission t at Horizons τ=0 during bake (must match runtime EphemerisEpoch.horizonsLandingT). */
   horizonsLandingT?: number;
   ok: boolean;
   message: string;

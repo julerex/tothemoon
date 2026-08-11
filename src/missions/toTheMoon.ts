@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { MissionClock } from "../mission/clock";
 import { TrajectoryCache } from "../physics/trajectoryCache";
-import { bodyPositions, setMoonPhase0, setSunPhase0 } from "../physics/bodies";
+import { bodyPositions } from "../physics/bodies";
 import { R_EARTH, R_MOON } from "../physics/constants";
 import {
   EARTH_SPIN_RATE,
@@ -9,17 +9,10 @@ import {
   starbasePadState,
 } from "../physics/earthFrame";
 import {
-  clearMissionClockEpochUtc,
   daysPastFullAtLanding,
   formatMissionDateUtc,
-  sunPhase0ForLanding,
 } from "../physics/epoch";
-import {
-  hasHorizonsEpoch,
-  horizonsSource,
-  setHorizonsEnabled,
-  setMissionLandingT,
-} from "../physics/horizonsEpoch";
+import { hasHorizonsEpoch, horizonsSource } from "../physics/horizonsEpoch";
 import {
   createMoonPathThroughSim,
   createMoonRelativeOrbit,
@@ -96,22 +89,16 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing trajectory…";
 }
-// Restore lunar epoch if returning from Flight 13 (liftoff clock / Horizons off)
-clearMissionClockEpochUtc();
-setHorizonsEnabled(true);
 const cache = recompute
   ? TrajectoryCache.compute()
   : TrajectoryCache.loadPrecomputed();
-setMoonPhase0(cache.moonPhase0);
-// Must match the map used while baking craft samples (not always durationS)
-setMissionLandingT(cache.horizonsLandingT);
-// Analytic fallback only: align Sun for waning gibbous at landing
-const sun0 = sunPhase0ForLanding(cache.moonPhase0, cache.durationS);
-setSunPhase0(sun0);
+// Explicit ephemeris matching the bake (Horizons map + moon phase)
+const epoch = cache.epoch;
+const sun0 = epoch.sunPhase0;
 console.info(
-  `[tothemoon] Launch ${formatMissionDateUtc(0, cache.horizonsLandingT)} · ` +
+  `[tothemoon] Launch ${formatMissionDateUtc(0, cache.horizonsLandingT, epoch.clockUtcMsAtT0)} · ` +
     `Horizons τ=0 at 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
-    (hasHorizonsEpoch()
+    (epoch.useHorizons && hasHorizonsEpoch()
       ? `ephemeris=${horizonsSource()} · landT=${(cache.horizonsLandingT / 3600).toFixed(1)}h`
       : `sunPhase0=${sun0.toFixed(4)} (analytic)`),
 );
@@ -129,6 +116,7 @@ renderer.toneMappingExposure = 1.05;
 
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
+director.setEpoch(epoch);
 
 const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
 const bodies = createBodies();
@@ -143,7 +131,7 @@ const _skySun = new THREE.Vector3();
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
 bodies.earth.add(starbasePad);
-const groundTrack = createAscentGroundTrack(cache.samples);
+const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
 const trailPts = cache.trailPoints(1500);
@@ -164,9 +152,9 @@ if (coastCorridor) {
 
 // Moon: solid blue trail of actual location over the mission; dotted blue
 // osculating orbit (through the Moon) parented to Earth so it co-moves.
-const moonPathSim = createMoonPathThroughSim(cache.durationS);
+const moonPathSim = createMoonPathThroughSim(cache.durationS, 640, epoch);
 orbitGroup.add(moonPathSim);
-const moonRelOrbit = createMoonRelativeOrbit(0);
+const moonRelOrbit = createMoonRelativeOrbit(0, epoch);
 bodies.earthGroup.add(moonRelOrbit);
 
 /** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, v/a, Moon ring). */
@@ -209,6 +197,7 @@ director.setDetachedBooster(stagingFx.detachedBooster);
 
 // Landing site + dust
 const landingFx = new LandingFx();
+landingFx.setEpoch(epoch);
 const lastSample = cache.samples[cache.samples.length - 1]!;
 landingFx.setLanding(lastSample.pos, lastSample.t);
 scene.add(landingFx.group);
@@ -438,7 +427,7 @@ function applyMissionState(u: number): void {
     physicsTToSampleU(physicsT, physicsDurationS),
   );
   if (prelaunch) {
-    const pad = starbasePadState(physicsT);
+    const pad = starbasePadState(physicsT, epoch);
     craftPos.set(pad.pos.x, pad.pos.y, pad.pos.z);
     craftVel.set(pad.vel.x, pad.vel.y, pad.vel.z);
   } else {
@@ -447,7 +436,7 @@ function applyMissionState(u: number): void {
   }
 
   const simT = prelaunch ? physicsT : frame.t;
-  const b = bodyPositions(simT);
+  const b = bodyPositions(simT, epoch);
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
@@ -525,9 +514,9 @@ function applyMissionState(u: number): void {
     burning: showBurning,
     altMoon: frame.altMoon,
   });
-  updateBodies(simT, bodies);
+  updateBodies(simT, bodies, epoch);
   // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
-  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT);
+  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT, epoch);
 
   // Unit-scale sun + soft anti-sun fill + Earthshine on the Moon
   const sunUnit = applySunLight(sunLight, b.sun, b.earth, _skySun);
@@ -673,7 +662,7 @@ function applyMissionState(u: number): void {
     fuelShip: frame.fuelShip,
     thrustN: showThrustN,
     playing: clock.playing,
-    dateUtc: formatMissionDateUtc(physicsT, cache.horizonsLandingT),
+    dateUtc: formatMissionDateUtc(physicsT, cache.horizonsLandingT, epoch.clockUtcMsAtT0),
     playbackSpeed: clock.speed,
     missionComplete: showCompleteCard,
     completeKind: landingBeat.kind,

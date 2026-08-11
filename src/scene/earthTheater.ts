@@ -10,6 +10,8 @@ import {
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
 import { bodyPositions } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
 import { createFatLine } from "./fatLines";
@@ -1157,6 +1159,7 @@ export function updateStarbaseLaunchFx(
  */
 export function createAscentGroundTrack(
   samples: Sample[],
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): THREE.Object3D | null {
   const pts: THREE.Vector3[] = [];
   const rel = v3();
@@ -1169,7 +1172,7 @@ export function createAscentGroundTrack(
     }
     if (s.phase === "lowEarthOrbit" && s.t > 6000) break;
 
-    const b = bodyPositions(s.t);
+    const b = bodyPositions(s.t, epoch);
     const rx = s.pos.x - b.earth.x;
     const ry = s.pos.y - b.earth.y;
     const rz = s.pos.z - b.earth.z;
@@ -1177,7 +1180,7 @@ export function createAscentGroundTrack(
     rel.x = (rx / r) * (R_EARTH + 1.5);
     rel.y = (ry / r) * (R_EARTH + 1.5);
     rel.z = (rz / r) * (R_EARTH + 1.5);
-    inertialRelToMeshLocal(rel, s.t, local);
+    inertialRelToMeshLocal(rel, s.t, local, epoch);
     pts.push(new THREE.Vector3(local.x, local.y, local.z));
   }
 

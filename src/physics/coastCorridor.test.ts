@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { setMoonPhase0 } from "./bodies.ts";
 import {
   buildCoastCorridor,
   computeKeplerRefMaxDevKm,
   findTranslunarInjectionInjectSample,
   orbitFromSample,
 } from "./coastCorridor.ts";
-import { setMissionLandingT } from "./horizonsEpoch.ts";
+import { makeLunarEpoch } from "./missionEpoch.ts";
 import type { Sample } from "./missionTypes.ts";
 import packed from "../data/trajectory.json" with { type: "json" };
 import { unpackPackedForInvariants } from "./trajectoryInvariants.ts";
@@ -68,8 +67,11 @@ describe("buildCoastCorridor (baked pack)", () => {
     samples: unknown;
   };
   // Match bake ephemeris so Earth-relative Kepler is well-defined
-  setMoonPhase0(pack.moonPhase0);
-  setMissionLandingT(pack.horizonsLandingT ?? 0);
+  const epoch = makeLunarEpoch(
+    pack.moonPhase0,
+    pack.horizonsLandingT ?? 0,
+    true,
+  );
 
   const traj = unpackPackedForInvariants(
     packed as unknown as Parameters<typeof unpackPackedForInvariants>[0],
@@ -77,7 +79,7 @@ describe("buildCoastCorridor (baked pack)", () => {
   const samples = traj.samples as Sample[];
 
   it("builds a Kepler path with finite max |Δr|", () => {
-    const c = buildCoastCorridor(samples);
+    const c = buildCoastCorridor(samples, 480, epoch);
     assert.ok(c, "expected coast corridor on ballistic pack");
     assert.ok(c!.keplerPts.length >= 2);
     assert.equal(c!.keplerPts.length, c!.nbodyPts.length);
@@ -90,13 +92,13 @@ describe("buildCoastCorridor (baked pack)", () => {
   it("orbitFromSample at inject is elliptical", () => {
     const inj = findTranslunarInjectionInjectSample(samples);
     assert.ok(inj);
-    const orb = orbitFromSample(inj!);
+    const orb = orbitFromSample(inj!, epoch);
     assert.ok(orb.a > 0 && orb.e < 1, `a=${orb.a} e=${orb.e}`);
   });
 
   it("computeKeplerRefMaxDevKm matches corridor maxDev", () => {
-    const c = buildCoastCorridor(samples, 800);
-    const d = computeKeplerRefMaxDevKm(samples);
+    const c = buildCoastCorridor(samples, 800, epoch);
+    const d = computeKeplerRefMaxDevKm(samples, epoch);
     assert.ok(c);
     assert.ok(Math.abs(d - c!.maxDevKm) < 1e-3);
   });

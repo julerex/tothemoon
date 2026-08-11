@@ -5,6 +5,8 @@ import {
   moonPathThroughSim,
   osculatingMoonOrbitPoints,
 } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { createFatLine, updateFatLinePositions } from "./fatLines";
 import { makeStarTexture } from "./textures";
 import type { Line2 } from "three/addons/lines/Line2.js";
@@ -63,8 +65,9 @@ function createEclipticGridTowardSun(): THREE.GridHelper {
 export function createMoonPathThroughSim(
   durationS: number,
   samples = 640,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): THREE.Object3D {
-  const pts = moonPathThroughSim(durationS, samples);
+  const pts = moonPathThroughSim(durationS, epoch, samples);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   const line = createFatLine(vecs, {
     color: 0x4aa3ff,
@@ -82,8 +85,11 @@ const MOON_REL_ORBIT_SAMPLES = 256;
  * group; call {@link updateMoonRelativeOrbit} each frame so it stays through
  * the Moon as r,v change.
  */
-export function createMoonRelativeOrbit(t0 = 0): Line2 {
-  const pts = osculatingMoonOrbitPoints(t0, MOON_REL_ORBIT_SAMPLES);
+export function createMoonRelativeOrbit(
+  t0 = 0,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): Line2 {
+  const pts = osculatingMoonOrbitPoints(t0, epoch, MOON_REL_ORBIT_SAMPLES);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   // Path length ~ 2π·a ≈ 2.4e6 km — dash/gap in km along the path
   const line = createFatLine(vecs, {
@@ -99,8 +105,12 @@ export function createMoonRelativeOrbit(t0 = 0): Line2 {
 }
 
 /** Refresh the Earth-relative ring from the osculating state at mission time t. */
-export function updateMoonRelativeOrbit(line: Line2, t: number): void {
-  const pts = osculatingMoonOrbitPoints(t, MOON_REL_ORBIT_SAMPLES);
+export function updateMoonRelativeOrbit(
+  line: Line2,
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): void {
+  const pts = osculatingMoonOrbitPoints(t, epoch, MOON_REL_ORBIT_SAMPLES);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   updateFatLinePositions(line, vecs);
 }
@@ -109,8 +119,10 @@ export function updateMoonRelativeOrbit(line: Line2, t: number): void {
  * Earth’s orbit around the Sun (origin) — eccentric ecliptic ring (green).
  * Path comes from bodies.earthOrbitPathPoints (Horizons-fitted ellipse).
  */
-function createEarthOrbitPath(): THREE.Object3D {
-  const pts = earthOrbitPathPoints(360);
+function createEarthOrbitPath(
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): THREE.Object3D {
+  const pts = earthOrbitPathPoints(epoch, 360);
   const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
   const line = createFatLine(vecs, {
     color: 0x3ecf7a,

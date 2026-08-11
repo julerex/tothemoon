@@ -9,6 +9,8 @@
 
 import { R_EARTH, R_MOON, A_EM } from "../physics/constants";
 import { bodyPositions, osculatingMoonOrbitPoints } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import type { Sample } from "../physics/missionTypes";
 import { dot, type V3, v3 } from "../physics/vec3";
 
@@ -99,8 +101,12 @@ export function projectEarthCentricPolar(
 /**
  * Earth-relative craft position at a sample (heliocentric sample − Earth).
  */
-export function craftEarthRel(sample: Sample, out: V3 = v3()): V3 {
-  const b = bodyPositions(sample.t);
+export function craftEarthRel(
+  sample: Sample,
+  out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
+  const b = bodyPositions(sample.t, epoch);
   out.x = sample.pos.x - b.earth.x;
   out.y = sample.pos.y - b.earth.y;
   out.z = sample.pos.z - b.earth.z;
@@ -108,8 +114,12 @@ export function craftEarthRel(sample: Sample, out: V3 = v3()): V3 {
 }
 
 /** Moon − Earth at mission time t. */
-export function moonEarthRel(t: number, out: V3 = v3()): V3 {
-  const b = bodyPositions(t);
+export function moonEarthRel(
+  t: number,
+  out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
+  const b = bodyPositions(t, epoch);
   out.x = b.moon.x - b.earth.x;
   out.y = b.moon.y - b.earth.y;
   out.z = b.moon.z - b.earth.z;
@@ -123,6 +133,7 @@ export function moonEarthRel(t: number, out: V3 = v3()): V3 {
 export function buildPolarTrajectoryModel(
   samples: Sample[],
   maxPoints = 1800,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PolarTrajectoryModel | null {
   if (samples.length < 2) return null;
   const basis = polarBasisLookingNorth();
@@ -142,12 +153,12 @@ export function buildPolarTrajectoryModel(
       (i > 0 && samples[i - 1]!.phase !== s.phase);
     if (!keep) continue;
 
-    craftEarthRel(s, _rel);
+    craftEarthRel(s, _rel, epoch);
     const sp = projectEarthCentricPolar(_rel, basis);
     shipTrail.push({ x: sp.x, y: sp.y, t: s.t });
     maxR = Math.max(maxR, Math.hypot(sp.x, sp.y));
 
-    moonEarthRel(s.t, _rel);
+    moonEarthRel(s.t, _rel, epoch);
     const mp = projectEarthCentricPolar(_rel, basis);
     moonTrail.push({ x: mp.x, y: mp.y, t: s.t });
     maxR = Math.max(maxR, Math.hypot(mp.x, mp.y), A_EM);
@@ -155,7 +166,7 @@ export function buildPolarTrajectoryModel(
 
   // Frame the osculating lunar orbit (may reach past the mission-arc moon trail)
   for (const t of [samples[0]!.t, samples[n - 1]!.t]) {
-    for (const p of osculatingMoonOrbitPoints(t, 64)) {
+    for (const p of osculatingMoonOrbitPoints(t, epoch, 64)) {
       const mp = projectEarthCentricPolar(p, basis);
       maxR = Math.max(maxR, Math.hypot(mp.x, mp.y));
     }
@@ -185,17 +196,18 @@ export function livePolar(
   model: PolarTrajectoryModel,
   samples: Sample[],
   t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PolarLive {
   // Prefer exact sample interpolation for ship when available
   let shipPt = sampleTrailAt(model.shipTrail, t);
   if (samples.length > 0) {
     const s = sampleAtTime(samples, t);
     if (s) {
-      craftEarthRel(s, _rel);
+      craftEarthRel(s, _rel, epoch);
       shipPt = projectEarthCentricPolar(_rel, model.basis);
     }
   }
-  moonEarthRel(t, _rel);
+  moonEarthRel(t, _rel, epoch);
   const moonPt = projectEarthCentricPolar(_rel, model.basis);
   return {
     ship: shipPt,
@@ -310,8 +322,9 @@ export function projectedMoonOrbit(
   basis: PolarBasis,
   t: number,
   samples = 128,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PolarPoint[] {
-  const pts3 = osculatingMoonOrbitPoints(t, samples);
+  const pts3 = osculatingMoonOrbitPoints(t, epoch, samples);
   const out: PolarPoint[] = [];
   for (const p of pts3) {
     out.push(projectEarthCentricPolar(p, basis));

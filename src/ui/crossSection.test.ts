@@ -5,8 +5,6 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
 import { TrajectoryCache } from "../physics/trajectoryCache.ts";
-import { setMoonPhase0 } from "../physics/bodies.ts";
-import { setMissionLandingT } from "../physics/horizonsEpoch.ts";
 import { ATM_H_MAX_KM, R_EARTH } from "../physics/constants.ts";
 import {
   BOOSTER_VISIBLE_S,
@@ -32,20 +30,21 @@ let samples: Sample[];
 let stage: StageState | null;
 let model: CrossSectionModel;
 
+let epoch: import("../physics/ephemerisEpoch.ts").EphemerisEpoch;
+
 before(() => {
   const cache = TrajectoryCache.loadPrecomputed();
-  setMoonPhase0(cache.moonPhase0);
-  setMissionLandingT(cache.horizonsLandingT);
+  epoch = cache.epoch;
   samples = cache.samples;
   stage = stageStateFromSamples(samples);
-  model = buildCrossSectionModel(samples, stage);
+  model = buildCrossSectionModel(samples, stage, "chopsticks", epoch);
 });
 
 describe("launch plane projection", () => {
   it("places liftoff near the surface with small range", () => {
     const s0 = samples[0]!;
     const basis = launchPlaneBasis();
-    const p = projectToLaunchPlane(s0.pos, s0.t, basis);
+    const p = projectToLaunchPlane(s0.pos, s0.t, basis, undefined, epoch);
     const alt = planeAltitudeKm(p);
     const range = surfaceArcKm(p);
     assert.ok(Math.abs(alt) < 0.5, `alt ${alt}`);
@@ -55,7 +54,7 @@ describe("launch plane projection", () => {
   it("puts hot-stage tens of km up and downrange", () => {
     assert.ok(stage);
     const basis = launchPlaneBasis();
-    const p = projectToLaunchPlane(stage!.pos, stage!.t, basis);
+    const p = projectToLaunchPlane(stage!.pos, stage!.t, basis, undefined, epoch);
     const alt = planeAltitudeKm(p);
     const range = surfaceArcKm(p);
     assert.ok(alt > 40 && alt < 120, `stage alt ${alt}`);

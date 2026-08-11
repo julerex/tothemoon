@@ -4,6 +4,7 @@
  */
 
 import { getAscent } from "./ascentCache";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
 import {
   appendAscentAndLowEarthOrbitCoast,
   getLastDoglegDvKmS,
@@ -18,11 +19,12 @@ import { runFiniteTranslunarInjection } from "./translunarInjection";
  * `toa` is reserved for callers that still pass design perilune time.
  */
 export function flyMission(
-  moonPhase0: number,
+  epoch: EphemerisEpoch,
   translunarInjectionDeltaV: number,
   toa?: number,
 ): MissionResult {
   void toa;
+  const moonPhase0 = epoch.moonPhase0;
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
   const prop = createPropState(0);
@@ -39,7 +41,12 @@ export function flyMission(
     };
   }
 
-  const state = appendAscentAndLowEarthOrbitCoast(samples, lastT, prop);
+  const state = appendAscentAndLowEarthOrbitCoast(
+    samples,
+    lastT,
+    prop,
+    epoch,
+  );
   console.info(
     `[tothemoon] low Earth orbit dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
@@ -49,6 +56,7 @@ export function flyMission(
     samples,
     lastT,
     prop,
+    epoch,
   );
   console.info(
     `[tothemoon] translunar injection finite burn Δv=${translunarInjectionBurn.dvDelivered.toFixed(3)} km/s · ` +
@@ -63,5 +71,6 @@ export function flyMission(
     prop,
     moonPhase0,
     translunarInjectionDeltaV,
+    epoch,
   });
 }

@@ -1,5 +1,9 @@
 import { R_EARTH, R_MOON } from "./constants";
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { makeFlight13Epoch } from "./flight13Epoch";
+import { makeLunarEpoch } from "./missionEpoch";
+import { hasHorizonsTable } from "./horizonsEpoch";
 import {
   phaseLabel,
   runMission,
@@ -17,6 +21,31 @@ import { len, type V3, v3 } from "./vec3";
 import packedTrajectory from "../data/trajectory.json";
 import packedFlight13 from "../data/flight13-trajectory.json";
 import { runFlight13Mission } from "./flight13Mission";
+
+
+/** Ephemeris for a packed / computed mission result (lunar or Flight 13). */
+function epochFromResult(result: {
+  moonPhase0: number;
+  horizonsLandingT?: number;
+  durationS: number;
+  message?: string;
+}): EphemerisEpoch {
+  const landT =
+    result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
+      ? result.horizonsLandingT
+      : result.durationS;
+  // Flight 13: short suborbital duration + splash copy (not landT — lunar maps can be negative)
+  const isFlight13 =
+    (result.message != null &&
+      (/Flight 13/i.test(result.message) ||
+        /suborbital/i.test(result.message) ||
+        /splashdown/i.test(result.message))) ||
+    result.durationS < 20_000;
+  if (isFlight13) {
+    return makeFlight13Epoch(result.moonPhase0, landT);
+  }
+  return makeLunarEpoch(result.moonPhase0, landT, hasHorizonsTable());
+}
 
 export type FrameState = {
   t: number;
@@ -94,6 +123,13 @@ function unpack(packed: PackedTrajectory): MissionResult {
       s.st ??
       (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
   }));
+  const provisional = {
+    moonPhase0: packed.moonPhase0,
+    horizonsLandingT: packed.horizonsLandingT,
+    durationS: packed.durationS,
+    message: packed.message,
+  };
+  const epoch = epochFromResult(provisional);
   const meta = resolveTrajectoryMeta(
     {
       minMoonAlt: packed.minMoonAlt,
@@ -101,11 +137,12 @@ function unpack(packed: PackedTrajectory): MissionResult {
       stageT: packed.stageT,
     },
     samples,
+    epoch,
   );
   const keplerRefMaxDevKm =
     packed.keplerRefMaxDevKm != null && Number.isFinite(packed.keplerRefMaxDevKm)
       ? packed.keplerRefMaxDevKm
-      : computeKeplerRefMaxDevKm(samples);
+      : computeKeplerRefMaxDevKm(samples, epoch);
 
   const translunarInjectionDeltaV =
     packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0;
@@ -141,6 +178,8 @@ export class TrajectoryCache {
   readonly keplerRefMaxDevKm: number;
   /** Horizons τ=0 mission time used when samples were baked. */
   readonly horizonsLandingT: number;
+  /** Explicit ephemeris matching the bake (lunar Horizons or Flight 13). */
+  readonly epoch: EphemerisEpoch;
   private _corridor: CoastCorridor | null | undefined;
 
   constructor(result: MissionResult) {
@@ -154,6 +193,12 @@ export class TrajectoryCache {
       result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
         ? result.horizonsLandingT
         : this.durationS;
+    this.epoch = epochFromResult({
+      moonPhase0: result.moonPhase0,
+      horizonsLandingT: this.horizonsLandingT,
+      durationS: this.durationS,
+      message: result.message,
+    });
     // Prefer packed / result meta; only re-scan when fields are missing (v1 packs)
     const meta = resolveTrajectoryMeta(
       {
@@ -162,6 +207,7 @@ export class TrajectoryCache {
         stageT: result.stageT,
       },
       result.samples,
+      this.epoch,
     );
     this.minMoonAlt = meta.minMoonAlt;
     this.peakSpeedKmS = meta.peakSpeedKmS;
@@ -170,7 +216,7 @@ export class TrajectoryCache {
       result.keplerRefMaxDevKm != null &&
       Number.isFinite(result.keplerRefMaxDevKm)
         ? result.keplerRefMaxDevKm
-        : computeKeplerRefMaxDevKm(result.samples);
+        : computeKeplerRefMaxDevKm(result.samples, this.epoch);
   }
 
   /**
@@ -179,7 +225,7 @@ export class TrajectoryCache {
    */
   getCoastCorridor(): CoastCorridor | null {
     if (this._corridor === undefined) {
-      this._corridor = buildCoastCorridor(this.samples);
+      this._corridor = buildCoastCorridor(this.samples, 480, this.epoch);
       // Prefer bake maxDev when corridor was thinned differently
       if (
         this._corridor &&
@@ -225,7 +271,8 @@ export class TrajectoryCache {
   /** Re-run Flight 13 integration in the browser (slow). Use `?recompute=1`. */
   static computeFlight13(): TrajectoryCache {
     const t0 = performance.now();
-    const result = runFlight13Mission();
+    const epoch = makeFlight13Epoch(0, 0);
+    const result = runFlight13Mission({ epoch });
     console.info(
       `[flight13] Runtime recompute ${(performance.now() - t0).toFixed(0)}ms — ${result.message}, ${result.samples.length} samples`,
     );
@@ -343,7 +390,7 @@ export class TrajectoryCache {
     thrustN: number,
     staged: boolean,
   ): FrameState {
-    const b = bodyPositions(t);
+    const b = bodyPositions(t, this.epoch);
     const dxM = pos.x - b.moon.x;
     const dyM = pos.y - b.moon.y;
     const dzM = pos.z - b.moon.z;

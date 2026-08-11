@@ -10,6 +10,8 @@
  */
 
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { MU_EARTH } from "./constants";
 import { keplerRvAt, rvToKepler, type KeplerOrbit } from "./kepler";
 import type { Sample } from "./missionTypes";
@@ -61,8 +63,11 @@ export function findTranslunarInjectionInjectSample(samples: Sample[]): Sample |
 }
 
 /** Osculating Earth-centered Kepler orbit at a sample (heliocentric r,v). */
-export function orbitFromSample(s: Sample): KeplerOrbit {
-  const b = bodyPositions(s.t);
+export function orbitFromSample(
+  s: Sample,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): KeplerOrbit {
+  const b = bodyPositions(s.t, epoch);
   _relP.x = s.pos.x - b.earth.x;
   _relP.y = s.pos.y - b.earth.y;
   _relP.z = s.pos.z - b.earth.z;
@@ -73,9 +78,14 @@ export function orbitFromSample(s: Sample): KeplerOrbit {
 }
 
 /** Heliocentric position of the Kepler reference at mission time t. */
-export function keplerHeliocentricAt(orb: KeplerOrbit, t: number, out: V3): V3 {
+export function keplerHeliocentricAt(
+  orb: KeplerOrbit,
+  t: number,
+  out: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
   keplerRvAt(orb, t, _relP, _relV);
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   out.x = b.earth.x + _relP.x;
   out.y = b.earth.y + _relP.y;
   out.z = b.earth.z + _relP.z;
@@ -89,6 +99,7 @@ export function keplerHeliocentricAt(orb: KeplerOrbit, t: number, out: V3): V3 {
 export function buildCoastCorridor(
   samples: Sample[],
   maxPts = 480,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): CoastCorridor | null {
   const inject = findTranslunarInjectionInjectSample(samples);
   if (!inject) return null;
@@ -108,10 +119,10 @@ export function buildCoastCorridor(
 
   let orb: KeplerOrbit;
   try {
-    orb = orbitFromSample(inject);
+    orb = orbitFromSample(inject, epoch);
     if (!(orb.a > 0) || !Number.isFinite(orb.a) || orb.e >= 1) {
       // Hyperbolic / bad inject — still try first coast sample
-      orb = orbitFromSample(coast[0]!);
+      orb = orbitFromSample(coast[0]!, epoch);
     }
     if (!(orb.a > 0) || !Number.isFinite(orb.a) || orb.e >= 1) return null;
   } catch {
@@ -130,7 +141,7 @@ export function buildCoastCorridor(
     const idx = Math.min(coast.length - 1, Math.round(i * step));
     const s = coast[idx]!;
     nbodyPts.push({ x: s.pos.x, y: s.pos.y, z: s.pos.z });
-    keplerHeliocentricAt(orb, s.t, kPos);
+    keplerHeliocentricAt(orb, s.t, kPos, epoch);
     keplerPts.push({ x: kPos.x, y: kPos.y, z: kPos.z });
     const d = Math.hypot(
       s.pos.x - kPos.x,
@@ -153,7 +164,10 @@ export function buildCoastCorridor(
  * Max |Δr| between n-body coast samples and the inject osculating ellipse.
  * Used at bake and as a pack-meta fallback.
  */
-export function computeKeplerRefMaxDevKm(samples: Sample[]): number {
-  const c = buildCoastCorridor(samples, 800);
+export function computeKeplerRefMaxDevKm(
+  samples: Sample[],
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const c = buildCoastCorridor(samples, 800, epoch);
   return c?.maxDevKm ?? 0;
 }

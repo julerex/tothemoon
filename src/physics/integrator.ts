@@ -21,6 +21,11 @@ export type AccelOptions = {
    * `"earth"` = Earth μ + J₂ + drag only (ignore Moon / solar tide).
    */
   gravity?: GravityModel;
+  /**
+   * Body ephemeris for this integrate step.
+   * Default {@link DEFAULT_EPHEMERIS} (analytic, no Horizons).
+   */
+  epoch?: EphemerisEpoch;
 };
 
 import {
@@ -37,6 +42,10 @@ import {
   R_MOON,
 } from "./constants";
 import { bodyPositions, type BodyState } from "./bodies";
+import {
+  DEFAULT_EPHEMERIS,
+  type EphemerisEpoch,
+} from "./ephemerisEpoch";
 import { earthNorthPole } from "./earthFrame";
 import {
   add,
@@ -50,6 +59,10 @@ import {
   type V3,
   v3,
 } from "./vec3";
+
+function resolveEpoch(opts?: AccelOptions): EphemerisEpoch {
+  return opts?.epoch ?? DEFAULT_EPHEMERIS;
+}
 
 /** Craft state in the heliocentric theater frame. */
 export type CraftState = {
@@ -211,7 +224,8 @@ export function acceleration(
   opts?: AccelOptions,
 ): V3 {
   const gravity: GravityModel = opts?.gravity ?? "nbody";
-  bodyPositions(t, _bodies);
+  const epoch = resolveEpoch(opts);
+  bodyPositions(t, epoch, _bodies);
   set(out, 0, 0, 0);
   // Earth dominant + J2 (always)
   addGravity(out, pos, _bodies.earth, MU_EARTH);
@@ -296,28 +310,47 @@ export function rk4Step(
 }
 
 /** Surface collision / proximity checks. */
-export function altitudeEarth(t: number, pos: V3): number {
-  bodyPositions(t, _bodies);
+export function altitudeEarth(
+  t: number,
+  pos: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  bodyPositions(t, epoch, _bodies);
   return len(sub(_tmp, pos, _bodies.earth)) - R_EARTH;
 }
 
-export function altitudeMoon(t: number, pos: V3): number {
-  bodyPositions(t, _bodies);
+export function altitudeMoon(
+  t: number,
+  pos: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  bodyPositions(t, epoch, _bodies);
   return len(sub(_tmp, pos, _bodies.moon)) - R_MOON;
 }
 
-export function distanceToMoon(t: number, pos: V3): number {
-  bodyPositions(t, _bodies);
+export function distanceToMoon(
+  t: number,
+  pos: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  bodyPositions(t, epoch, _bodies);
   return len(sub(_tmp, pos, _bodies.moon));
 }
 
-export function distanceToEarth(t: number, pos: V3): number {
-  bodyPositions(t, _bodies);
+export function distanceToEarth(
+  t: number,
+  pos: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  bodyPositions(t, epoch, _bodies);
   return len(sub(_tmp, pos, _bodies.earth));
 }
 
-export function getBodies(t: number): BodyState {
-  return bodyPositions(t, _bodies);
+export function getBodies(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): BodyState {
+  return bodyPositions(t, epoch, _bodies);
 }
 
 /** Impulsive Δv in inertial frame. */

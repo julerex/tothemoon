@@ -61,8 +61,8 @@ const outPath = resolve(root, "src/data/flight13-trajectory.json");
 console.info("[precompute-flight13] Integrating Flight 13…");
 const t0 = performance.now();
 // Daytime Starbase launch epoch (must match runtime flight13Theater)
-applyFlight13Epoch(0, 0);
-const result = runFlight13Mission();
+const { epoch } = applyFlight13Epoch(0, 0);
+const result = runFlight13Mission({ epoch });
 const packed = pack(result);
 mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(outPath, JSON.stringify(packed));

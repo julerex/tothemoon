@@ -27,6 +27,8 @@ import {
   poweredDescentThrust,
   snapPolarLowLunarOrbit,
 } from "./capture";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   altitudeEarth,
   altitudeMoon,
@@ -58,6 +60,7 @@ export type LunarCaptureArgs = {
   prop: PropState;
   moonPhase0: number;
   translunarInjectionDeltaV: number;
+  epoch?: EphemerisEpoch;
 };
 
 /**
@@ -85,18 +88,19 @@ function shipThrustFn(
 export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
   const { state, samples, lastT, prop, moonPhase0, translunarInjectionDeltaV } =
     args;
+  const epoch = args.epoch ?? DEFAULT_EPHEMERIS;
   const tTli = state.t;
   const Tcoast = transferTimeEst();
   let minMoonAlt = Infinity;
   let periluneT = tTli;
 
-  const keplerRef = orbitAfterTranslunarInjection(state);
+  const keplerRef = orbitAfterTranslunarInjection(state, epoch);
   let keplerRefMaxDevKm = 0;
 
   function trackKeplerDev(): void {
     if (!(keplerRef.a > 0) || keplerRef.e >= 1) return;
     keplerRvAt(keplerRef, state.t, _relP, _relV);
-    const b = getBodies(state.t);
+    const b = getBodies(state.t, epoch);
     const dx = state.pos.x - (b.earth.x + _relP.x);
     const dy = state.pos.y - (b.earth.y + _relP.y);
     const dz = state.pos.z - (b.earth.z + _relP.z);
@@ -111,8 +115,8 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
   let phase: PhaseId = "coast";
   const maxCoastT = tTli + Tcoast * 1.4 + 80_000;
   while (state.t < maxCoastT && phase === "coast") {
-    const dMoon = distanceToMoon(state.t, state.pos);
-    const altM = altitudeMoon(state.t, state.pos);
+    const dMoon = distanceToMoon(state.t, state.pos, epoch);
+    const altM = altitudeMoon(state.t, state.pos, epoch);
     const coastT = state.t - tTli;
     if (altM < minMoonAlt) {
       minMoonAlt = altM;
@@ -131,6 +135,7 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
         translunarInjectionDeltaV,
         minMoonAlt,
         keplerRefMaxDevKm,
+        epoch,
       );
     }
 
@@ -169,7 +174,7 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
       );
     }
 
-    if (altitudeEarth(state.t, state.pos) < 0) {
+    if (altitudeEarth(state.t, state.pos, epoch) < 0) {
       pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
       return packResult(
         samples,
@@ -189,7 +194,7 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
           : dMoon < 250_000
             ? 12
             : DT_COAST;
-    rk4Step(state, dt);
+    rk4Step(state, dt, undefined, { epoch });
     pushSample(
       samples,
       state,
@@ -224,11 +229,11 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
   }
 
   // --- 2. Lunar orbit insertion burn ---
-  const loiThrustFn = shipThrustFn(prop, lunarOrbitInsertionThrust);
+  const loiThrustFn = shipThrustFn(prop, (t, pos, vel) => lunarOrbitInsertionThrust(t, pos, vel, epoch));
   let loiStartT = -1;
   const maxLoiT = state.t + 12_000;
   while (state.t < maxLoiT && phase === "approach") {
-    const altM = altitudeMoon(state.t, state.pos);
+    const altM = altitudeMoon(state.t, state.pos, epoch);
     minMoonAlt = Math.min(minMoonAlt, altM);
     if (altM < 0) {
       return impactSettle(
@@ -240,11 +245,12 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
         translunarInjectionDeltaV,
         minMoonAlt,
         keplerRefMaxDevKm,
+        epoch,
       );
     }
 
     let thNow = hasPropellant(prop, "ship")
-      ? lunarOrbitInsertionThrust(state.t, state.pos, state.vel)
+      ? lunarOrbitInsertionThrust(state.t, state.pos, state.vel, epoch)
       : null;
     let aCmd = 0;
     if (thNow) {
@@ -259,14 +265,15 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
       }
     }
 
-    rk4Step(state, DT_BURN, loiThrustFn);
+    rk4Step(state, DT_BURN, loiThrustFn, { epoch });
 
-    const altM2 = altitudeMoon(state.t, state.pos);
+    const altM2 = altitudeMoon(state.t, state.pos, epoch);
     minMoonAlt = Math.min(minMoonAlt, altM2);
     const complete = lunarOrbitInsertionComplete(
       state.t,
       state.pos,
       state.vel,
+      epoch,
     );
     const burnS = loiStartT > 0 ? state.t - loiStartT : 0;
     const dry = !hasPropellant(prop, "ship");
@@ -295,10 +302,10 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
   }
 
   // Theater capture: snap to polar circular low lunar orbit if still unbound/high
-  if (!lunarOrbitInsertionComplete(state.t, state.pos, state.vel)) {
-    const altM = altitudeMoon(state.t, state.pos);
+  if (!lunarOrbitInsertionComplete(state.t, state.pos, state.vel, epoch)) {
+    const altM = altitudeMoon(state.t, state.pos, epoch);
     if (altM > 0 && altM < 80_000) {
-      snapPolarLowLunarOrbit(state.t, state, samples, lastT, prop);
+      snapPolarLowLunarOrbit(state.t, state, samples, lastT, prop, epoch);
       pushSample(
         samples,
         state,
@@ -331,8 +338,8 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
         `(${LOW_LUNAR_ORBIT_COAST_REVS} rev · P≈${(period / 3600).toFixed(2)} h)`,
     );
     while (state.t < tEnd) {
-      rk4Step(state, Math.min(DT_NEAR * 2, tEnd - state.t));
-      const altM = altitudeMoon(state.t, state.pos);
+      rk4Step(state, Math.min(DT_NEAR * 2, tEnd - state.t), undefined, { epoch });
+      const altM = altitudeMoon(state.t, state.pos, epoch);
       minMoonAlt = Math.min(minMoonAlt, altM);
       if (altM < 5) break;
       pushSample(
@@ -354,15 +361,15 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
   // --- 4. Powered descent ---
   phase = "descent";
   pushSample(samples, state, phase, true, true, 0, lastT, prop, 0, "ship");
-  const pdiFn = shipThrustFn(prop, poweredDescentThrust);
+  const pdiFn = shipThrustFn(prop, (t, pos, vel) => poweredDescentThrust(t, pos, vel, epoch));
   const maxPdiT = state.t + 8_000;
   while (state.t < maxPdiT) {
-    const altM = altitudeMoon(state.t, state.pos);
+    const altM = altitudeMoon(state.t, state.pos, epoch);
     minMoonAlt = Math.min(minMoonAlt, altM);
     if (altM < 0.05) break;
 
     let thNow = hasPropellant(prop, "ship")
-      ? poweredDescentThrust(state.t, state.pos, state.vel)
+      ? poweredDescentThrust(state.t, state.pos, state.vel, epoch)
       : null;
     let aCmd = 0;
     if (thNow) {
@@ -377,12 +384,12 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
     // Start thrusting once below PDI gate (or always if already low)
     const dt =
       altM < 20 ? DT_BURN : altM < DESCENT_ALTITUDE ? DT_NEAR : DT_NEAR * 2;
-    rk4Step(state, dt, altM < DESCENT_ALTITUDE * 1.5 ? pdiFn : undefined);
+    rk4Step(state, dt, altM < DESCENT_ALTITUDE * 1.5 ? pdiFn : undefined, { epoch });
 
-    const b = getBodies(state.t);
+    const b = getBodies(state.t, epoch);
     sub(_relV, state.vel, b.moonVel);
     const vRel = len(_relV);
-    const alt2 = altitudeMoon(state.t, state.pos);
+    const alt2 = altitudeMoon(state.t, state.pos, epoch);
 
     pushSample(
       samples,
@@ -415,6 +422,7 @@ export function runLunarCapture(args: LunarCaptureArgs): MissionResult {
     translunarInjectionDeltaV,
     minMoonAlt,
     prop,
+    epoch,
   );
   return {
     ...landed,
@@ -455,8 +463,9 @@ function impactSettle(
   translunarInjectionDeltaV: number,
   minMoonAlt: number,
   keplerRefMaxDevKm: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): MissionResult {
-  const b = getBodies(state.t);
+  const b = getBodies(state.t, epoch);
   sub(_relP, state.pos, b.moon);
   const L = len(_relP) || 1;
   state.pos.x = b.moon.x + (_relP.x / L) * R_MOON;

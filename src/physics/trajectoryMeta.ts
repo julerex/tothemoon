@@ -8,6 +8,8 @@
 
 import { R_MOON } from "./constants";
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import type { PhaseId } from "./missionTypes";
 import type { V3 } from "./vec3";
 
@@ -40,7 +42,10 @@ export type SampleLikeForMeta = {
  * Scan lunar-relevant phases for lowest altitude above mean lunar radius.
  * Matches the pre-v2 load-time path so fallbacks stay consistent.
  */
-export function computeMinMoonAlt(samples: SampleLikeForMeta[]): number {
+export function computeMinMoonAlt(
+  samples: SampleLikeForMeta[],
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
   let minAlt = Infinity;
   for (const s of samples) {
     if (
@@ -53,7 +58,7 @@ export function computeMinMoonAlt(samples: SampleLikeForMeta[]): number {
     ) {
       continue;
     }
-    const b = bodyPositions(s.t);
+    const b = bodyPositions(s.t, epoch);
     const d = Math.hypot(
       s.pos.x - b.moon.x,
       s.pos.y - b.moon.y,
@@ -90,9 +95,10 @@ export function computeStageT(samples: SampleLikeForMeta[]): number | null {
 /** Derive all pack meta fields from samples (precompute + v1 fallback). */
 export function deriveTrajectoryMeta(
   samples: SampleLikeForMeta[],
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): TrajectoryPackMeta {
   return {
-    minMoonAlt: computeMinMoonAlt(samples),
+    minMoonAlt: computeMinMoonAlt(samples, epoch),
     peakSpeedKmS: computePeakSpeedKmS(samples),
     stageT: computeStageT(samples),
   };
@@ -105,8 +111,9 @@ export function deriveTrajectoryMeta(
 export function resolveTrajectoryMeta(
   packed: Partial<TrajectoryPackMeta> | null | undefined,
   samples: SampleLikeForMeta[],
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): TrajectoryPackMeta {
-  const derived = deriveTrajectoryMeta(samples);
+  const derived = deriveTrajectoryMeta(samples, epoch);
   const minMoonAlt =
     packed?.minMoonAlt != null && Number.isFinite(packed.minMoonAlt)
       ? packed.minMoonAlt

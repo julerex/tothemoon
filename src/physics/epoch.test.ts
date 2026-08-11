@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  clearMissionClockEpochUtc,
   daysPastFullAtLanding,
   FLIGHT13_LIFTOFF_UTC_MS,
   formatMissionDateUtc,
@@ -10,7 +9,6 @@ import {
   LANDING_UTC_MS,
   missionUtcMs,
   moonElongationPastFullRad,
-  setMissionClockEpochUtc,
   sunEclipticLongitudeAtLanding,
   sunPhase0ForUtc,
 } from "./epoch.ts";
@@ -75,18 +73,17 @@ describe("epoch · Flight 13 daytime launch", () => {
     );
   });
 
-  it("missionUtcMs follows liftoff clock when epoch is pinned", () => {
-    setMissionClockEpochUtc(FLIGHT13_LIFTOFF_UTC_MS);
-    try {
-      assert.equal(missionUtcMs(0, 999), FLIGHT13_LIFTOFF_UTC_MS);
-      assert.equal(
-        missionUtcMs(60, 999),
-        FLIGHT13_LIFTOFF_UTC_MS + 60_000,
-      );
-      assert.match(formatMissionDateUtc(0, 0), /^2026-07-23 22:45 UTC$/);
-    } finally {
-      clearMissionClockEpochUtc();
-    }
+  it("missionUtcMs follows liftoff clock when clockUtcMsAtT0 is pinned", () => {
+    const clock = FLIGHT13_LIFTOFF_UTC_MS;
+    assert.equal(missionUtcMs(0, 999, clock), FLIGHT13_LIFTOFF_UTC_MS);
+    assert.equal(
+      missionUtcMs(60, 999, clock),
+      FLIGHT13_LIFTOFF_UTC_MS + 60_000,
+    );
+    assert.match(
+      formatMissionDateUtc(0, 0, clock),
+      /^2026-07-23 22:45 UTC$/,
+    );
   });
 
   it("sunPhase0ForUtc is finite", () => {

@@ -17,8 +17,14 @@ import {
   STARBASE_LON,
 } from "./constants";
 import { bodyPositions } from "./bodies";
-import { greenwichMeanSiderealTimeRad, missionUtcMs } from "./epoch";
-import { getMissionLandingT } from "./horizonsEpoch";
+import {
+  DEFAULT_EPHEMERIS,
+  type EphemerisEpoch,
+} from "./ephemerisEpoch";
+import {
+  greenwichMeanSiderealTimeRad,
+  missionUtcMsFromEpoch,
+} from "./epoch";
 import { cross, normalize, set, type V3, v3 } from "./vec3";
 
 /** Sidereal spin rate (rad/s) — shared with scene Earth rotation. */
@@ -42,15 +48,21 @@ export function earthNorthPole(out: V3 = v3()): V3 {
  * Equals Greenwich mean sidereal time at the absolute UTC for this mission clock — mesh lon 0° at
  * equinox when Greenwich mean sidereal time = 0 (calibrated to ecliptic J2000 + our SphereGeometry UVs).
  */
-export function earthSpinAngle(t: number): number {
-  const utcMs = missionUtcMs(t, getMissionLandingT());
+export function earthSpinAngle(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const utcMs = missionUtcMsFromEpoch(t, epoch);
   return greenwichMeanSiderealTimeRad(utcMs);
 }
 
 /** Sun elevation factor at Starbase: sin(el) ≈ sun·localUp (−1…1). */
-export function starbaseSunElev(t: number): number {
-  const b = bodyPositions(t);
-  const pad = starbasePadState(t);
+export function starbaseSunElev(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const b = bodyPositions(t, epoch);
+  const pad = starbasePadState(t, epoch);
   const sx = b.sun.x - b.earth.x;
   const sy = b.sun.y - b.earth.y;
   const sz = b.sun.z - b.earth.z;
@@ -179,8 +191,13 @@ function applyAlignNorthToY(
  * Mesh local → inertial using the same composition as the scene graph:
  * world = R_axis · R_y(spin) · local, with R_axis: +Y → north pole.
  */
-export function meshLocalToInertial(local: V3, t: number, out: V3 = v3()): V3 {
-  const spin = earthSpinAngle(t);
+export function meshLocalToInertial(
+  local: V3,
+  t: number,
+  out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
+  const spin = earthSpinAngle(t, epoch);
   const c = Math.cos(spin);
   const s = Math.sin(spin);
   // R_y(spin)
@@ -209,6 +226,7 @@ export function inertialRelToMeshLocal(
   inertial: V3,
   t: number,
   out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
   earthNorthPole(_north);
   applyAlignNorthToY(
@@ -221,7 +239,7 @@ export function inertialRelToMeshLocal(
     _spun,
   );
 
-  const spin = earthSpinAngle(t);
+  const spin = earthSpinAngle(t, epoch);
   const c = Math.cos(-spin);
   const s = Math.sin(-spin);
   out.x = c * _spun.x + s * _spun.z;
@@ -231,22 +249,34 @@ export function inertialRelToMeshLocal(
 }
 
 /** Unit local east at a mesh-local surface point (inertial), for due-east launch. */
-export function localEastInertial(t: number, lat: number, lon: number, out: V3 = v3()): V3 {
+export function localEastInertial(
+  t: number,
+  lat: number,
+  lon: number,
+  out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
   // East = ∂position/∂lon direction
   const r = R_EARTH;
   const dLon = 1e-5;
   geodeticToMeshLocal(lat, lon + dLon, r, _local);
-  meshLocalToInertial(_local, t, _tmp);
+  meshLocalToInertial(_local, t, _tmp, epoch);
   geodeticToMeshLocal(lat, lon, r, _local);
-  meshLocalToInertial(_local, t, _tmp2);
+  meshLocalToInertial(_local, t, _tmp2, epoch);
   set(out, _tmp.x - _tmp2.x, _tmp.y - _tmp2.y, _tmp.z - _tmp2.z);
   return normalize(out, out);
 }
 
 /** Unit local up (geocentric) in inertial frame at lat/lon. */
-export function localUpInertial(t: number, lat: number, lon: number, out: V3 = v3()): V3 {
+export function localUpInertial(
+  t: number,
+  lat: number,
+  lon: number,
+  out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
   geodeticToMeshLocal(lat, lon, 1, _local);
-  meshLocalToInertial(_local, t, out);
+  meshLocalToInertial(_local, t, out, epoch);
   return normalize(out, out);
 }
 
@@ -268,11 +298,12 @@ export function surfaceState(
   t: number,
   outPos: V3 = v3(),
   outVel: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): SurfaceState {
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   const radius = R_EARTH + alt;
   geodeticToMeshLocal(lat, lon, radius, _local);
-  meshLocalToInertial(_local, t, outPos);
+  meshLocalToInertial(_local, t, outPos, epoch);
   // Translate to barycentric (Earth center + relative)
   outPos.x += b.earth.x;
   outPos.y += b.earth.y;
@@ -294,8 +325,8 @@ export function surfaceState(
 
   // Must not reuse _tmp/_tmp2: localEastInertial scratches those with R_EARTH-scale
   // positions and would leave `up` as a ~6400 km vector (pad hop → ~64 km/s).
-  localUpInertial(t, lat, lon, _upOut);
-  localEastInertial(t, lat, lon, _eastOut);
+  localUpInertial(t, lat, lon, _upOut, epoch);
+  localEastInertial(t, lat, lon, _eastOut, epoch);
   return {
     pos: outPos,
     vel: outVel,
@@ -305,8 +336,19 @@ export function surfaceState(
 }
 
 /** Starbase pad state at mission time t. */
-export function starbasePadState(t: number): SurfaceState {
-  return surfaceState(STARBASE_LAT, STARBASE_LON, STARBASE_ALT, t);
+export function starbasePadState(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): SurfaceState {
+  return surfaceState(
+    STARBASE_LAT,
+    STARBASE_LON,
+    STARBASE_ALT,
+    t,
+    v3(),
+    v3(),
+    epoch,
+  );
 }
 
 /** Local ENU-ish basis at an arbitrary Earth-relative position (for ascent guidance). */

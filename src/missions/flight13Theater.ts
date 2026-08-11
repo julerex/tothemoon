@@ -117,13 +117,11 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing Flight 13…";
 }
-// Epoch first so runtime recompute + pad/sun use daytime launch lighting
-applyFlight13Epoch(0, 0);
 const cache = recompute
   ? TrajectoryCache.computeFlight13()
   : TrajectoryCache.loadFlight13();
-// Re-apply after load (cache may not touch epoch; keep splash mission-T bookkeeping)
-const { sunPhase0: sun0, padSunElev } = applyFlight13Epoch(
+// Explicit Flight 13 epoch (liftoff UTC + analytic Earth/Sun)
+const { epoch, sunPhase0: sun0, padSunElev } = applyFlight13Epoch(
   cache.moonPhase0,
   cache.horizonsLandingT,
 );
@@ -161,6 +159,7 @@ renderer.toneMappingExposure = 1.2;
 
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
+director.setEpoch(epoch);
 
 const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
 const bodies = createBodies();
@@ -175,19 +174,19 @@ const _skySun = new THREE.Vector3();
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
 bodies.earth.add(starbasePad);
-const groundTrack = createAscentGroundTrack(cache.samples);
+const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
 // Earth-centric craft trail: mesh-local under the spinning globe so it
 // co-rotates with the surface and revolves with Earth (not heliocentric).
-const trailPts = meshLocalTrailFromSamples(cache.samples, 1500);
+const trailPts = meshLocalTrailFromSamples(cache.samples, 1500, epoch);
 const craftTrail = createTrailFromPoints(trailPts);
 bodies.earth.add(craftTrail);
 
 // Moon path still visible for context (no Kepler corridor on suborbital flight)
-const moonPathSim = createMoonPathThroughSim(cache.durationS);
+const moonPathSim = createMoonPathThroughSim(cache.durationS, 640, epoch);
 orbitGroup.add(moonPathSim);
-const moonRelOrbit = createMoonRelativeOrbit(0);
+const moonRelOrbit = createMoonRelativeOrbit(0, epoch);
 bodies.earthGroup.add(moonRelOrbit);
 
 /** Extra orbit overlays not parented under orbitGroup (Earth-fixed trail/track, v/a, Moon ring). */
@@ -551,7 +550,7 @@ function applyMissionState(u: number): void {
   );
   if (prelaunch) {
     // Hold on the pad through countdown (Earth keeps spinning with wall clock)
-    const pad = starbasePadState(physicsT);
+    const pad = starbasePadState(physicsT, epoch);
     craftPos.set(pad.pos.x, pad.pos.y, pad.pos.z);
     craftVel.set(pad.vel.x, pad.vel.y, pad.vel.z);
   } else {
@@ -560,7 +559,7 @@ function applyMissionState(u: number): void {
   }
 
   const simT = prelaunch ? physicsT : frame.t;
-  const b = bodyPositions(simT);
+  const b = bodyPositions(simT, epoch);
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
@@ -664,9 +663,9 @@ function applyMissionState(u: number): void {
     displayAltEarth,
     prelaunch ? 0 : speedAir,
   );
-  updateBodies(simT, bodies);
+  updateBodies(simT, bodies, epoch);
   // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
-  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT);
+  if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT, epoch);
 
   // Unit-scale sun + soft anti-sun fill + Earthshine (pad stays sunlit by day)
   const sunUnit = applySunLight(sunLight, b.sun, b.earth, _skySun);
@@ -825,7 +824,7 @@ function applyMissionState(u: number): void {
     fuelShip: frame.fuelShip,
     thrustN: showThrustN,
     playing: clock.playing,
-    dateUtc: formatMissionDateUtc(physicsT, cache.horizonsLandingT),
+    dateUtc: formatMissionDateUtc(physicsT, cache.horizonsLandingT, epoch.clockUtcMsAtT0),
     playbackSpeed: clock.speed,
     missionComplete: showCompleteCard,
     completeKind: landingBeat.kind,

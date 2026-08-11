@@ -5,6 +5,8 @@ import {
 } from "../mission/landingBeat";
 import { R_MOON } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { createNameLabel } from "./zoomLabels";
 
 /**
@@ -25,6 +27,7 @@ export class LandingFx {
   private readonly radial = new THREE.Vector3();
   private landT = 0;
   private hasLand = false;
+  private epoch: EphemerisEpoch = DEFAULT_EPHEMERIS;
 
   constructor() {
     // Surface ring (km-scale so it reads from ship/moon cams)
@@ -97,6 +100,10 @@ export class LandingFx {
   }
 
   /** Call once with final landing sample (inertial). */
+  setEpoch(epoch: EphemerisEpoch): void {
+    this.epoch = epoch;
+  }
+
   setLanding(pos: { x: number; y: number; z: number }, landT: number): void {
     this.landPos.set(pos.x, pos.y, pos.z);
     this.landT = landT;
@@ -114,11 +121,11 @@ export class LandingFx {
       return;
     }
 
-    const b = bodyPositions(Math.min(missionT, this.landT));
+    const b = bodyPositions(Math.min(missionT, this.landT), this.epoch);
     this.moonPos.set(b.moon.x, b.moon.y, b.moon.z);
 
     // Project landing point onto lunar surface along Earth-Moon geometry at land epoch
-    const bl = bodyPositions(this.landT);
+    const bl = bodyPositions(this.landT, this.epoch);
     this.moonPos.set(bl.moon.x, bl.moon.y, bl.moon.z);
     this.radial.copy(this.landPos).sub(this.moonPos);
     const rLen = this.radial.length() || 1;

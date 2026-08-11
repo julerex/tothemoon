@@ -5,8 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
 import { TrajectoryCache } from "../physics/trajectoryCache.ts";
-import { setMoonPhase0 } from "../physics/bodies.ts";
-import { setMissionLandingT } from "../physics/horizonsEpoch.ts";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
 import { A_EM, R_EARTH } from "../physics/constants.ts";
 import { len } from "../physics/vec3.ts";
 import type { Sample } from "../physics/missionTypes.ts";
@@ -22,11 +21,11 @@ import {
 } from "./polarTrajectories.ts";
 
 let samples: Sample[];
+let epoch: EphemerisEpoch;
 
 before(() => {
   const cache = TrajectoryCache.loadPrecomputed();
-  setMoonPhase0(cache.moonPhase0);
-  setMissionLandingT(cache.horizonsLandingT);
+  epoch = cache.epoch;
   samples = cache.samples;
 });
 
@@ -82,7 +81,7 @@ describe("projectEarthCentricPolar", () => {
 
 describe("buildPolarTrajectoryModel", () => {
   it("builds ship and moon trails spanning the mission", () => {
-    const m = buildPolarTrajectoryModel(samples);
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch);
     assert.ok(m);
     assert.ok(m!.shipTrail.length > 50);
     assert.ok(m!.moonTrail.length > 50);
@@ -94,15 +93,15 @@ describe("buildPolarTrajectoryModel", () => {
   });
 
   it("frames beyond mean lunar distance", () => {
-    const m = buildPolarTrajectoryModel(samples)!;
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch)!;
     assert.ok(m.bounds.xMax > A_EM * 0.9);
     assert.ok(m.rEarth === R_EARTH);
   });
 
   it("places liftoff near Earth's surface radius in ecliptic projection", () => {
-    const m = buildPolarTrajectoryModel(samples)!;
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch)!;
     const s0 = samples[0]!;
-    const p = projectEarthCentricPolar(craftEarthRel(s0), m.basis);
+    const p = projectEarthCentricPolar(craftEarthRel(s0, undefined, epoch), m.basis);
     // Pad is on the surface; ecliptic projection is within ~R_EARTH
     const r = Math.hypot(p.x, p.y);
     assert.ok(r > R_EARTH * 0.5 && r < R_EARTH * 1.05, `r ${r}`);
@@ -111,9 +110,9 @@ describe("buildPolarTrajectoryModel", () => {
 
 describe("livePolar", () => {
   it("returns finite ship and moon radii", () => {
-    const m = buildPolarTrajectoryModel(samples)!;
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch)!;
     const mid = samples[Math.floor(samples.length / 2)]!.t;
-    const live = livePolar(m, samples, mid);
+    const live = livePolar(m, samples, mid, epoch);
     assert.ok(live.ship);
     assert.ok(live.moon);
     assert.ok(live.shipR > R_EARTH * 0.5);
@@ -123,7 +122,7 @@ describe("livePolar", () => {
 
 describe("trailUpTo", () => {
   it("clips to mission time", () => {
-    const m = buildPolarTrajectoryModel(samples)!;
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch)!;
     const mid = m.shipTrail[Math.floor(m.shipTrail.length / 2)]!.t;
     const partial = trailUpTo(m.shipTrail, mid);
     assert.ok(partial.length >= 1);
@@ -145,11 +144,11 @@ describe("trailUpTo", () => {
 
 describe("projectedMoonOrbit", () => {
   it("places the live Moon on the osculating orbit ring", () => {
-    const m = buildPolarTrajectoryModel(samples)!;
+    const m = buildPolarTrajectoryModel(samples, 1800, epoch)!;
     const mid = samples[Math.floor(samples.length / 2)]!.t;
-    const live = livePolar(m, samples, mid);
+    const live = livePolar(m, samples, mid, epoch);
     assert.ok(live.moon);
-    const orbit = projectedMoonOrbit(m.basis, mid, 256);
+    const orbit = projectedMoonOrbit(m.basis, mid, 256, epoch);
     let minD = Infinity;
     for (const p of orbit) {
       const d = Math.hypot(p.x - live.moon!.x, p.y - live.moon!.y);
@@ -162,7 +161,7 @@ describe("projectedMoonOrbit", () => {
 
 describe("moonEarthRel", () => {
   it("is roughly lunar distance from Earth", () => {
-    const r = moonEarthRel(0);
+    const r = moonEarthRel(0, undefined, epoch);
     const L = len(r);
     assert.ok(L > A_EM * 0.7 && L < A_EM * 1.3, `L ${L}`);
   });

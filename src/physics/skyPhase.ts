@@ -6,6 +6,8 @@
  */
 
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { missionUtcMs, sunEclipticLongitudeAtUtc } from "./epoch";
 
 /** Moon phase name (theater labels). */
@@ -67,8 +69,11 @@ export function moonPhaseName(
  * Sky phase at mission time from body ephemeris (heliocentric theater).
  * Prefer body geometry so Horizons and analytic stay consistent.
  */
-export function skyPhaseAt(missionT: number): SkyPhase {
-  const b = bodyPositions(missionT);
+export function skyPhaseAt(
+  missionT: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): SkyPhase {
+  const b = bodyPositions(missionT, epoch);
   // Earth → Sun (ecliptic XY)
   const sx = b.sun.x - b.earth.x;
   const sy = b.sun.y - b.earth.y;
@@ -101,8 +106,11 @@ export function formatLonDeg(rad: number): string {
  * One-liner for complete card / metrics, e.g.
  * "Moon waning gibbous · 87% lit · Sun λ 118°"
  */
-export function formatSkyPhaseLine(missionT: number): string {
-  const p = skyPhaseAt(missionT);
+export function formatSkyPhaseLine(
+  missionT: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): string {
+  const p = skyPhaseAt(missionT, epoch);
   const pct = Math.round(p.illumination * 100);
   return `Moon ${p.moonPhase} · ${pct}% lit · Sun λ ${formatLonDeg(p.sunLonRad)}`;
 }
@@ -115,9 +123,13 @@ export function formatSkyPhaseLine(missionT: number): string {
 export function formatSkyPhaseLineUtc(
   missionT: number,
   landingMissionT: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  clockUtcMsAtT0: number | null = null,
 ): string {
-  const line = formatSkyPhaseLine(missionT);
+  const line = formatSkyPhaseLine(missionT, epoch);
   // Sanity: UTC sun lon should be close for Horizons-era packs
-  void sunEclipticLongitudeAtUtc(missionUtcMs(missionT, landingMissionT));
+  void sunEclipticLongitudeAtUtc(
+    missionUtcMs(missionT, landingMissionT, clockUtcMsAtT0),
+  );
   return line;
 }

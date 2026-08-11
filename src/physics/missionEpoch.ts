@@ -1,18 +1,44 @@
 /**
- * Mission ephemeris epoch helpers (July 2027 theater).
+ * Mission ephemeris epoch factories (July 2027 lunar theater).
  *
- * Sets Moon / Sun mean phases so analytic and Horizons paths share one map.
+ * Pure builders for {@link EphemerisEpoch} — no module setters.
  */
 
-import { setMoonPhase0, setSunPhase0 } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { hasHorizonsTable } from "./horizonsEpoch";
 import { sunPhase0ForLanding } from "./epoch";
 import { transferTimeEst } from "./translunarInjection";
 
-/** Apply July-2027-consistent ephemeris for a candidate moon phase. */
-export function setEpochPhases(
+/**
+ * Lunar theater epoch for a candidate Moon phase and Horizons landing map.
+ * `sunPhase0` matches waning-gibbous geometry at `landingT` (July 2027).
+ */
+export function makeLunarEpoch(
   moonPhase0: number,
   landingT: number = transferTimeEst(),
-): void {
-  setMoonPhase0(moonPhase0);
-  setSunPhase0(sunPhase0ForLanding(moonPhase0, landingT));
+  useHorizons: boolean = hasHorizonsTable(),
+): EphemerisEpoch {
+  const partial: EphemerisEpoch = {
+    moonPhase0,
+    sunPhase0: Math.PI,
+    horizonsLandingT: landingT,
+    useHorizons,
+    clockUtcMsAtT0: null,
+  };
+  return Object.freeze({
+    ...partial,
+    sunPhase0: sunPhase0ForLanding(moonPhase0, landingT, partial),
+  });
+}
+
+/**
+ * @deprecated Use {@link makeLunarEpoch}. Name kept for search-call readability.
+ * Apply July-2027-consistent ephemeris for a candidate moon phase.
+ */
+export function epochForPhases(
+  moonPhase0: number,
+  landingT: number = transferTimeEst(),
+  useHorizons: boolean = hasHorizonsTable(),
+): EphemerisEpoch {
+  return makeLunarEpoch(moonPhase0, landingT, useHorizons);
 }

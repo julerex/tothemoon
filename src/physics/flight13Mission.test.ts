@@ -4,12 +4,14 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
 import { F13, runFlight13Mission } from "./flight13Mission.ts";
 import { len, sub, v3 } from "./vec3.ts";
 
 describe("runFlight13Mission", () => {
-  const result = runFlight13Mission();
+  const epoch = makeFlight13Epoch(0, 0);
+  const result = runFlight13Mission({ epoch });
   const _tmp = v3();
 
   it("completes successfully with splashdown", () => {
@@ -47,7 +49,7 @@ describe("runFlight13Mission", () => {
   it("stays suborbital (peak altitude tens–hundreds of km, not escape)", () => {
     let maxAlt = 0;
     for (const s of result.samples) {
-      const a = altitudeEarth(s.t, s.pos);
+      const a = altitudeEarth(s.t, s.pos, epoch);
       if (a > maxAlt) maxAlt = a;
     }
     assert.ok(maxAlt > 80, `maxAlt too low ${maxAlt}`);
@@ -70,7 +72,7 @@ describe("runFlight13Mission", () => {
     const mid = result.samples.reduce((best, cur) =>
       Math.abs(cur.t - 1200) < Math.abs(best.t - 1200) ? cur : best,
     );
-    const a = altitudeEarth(mid.t, mid.pos);
+    const a = altitudeEarth(mid.t, mid.pos, epoch);
     assert.ok(a > 150, `mid-coast alt ${a} km — expected lofted suborbital`);
   });
 
@@ -84,8 +86,8 @@ describe("runFlight13Mission", () => {
         cur = 0;
         continue;
       }
-      const a = altitudeEarth(s.t, s.pos);
-      const b = getBodies(s.t);
+      const a = altitudeEarth(s.t, s.pos, epoch);
+      const b = getBodies(s.t, epoch);
       sub(_tmp, s.vel, b.earthVel);
       if (a < 3 && len(_tmp) < 0.3) cur += 1;
       else {
@@ -125,8 +127,8 @@ describe("runFlight13Mission", () => {
     for (const s of result.samples) {
       if (s.phase === "ascent" && s.burning) seco = s;
     }
-    const a = altitudeEarth(seco.t, seco.pos);
-    const b = getBodies(seco.t);
+    const a = altitudeEarth(seco.t, seco.pos, epoch);
+    const b = getBodies(seco.t, epoch);
     sub(_tmp, seco.vel, b.earthVel);
     const v = len(_tmp);
     // Radial rate from pos·vel

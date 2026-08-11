@@ -7,6 +7,8 @@ import {
   R_SUN,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthSpinAngle } from "../physics/earthFrame";
 import {
   makeEarthCloudTexture,
@@ -469,15 +471,19 @@ function createSun(): { sun: THREE.Mesh; sunGroup: THREE.Group } {
   return { sun, sunGroup };
 }
 
-export function updateBodies(t: number, bodies: Bodies): void {
-  const b = bodyPositions(t);
+export function updateBodies(
+  t: number,
+  bodies: Bodies,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): void {
+  const b = bodyPositions(t, epoch);
   bodies.earthGroup.position.set(b.earth.x, b.earth.y, b.earth.z);
   bodies.moonGroup.position.set(b.moon.x, b.moon.y, b.moon.z);
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 
   // Mission-time sidereal rotation about the tilted polar axis (local Y).
   // Same Greenwich mean sidereal time phase as physics/earthFrame (Starbase pad alignment).
-  const spin = earthSpinAngle(t);
+  const spin = earthSpinAngle(t, epoch);
   bodies.earth.rotation.y = spin;
   // Clouds drift a little faster than the ground
   bodies.earthClouds.rotation.y = spin * 1.03 + 0.35;

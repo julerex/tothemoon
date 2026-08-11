@@ -17,6 +17,8 @@
 
 import { MU_EARTH, R_EARTH } from "./constants";
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   geodeticToMeshLocal,
   meshLocalToInertial,
@@ -292,10 +294,11 @@ function landRelAt(
   t: number,
   sched: RecoverySchedule,
   out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   if (sched.profile === "chopsticks") {
-    const pad = starbasePadState(t);
+    const pad = starbasePadState(t, epoch);
     madd(_tmp, pad.pos, pad.up, sched.landAltKm);
     return sub(out, _tmp, b.earth);
   }
@@ -306,7 +309,7 @@ function landRelAt(
     R_EARTH + sched.landAltKm,
     _tmp,
   );
-  return meshLocalToInertial(_tmp, t, out);
+  return meshLocalToInertial(_tmp, t, out, epoch);
 }
 
 /** Landing-gate point (high above land site) relative to Earth. */
@@ -314,10 +317,11 @@ function gateRelAt(
   t: number,
   sched: RecoverySchedule,
   out: V3 = v3(),
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   if (sched.profile === "chopsticks") {
-    const pad = starbasePadState(t);
+    const pad = starbasePadState(t, epoch);
     madd(_tmp, pad.pos, pad.up, sched.gateAltKm);
     return sub(out, _tmp, b.earth);
   }
@@ -327,20 +331,25 @@ function gateRelAt(
     R_EARTH + sched.gateAltKm,
     _tmp,
   );
-  return meshLocalToInertial(_tmp, t, out);
+  return meshLocalToInertial(_tmp, t, out, epoch);
 }
 
 /** Surface co-rotating velocity at the land site (Earth-relative). */
-function landSiteVelRel(t: number, sched: RecoverySchedule, out: V3): V3 {
+function landSiteVelRel(
+  t: number,
+  sched: RecoverySchedule,
+  out: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
   if (sched.profile === "chopsticks") {
-    const pad = starbasePadState(t);
-    const b = bodyPositions(t);
+    const pad = starbasePadState(t, epoch);
+    const b = bodyPositions(t, epoch);
     return sub(out, pad.vel, b.earthVel);
   }
   // Approximate ocean site as co-rotating with Earth: use pad spin rate scaled
   // via mesh-local position difference from Earth center after spin.
-  const pad = starbasePadState(t);
-  const b = bodyPositions(t);
+  const pad = starbasePadState(t, epoch);
+  const b = bodyPositions(t, epoch);
   // Use pad's Earth-relative surface velocity magnitude pattern: ω×r ≈ pad.vel−earthVel
   // scaled by land site radius ratio (same order).
   sub(out, pad.vel, b.earthVel);
@@ -355,8 +364,9 @@ export function applySepKicksRel(
   stage: StageState,
   outPRel: V3,
   outVRel: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
-  const b = bodyPositions(stage.t);
+  const b = bodyPositions(stage.t, epoch);
   sub(outPRel, stage.pos, b.earth);
   sub(outVRel, stage.vel, b.earthVel);
 
@@ -376,12 +386,13 @@ export function applySepKicksRel(
 export function buildBoosterKeyframes(
   stage: StageState,
   profile: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): RelKeyframe[] {
   const sched = recoverySchedule(profile);
   const t0 = stage.t;
   const p0 = v3();
   const v0 = v3();
-  applySepKicksRel(stage, p0, v0);
+  applySepKicksRel(stage, p0, v0, epoch);
 
   gravityRel(p0, _acc);
 
@@ -397,8 +408,8 @@ export function buildBoosterKeyframes(
 
   const tLand = t0 + sched.landingStartS;
   const tCatch = t0 + sched.landingEndS;
-  const pGate = gateRelAt(tLand, sched);
-  const pCatch = landRelAt(tCatch, sched);
+  const pGate = gateRelAt(tLand, sched, undefined, epoch);
+  const pCatch = landRelAt(tCatch, sched, undefined, epoch);
 
   // Post-boostback: pull ground-track toward landing site while keeping altitude.
   // Gulf: weaker pull-back than RTLS so the booster stays downrange offshore.
@@ -468,12 +479,12 @@ export function buildBoosterKeyframes(
   if (vGateMag > 0.2) scale(vGate, vGate, 0.2 / vGateMag);
 
   const vCatch = v3();
-  landSiteVelRel(tCatch, sched, vCatch);
+  landSiteVelRel(tCatch, sched, vCatch, epoch);
 
   const tHold = t0 + sched.landingEndS + sched.holdS;
-  const pHold = landRelAt(tHold, sched);
+  const pHold = landRelAt(tHold, sched, undefined, epoch);
   const vHold = v3();
-  landSiteVelRel(tHold, sched, vHold);
+  landSiteVelRel(tHold, sched, vHold, epoch);
 
   return [
     { age: 0, p: p0, v: v0 },
@@ -536,15 +547,15 @@ function fadeAt(
 }
 
 /** Pad catch point (inertial) at mission time t — chopsticks only. */
-export function catchPointAt(t: number, out: V3 = v3()): V3 {
-  const pad = starbasePadState(t);
+export function catchPointAt(t: number, out: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 {
+  const pad = starbasePadState(t, epoch);
   return madd(out, pad.pos, pad.up, CATCH_ALT_KM);
 }
 
 /** Gulf soft-land point (heliocentric inertial) at mission time t. */
-export function gulfLandPointAt(t: number, out: V3 = v3()): V3 {
-  const b = bodyPositions(t);
-  landRelAt(t, GULF_SCHEDULE, _tmp3);
+export function gulfLandPointAt(t: number, out: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 {
+  const b = bodyPositions(t, epoch);
+  landRelAt(t, GULF_SCHEDULE, _tmp3, epoch);
   return add(out, b.earth, _tmp3);
 }
 
@@ -557,6 +568,7 @@ export function sampleBoosterRecovery(
   age: number,
   keyframes?: RelKeyframe[],
   profile: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): BoosterRecoverySample {
   const sched = recoverySchedule(profile);
   const phase = phaseAt(age, sched);
@@ -575,7 +587,7 @@ export function sampleBoosterRecovery(
     };
   }
 
-  const kfs = keyframes ?? buildBoosterKeyframes(stage, profile);
+  const kfs = keyframes ?? buildBoosterKeyframes(stage, profile, epoch);
   const lastAge = kfs[kfs.length - 1]!.age;
   const ageClamped = Math.min(Math.max(age, 0), lastAge);
 
@@ -588,8 +600,8 @@ export function sampleBoosterRecovery(
   // After hold keyframe (fade window): stick to moving land site
   if (age > lastAge) {
     const t = stage.t + age;
-    landRelAt(t, sched, _pRel);
-    landSiteVelRel(t, sched, _vRel);
+    landRelAt(t, sched, _pRel, epoch);
+    landSiteVelRel(t, sched, _vRel, epoch);
   }
 
   // Surface clamp in relative frame
@@ -601,7 +613,7 @@ export function sampleBoosterRecovery(
 
   // Lift back to heliocentric / inertial
   const t = stage.t + age;
-  const bt = bodyPositions(t);
+  const bt = bodyPositions(t, epoch);
   add(_pos, bt.earth, _pRel);
   add(_vel, bt.earthVel, _vRel);
 

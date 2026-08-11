@@ -36,6 +36,8 @@ import {
   starbasePadState,
   enuAtPosition,
 } from "./earthFrame";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { makeFlight13Epoch } from "./flight13Epoch";
 import {
   altitudeEarth,
   atmDensity,
@@ -153,26 +155,30 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 }
 
 /** Unit surface radial at splash site (inertial) at mission time t. */
-export function splashSurfaceInertial(t: number, out: V3 = v3()): V3 {
+export function splashSurfaceInertial(
+  t: number,
+  out: V3 = v3(),
+  epoch?: EphemerisEpoch,
+): V3 {
   geodeticToMeshLocal(
     FLIGHT13_SPLASH_LAT,
     FLIGHT13_SPLASH_LON,
     1,
     _splashLocal,
   );
-  meshLocalToInertial(_splashLocal, t, out);
+  meshLocalToInertial(_splashLocal, t, out, epoch);
   return normalize(out, out);
 }
 
-function padRadialInertial(t: number, out: V3 = v3()): V3 {
-  const pad = starbasePadState(t);
+function padRadialInertial(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V3 {
+  const pad = starbasePadState(t, epoch);
   return set(out, pad.up.x, pad.up.y, pad.up.z);
 }
 
 /** Horizontal unit at pad toward splash (Flight 13 corridor). */
-function corridorAlongAtPad(t: number, out: V3 = v3()): V3 {
-  const padUp = padRadialInertial(t, _tmp);
-  const splash = splashSurfaceInertial(t, _tmp2);
+function corridorAlongAtPad(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V3 {
+  const padUp = padRadialInertial(t, _tmp, epoch);
+  const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const d = dot(splash, padUp);
   set(
     _tmp3,
@@ -181,8 +187,8 @@ function corridorAlongAtPad(t: number, out: V3 = v3()): V3 {
     splash.z - padUp.z * d,
   );
   if (len(_tmp3) < 1e-8) {
-    const b = getBodies(t);
-    const pad = starbasePadState(t);
+    const b = getBodies(t, epoch);
+    const pad = starbasePadState(t, epoch);
     enuAtPosition(t, pad.pos, b.earth, _up, _east, _north);
     return set(out, _east.x, _east.y, _east.z);
   }
@@ -193,12 +199,17 @@ function corridorAlongAtPad(t: number, out: V3 = v3()): V3 {
  * Horizontal unit in the local sky plane from craft toward the splash great-circle.
  * Falls back to pad corridor if nearly radial.
  */
-function corridorAlongAtCraft(t: number, pos: V3, out: V3 = v3()): V3 {
-  const b = getBodies(t);
+function corridorAlongAtCraft(
+  t: number,
+  pos: V3,
+  out: V3 = v3(),
+  epoch?: EphemerisEpoch,
+): V3 {
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.earth);
   const r = len(_relP) || 1;
   set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
-  const splash = splashSurfaceInertial(t, _tmp2);
+  const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const d = dot(splash, _up);
   set(
     _tmp3,
@@ -207,7 +218,7 @@ function corridorAlongAtCraft(t: number, pos: V3, out: V3 = v3()): V3 {
     splash.z - _up.z * d,
   );
   if (len(_tmp3) < 1e-8) {
-    return corridorAlongAtPad(t, out);
+    return corridorAlongAtPad(t, out, epoch);
   }
   return normalize(out, _tmp3);
 }
@@ -247,14 +258,15 @@ function steer(
   vel: V3,
   mode: BurnMode,
   out: V3,
+  epoch: EphemerisEpoch,
 ): void {
-  const b = getBodies(t);
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.earth);
   const r = len(_relP) || 1;
   set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
   sub(_relV, vel, b.earthVel);
   const alt = r - R_EARTH;
-  const along = corridorAlongAtCraft(t, pos, _along);
+  const along = corridorAlongAtCraft(t, pos, _along, epoch);
 
   // Horizontal component of surface-relative velocity
   const vRad = dot(_relV, _up);
@@ -275,9 +287,9 @@ function steer(
   if (mode === "land") {
     // Engines fire anti-velocity (brake) with strong aim at splash site
     const v = len(_relV);
-    const splash = splashSurfaceInertial(t, _tmp2);
+    const splash = splashSurfaceInertial(t, _tmp2, epoch);
     // Unit toward splash surface point from craft
-    const bL = getBodies(t);
+    const bL = getBodies(t, epoch);
     set(
       _tmp3,
       bL.earth.x + splash.x * (R_EARTH + 0.05) - pos.x,
@@ -426,6 +438,8 @@ export type Flight13MissionOptions = {
    * `"earth"` drops Moon / Sun for an independent Earth-mechanics check.
    */
   gravity?: GravityModel;
+  /** Explicit ephemeris; default {@link makeFlight13Epoch}. */
+  epoch?: EphemerisEpoch;
 };
 
 /**
@@ -434,10 +448,14 @@ export type Flight13MissionOptions = {
 export function runFlight13Mission(
   opts?: Flight13MissionOptions,
 ): MissionResult {
-  const accelOpts: AccelOptions = { gravity: opts?.gravity ?? "nbody" };
+  const epoch = opts?.epoch ?? makeFlight13Epoch(0, 0);
+  const accelOpts: AccelOptions = {
+    gravity: opts?.gravity ?? "nbody",
+    epoch,
+  };
   const samples: Sample[] = [];
   const prop = createPropState(0);
-  const pad = starbasePadState(0);
+  const pad = starbasePadState(0, epoch);
   const state: CraftState = {
     t: 0,
     pos: clone(pad.pos),
@@ -460,11 +478,11 @@ export function runFlight13Mission(
    * Idle entry still returns a small belly-flop lift accel (no propellant).
    */
   const thrustFn: ThrustFn = (t, pos, vel) => {
-    const alt = altitudeEarth(t, pos);
+    const alt = altitudeEarth(t, pos, epoch);
     const thr = throttleFor(t, alt, mode);
 
     // Theater belly-flop lift during atmospheric entry / late coast
-    const bLift = getBodies(t);
+    const bLift = getBodies(t, epoch);
     sub(_relP, pos, bLift.earth);
     const rL = len(_relP) || 1;
     set(_up, _relP.x / rL, _relP.y / rL, _relP.z / rL);
@@ -506,8 +524,8 @@ export function runFlight13Mission(
       }
       // Bank toward splash (theater entry guidance — not RCS)
       if (vRel > 1.0 && alt > 12 && alt < 90) {
-        const splash = splashSurfaceInertial(t, _tmp2);
-        const bG = getBodies(t);
+        const splash = splashSurfaceInertial(t, _tmp2, epoch);
+        const bG = getBodies(t, epoch);
         set(
           _tmp3,
           bG.earth.x + splash.x * (R_EARTH + alt) - pos.x,
@@ -566,7 +584,7 @@ export function runFlight13Mission(
       set(thrAcc, aeroAx, aeroAy, aeroAz);
       return thrAcc;
     }
-    steer(t, pos, vel, mode, _steer);
+    steer(t, pos, vel, mode, _steer, epoch);
     const tank = tankFor(mode, prop.staged);
     const fCmd = peakForceN(mode, thr);
     const m = wetMassKg(prop);
@@ -598,7 +616,7 @@ export function runFlight13Mission(
 
   const maxT = F13.SPLASH + 2;
   while (state.t < maxT) {
-    const alt = altitudeEarth(state.t, state.pos);
+    const alt = altitudeEarth(state.t, state.pos, epoch);
     const t = state.t;
 
     // ── Mode / phase machine (timeline-forced where possible) ──
@@ -618,7 +636,7 @@ export function runFlight13Mission(
       mode = "upper";
     }
     if (mode === "upper") {
-      const bCut = getBodies(t);
+      const bCut = getBodies(t, epoch);
       sub(_relV, state.vel, bCut.earthVel);
       sub(_relP, state.pos, bCut.earth);
       const r = len(_relP) || 1;
@@ -658,10 +676,10 @@ export function runFlight13Mission(
     // Landing burn only after aero has bled most of the speed (or public mark).
     // Lighting at hypersonic would empty the tank and leave a surface skid.
     if (mode !== "land" && mode !== "relight" && t >= F13.ENTRY - 90) {
-      const bL = getBodies(t);
+      const bL = getBodies(t, epoch);
       sub(_relV, state.vel, bL.earthVel);
       const vRel = len(_relV);
-      const splash = splashSurfaceInertial(t, _tmp2);
+      const splash = splashSurfaceInertial(t, _tmp2, epoch);
       sub(_relP, state.pos, bL.earth);
       normalize(_tmp3, _relP);
       const rangeKm =
@@ -705,7 +723,7 @@ export function runFlight13Mission(
 
     // Surface clamp only: never tunnel underground (no altitude-hold floor)
     {
-      const b = getBodies(state.t);
+      const b = getBodies(state.t, epoch);
       sub(_relP, state.pos, b.earth);
       const L = len(_relP) || 1;
       const curAlt = L - R_EARTH;
@@ -743,8 +761,8 @@ export function runFlight13Mission(
 
     // Natural splashdown: low, slow, and near the theater fix — or public clock
     {
-      const b = getBodies(state.t);
-      const surf = splashSurfaceInertial(state.t, _tmp);
+      const b = getBodies(state.t, epoch);
+      const surf = splashSurfaceInertial(state.t, _tmp, epoch);
       sub(_relP, state.pos, b.earth);
       const L = len(_relP) || 1;
       const curAlt = L - R_EARTH;
@@ -805,11 +823,11 @@ export function runFlight13Mission(
   }
 
   const durationS = samples[samples.length - 1]!.t;
-  const meta = deriveTrajectoryMeta(samples);
+  const meta = deriveTrajectoryMeta(samples, epoch);
   const raw: MissionResult = {
     samples,
     durationS,
-    moonPhase0: 0,
+    moonPhase0: epoch.moonPhase0,
     translunarInjectionDeltaV: 0,
     minMoonAlt: Infinity,
     ok: true,

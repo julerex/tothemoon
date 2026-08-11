@@ -5,8 +5,10 @@
  * `npx tsx scripts/fetch-horizons-epoch.ts`).
  *
  * Times are seconds relative to landing (2027-07-20 12:00 TDB). Mission clock
- * t = 0 at launch; setMissionLandingT(durationS) so absolute ephemeris time is
- *   τ = t − missionLandingT
+ * t = 0 at launch; pass `horizonsLandingT` so absolute ephemeris time is
+ *   τ = t − horizonsLandingT
+ *
+ * Pure: no module mutable state — landing map comes from {@link EphemerisEpoch}.
  */
 import horizonsPack from "../data/horizons-epoch.json";
 import type { V3 } from "./vec3";
@@ -31,30 +33,17 @@ type HorizonsPack = {
 const pack = horizonsPack as HorizonsPack;
 const samples = pack.samples;
 
-/** Mission time (s) at which landing occurs — used to map t → Horizons τ. */
-let missionLandingT = 0;
+/** True when the packed Horizons table has enough samples to interpolate. */
+export function hasHorizonsTable(): boolean {
+  return samples.length >= 2;
+}
 
 /**
- * When false, {@link hasHorizonsEpoch} reports no table so callers use analytic
- * bodies. Flight 13 uses this (Horizons pack is the July 2027 lunar window).
+ * @deprecated Prefer {@link hasHorizonsTable} + `epoch.useHorizons`.
+ * Kept as alias for callers that only care whether a table exists.
  */
-let horizonsEnabled = true;
-
-export function setMissionLandingT(tLanding: number): void {
-  missionLandingT = tLanding;
-}
-
-export function getMissionLandingT(): number {
-  return missionLandingT;
-}
-
-/** Enable/disable the Horizons sample table at runtime. */
-export function setHorizonsEnabled(on: boolean): void {
-  horizonsEnabled = on;
-}
-
-export function isHorizonsEnabled(): boolean {
-  return horizonsEnabled;
+export function hasHorizonsEpoch(): boolean {
+  return hasHorizonsTable();
 }
 
 export function horizonsSource(): string {
@@ -63,10 +52,6 @@ export function horizonsSource(): string {
 
 export function horizonsLandingUtc(): string {
   return pack.landingUtc;
-}
-
-export function hasHorizonsEpoch(): boolean {
-  return horizonsEnabled && samples.length >= 2;
 }
 
 function lerp6(
@@ -88,16 +73,20 @@ function lerp6(
 /**
  * Interpolate Earth (heliocentric) and Moon (geocentric) at mission time t.
  * Returns false if τ is outside the table (caller may fall back to analytic).
+ *
+ * @param missionT mission clock (s from launch)
+ * @param horizonsLandingT mission t at which Horizons τ = 0
  */
 export function interpolateHorizons(
   missionT: number,
+  horizonsLandingT: number,
   earthPos: V3,
   earthVel: V3,
   moonRelPos: V3,
   moonRelVel: V3,
 ): boolean {
   if (samples.length < 2) return false;
-  const τ = missionT - missionLandingT;
+  const τ = missionT - horizonsLandingT;
   const first = samples[0]!;
   const last = samples[samples.length - 1]!;
   if (τ < first.dtS || τ > last.dtS) return false;
@@ -133,5 +122,3 @@ export function horizonsTableMeta(): {
     source: horizonsSource(),
   };
 }
-
-

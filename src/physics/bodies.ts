@@ -15,10 +15,11 @@ import {
   R_MOON,
 } from "./constants";
 import {
-  getMissionLandingT,
-  hasHorizonsEpoch,
-  interpolateHorizons,
-} from "./horizonsEpoch";
+  DEFAULT_EPHEMERIS,
+  epochUsesHorizons,
+  type EphemerisEpoch,
+} from "./ephemerisEpoch";
+import { interpolateHorizons } from "./horizonsEpoch";
 import { keplerRvAt, rvToKepler } from "./kepler";
 import { cross, len, set, type V3, v3 } from "./vec3";
 
@@ -33,12 +34,12 @@ const EARTH_ORB_E = 0.016_708_6;
  * ecliptic J2000 XY).
  *
  * Prefer **JPL Horizons (DE441)** samples for the July 2027 window when
- * `horizons-epoch.json` is present (`scripts/fetch-horizons-epoch.ts`). Falls
- * back to analytic circular Earth + Keplerian Moon otherwise.
+ * `epoch.useHorizons` and `horizons-epoch.json` is present. Falls back to
+ * analytic circular Earth + Keplerian Moon otherwise.
  *
  * - Sun fixed at origin
  * - Earth / Moon from Horizons (or analytic EM bary on 1 AU circle)
- * - moonPhase0 / sunPhase0 still used by the analytic fallback and mission search
+ * - `epoch.moonPhase0` / `epoch.sunPhase0` drive the analytic fallback
  */
 
 export type BodyState = {
@@ -54,32 +55,6 @@ const _earth = v3();
 const _moon = v3();
 const _earthVel = v3();
 const _moonVel = v3();
-
-/** Moon mean anomaly at t=0 (rad). Tuned by mission search. */
-let moonPhase0 = 0;
-
-/**
- * Earth mean ecliptic longitude at t=0 (rad) — heliocentric angle of the
- * EM barycenter about the Sun. Set from July 2027 epoch so landing geometry
- * is a waning gibbous (see epoch.ts).
- */
-let sunPhase0 = Math.PI;
-
-export function setMoonPhase0(phase: number): void {
-  moonPhase0 = phase;
-}
-
-export function getMoonPhase0(): number {
-  return moonPhase0;
-}
-
-export function setSunPhase0(phase: number): void {
-  sunPhase0 = phase;
-}
-
-export function getSunPhase0(): number {
-  return sunPhase0;
-}
 
 /** Solve Kepler’s equation M = E − e sin E (elliptical). */
 function eccentricAnomaly(M: number, e: number): number {
@@ -98,17 +73,28 @@ function eccentricAnomaly(M: number, e: number): number {
 
 /**
  * Moon state relative to Earth in the ecliptic frame.
- * Uses Horizons samples when available (M0 must be the active moonPhase0);
+ * Uses Horizons samples when the epoch enables them and M0 is the live phase;
  * otherwise Keplerian with elements from constants.
  */
 export function moonRelativeToEarth(
   t: number,
-  M0: number = moonPhase0,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  M0: number = epoch.moonPhase0,
 ): { pos: V3; vel: V3; r: number; nu: number; E: number } {
   // Horizons path only when using the live epoch phase (not probe offsets)
-  if (hasHorizonsEpoch() && Math.abs(M0 - moonPhase0) < 1e-12) {
+  if (
+    epochUsesHorizons(epoch) &&
+    Math.abs(M0 - epoch.moonPhase0) < 1e-12
+  ) {
     if (
-      interpolateHorizons(t, _earth, _earthVel, _moon, _moonVel)
+      interpolateHorizons(
+        t,
+        epoch.horizonsLandingT,
+        _earth,
+        _earthVel,
+        _moon,
+        _moonVel,
+      )
     ) {
       // _moon/_moonVel temporarily hold moonRel from the table
       const r = len(_moon);
@@ -193,19 +179,34 @@ export function moonRelativeToEarth(
 }
 
 /** Ecliptic longitude of Earth→Moon (atan2 of XY), for phase / Sun geometry. */
-export function moonEclipticLongitude(t: number, M0: number = moonPhase0): number {
-  const rel = moonRelativeToEarth(t, M0);
+export function moonEclipticLongitude(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  M0: number = epoch.moonPhase0,
+): number {
+  const rel = moonRelativeToEarth(t, epoch, M0);
   return Math.atan2(rel.pos.y, rel.pos.x);
 }
 
-export function bodyPositions(t: number, out?: BodyState): BodyState {
+export function bodyPositions(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  out?: BodyState,
+): BodyState {
   // Sun fixed at origin (heliocentric theater)
   set(_sun, 0, 0, 0);
 
   // Prefer JPL Horizons samples for the July 2027 window
   if (
-    hasHorizonsEpoch() &&
-    interpolateHorizons(t, _earth, _earthVel, _moon, _moonVel)
+    epochUsesHorizons(epoch) &&
+    interpolateHorizons(
+      t,
+      epoch.horizonsLandingT,
+      _earth,
+      _earthVel,
+      _moon,
+      _moonVel,
+    )
   ) {
     // _moon/_moonVel hold geocentric Moon; convert to heliocentric
     _moon.x += _earth.x;
@@ -216,11 +217,11 @@ export function bodyPositions(t: number, out?: BodyState): BodyState {
     _moonVel.z += _earthVel.z;
   } else {
     // Analytic fallback: circular Earth + Keplerian Moon
-    const rel = moonRelativeToEarth(t);
+    const rel = moonRelativeToEarth(t, epoch);
     const kM = 1 / (1 + MASS_RATIO_ME);
     const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME);
 
-    const θ = sunPhase0 + N_EARTH_SUN * t;
+    const θ = epoch.sunPhase0 + N_EARTH_SUN * t;
     const cosθ = Math.cos(θ);
     const sinθ = Math.sin(θ);
     const r = AU;
@@ -277,8 +278,12 @@ export function bodyPositions(t: number, out?: BodyState): BodyState {
 }
 
 /** Unit vector Earth → Moon at time t. */
-export function earthMoonUnit(t: number, out: V3): V3 {
-  const rel = moonRelativeToEarth(t);
+export function earthMoonUnit(
+  t: number,
+  out: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
+  const rel = moonRelativeToEarth(t, epoch);
   const inv = 1 / rel.r;
   return set(out, rel.pos.x * inv, rel.pos.y * inv, rel.pos.z * inv);
 }
@@ -303,8 +308,12 @@ export function moonSouthUnit(out: V3 = v3()): V3 {
 }
 
 /** Inertial position of the lunar south pole on the mean surface at time t. */
-export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
-  const b = bodyPositions(t);
+export function moonSouthPoleSurface(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  out: V3 = v3(),
+): V3 {
+  const b = bodyPositions(t, epoch);
   moonSouthUnit(out);
   return set(
     out,
@@ -319,13 +328,16 @@ export function moonSouthPoleSurface(t: number, out: V3 = v3()): V3 {
  * Fitted so the ellipse passes through Horizons Earth near landing (July ≈
  * aphelion). Falls back to the classic ~102.9° value.
  */
-function earthPerihelionLongitude(): number {
+function earthPerihelionLongitude(epoch: EphemerisEpoch): number {
   const ep = v3();
   const ev = v3();
   const mp = v3();
   const mv = v3();
-  const tLand = getMissionLandingT();
-  if (hasHorizonsEpoch() && interpolateHorizons(tLand, ep, ev, mp, mv)) {
+  const tLand = epoch.horizonsLandingT;
+  if (
+    epochUsesHorizons(epoch) &&
+    interpolateHorizons(tLand, tLand, ep, ev, mp, mv)
+  ) {
     const a = AU;
     const e = EARTH_ORB_E;
     const p = a * (1 - e * e);
@@ -350,13 +362,17 @@ function earthPerihelionLongitude(): number {
  * Moon’s heliocentric trail over the mission window [0, durationS].
  * Uses the same ephemeris as bodyPositions (Horizons when available).
  */
-export function moonPathThroughSim(durationS: number, samples = 512): V3[] {
+export function moonPathThroughSim(
+  durationS: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  samples = 512,
+): V3[] {
   const pts: V3[] = [];
   const dur = Math.max(durationS, 1);
   const n = Math.max(2, samples);
   for (let i = 0; i <= n; i++) {
     const t = (i / n) * dur;
-    const b = bodyPositions(t);
+    const b = bodyPositions(t, epoch);
     pts.push({ x: b.moon.x, y: b.moon.y, z: b.moon.z });
   }
   return pts;
@@ -376,8 +392,12 @@ const _circH = v3();
  * falls back to a circle of radius |r| in the r×v plane (also through Moon).
  * Parent under the Earth group so the ring co-moves with Earth.
  */
-export function osculatingMoonOrbitPoints(t: number, samples = 256): V3[] {
-  const rel = moonRelativeToEarth(t);
+export function osculatingMoonOrbitPoints(
+  t: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  samples = 256,
+): V3[] {
+  const rel = moonRelativeToEarth(t, epoch);
   const n = Math.max(8, samples);
   const R = len(rel.pos);
   const V = len(rel.vel);
@@ -456,13 +476,16 @@ function circleThroughMoon(pos: V3, vel: V3, samples: number): V3[] {
  * Earth sits on the green ring (circular 1 AU is ~2.4e6 km low at aphelion).
  * Analytic fallback: circle of radius AU.
  */
-export function earthOrbitPathPoints(samples = 256): V3[] {
+export function earthOrbitPathPoints(
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  samples = 256,
+): V3[] {
   const pts: V3[] = [];
-  if (hasHorizonsEpoch()) {
+  if (epochUsesHorizons(epoch)) {
     const a = AU;
     const e = EARTH_ORB_E;
     const p = a * (1 - e * e);
-    const ϖ = earthPerihelionLongitude();
+    const ϖ = earthPerihelionLongitude(epoch);
     for (let i = 0; i <= samples; i++) {
       const ν = (i / samples) * 2 * Math.PI;
       const r = p / (1 + e * Math.cos(ν));

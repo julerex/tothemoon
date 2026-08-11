@@ -9,6 +9,7 @@ import {
   type AscentBurnMode,
 } from "./ascent.ts";
 import { HOT_STAGE_S, STAGE_PROP_ARM } from "./constants.ts";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch.ts";
 import { altitudeEarth } from "./integrator.ts";
 import { fuelShipFrac } from "./propellant.ts";
 
@@ -36,7 +37,7 @@ describe("boosterThrottle schedule", () => {
 
 describe("flyAscent staged profile", () => {
   it("reaches low Earth orbit with hot-stage then ship circularize", () => {
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.equal(r.ok, true, r.message);
     assert.ok(r.insertionAlt > 80 && r.insertionAlt < 250, `alt ${r.insertionAlt}`);
     assert.ok(
@@ -48,7 +49,7 @@ describe("flyAscent staged profile", () => {
   });
 
   it("stages after a dual-burn hot-stage window", () => {
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     const stageIdx = r.samples.findIndex((s) => s.staged);
     assert.ok(stageIdx > 0, "expected stage-out");
@@ -71,7 +72,7 @@ describe("flyAscent staged profile", () => {
   });
 
   it("settles circular low Earth orbit without a free zero-dt teleport", () => {
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     assert.ok(
       !r.message.toLowerCase().includes("forced"),
@@ -88,7 +89,7 @@ describe("flyAscent staged profile", () => {
     // Regression: settleCircularize used to freeze the craft in inertial space
     // while Earth moved, so geocentric altitude fell ~10–25 km then rose steeply
     // to low Earth orbit (visible as a kink on the ascent cross-section).
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     const stageIdx = r.samples.findIndex((s) => s.staged);
     assert.ok(stageIdx >= 0, "expected stage-out");
@@ -136,7 +137,7 @@ describe("flyAscent staged profile", () => {
   });
 
   it("leaves meaningful ship propellant for dogleg + translunar injection", () => {
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     const fs = fuelShipFrac(r.prop);
     // Capped residual + short upper burn must leave most of the ship tanks
@@ -145,7 +146,7 @@ describe("flyAscent staged profile", () => {
   });
 
   it("records booster throttle below peak during maximum dynamic pressure band", () => {
-    const r = flyAscent();
+    const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     // Early samples at full-ish thrust; mid-ascent should show variation
     const early = r.samples.find((s) => s.t > 2 && s.t < 8 && s.thrustN > 0);

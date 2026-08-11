@@ -1,5 +1,7 @@
 import { LOW_EARTH_ORBIT_COAST_S, LOW_EARTH_ORBIT_RADIUS, MU_EARTH } from "./constants";
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { getAscent } from "./ascentCache";
 import { getBodies, type CraftState } from "./integrator";
 import { pushSample } from "./missionSample";
@@ -126,8 +128,9 @@ function setCircularLeo(
   t: number,
   rHat: V3,
   n: V3,
+  epoch: EphemerisEpoch,
 ): void {
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
   // v_hat = n × r_hat
   cross(_tangent, n, rHat);
@@ -145,8 +148,11 @@ export function cloneState(s: CraftState): CraftState {
   return { t: s.t, pos: clone(s.pos), vel: clone(s.vel) };
 }
 
-export function captureLowEarthOrbitRelative(state: CraftState): LowEarthOrbitRelative {
-  const b = getBodies(state.t);
+export function captureLowEarthOrbitRelative(
+  state: CraftState,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): LowEarthOrbitRelative {
+  const b = getBodies(state.t, epoch);
   return {
     t: state.t,
     relPos: {
@@ -162,8 +168,11 @@ export function captureLowEarthOrbitRelative(state: CraftState): LowEarthOrbitRe
   };
 }
 
-export function restoreLowEarthOrbitRelative(rel: LowEarthOrbitRelative): CraftState {
-  const b = getBodies(rel.t);
+export function restoreLowEarthOrbitRelative(
+  rel: LowEarthOrbitRelative,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): CraftState {
+  const b = getBodies(rel.t, epoch);
   return {
     t: rel.t,
     pos: {
@@ -203,6 +212,7 @@ export function runLunarPlaneLowEarthOrbitCoast(
   samples: Sample[] | null,
   lastT: { t: number } | null,
   prop: PropState | null = null,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
   const t0 = state.t;
   const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
@@ -212,7 +222,7 @@ export function runLunarPlaneLowEarthOrbitCoast(
   const dt = coastS / steps;
   const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
 
-  const b0 = bodyPositions(t0);
+  const b0 = bodyPositions(t0, epoch);
   sub(_relP, state.pos, b0.earth);
   sub(_relV, state.vel, b0.earthVel);
 
@@ -223,7 +233,7 @@ export function runLunarPlaneLowEarthOrbitCoast(
 
   // Target: south-biased transfer plane (matches translunar injection inject)
   const t1 = t0 + coastS;
-  transferPlaneNormal(t1, _n1);
+  transferPlaneNormal(t1, _n1, epoch);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
 
   const totalDi = Math.acos(clamp1(dot(_n0, _n1)));
@@ -232,7 +242,7 @@ export function runLunarPlaneLowEarthOrbitCoast(
   projectToPlaneUnit(_relP, _n0, _rHat0);
 
   // End at transfer periapsis (opposite CCW-biased Moon arrival aim)
-  moonArrivalDirection(t1, _periHat);
+  moonArrivalDirection(t1, _periHat, epoch);
   set(_periHat, -_periHat.x, -_periHat.y, -_periHat.z);
   projectToPlaneUnit(_periHat, _n1, _periHat);
 
@@ -277,7 +287,7 @@ export function runLunarPlaneLowEarthOrbitCoast(
     projectToPlaneUnit(_rHat, _tmp, _rHat);
 
     const t = t0 + coastS * u;
-    setCircularLeo(state, t, _rHat, _tmp);
+    setCircularLeo(state, t, _rHat, _tmp, epoch);
     if (samples && lastT) {
       // Kinematic dogleg: show thrust for HUD; propellant booked once at end
       pushSample(
@@ -311,12 +321,15 @@ export function runLunarPlaneLowEarthOrbitCoast(
 }
 
 /** Ascent end → continuous low Earth orbit coast → low Earth orbit-rel state for probes. */
-export function computeLowEarthOrbitRelative(_coastS?: number): LowEarthOrbitRelative {
+export function computeLowEarthOrbitRelative(
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  _coastS?: number,
+): LowEarthOrbitRelative {
   void _coastS;
   const ascent = getAscent();
   const state = cloneState(ascent.state);
-  runLunarPlaneLowEarthOrbitCoast(state, null, null);
-  return captureLowEarthOrbitRelative(state);
+  runLunarPlaneLowEarthOrbitCoast(state, null, null, null, epoch);
+  return captureLowEarthOrbitRelative(state, epoch);
 }
 
 /** Append ascent samples, then low Earth orbit dogleg into the lunar plane (paid ship Δv). */
@@ -324,6 +337,7 @@ export function appendAscentAndLowEarthOrbitCoast(
   samples: Sample[],
   lastT: { t: number },
   prop: PropState,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   _coastS?: number,
 ): CraftState {
   void _coastS;
@@ -351,6 +365,6 @@ export function appendAscentAndLowEarthOrbitCoast(
   }
   const state = cloneState(ascent.state);
   // First low Earth orbit sample is continuous with last ascent sample (same r direction)
-  runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop);
+  runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop, epoch);
   return state;
 }

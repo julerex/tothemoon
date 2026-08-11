@@ -8,6 +8,8 @@
 
 import { bodyPositions } from "./bodies";
 import { inertialRelToMeshLocal } from "./earthFrame";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import type { V3 } from "./vec3";
 import { v3 } from "./vec3";
 
@@ -23,6 +25,7 @@ export type TrailSample = {
 export function meshLocalTrailFromSamples(
   samples: readonly TrailSample[],
   maxPts = 1500,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3[] {
   if (samples.length === 0) return [];
 
@@ -37,11 +40,11 @@ export function meshLocalTrailFromSamples(
         ? i
         : Math.round((i / (n - 1)) * (samples.length - 1));
     const s = samples[idx]!;
-    const b = bodyPositions(s.t);
+    const b = bodyPositions(s.t, epoch);
     rel.x = s.pos.x - b.earth.x;
     rel.y = s.pos.y - b.earth.y;
     rel.z = s.pos.z - b.earth.z;
-    inertialRelToMeshLocal(rel, s.t, local);
+    inertialRelToMeshLocal(rel, s.t, local, epoch);
     out.push({ x: local.x, y: local.y, z: local.z });
   }
   return out;

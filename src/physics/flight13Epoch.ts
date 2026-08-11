@@ -6,38 +6,52 @@
  * instant (no theater nudge). Analytic Earth/Sun only (Horizons pack is the
  * July 2027 lunar window).
  *
- * Call before integrating or loading the pack.
+ * Pure factory — no module setters.
  */
 
-import { setMoonPhase0, setSunPhase0 } from "./bodies";
 import { starbaseSunElev } from "./earthFrame";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
 import {
   FLIGHT13_LIFTOFF_UTC_MS,
-  setMissionClockEpochUtc,
   sunPhase0ForUtc,
 } from "./epoch";
-import { setHorizonsEnabled, setMissionLandingT } from "./horizonsEpoch";
 
 /**
- * Apply Flight 13 epoch: liftoff UTC + matching sunPhase0, analytic ephemeris.
+ * Build Flight 13 epoch: liftoff UTC + matching sunPhase0, analytic ephemeris.
  * @param moonPhase0 Kepler moon phase at t = 0 (pack default 0 is fine)
- * @param splashMissionT mission time of splash (for setMissionLandingT bookkeeping)
+ * @param splashMissionT mission time of splash (horizonsLandingT bookkeeping)
+ */
+export function makeFlight13Epoch(
+  moonPhase0 = 0,
+  splashMissionT = 0,
+): EphemerisEpoch {
+  return Object.freeze({
+    moonPhase0,
+    sunPhase0: sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS),
+    horizonsLandingT: splashMissionT,
+    useHorizons: false,
+    clockUtcMsAtT0: FLIGHT13_LIFTOFF_UTC_MS,
+  });
+}
+
+/**
+ * Build Flight 13 epoch and report pad sun elevation at t = 0.
+ * Prefer {@link makeFlight13Epoch} when elevation is not needed.
  */
 export function applyFlight13Epoch(
   moonPhase0 = 0,
   splashMissionT = 0,
-): { sunPhase0: number; liftoffUtcMs: number; padSunElev: number } {
-  setHorizonsEnabled(false);
-  setMissionClockEpochUtc(FLIGHT13_LIFTOFF_UTC_MS);
-  // Keep a finite landing-T for any code still reading getMissionLandingT
-  setMissionLandingT(splashMissionT);
-  setMoonPhase0(moonPhase0);
-  // Honest solar geometry for the wall-clock liftoff — no elev search
-  const sunPhase0 = sunPhase0ForUtc(FLIGHT13_LIFTOFF_UTC_MS);
-  setSunPhase0(sunPhase0);
+): {
+  epoch: EphemerisEpoch;
+  sunPhase0: number;
+  liftoffUtcMs: number;
+  padSunElev: number;
+} {
+  const epoch = makeFlight13Epoch(moonPhase0, splashMissionT);
   return {
-    sunPhase0,
+    epoch,
+    sunPhase0: epoch.sunPhase0,
     liftoffUtcMs: FLIGHT13_LIFTOFF_UTC_MS,
-    padSunElev: starbaseSunElev(0),
+    padSunElev: starbaseSunElev(0, epoch),
   };
 }

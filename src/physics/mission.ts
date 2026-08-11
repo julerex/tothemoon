@@ -15,14 +15,14 @@
 
 import { LOW_EARTH_ORBIT_COAST_S } from "./constants";
 import { ensureAscent, resetAscentCache } from "./ascentCache";
+import { hasHorizonsTable, horizonsSource } from "./horizonsEpoch";
 import {
-  hasHorizonsEpoch,
-  horizonsSource,
-  setMissionLandingT,
-} from "./horizonsEpoch";
-import { computeLowEarthOrbitRelative, setLowEarthOrbitCoastS, type LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
+  computeLowEarthOrbitRelative,
+  setLowEarthOrbitCoastS,
+  type LowEarthOrbitRelative,
+} from "./lowEarthOrbitCoast";
 import { downsampleTrajectory } from "./missionDownsample";
-import { setEpochPhases } from "./missionEpoch";
+import { makeLunarEpoch } from "./missionEpoch";
 import { flyMission } from "./missionFly";
 import { searchBallisticTransfer } from "./missionSearch";
 import type { MissionResult } from "./missionTypes";
@@ -42,18 +42,18 @@ export function runMission(): MissionResult {
   const xfer = designLunarTransfer();
   const baseDv = xfer.translunarInjectionDeltaV;
   const T = xfer.tof;
+  const useHorizons = hasHorizonsTable();
 
   // Map mission time → Horizons absolute epoch (landing = 2027-07-20 12:00)
-  setMissionLandingT(T);
-  if (hasHorizonsEpoch()) {
+  let epoch = makeLunarEpoch(0, T, useHorizons);
+  if (useHorizons) {
     console.info(
       `[tothemoon] Using ${horizonsSource()} for Earth/Moon (landing τ=0)`,
     );
   }
 
   resetAscentCache();
-  setEpochPhases(0, T);
-  const ascent0 = ensureAscent(0);
+  const ascent0 = ensureAscent(epoch);
   if (!ascent0.ok) {
     return {
       samples: ascent0.samples.map((s) => ({
@@ -77,7 +77,7 @@ export function runMission(): MissionResult {
   }
   setLowEarthOrbitCoastS(LOW_EARTH_ORBIT_COAST_S);
   const lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null } = {
-    current: computeLowEarthOrbitRelative(),
+    current: computeLowEarthOrbitRelative(epoch),
   };
   const tTli0 = lowEarthOrbitRelative.current!.t;
 
@@ -92,19 +92,13 @@ export function runMission(): MissionResult {
     Number.isFinite(search.bestPeriluneT) && search.bestPeriluneT > 0
       ? search.bestPeriluneT
       : T;
-  // Keep best Horizons epoch; rebuild ascent (cache is phase-only, not epoch)
-  setMissionLandingT(search.bestLandingT);
-  setEpochPhases(search.bestPhase, T);
+  // Keep best Horizons epoch; rebuild ascent under the chosen phase + landing map
+  epoch = makeLunarEpoch(search.bestPhase, search.bestLandingT, useHorizons);
   resetAscentCache();
-  ensureAscent(search.bestPhase);
-  lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+  ensureAscent(epoch);
+  lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
 
-  setMissionLandingT(search.bestLandingT);
-  const flown = flyMission(search.bestPhase, search.bestDv, toa);
-  // Keep the same Horizons map used while integrating — do not remap to
-  // durationS (that would move Earth under fixed craft samples).
-  setMissionLandingT(search.bestLandingT);
-  setEpochPhases(search.bestPhase, flown.durationS);
+  const flown = flyMission(epoch, search.bestDv, toa);
 
   console.info(
     `[tothemoon] ${flown.message} · duration=${(flown.durationS / 3600).toFixed(1)}h · samples=${flown.samples.length}`,
@@ -112,7 +106,7 @@ export function runMission(): MissionResult {
   const out = downsampleTrajectory(flown);
   out.horizonsLandingT = search.bestLandingT;
   // Peak speed / stage epoch for pack v2 meta (minMoonAlt already from flyMission)
-  const meta = deriveTrajectoryMeta(out.samples);
+  const meta = deriveTrajectoryMeta(out.samples, epoch);
   out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT;
   return out;

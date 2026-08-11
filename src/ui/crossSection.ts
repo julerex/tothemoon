@@ -13,6 +13,8 @@ import {
   STARBASE_LON,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import {
   geodeticToMeshLocal,
   inertialRelToMeshLocal,
@@ -117,12 +119,13 @@ export function projectToLaunchPlane(
   t: number,
   basis: LaunchPlaneBasis,
   out: PlanePoint = { x: 0, y: 0 },
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PlanePoint {
-  const b = bodyPositions(t);
+  const b = bodyPositions(t, epoch);
   _rel.x = pos.x - b.earth.x;
   _rel.y = pos.y - b.earth.y;
   _rel.z = pos.z - b.earth.z;
-  inertialRelToMeshLocal(_rel, t, _local);
+  inertialRelToMeshLocal(_rel, t, _local, epoch);
   out.x =
     _local.x * basis.east.x +
     _local.y * basis.east.y +
@@ -165,6 +168,7 @@ export function buildCrossSectionModel(
   samples: Sample[],
   stage: StageState | null,
   recovery: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): CrossSectionModel {
   const basis = launchPlaneBasis();
   const rEarth = R_EARTH;
@@ -181,7 +185,7 @@ export function buildCrossSectionModel(
     if (stageT != null && s.t > stageT + 1e-6) break;
     // Subsample dense ascent packs (~keep ≤ ~4 Hz equivalent)
     if (s.t - lastShipT < 0.35 && s.t !== stageT) continue;
-    projectToLaunchPlane(s.pos, s.t, basis, pt);
+    projectToLaunchPlane(s.pos, s.t, basis, pt, epoch);
     const q = { x: pt.x, y: pt.y, t: s.t };
     shipTrail.push(q);
     boosterTrail.push({ ...q });
@@ -196,7 +200,7 @@ export function buildCrossSectionModel(
       if (s.t <= stageT) continue;
       if (s.t > maxShipT) break;
       if (s.t - lastShipT < 0.5) continue;
-      projectToLaunchPlane(s.pos, s.t, basis, pt);
+      projectToLaunchPlane(s.pos, s.t, basis, pt, epoch);
       // Drop once ship clearly leaves the return to launch site theater box
       if (Math.abs(pt.x) > 160 || Math.hypot(pt.x, pt.y) > R_EARTH + 160) {
         break;
@@ -208,11 +212,11 @@ export function buildCrossSectionModel(
 
   // Booster recovery path after stage-out (chopsticks RTLS or gulf)
   if (stage) {
-    const kfs = buildBoosterKeyframes(stage, recovery);
+    const kfs = buildBoosterKeyframes(stage, recovery, epoch);
     const vis = boosterVisibleS(recoverySchedule(recovery));
     const dt = 1.0;
     for (let age = 0; age <= vis; age += dt) {
-      const rec = sampleBoosterRecovery(stage, age, kfs, recovery);
+      const rec = sampleBoosterRecovery(stage, age, kfs, recovery, epoch);
       if (rec.phase === "done" || rec.fade < 0.02) {
         if (age > LANDING_HOLD_CUT) break;
         continue;
@@ -220,7 +224,7 @@ export function buildCrossSectionModel(
       const t = stage.t + age;
       // sampleBoosterRecovery aliases scratch — copy pos
       const pos = v3(rec.pos.x, rec.pos.y, rec.pos.z);
-      projectToLaunchPlane(pos, t, basis, pt);
+      projectToLaunchPlane(pos, t, basis, pt, epoch);
       boosterTrail.push({ x: pt.x, y: pt.y, t });
     }
   }
@@ -290,6 +294,7 @@ export function liveCrossSection(
   t: number,
   keyframes?: ReturnType<typeof buildBoosterKeyframes> | null,
   recovery: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): CrossSectionLive {
   const basis = model.basis;
   const shipPt: PlanePoint = { x: 0, y: 0 };
@@ -299,7 +304,7 @@ export function liveCrossSection(
   const shipPos = samplePosAt(samples, t);
   let ship: PlanePoint | null = null;
   if (shipPos) {
-    projectToLaunchPlane(shipPos, t, basis, shipPt);
+    projectToLaunchPlane(shipPos, t, basis, shipPt, epoch);
     ship = { x: shipPt.x, y: shipPt.y };
   }
 
@@ -315,11 +320,12 @@ export function liveCrossSection(
       age,
       keyframes ?? undefined,
       recovery,
+      epoch,
     );
     boosterFade = rec.fade;
     if (rec.phase !== "done" && rec.fade >= 0.02) {
       const pos = v3(rec.pos.x, rec.pos.y, rec.pos.z);
-      projectToLaunchPlane(pos, t, basis, boosterPt);
+      projectToLaunchPlane(pos, t, basis, boosterPt, epoch);
       booster = { x: boosterPt.x, y: boosterPt.y };
     }
   } else if (ship) {

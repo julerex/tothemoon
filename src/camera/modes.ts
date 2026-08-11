@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { starbasePadState } from "../physics/earthFrame";
 import { craftLengthKm } from "../scene/craft";
 import {
@@ -131,6 +133,7 @@ export class CameraDirector {
   /** Detached Super Heavy (StagingFx); preferred host for grid-fin cam after stage-out. */
   private detachedBooster: THREE.Object3D | null = null;
   private simTime = 0;
+  private epoch: EphemerisEpoch = DEFAULT_EPHEMERIS;
   private readonly finPos = new THREE.Vector3();
   private readonly finLook = new THREE.Vector3();
   private readonly finUp = new THREE.Vector3();
@@ -193,6 +196,11 @@ export class CameraDirector {
     this.distEaseU = 1;
   }
 
+  /** Mission ephemeris for bodyPositions / pad state (must match theater bake). */
+  setEpoch(epoch: EphemerisEpoch): void {
+    this.epoch = epoch;
+  }
+
   /**
    * Re-seat the pad opening shot at mission time `t` (may be negative during
    * the T− countdown). Call after the first prelaunch state apply so the
@@ -231,7 +239,7 @@ export class CameraDirector {
    */
   private applyPadOpeningShot(): void {
     this.focus = "starbase";
-    const pad = starbasePadState(this.simTime);
+    const pad = starbasePadState(this.simTime, this.epoch);
     this.desiredTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
     this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
     this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
@@ -558,7 +566,7 @@ export class CameraDirector {
    * orbit, pan, zoom, or track step. Fin mounts stay on the craft and skip this.
    */
   private clampOutsideBodies(): void {
-    const b = bodyPositions(this.simTime);
+    const b = bodyPositions(this.simTime, this.epoch);
     const spheres = solarSystemExclusionSpheres(b.sun, b.earth, b.moon, {
       sun: R_SUN,
       earth: R_EARTH,
@@ -577,7 +585,7 @@ export class CameraDirector {
   }
 
   private computeTarget(mode: CameraMode, outTarget: THREE.Vector3): void {
-    const b = bodyPositions(this.simTime);
+    const b = bodyPositions(this.simTime, this.epoch);
 
     switch (mode) {
       case "free":
@@ -602,7 +610,7 @@ export class CameraDirector {
         break;
 
       case "starbase": {
-        const pad = starbasePadState(this.simTime);
+        const pad = starbasePadState(this.simTime, this.epoch);
         outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
         break;
       }
@@ -667,7 +675,7 @@ export class CameraDirector {
    * frame on liftoff (classic webcast under-pad shot).
    */
   private applyTrenchCam(): void {
-    const pad = starbasePadState(this.simTime);
+    const pad = starbasePadState(this.simTime, this.epoch);
     this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
     this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
     // Geographic north = up × east (right-handed ENU)

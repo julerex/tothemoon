@@ -11,6 +11,8 @@ import {
   R_MOON,
 } from "./constants";
 import { bodyPositions } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   altitudeEarth,
   altitudeMoon,
@@ -45,12 +47,13 @@ export type ProbeResult = {
 export function probePerilune(
   translunarInjectionDeltaV: number,
   lowEarthOrbitRelativeTemplate: LowEarthOrbitRelative | null,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): ProbeResult {
   if (!lowEarthOrbitRelativeTemplate) {
     return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
   }
-  const state = restoreLowEarthOrbitRelative(lowEarthOrbitRelativeTemplate);
-  runFiniteTranslunarInjection(state, translunarInjectionDeltaV, null, null, null);
+  const state = restoreLowEarthOrbitRelative(lowEarthOrbitRelativeTemplate, epoch);
+  runFiniteTranslunarInjection(state, translunarInjectionDeltaV, null, null, null, epoch);
   const tTli = state.t;
   const T = transferTimeEst();
   const maxT = tTli + T * 1.35 + 50_000;
@@ -62,10 +65,10 @@ export function probePerilune(
 
   while (state.t < maxT) {
     const coastT = state.t - tTli;
-    rk4Step(state, dt);
+    rk4Step(state, dt, undefined, { epoch });
 
-    const altM = altitudeMoon(state.t, state.pos);
-    const b = getBodies(state.t);
+    const altM = altitudeMoon(state.t, state.pos, epoch);
+    const b = getBodies(state.t, epoch);
     sub(_relP, state.pos, b.earth);
     const rE = len(_relP);
     if (altM < minAlt) {
@@ -73,7 +76,7 @@ export function probePerilune(
       periluneT = state.t;
       rEarthAtMin = rE;
     }
-    if (altitudeEarth(state.t, state.pos) < 0 && coastT < T * 0.7) {
+    if (altitudeEarth(state.t, state.pos, epoch) < 0 && coastT < T * 0.7) {
       return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
     }
     if (altM < 0) {
@@ -91,7 +94,7 @@ export function probePerilune(
     ) {
       break;
     }
-    const dMoon = distanceToMoon(state.t, state.pos);
+    const dMoon = distanceToMoon(state.t, state.pos, epoch);
     if (dMoon < 60_000) dt = 10;
     else if (dMoon < 150_000) dt = 25;
     else dt = 45;
@@ -110,6 +113,7 @@ export type BallisticCoastArgs = {
   prop: PropState;
   moonPhase0: number;
   translunarInjectionDeltaV: number;
+  epoch?: EphemerisEpoch;
 };
 
 /**
@@ -118,18 +122,19 @@ export type BallisticCoastArgs = {
  */
 export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
   const { state, samples, lastT, prop, moonPhase0, translunarInjectionDeltaV } = args;
+  const epoch = args.epoch ?? DEFAULT_EPHEMERIS;
   const tTli = state.t;
   const Tcoast = transferTimeEst();
   let minMoonAlt = Infinity;
   let periluneT = tTli;
   // Osculating 2-body reference at inject — track max |Δr| for corridor meta
-  const keplerRef = orbitAfterTranslunarInjection(state);
+  const keplerRef = orbitAfterTranslunarInjection(state, epoch);
   let keplerRefMaxDevKm = 0;
 
   function trackKeplerDev(): void {
     if (!(keplerRef.a > 0) || keplerRef.e >= 1) return;
     keplerRvAt(keplerRef, state.t, _relP, _relV);
-    const b = getBodies(state.t);
+    const b = getBodies(state.t, epoch);
     const dx = state.pos.x - (b.earth.x + _relP.x);
     const dy = state.pos.y - (b.earth.y + _relP.y);
     const dz = state.pos.z - (b.earth.z + _relP.z);
@@ -144,8 +149,8 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
   // way back to Earth on a multi-day return leg).
   const maxCoastT = tTli + Tcoast * 1.35 + 60_000;
   while (state.t < maxCoastT) {
-    const dMoon = distanceToMoon(state.t, state.pos);
-    const altM = altitudeMoon(state.t, state.pos);
+    const dMoon = distanceToMoon(state.t, state.pos, epoch);
+    const altM = altitudeMoon(state.t, state.pos, epoch);
     const coastT = state.t - tTli;
 
     if (altM < minMoonAlt) {
@@ -156,7 +161,7 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
 
     // Lunar impact — project onto surface, freeze for a short settle
     if (altM < 0) {
-      const b = getBodies(state.t);
+      const b = getBodies(state.t, epoch);
       sub(_relP, state.pos, b.moon);
       if (len(_relP) < 1e-6) set(_relP, 0, 0, -1);
       normalize(_from, _relP);
@@ -170,7 +175,7 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
       const tHit = state.t;
       for (let i = 1; i <= 20; i++) {
         const t = tHit + i * 60;
-        const bi = bodyPositions(t);
+        const bi = bodyPositions(t, epoch);
         state.t = t;
         state.pos.x = bi.moon.x + _from.x * R_MOON;
         state.pos.y = bi.moon.y + _from.y * R_MOON;
@@ -227,7 +232,7 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
     }
 
     // Earth impact only if it happens before we declare flyby
-    if (altitudeEarth(state.t, state.pos) < 0) {
+    if (altitudeEarth(state.t, state.pos, epoch) < 0) {
       pushSample(samples, state, "coast", false, true, 0, lastT, prop, 0, "ship");
       console.info(`[tothemoon] Earth impact @ t=${(state.t / 3600).toFixed(1)} h`);
       return {
@@ -252,7 +257,7 @@ export function runBallisticCoast(args: BallisticCoastArgs): MissionResult {
           : dMoon < 250_000
             ? 12
             : DT_COAST;
-    rk4Step(state, dt); // restricted n-body, zero thrust
+    rk4Step(state, dt, undefined, { epoch }); // restricted n-body, zero thrust
 
     pushSample(
       samples,

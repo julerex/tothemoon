@@ -23,6 +23,8 @@ import {
   moonSouthPoleSurface,
   moonSouthUnit,
 } from "./bodies";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { getBodies, type CraftState } from "./integrator";
 import { pushSample } from "./missionSample";
 import type { MissionResult, PhaseId, Sample } from "./missionTypes";
@@ -65,8 +67,8 @@ function clamp1(x: number): number {
 }
 
 /** Cosine of angle from craft radial to lunar south (1 = over pole). */
-export function southPoleAlign(t: number, pos: V3): number {
-  const b = getBodies(t);
+export function southPoleAlign(t: number, pos: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): number {
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.moon);
   if (len(_relP) < 1e-6) return 0;
   normalize(_radial, _relP);
@@ -100,8 +102,8 @@ function polarOrbitNormal(relP: V3, relV: V3, out: V3): V3 {
 }
 
 /** True when lunar orbit insertion has achieved near-circular polar-ish low lunar orbit. */
-export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3): boolean {
-  const b = getBodies(t);
+export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): boolean {
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
   const r = len(_relP);
@@ -128,8 +130,8 @@ export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3): boolea
  * Lunar orbit insertion burn (phase `approach`): kill hyperbolic excess, change into a **polar**
  * low lunar orbit, and lower toward ~LOW_LUNAR_ORBIT_ALTITUDE. Lights when alt &lt; LUNAR_ORBIT_INSERTION_ALTITUDE_START.
  */
-export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3): V3 | null {
-  const b = getBodies(t);
+export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
   const r = len(_relP);
@@ -198,8 +200,9 @@ export function snapPolarLowLunarOrbit(
   samples: Sample[] | null = null,
   lastT: { t: number } | null = null,
   prop: PropState | null = null,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
-  const b0 = getBodies(t);
+  const b0 = getBodies(t, epoch);
   sub(_relP, state.pos, b0.moon);
   if (len(_relP) < 1e-6) set(_relP, 0, 0, -1);
   normalize(_from, _relP);
@@ -251,7 +254,7 @@ export function snapPolarLowLunarOrbit(
     for (let i = 1; i <= steps; i++) {
       const u = i / steps;
       const ti = t0 + bridgeS * u;
-      const bi = bodyPositions(ti);
+      const bi = bodyPositions(ti, epoch);
       // Interpolate moon-relative direction & radius, then place on Moon
       const ru = rIn + u * (rFinal - rIn);
       _tmp.x = _from.x + u * (_radial.x - _from.x);
@@ -290,7 +293,7 @@ export function snapPolarLowLunarOrbit(
 
   // Final exact polar circular state at current t
   {
-    const bi = getBodies(state.t);
+    const bi = getBodies(state.t, epoch);
     state.pos.x = bi.moon.x + _radial.x * rFinal;
     state.pos.y = bi.moon.y + _radial.y * rFinal;
     state.pos.z = bi.moon.z + _radial.z * rFinal;
@@ -303,8 +306,8 @@ export function snapPolarLowLunarOrbit(
 /**
  * powered descent initiation / powered descent (phase `descent`) toward the lunar south pole.
  */
-export function poweredDescentThrust(t: number, pos: V3, vel: V3): V3 | null {
-  const b = getBodies(t);
+export function poweredDescentThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
+  const b = getBodies(t, epoch);
   sub(_relP, pos, b.moon);
   sub(_relV, vel, b.moonVel);
   const r = len(_relP);
@@ -313,7 +316,7 @@ export function poweredDescentThrust(t: number, pos: V3, vel: V3): V3 | null {
 
   normalize(_radial, _relP);
   moonSouthUnit(_south);
-  moonSouthPoleSurface(t, _site);
+  moonSouthPoleSurface(t, epoch, _site);
   const poleAlign = dot(_radial, _south);
 
   const vRad = dot(_relV, _radial);
@@ -393,9 +396,10 @@ export function landingThrust(
   pos: V3,
   vel: V3,
   phase: PhaseId,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 | null {
-  if (phase === "approach") return lunarOrbitInsertionThrust(t, pos, vel);
-  if (phase === "descent") return poweredDescentThrust(t, pos, vel);
+  if (phase === "approach") return lunarOrbitInsertionThrust(t, pos, vel, epoch);
+  if (phase === "descent") return poweredDescentThrust(t, pos, vel, epoch);
   // braking = Low lunar orbit coast — no continuous thrust
   return null;
 }
@@ -452,8 +456,9 @@ export function finishLanding(
   translunarInjectionDeltaV: number,
   minMoonAlt: number,
   prop: PropState | null = null,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): MissionResult {
-  const b = getBodies(state.t);
+  const b = getBodies(state.t, epoch);
   sub(_relP, state.pos, b.moon);
   const r0 = Math.max(len(_relP), 1);
   if (r0 < 1) set(_relP, 0, 0, -1);
@@ -476,7 +481,7 @@ export function finishLanding(
     for (let i = 1; i <= steps; i++) {
       const u = i / steps;
       const t = tStart + downS * u;
-      const bi = bodyPositions(t);
+      const bi = bodyPositions(t, epoch);
       const ru = r0 + u * (R_MOON - r0);
       state.t = t;
       state.pos.x = bi.moon.x + _from.x * ru;
@@ -515,7 +520,7 @@ export function finishLanding(
 
   if (!needTaxi) {
     if (state.t <= lastT.t) state.t = lastT.t + 0.05;
-    const bi = bodyPositions(state.t);
+    const bi = bodyPositions(state.t, epoch);
     set(_landDir, _south.x, _south.y, _south.z);
     state.pos.x = bi.moon.x + _landDir.x * R_MOON;
     state.pos.y = bi.moon.y + _landDir.y * R_MOON;
@@ -533,7 +538,7 @@ export function finishLanding(
       const u = i / steps;
       slerpUnit(_from, _south, u, _landDir);
       const t = t0 + taxiS * u;
-      const bi = bodyPositions(t);
+      const bi = bodyPositions(t, epoch);
       state.t = t;
       state.pos.x = bi.moon.x + _landDir.x * R_MOON;
       state.pos.y = bi.moon.y + _landDir.y * R_MOON;
@@ -566,7 +571,7 @@ export function finishLanding(
 
   for (let i = 1; i <= 30; i++) {
     const t = landT0 + i * 60;
-    const bi = bodyPositions(t);
+    const bi = bodyPositions(t, epoch);
     samples.push({
       t,
       pos: v3(

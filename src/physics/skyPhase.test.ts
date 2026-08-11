@@ -5,8 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
 import { TrajectoryCache } from "./trajectoryCache.ts";
-import { setMoonPhase0 } from "./bodies.ts";
-import { setMissionLandingT } from "./horizonsEpoch.ts";
+import type { EphemerisEpoch } from "./ephemerisEpoch.ts";
 import {
   formatSkyPhaseLine,
   moonPhaseName,
@@ -38,17 +37,18 @@ describe("moonPhaseName", () => {
 });
 
 describe("skyPhaseAt (baked lunar pack)", () => {
+  let epoch: EphemerisEpoch;
+  let cache: TrajectoryCache;
+
   before(() => {
-    const cache = TrajectoryCache.loadPrecomputed();
-    setMoonPhase0(cache.moonPhase0);
-    setMissionLandingT(cache.horizonsLandingT);
+    cache = TrajectoryCache.loadPrecomputed();
+    epoch = cache.epoch;
   });
 
   it("reports waning gibbous near the July 2027 landing epoch", () => {
-    const cache = TrajectoryCache.loadPrecomputed();
     // Landing is τ=0 on Horizons; mission t ≈ landingMissionT at touchdown
     const tLand = cache.horizonsLandingT;
-    const p = skyPhaseAt(tLand);
+    const p = skyPhaseAt(tLand, epoch);
     // July 2027 landing is ~2 days past full → waning gibbous, high illumination
     assert.ok(
       p.illumination > 0.75 && p.illumination < 0.99,
@@ -58,7 +58,7 @@ describe("skyPhaseAt (baked lunar pack)", () => {
   });
 
   it("formatSkyPhaseLine is non-empty and mentions Moon", () => {
-    const line = formatSkyPhaseLine(0);
+    const line = formatSkyPhaseLine(0, epoch);
     assert.match(line, /Moon/i);
     assert.match(line, /lit/);
     assert.match(line, /Sun/);

@@ -15,10 +15,17 @@ import {
 import { ensureAscent } from "./ascentCache";
 import { probePerilune } from "./ballisticCoast";
 import { starbaseSunElev } from "./earthFrame";
-import { hasHorizonsEpoch, setMissionLandingT } from "./horizonsEpoch";
-import { computeLowEarthOrbitRelative, type LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
-import { setEpochPhases } from "./missionEpoch";
-import { apogeeFromTranslunarInjectionDeltaV, maxTranslunarInjectionDeltaV } from "./translunarInjection";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { hasHorizonsTable } from "./horizonsEpoch";
+import {
+  computeLowEarthOrbitRelative,
+  type LowEarthOrbitRelative,
+} from "./lowEarthOrbitCoast";
+import { makeLunarEpoch } from "./missionEpoch";
+import {
+  apogeeFromTranslunarInjectionDeltaV,
+  maxTranslunarInjectionDeltaV,
+} from "./translunarInjection";
 
 export type TransferSearchResult = {
   bestPhase: number;
@@ -47,8 +54,8 @@ const MOON_SPHERE_OF_INFLUENCE_ALTITUDE = MOON_SPHERE_OF_INFLUENCE_KM - R_MOON;
  * Prefer a daytime Starbase liftoff under Greenwich-mean-sidereal-time-locked spin.
  * Soft: does not override a clearly better perilune; hard: rejects night.
  */
-function launchDayPenalty(): number {
-  const elev = starbaseSunElev(0);
+function launchDayPenalty(epoch: EphemerisEpoch): number {
+  const elev = starbaseSunElev(0, epoch);
   // Below horizon — strong push toward another epoch
   if (elev < 0) return 12_000 + (-elev) * 8_000;
   // Civil twilight band
@@ -87,13 +94,16 @@ function periluneScore(
       ? 0
       : ((rEarth - A_EM) / 1000) ** 2 * 50;
   // Reward sphere of influence entry so the trail punches the Moon sphere of influence shell near A_EM
-  const sphereOfInfluenceTerm = alt < MOON_SPHERE_OF_INFLUENCE_ALTITUDE ? -80_000 : (alt - MOON_SPHERE_OF_INFLUENCE_ALTITUDE) * 1.5;
+  const sphereOfInfluenceTerm =
+    alt < MOON_SPHERE_OF_INFLUENCE_ALTITUDE
+      ? -80_000
+      : (alt - MOON_SPHERE_OF_INFLUENCE_ALTITUDE) * 1.5;
   return altTerm + timeTerm + rTerm + windowPen + nearLunar + sphereOfInfluenceTerm;
 }
 
 /**
  * Search epoch / phase / Δv for the best ballistic perilune.
- * Mutates ascent cache + mission landing map as it evaluates candidates.
+ * Rebuilds ascent + low Earth orbit under explicit {@link EphemerisEpoch} candidates.
  * Updates `lowEarthOrbitRelative.current` whenever low Earth orbit is rebuilt.
  */
 export function searchBallisticTransfer(opts: {
@@ -103,7 +113,7 @@ export function searchBallisticTransfer(opts: {
   lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
 }): TransferSearchResult {
   const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative } = opts;
-  const useHorizons = hasHorizonsEpoch();
+  const useHorizons = hasHorizonsTable();
   const dvMax = maxTranslunarInjectionDeltaV();
 
   // Lead angle for outbound lunar-distance intercept (~3 d), not full apo time of flight
@@ -129,6 +139,8 @@ export function searchBallisticTransfer(opts: {
     (s) => baseDv * s <= dvMax + 1e-9,
   );
 
+  let epoch = makeLunarEpoch(useHorizons ? 0 : guess, T, useHorizons);
+
   /**
    * Score a (Δv, moon-phase) pair. `reAscent` rebuilds low Earth orbit under that phase so
    * the probe matches flyMission (ascent is weakly barycenter-coupled).
@@ -136,6 +148,7 @@ export function searchBallisticTransfer(opts: {
   function evalCandidate(
     dv: number,
     ph: number,
+    landT: number,
     reAscent = false,
   ): {
     sc: number;
@@ -143,13 +156,14 @@ export function searchBallisticTransfer(opts: {
     t: number;
     rE: number;
   } {
-    setEpochPhases(ph, T);
-    if (reAscent) ensureAscent(ph);
-    lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
-    const pr = probePerilune(dv, lowEarthOrbitRelative.current);
+    epoch = makeLunarEpoch(ph, landT, useHorizons);
+    if (reAscent) ensureAscent(epoch);
+    lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
+    const pr = probePerilune(dv, lowEarthOrbitRelative.current, epoch);
     return {
       sc:
-        periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(),
+        periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) +
+        launchDayPenalty(epoch),
       alt: pr.minAlt,
       t: pr.periluneT,
       rE: pr.rEarth,
@@ -170,16 +184,16 @@ export function searchBallisticTransfer(opts: {
   // the DE441 Moon (stale low Earth orbit from a fixed landT systematically missed).
   for (const landOff of epochOffsetsS) {
     if (useHorizons) {
-      setMissionLandingT(T + landOff);
-      setEpochPhases(0, T);
-      ensureAscent(0);
-      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+      epoch = makeLunarEpoch(0, T + landOff, useHorizons);
+      ensureAscent(epoch);
+      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
     }
     for (const dS of dvScales) {
       const dv = Math.min(baseDv * dS, dvMax);
       for (const off of phaseOffsets) {
         const ph = useHorizons ? 0 : guess + off;
-        const ev = evalCandidate(dv, ph, false);
+        const landT = T + landOff;
+        const ev = evalCandidate(dv, ph, landT, false);
         if (ev.sc < bestScore) {
           bestScore = ev.sc;
           bestAlt = ev.alt;
@@ -187,12 +201,14 @@ export function searchBallisticTransfer(opts: {
           bestREarth = ev.rE;
           bestPhase = ph;
           bestDv = dv;
-          bestLandingT = T + landOff;
+          bestLandingT = landT;
         }
       }
     }
   }
-  if (useHorizons) setMissionLandingT(bestLandingT);
+  if (useHorizons) {
+    epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
+  }
 
   // Medium pass: re-ascent so scores match the path flyMission will bake
   {
@@ -204,13 +220,12 @@ export function searchBallisticTransfer(opts: {
       // Refine epoch ±48 h at 4 h, rebuild low Earth orbit each step
       for (let i = -12; i <= 12; i++) {
         const landT = seedLand + i * 4 * 3600;
-        setMissionLandingT(landT);
-        setEpochPhases(0, T);
-        ensureAscent(0);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+        epoch = makeLunarEpoch(0, landT, useHorizons);
+        ensureAscent(epoch);
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
         for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
-          const ev = evalCandidate(dv, 0, false);
+          const ev = evalCandidate(dv, 0, landT, false);
           if (ev.sc < bestScore) {
             bestScore = ev.sc;
             bestAlt = ev.alt;
@@ -222,16 +237,16 @@ export function searchBallisticTransfer(opts: {
           }
         }
       }
-      setMissionLandingT(bestLandingT);
+      epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
     } else {
       for (let i = -20; i <= 20; i++) {
         const ph = seedPhase + i * 0.05;
-        setEpochPhases(ph, T);
-        ensureAscent(ph);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+        epoch = makeLunarEpoch(ph, T, useHorizons);
+        ensureAscent(epoch);
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
         for (const s of [0, -0.012, 0.012]) {
           const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
-          const ev = evalCandidate(dv, ph, false);
+          const ev = evalCandidate(dv, ph, T, false);
           if (ev.sc < bestScore) {
             bestScore = ev.sc;
             bestAlt = ev.alt;
@@ -252,11 +267,10 @@ export function searchBallisticTransfer(opts: {
       const dT = (3 * 3600) / (1 + iter);
       for (const s of [-2, -1, 1, 2]) {
         const landT = bestLandingT + s * dT;
-        setMissionLandingT(landT);
-        setEpochPhases(0, T);
-        ensureAscent(0);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
-        const ev = evalCandidate(bestDv, 0, false);
+        epoch = makeLunarEpoch(0, landT, useHorizons);
+        ensureAscent(epoch);
+        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
+        const ev = evalCandidate(bestDv, 0, landT, false);
         if (ev.sc < bestScore - 1e-6) {
           bestScore = ev.sc;
           bestAlt = ev.alt;
@@ -267,15 +281,14 @@ export function searchBallisticTransfer(opts: {
           improved = true;
         }
       }
-      setMissionLandingT(bestLandingT);
-      setEpochPhases(0, T);
-      ensureAscent(0);
-      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative();
+      epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
+      ensureAscent(epoch);
+      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
     } else {
       const dPh = 0.02 / (1 + iter);
       for (const s of [-2, -1, 1, 2]) {
         const ph = bestPhase + s * dPh;
-        const ev = evalCandidate(bestDv, ph, true);
+        const ev = evalCandidate(bestDv, ph, T, true);
         if (ev.sc < bestScore - 1e-6) {
           bestScore = ev.sc;
           bestAlt = ev.alt;
@@ -290,7 +303,7 @@ export function searchBallisticTransfer(opts: {
     for (const s of [-2, -1, 1, 2]) {
       // Never cool below design (sub-lunar apo → early Earth return)
       const dv = Math.min(dvMax, Math.max(baseDv * 0.999, bestDv + s * dDv));
-      const ev = evalCandidate(dv, bestPhase, true);
+      const ev = evalCandidate(dv, bestPhase, bestLandingT, true);
       if (ev.sc < bestScore - 1e-6) {
         bestScore = ev.sc;
         bestAlt = ev.alt;
@@ -305,7 +318,10 @@ export function searchBallisticTransfer(opts: {
 
   if (bestAlt < INTERCEPT_ALT) found = true;
 
-  const raDes = apogeeFromTranslunarInjectionDeltaV(LOW_EARTH_ORBIT_RADIUS, bestDv);
+  const raDes = apogeeFromTranslunarInjectionDeltaV(
+    LOW_EARTH_ORBIT_RADIUS,
+    bestDv,
+  );
   console.info(
     `[tothemoon] Ballistic 4-body probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
       `rEarth=${(bestREarth / A_EM).toFixed(3)}×A_EM phase=${bestPhase.toFixed(3)} ` +
