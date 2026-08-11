@@ -10,6 +10,7 @@ import {
   BOOSTER_VISIBLE_S,
   type StageState,
 } from "../physics/boosterRecovery.ts";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
 import type { Sample } from "../physics/missionTypes.ts";
 import {
   buildCrossSectionModel,
@@ -30,7 +31,7 @@ let samples: Sample[];
 let stage: StageState | null;
 let model: CrossSectionModel;
 
-let epoch: import("../physics/ephemerisEpoch.ts").EphemerisEpoch;
+let epoch: EphemerisEpoch;
 
 before(() => {
   const cache = TrajectoryCache.loadPrecomputed();
