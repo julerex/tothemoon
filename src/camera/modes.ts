@@ -58,6 +58,27 @@ const PAN_MIN_SPEED = 0.05;
 const ZOOM_RATE = 1.4;
 /** Wall-clock seconds for Auto-cam / guided distance ease. */
 const DIST_EASE_S = 0.7;
+/**
+ * Chase look-ahead time (s): target sits this far along velocity so coast
+ * reads as “going somewhere” rather than pinned on the mesh.
+ */
+const CHASE_LOOKAHEAD_S = 1.6;
+/** Min / max look-ahead distance (km). */
+const CHASE_LOOKAHEAD_MIN_KM = 0.03;
+const CHASE_LOOKAHEAD_MAX_FRAC = 5; // × craft length
+/**
+ * Max bank angle (rad) from lateral velocity — gentle, not a fighter jet.
+ * Applied only in chase focus.
+ */
+const CHASE_BANK_MAX = 0.22;
+/** Bank blend rate (1/s) toward the desired bank. */
+const CHASE_BANK_RATE = 2.2;
+/**
+ * Widen chase framing when Earth-relative speed is high so the ship doesn’t
+ * become a sub-pixel streak at orbital class |v|.
+ */
+const CHASE_SPEED_WIDEN_V0 = 1.5; // km/s
+const CHASE_SPEED_WIDEN_MAX = 2.4; // frame distance multiplier
 
 const FAR_SOLAR = AU * 4;
 /**
@@ -101,6 +122,7 @@ export class CameraDirector {
   private zoomZ = false;
   private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
+  private readonly craftVel = new THREE.Vector3();
   private craft: THREE.Object3D | null = null;
   /** Detached Super Heavy (StagingFx); preferred host for grid-fin cam after stage-out. */
   private detachedBooster: THREE.Object3D | null = null;
@@ -108,6 +130,10 @@ export class CameraDirector {
   private readonly finPos = new THREE.Vector3();
   private readonly finLook = new THREE.Vector3();
   private readonly finUp = new THREE.Vector3();
+  /** Scratch for chase bank (look / right / desired up). */
+  private readonly chaseLook = new THREE.Vector3();
+  private readonly chaseRight = new THREE.Vector3();
+  private readonly chaseUpDesired = new THREE.Vector3();
   /** 0…1 distance ease; 1 = idle. */
   private distEaseU = 1;
   private distEaseFrom = 0;
@@ -407,9 +433,19 @@ export class CameraDirector {
       case "moon":
         return this.distanceForRadius(R_MOON, 0.65);
       case "chase": {
-        // Full stack length as “diameter”; slightly longer lens for readability
+        // Full stack length as “diameter”; slightly longer lens for readability.
+        // Widen when |v| is high so Auto-cam cuts stay readable at orbital speed.
         const len = craftLengthKm(false);
-        return this.distanceForRadius(len * 0.5, 0.45);
+        const speed = this.craftVel.length();
+        const widen =
+          speed <= CHASE_SPEED_WIDEN_V0
+            ? 1
+            : THREE.MathUtils.clamp(
+                1 + (speed - CHASE_SPEED_WIDEN_V0) * 0.12,
+                1,
+                CHASE_SPEED_WIDEN_MAX,
+              );
+        return this.distanceForRadius(len * 0.5 * widen, 0.45);
       }
       case "starbase":
         // Tower ~146 m + stack — frame the pad complex, not the whole Earth
@@ -533,7 +569,7 @@ export class CameraDirector {
         break;
 
       case "chase":
-        outTarget.copy(this.craftPos);
+        this.chaseTarget(outTarget);
         break;
 
       case "moon":
@@ -634,6 +670,76 @@ export class CameraDirector {
     this.camera.up.copy(this.finUp);
     this.camera.lookAt(this.finLook);
     this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
+  }
+
+  /**
+   * Chase focus: craft position with a short look-ahead along velocity so the
+   * path reads as motion (especially free coast).
+   */
+  private chaseTarget(out: THREE.Vector3): void {
+    out.copy(this.craftPos);
+    const sp = this.craftVel.length();
+    if (sp < 0.02) return;
+    const len = craftLengthKm(false);
+    const ahead = THREE.MathUtils.clamp(
+      sp * CHASE_LOOKAHEAD_S,
+      CHASE_LOOKAHEAD_MIN_KM,
+      Math.max(CHASE_LOOKAHEAD_MIN_KM, len * CHASE_LOOKAHEAD_MAX_FRAC),
+    );
+    out.addScaledVector(this.craftVel, ahead / sp);
+  }
+
+  /**
+   * Gentle bank in chase: roll toward lateral velocity about the look axis so
+   * ascent turns and loft don’t stay perfectly level (webcast feel). Desired
+   * up is absolute (ecliptic north ⟂ look + bank), so it does not accumulate
+   * frame-to-frame. C/V still work; this only blends toward the bank target.
+   */
+  private applyChaseBank(dt: number): void {
+    if (this.focus !== "chase" || dt <= 0) return;
+    const sp = this.craftVel.length();
+    if (sp < 0.05) return;
+
+    this.chaseLook.copy(this.controls.target).sub(this.camera.position);
+    if (this.chaseLook.lengthSq() < 1e-12) return;
+    this.chaseLook.normalize();
+
+    // Level reference: ecliptic north projected ⟂ look
+    this.chaseUpDesired.copy(ECLIPTIC_NORTH);
+    this.chaseUpDesired.addScaledVector(
+      this.chaseLook,
+      -this.chaseUpDesired.dot(this.chaseLook),
+    );
+    if (this.chaseUpDesired.lengthSq() < 1e-12) {
+      this.chaseUpDesired.set(0, 1, 0);
+      this.chaseUpDesired.addScaledVector(
+        this.chaseLook,
+        -this.chaseUpDesired.dot(this.chaseLook),
+      );
+    }
+    if (this.chaseUpDesired.lengthSq() < 1e-12) return;
+    this.chaseUpDesired.normalize();
+
+    // Right from level frame
+    this.chaseRight.crossVectors(this.chaseLook, this.chaseUpDesired);
+    if (this.chaseRight.lengthSq() < 1e-12) return;
+    this.chaseRight.normalize();
+
+    // Lateral speed along level-right (km/s) → bank angle (absolute)
+    const lateral = this.craftVel.dot(this.chaseRight);
+    const bank = THREE.MathUtils.clamp(
+      lateral * 0.08,
+      -CHASE_BANK_MAX,
+      CHASE_BANK_MAX,
+    );
+    if (Math.abs(bank) > 1e-4) {
+      this.orbitQuat.setFromAxisAngle(this.chaseLook, bank);
+      this.chaseUpDesired.applyQuaternion(this.orbitQuat).normalize();
+    }
+
+    const u = 1 - Math.exp(-CHASE_BANK_RATE * dt);
+    this.camera.up.lerp(this.chaseUpDesired, u).normalize();
     this.syncOrbitControlsUp();
   }
 
@@ -805,10 +911,11 @@ export class CameraDirector {
     dt: number,
     simTime: number,
     craftPos: THREE.Vector3,
-    _craftVel: THREE.Vector3,
+    craftVel: THREE.Vector3,
   ): void {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
+    this.craftVel.copy(craftVel);
 
     // Locked mounts: skip free orbit / pan / zoom / surface clamp.
     if (this.focus === "fin") {
@@ -833,6 +940,8 @@ export class CameraDirector {
     // camera.up (no view-axis roll); R/F may tumble that up.
     this.controls.update();
     this.applyOrbit(dt);
+    // Soft chase bank after orbit so C/V still win for a frame, then blend.
+    this.applyChaseBank(dt);
     // After all free motion: never sit under a planet/star mesh.
     // Next OrbitControls.update() re-reads position → spherical, so the clamp sticks.
     this.clampOutsideBodies();

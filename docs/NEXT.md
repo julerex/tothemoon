@@ -84,11 +84,12 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 Preset jumps (buttons + **Shift+1…**): **Pad**, **Staging**, **Translunar injection**, **Halfway**, **Lunar orbit insertion**, **Touchdown** (or **Impact**). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
 
-### 6. Chase camera quality
+### 6. Chase camera quality — **done**
 
-- Bank slightly with lateral acceleration during ascent.
-- Widen framing when `craftLengthKm` is tiny at high speed multipliers.
-- Optional look-ahead along the trail for coast.
+- Gentle bank from lateral velocity (ecliptic-level reference, no accumulative roll).
+- Widen framed distance when |v| is high (orbital-class chase cuts).
+- Look-ahead along velocity so free coast reads as motion.
+- Flight 13 Auto-cam profile: trench → ship → gridfin at sep → ship on coast/entry.
 
 ### 7. Narration strip / news ticker — **done** (mission-time LIVE crawl)
 
@@ -200,8 +201,8 @@ A practical order for the next few sessions:
 Core arc is modular and watchable. **Both missions** ship full theaters (`to-the-moon` | `flight-13`).
 
 **Good next slices:**
-1. **Flight 13 Auto-cam story** — trench/pad at countdown → ship on ascent → booster at sep → entry chase  
-2. **Chase camera quality** (P1.6) — bank, look-ahead, high-speed framing  
+1. ~~**Flight 13 Auto-cam story**~~ **done** (trench → ship → gridfin → entry chase)  
+2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. **Lunar LOI / soft landing pack** (if a capture ending is wanted again)  
 4. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
@@ -257,3 +258,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Flight 13 Earth-only force model + coast agreement tests vs restricted n-body |
 | 2026-08-11 | Sky phase one-liner (Moon % lit + Sun λ) on telemetry / Metrics / complete card; Flight 13 Metrics force-check row |
 | 2026-08-11 | Cameras reordered 1–8; flame-trench under-pad cam; prelaunch pad-cam epoch fix |
+| 2026-08-11 | Watchability: Flight 13 Auto-cam profile + chase look-ahead / bank / speed widen |

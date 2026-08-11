@@ -4,10 +4,17 @@
  * Applied only on phase (or staging) transitions while Auto-cam is enabled.
  * Manual camera picks, WASD pan, and mouse orbit disable Auto-cam so Free
  * orbit is never fought mid-drag.
+ *
+ * Profiles:
+ * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)
+ * - **flight13** — webcast-style flight test (trench → ship → booster at sep → entry chase)
  */
 
 import type { CameraMode } from "./modes";
 import type { PhaseId } from "../physics/missionTypes";
+
+/** Which mission’s Auto-cam table to use. */
+export type AutoCamProfile = "lunar" | "flight13";
 
 /** Suggested focus when Auto-cam advances to a phase (or staging). */
 export type AutoCamSuggestion = {
@@ -22,7 +29,7 @@ export type AutoCamSuggestion = {
 };
 
 /**
- * Default framing for a mission phase.
+ * Default framing for a mission phase (lunar / cislunar profile).
  *
  * | Phase            | Framing                         |
  * |------------------|---------------------------------|
@@ -30,10 +37,10 @@ export type AutoCamSuggestion = {
  * | Ascent / low Earth orbit / translunar injection | Ship chase                    |
  * | Coast            | Wide Earth (cislunar overview)  |
  * | Approach / Lunar orbit insertion / low lunar orbit | Moon                        |
- * | Descent / landed | Ship chase                      |
+ * | Descent / land   | Ship chase                      |
  * | Impact           | Moon                            |
  */
-export function autoCamForPhase(phase: PhaseId): AutoCamSuggestion {
+export function autoCamForPhaseLunar(phase: PhaseId): AutoCamSuggestion {
   switch (phase) {
     case "launch":
       return { mode: "starbase", frame: true };
@@ -57,9 +64,68 @@ export function autoCamForPhase(phase: PhaseId): AutoCamSuggestion {
   }
 }
 
-/** Close Ship chase when Super Heavy stages off (theater beat). */
-export function autoCamForStaging(): AutoCamSuggestion {
+/**
+ * Flight 13 / suborbital flight-test Auto-cam table (webcast beats).
+ *
+ * | Phase / beat | Framing |
+ * |--------------|---------|
+ * | Launch (incl. T− countdown) | Flame trench (engines) |
+ * | Ascent | Starship chase |
+ * | Staging | Booster grid-fin cam |
+ * | Coast | Ship chase (suborbital; stay with stack) |
+ * | Entry / descent / splash | Starship chase |
+ */
+export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {
+  switch (phase) {
+    case "launch":
+      return { mode: "trench", frame: true };
+    case "ascent":
+    case "lowEarthOrbit":
+    case "translunarInjection":
+      return { mode: "chase", frame: true };
+    case "coast":
+      // Suborbital free-coast: keep ship framed (not a cislunar Earth pull-back).
+      return { mode: "chase", frame: true, frameScale: 1.35 };
+    case "entry":
+    case "descent":
+    case "splashdown":
+    case "landed":
+      return { mode: "chase", frame: true };
+    case "approach":
+    case "braking":
+    case "impact":
+      // Unused on Flight 13; sane fallbacks
+      return { mode: "chase", frame: true };
+  }
+}
+
+/** Default framing for a mission phase under the given profile. */
+export function autoCamForPhase(
+  phase: PhaseId,
+  profile: AutoCamProfile = "lunar",
+): AutoCamSuggestion {
+  return profile === "flight13"
+    ? autoCamForPhaseFlight13(phase)
+    : autoCamForPhaseLunar(phase);
+}
+
+/** Close Ship chase when Super Heavy stages off (lunar / default). */
+export function autoCamForStagingLunar(): AutoCamSuggestion {
   return { mode: "chase", frame: true };
+}
+
+/** Booster grid-fin cam on stage-out (Flight 13 webcast beat). */
+export function autoCamForStagingFlight13(): AutoCamSuggestion {
+  return { mode: "gridfin", frame: true };
+}
+
+/** Staging rising-edge cut for the active profile. */
+export function autoCamForStaging(
+  profile: AutoCamProfile = "lunar",
+): AutoCamSuggestion {
+  return profile === "flight13"
+    ? autoCamForStagingFlight13()
+    : autoCamForStagingLunar();
 }
 
 /**
@@ -71,6 +137,7 @@ export function nextAutoCamCut(
   phase: PhaseId,
   staged: boolean,
   prev: { phase: PhaseId | null; staged: boolean },
+  profile: AutoCamProfile = "lunar",
 ): { suggestion: AutoCamSuggestion | null; phase: PhaseId; staged: boolean } {
   if (!enabled) {
     return { suggestion: null, phase, staged };
@@ -78,7 +145,7 @@ export function nextAutoCamCut(
 
   if (prev.phase === null || phase !== prev.phase) {
     return {
-      suggestion: autoCamForPhase(phase),
+      suggestion: autoCamForPhase(phase, profile),
       phase,
       staged,
     };
@@ -86,7 +153,7 @@ export function nextAutoCamCut(
 
   if (staged && !prev.staged) {
     return {
-      suggestion: autoCamForStaging(),
+      suggestion: autoCamForStaging(profile),
       phase,
       staged,
     };

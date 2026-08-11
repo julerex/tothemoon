@@ -687,6 +687,7 @@ function applyMissionState(u: number): void {
     phaseForCam,
     stagedForCam,
     { phase: autoCam.phase, staged: autoCam.staged },
+    "flight13",
   );
   autoCam.phase = autoCut.phase;
   autoCam.staged = autoCut.staged;
