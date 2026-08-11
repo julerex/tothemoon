@@ -175,24 +175,28 @@ function padRadialInertial(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V
   return set(out, pad.up.x, pad.up.y, pad.up.z);
 }
 
+/** Project splash onto horizontal plane of `up`; write unit into `out`. */
+function horizTowardSplash(splash: V3, up: V3, out: V3): boolean {
+  const d = dot(splash, up);
+  set(_tmp3, splash.x - up.x * d, splash.y - up.y * d, splash.z - up.z * d);
+  if (len(_tmp3) < 1e-8) return false;
+  normalize(out, _tmp3);
+  return true;
+}
+
+function padEastFallback(t: number, out: V3, epoch?: EphemerisEpoch): V3 {
+  const b = getBodies(t, epoch);
+  const pad = starbasePadState(t, epoch);
+  enuAtPosition(t, pad.pos, b.earth, _up, _east, _north);
+  return set(out, _east.x, _east.y, _east.z);
+}
+
 /** Horizontal unit at pad toward splash (Flight 13 corridor). */
 function corridorAlongAtPad(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V3 {
   const padUp = padRadialInertial(t, _tmp, epoch);
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
-  const d = dot(splash, padUp);
-  set(
-    _tmp3,
-    splash.x - padUp.x * d,
-    splash.y - padUp.y * d,
-    splash.z - padUp.z * d,
-  );
-  if (len(_tmp3) < 1e-8) {
-    const b = getBodies(t, epoch);
-    const pad = starbasePadState(t, epoch);
-    enuAtPosition(t, pad.pos, b.earth, _up, _east, _north);
-    return set(out, _east.x, _east.y, _east.z);
-  }
-  return normalize(out, _tmp3);
+  if (horizTowardSplash(splash, padUp, out)) return out;
+  return padEastFallback(t, out, epoch);
 }
 
 /**
@@ -210,17 +214,18 @@ function corridorAlongAtCraft(
   const r = len(_relP) || 1;
   set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
-  const d = dot(splash, _up);
-  set(
-    _tmp3,
-    splash.x - _up.x * d,
-    splash.y - _up.y * d,
-    splash.z - _up.z * d,
-  );
-  if (len(_tmp3) < 1e-8) {
-    return corridorAlongAtPad(t, out, epoch);
-  }
-  return normalize(out, _tmp3);
+  if (horizTowardSplash(splash, _up, out)) return out;
+  return corridorAlongAtPad(t, out, epoch);
+}
+
+function makeSample(
+  state: CraftState,
+  phase: PhaseId,
+  burning: boolean,
+  prop: PropState,
+  thrustN: number,
+): Sample {
+  return { t: state.t, pos: clone(state.pos), vel: clone(state.vel), phase, burning, fuelBooster: fuelBoosterFrac(prop), fuelShip: fuelShipFrac(prop), thrustN, staged: prop.staged };
 }
 
 function pushSample(
@@ -231,17 +236,7 @@ function pushSample(
   prop: PropState,
   thrustN: number,
 ): void {
-  samples.push({
-    t: state.t,
-    pos: clone(state.pos),
-    vel: clone(state.vel),
-    phase,
-    burning,
-    fuelBooster: fuelBoosterFrac(prop),
-    fuelShip: fuelShipFrac(prop),
-    thrustN,
-    staged: prop.staged,
-  });
+  samples.push(makeSample(state, phase, burning, prop, thrustN));
 }
 
 type BurnMode =
@@ -252,6 +247,158 @@ type BurnMode =
   | "land"
   | "idle";
 
+type SteerGeo = {
+  alt: number;
+  vRad: number;
+  vHoriz: number;
+  vCirc: number;
+  along: V3;
+};
+
+/** Radial/horizontal geometry about Earth; fills `_up`, `_relV`, `_horiz`. */
+function fillEarthRelGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
+  r: number;
+  vRad: number;
+  vHoriz: number;
+} {
+  const b = getBodies(t, epoch);
+  sub(_relP, pos, b.earth);
+  const r = len(_relP) || 1;
+  set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
+  sub(_relV, vel, b.earthVel);
+  const vRad = dot(_relV, _up);
+  set(_horiz, _relV.x - _up.x * vRad, _relV.y - _up.y * vRad, _relV.z - _up.z * vRad);
+  return { r, vRad, vHoriz: len(_horiz) };
+}
+
+/** Local ENU-ish geometry for steering. */
+function fillSteerFrame(
+  t: number,
+  pos: V3,
+  vel: V3,
+  epoch: EphemerisEpoch,
+): SteerGeo {
+  const g = fillEarthRelGeo(t, pos, vel, epoch);
+  return { alt: g.r - R_EARTH, vRad: g.vRad, vHoriz: g.vHoriz, vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)), along: corridorAlongAtCraft(t, pos, _along, epoch) };
+}
+
+/** Vector from craft to surface point at radius `rSurf` along unit `surf`. */
+function aimToSurfPoint(pos: V3, earth: V3, surf: V3, rSurf: number, out: V3): number {
+  set(out, earth.x + surf.x * rSurf - pos.x, earth.y + surf.y * rSurf - pos.y, earth.z + surf.z * rSurf - pos.z);
+  const d = len(out);
+  if (d > 1e-6) normalize(out, out);
+  return d;
+}
+
+/** Landing burn aim direction (writes unit aim into `_tmp3`). */
+function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
+  const splash = splashSurfaceInertial(t, _tmp2, epoch);
+  const bL = getBodies(t, epoch);
+  return aimToSurfPoint(pos, bL.earth, splash, R_EARTH + 0.05, _tmp3);
+}
+
+function steerLandBrake(out: V3, distSplash: number): void {
+  const v = len(_relV);
+  set(out, -_relV.x / v, -_relV.y / v, -_relV.z / v);
+  if (distSplash <= 2) return;
+  const w = Math.min(0.55, distSplash / 80);
+  out.x = out.x * (1 - w) + _tmp3.x * w;
+  out.y = out.y * (1 - w) + _tmp3.y * w;
+  out.z = out.z * (1 - w) + _tmp3.z * w;
+  normalize(out, out);
+}
+
+function steerLand(
+  t: number, pos: V3, alt: number, out: V3, epoch: EphemerisEpoch,
+): void {
+  const distSplash = fillSplashAim(t, pos, epoch);
+  if (len(_relV) > 0.08) { steerLandBrake(out, distSplash); return; }
+  if (alt > 0.4) {
+    set(out, _up.x * 0.35 + _tmp3.x * 0.65, _up.y * 0.35 + _tmp3.y * 0.65, _up.z * 0.35 + _tmp3.z * 0.65);
+    normalize(out, out);
+    return;
+  }
+  set(out, _up.x, _up.y, _up.z);
+}
+
+/** Retrograde deorbit aim. */
+function steerRelight(vHoriz: number, along: V3, out: V3): void {
+  if (vHoriz > 0.05) {
+    set(out, -_horiz.x / vHoriz, -_horiz.y / vHoriz, -_horiz.z / vHoriz);
+  } else {
+    set(out, -along.x, -along.y, -along.z);
+  }
+}
+
+/** Aim thrust as pitch from local up toward `along`. */
+function aimPitchAlong(along: V3, pitch: number, out: V3): void {
+  const cosP = Math.cos(pitch); const sinP = Math.sin(pitch);
+  set(
+    out,
+    _up.x * cosP + along.x * sinP,
+    _up.y * cosP + along.y * sinP,
+    _up.z * cosP + along.z * sinP,
+  );
+  normalize(out, out);
+}
+
+function pitchBoost(alt: number): number {
+  if (alt < 0.6) return 0;
+  if (alt < 45) return smoothstep(0.6, 45, alt) * (Math.PI / 2) * 0.93;
+  return (Math.PI / 2) * 0.94;
+}
+
+/** Boost gravity-turn pitch along corridor. */
+function steerBoost(alt: number, along: V3, out: V3): void {
+  aimPitchAlong(along, pitchBoost(alt), out);
+}
+
+function pitchUpperClimb(vRad: number, vHoriz: number, vTarget: number): number {
+  const speedFrac = Math.min(1, vHoriz / Math.max(vTarget, 1));
+  let pitch = (Math.PI / 2) * (0.5 + 0.4 * smoothstep(1.0, 5.5, vHoriz));
+  if (vRad < 0.05) pitch = Math.max(0.35, pitch - 0.25);
+  if (speedFrac > 0.9) pitch = Math.min((Math.PI / 2) * 0.92, pitch + 0.12);
+  return pitch;
+}
+
+/** Hot-stage / upper climb toward insert altitude. */
+function steerUpperClimb(
+  _alt: number,
+  vRad: number,
+  vHoriz: number,
+  vTarget: number,
+  along: V3,
+  out: V3,
+): void {
+  aimPitchAlong(along, pitchUpperClimb(vRad, vHoriz, vTarget), out);
+}
+
+/** Above insert altitude: kill radial, push horizontal. */
+function steerUpperCircular(
+  vRad: number,
+  vHoriz: number,
+  vTarget: number,
+  along: V3,
+  out: V3,
+): void {
+  const tgtRad = -1.1 * vRad;
+  const needH = Math.max(0, vTarget - vHoriz);
+  const radW = Math.min(0.55, 0.2 + Math.abs(vRad) * 1.2);
+  const hW = 1 - radW + (needH > 0.05 ? 0.15 : 0);
+  set(out, along.x * hW + _up.x * tgtRad, along.y * hW + _up.y * tgtRad, along.z * hW + _up.z * tgtRad);
+  if (len(out) < 1e-8) set(out, along.x, along.y, along.z);
+  normalize(out, out);
+}
+
+function steerUpper(geo: SteerGeo, out: V3): void {
+  const vTarget = SECO_VCIRC_FRAC * geo.vCirc;
+  if (geo.alt < SECO_ALT_MIN_KM) {
+    steerUpperClimb(geo.alt, geo.vRad, geo.vHoriz, vTarget, geo.along, out);
+  } else {
+    steerUpperCircular(geo.vRad, geo.vHoriz, vTarget, geo.along, out);
+  }
+}
+
 function steer(
   t: number,
   pos: V3,
@@ -260,156 +407,34 @@ function steer(
   out: V3,
   epoch: EphemerisEpoch,
 ): void {
-  const b = getBodies(t, epoch);
-  sub(_relP, pos, b.earth);
-  const r = len(_relP) || 1;
-  set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
-  sub(_relV, vel, b.earthVel);
-  const alt = r - R_EARTH;
-  const along = corridorAlongAtCraft(t, pos, _along, epoch);
+  const geo = fillSteerFrame(t, pos, vel, epoch);
+  if (mode === "idle") { set(out, 0, 0, 0); return; }
+  if (mode === "land") { steerLand(t, pos, geo.alt, out, epoch); return; }
+  if (mode === "relight") { steerRelight(geo.vHoriz, geo.along, out); return; }
+  if (mode === "boost") { steerBoost(geo.alt, geo.along, out); return; }
+  steerUpper(geo, out);
+}
 
-  // Horizontal component of surface-relative velocity
-  const vRad = dot(_relV, _up);
-  set(
-    _horiz,
-    _relV.x - _up.x * vRad,
-    _relV.y - _up.y * vRad,
-    _relV.z - _up.z * vRad,
-  );
-  const vHoriz = len(_horiz);
-  const vCirc = Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50));
+function throttleBoost(t: number, alt: number): number {
+  let thr = 0.9;
+  if (alt > 5 && alt < 30) thr *= 0.78;
+  if (alt < 2) thr = 0.98;
+  if (t > F13.MECO - 8) thr *= Math.max(0.15, (F13.HOT_STAGE - t) / 12);
+  return Math.max(0, Math.min(1, thr));
+}
 
-  if (mode === "idle") {
-    set(out, 0, 0, 0);
-    return;
-  }
-
-  if (mode === "land") {
-    // Engines fire anti-velocity (brake) with strong aim at splash site
-    const v = len(_relV);
-    const splash = splashSurfaceInertial(t, _tmp2, epoch);
-    // Unit toward splash surface point from craft
-    const bL = getBodies(t, epoch);
-    set(
-      _tmp3,
-      bL.earth.x + splash.x * (R_EARTH + 0.05) - pos.x,
-      bL.earth.y + splash.y * (R_EARTH + 0.05) - pos.y,
-      bL.earth.z + splash.z * (R_EARTH + 0.05) - pos.z,
-    );
-    const distSplash = len(_tmp3);
-    if (distSplash > 1e-6) normalize(_tmp3, _tmp3);
-
-    if (v > 0.08) {
-      // Brake anti-velocity
-      set(out, -_relV.x / v, -_relV.y / v, -_relV.z / v);
-      // Steer toward splash (lateral) while braking
-      if (distSplash > 2) {
-        const w = Math.min(0.55, distSplash / 80);
-        out.x = out.x * (1 - w) + _tmp3.x * w;
-        out.y = out.y * (1 - w) + _tmp3.y * w;
-        out.z = out.z * (1 - w) + _tmp3.z * w;
-        normalize(out, out);
-      }
-    } else if (alt > 0.4) {
-      // Soft descent toward splash / local up
-      set(out, _up.x * 0.35 + _tmp3.x * 0.65, _up.y * 0.35 + _tmp3.y * 0.65, _up.z * 0.35 + _tmp3.z * 0.65);
-      normalize(out, out);
-    } else {
-      // Final hover: engines down (thrust along +up)
-      set(out, _up.x, _up.y, _up.z);
-    }
-    return;
-  }
-
-  if (mode === "relight") {
-    // Pure retrograde deorbit — anti-horizontal velocity (drop periapsis)
-    if (vHoriz > 0.05) {
-      set(out, -_horiz.x / vHoriz, -_horiz.y / vHoriz, -_horiz.z / vHoriz);
-    } else {
-      set(out, -along.x, -along.y, -along.z);
-    }
-    return;
-  }
-
-  // ── Boost: gravity turn along corridor (earlier pitch-over for range) ──
-  if (mode === "boost") {
-    let pitch: number;
-    if (alt < 0.6) pitch = 0;
-    else if (alt < 45) pitch = smoothstep(0.6, 45, alt) * (Math.PI / 2) * 0.93;
-    else pitch = (Math.PI / 2) * 0.94;
-    const cosP = Math.cos(pitch);
-    const sinP = Math.sin(pitch);
-    set(
-      out,
-      _up.x * cosP + along.x * sinP,
-      _up.y * cosP + along.y * sinP,
-      _up.z * cosP + along.z * sinP,
-    );
-    normalize(out, out);
-    return;
-  }
-
-  // ── Hot-stage / upper: climb to ~170–200 km then near-circular ──
-  // Pitch 0 = vertical, π/2 = pure corridor-horizontal.
-  const vTarget = SECO_VCIRC_FRAC * vCirc;
-  const speedFrac = Math.min(1, vHoriz / Math.max(vTarget, 1));
-
-  // While below insert altitude, keep a loft component so SECO is not at 100 km
-  if (alt < SECO_ALT_MIN_KM) {
-    let pitch = (Math.PI / 2) * (0.5 + 0.4 * smoothstep(1.0, 5.5, vHoriz));
-    // Climb bias if not rising
-    if (vRad < 0.05) pitch = Math.max(0.35, pitch - 0.25);
-    // Don't loft forever if already fast
-    if (speedFrac > 0.9) pitch = Math.min((Math.PI / 2) * 0.92, pitch + 0.12);
-    const cosP = Math.cos(pitch);
-    const sinP = Math.sin(pitch);
-    set(
-      out,
-      _up.x * cosP + along.x * sinP,
-      _up.y * cosP + along.y * sinP,
-      _up.z * cosP + along.z * sinP,
-    );
-    normalize(out, out);
-    return;
-  }
-
-  // Above insert altitude: kill radial hard, then push horizontal to vTarget
-  const tgtRad = -1.1 * vRad; // strong radial damp
-  const needH = Math.max(0, vTarget - vHoriz);
-  // Weight radial fix higher when |vr| is large
-  const radW = Math.min(0.55, 0.2 + Math.abs(vRad) * 1.2);
-  const horizW = 1 - radW;
-  // Prefer more horizontal once radial is calm
-  const hBoost = needH > 0.05 ? 0.15 : 0;
-  set(
-    out,
-    along.x * (horizW + hBoost) + _up.x * tgtRad,
-    along.y * (horizW + hBoost) + _up.y * tgtRad,
-    along.z * (horizW + hBoost) + _up.z * tgtRad,
-  );
-  if (len(out) < 1e-8) set(out, along.x, along.y, along.z);
-  normalize(out, out);
+function throttleLand(t: number): number {
+  if (t < F13.LAND_3TO2) return 0.95;
+  if (t < F13.LAND_2TO1) return 0.62;
+  return 0.38;
 }
 
 function throttleFor(t: number, alt: number, mode: BurnMode): number {
   if (mode === "idle") return 0;
   if (mode === "hot_stage") return 0.55;
-  // Single-engine deorbit: moderate throttle (Δv ~0.2–0.3 km/s over ~20 s)
   if (mode === "relight") return 0.5;
-  if (mode === "land") {
-    // 3 → 2 → 1 cadence (public marks; early light still uses same steps)
-    if (t < F13.LAND_3TO2) return 0.95;
-    if (t < F13.LAND_2TO1) return 0.62;
-    return 0.38;
-  }
-  if (mode === "boost") {
-    let thr = 0.9;
-    if (alt > 5 && alt < 30) thr *= 0.78; // max-Q dip
-    if (alt < 2) thr = 0.98;
-    if (t > F13.MECO - 8) thr *= Math.max(0.15, (F13.HOT_STAGE - t) / 12);
-    return Math.max(0, Math.min(1, thr));
-  }
-  // upper — steady ship burn until SECO energy / clock
+  if (mode === "land") return throttleLand(t);
+  if (mode === "boost") return throttleBoost(t, alt);
   if (t >= F13.SECO - 8) return Math.max(0, (F13.SECO - t) / 8) * 0.8;
   return 0.88;
 }
@@ -418,9 +443,7 @@ function peakForceN(mode: BurnMode, thr: number): number {
   if (mode === "boost") return BOOSTER_THRUST_N * thr;
   if (mode === "hot_stage")
     return BOOSTER_THRUST_N * 0.18 * thr + SHIP_THRUST_N * 0.95;
-  // Sustained ship thrust through SECO (pure-RE Δv over ~5–6 min class)
   if (mode === "upper") return SHIP_THRUST_N * thr;
-  // ~1 of 3 Raptors (theater single-engine deorbit)
   if (mode === "relight") return SHIP_THRUST_N * 0.34 * thr;
   if (mode === "land") return SHIP_THRUST_N * thr;
   return 0;
@@ -442,410 +465,496 @@ export type Flight13MissionOptions = {
   epoch?: EphemerisEpoch;
 };
 
-/**
- * Integrate Flight 13 from liftoff through Indian Ocean splashdown.
- */
-export function runFlight13Mission(
-  opts?: Flight13MissionOptions,
+type F13Loop = {
+  state: CraftState;
+  samples: Sample[];
+  prop: PropState;
+  epoch: EphemerisEpoch;
+  mode: BurnMode;
+  hotStageT0: number;
+  lastThrustN: number;
+  lastBoostN: number;
+  lastShipN: number;
+  thrAcc: V3;
+  accelOpts: AccelOptions;
+};
+
+/** Belly drag + lift + bank toward splash during atmospheric entry. */
+function bellyEntryActive(
+  t: number, alt: number, vRel: number, prop: PropState, mode: BurnMode,
+): boolean {
+  return prop.staged && mode === "idle" && t >= F13.RELIGHT_END &&
+    alt > 8 && alt < 120 && vRel > 0.8;
+}
+
+function bellyLiftBand(alt: number): number {
+  if (alt > 25 && alt < 65) return 1.1;
+  if (alt < 25) return 0.65;
+  return 1.0;
+}
+
+function applyBellyLift(
+  alt: number, vRel: number, vRad: number, aDrag: number, a: { ax: number; ay: number; az: number },
+): void {
+  if (!(vRad < 0 && vRel > 1.5 && alt > 12 && alt < 95)) return;
+  const aLift = Math.min(0.015, aDrag * BELLY_L_OVER_D * bellyLiftBand(alt));
+  a.ax += _up.x * aLift; a.ay += _up.y * aLift; a.az += _up.z * aLift;
+}
+
+function bellyDragLift(
+  alt: number, vRel: number, vRad: number,
+): { ax: number; ay: number; az: number; aDrag: number } {
+  const aDrag = Math.min(0.04, 0.5 * BELLY_CD_A_OVER_M * atmDensity(alt) * vRel);
+  const a = { ax: 0, ay: 0, az: 0, aDrag };
+  if (aDrag > 1e-9) {
+    a.ax -= (_relV.x / vRel) * aDrag;
+    a.ay -= (_relV.y / vRel) * aDrag;
+    a.az -= (_relV.z / vRel) * aDrag;
+  }
+  applyBellyLift(alt, vRel, vRad, aDrag, a);
+  return a;
+}
+
+function fillEarthUpVel(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
+  alt: number; vRel: number; vRad: number;
+} {
+  const b = getBodies(t, epoch);
+  sub(_relP, pos, b.earth);
+  const rL = len(_relP) || 1;
+  set(_up, _relP.x / rL, _relP.y / rL, _relP.z / rL);
+  sub(_relV, vel, b.earthVel);
+  return { alt: rL - R_EARTH, vRel: len(_relV), vRad: dot(_relV, _up) };
+}
+
+function bellyAeroAccel(
+  t: number, pos: V3, vel: V3, prop: PropState, mode: BurnMode, epoch: EphemerisEpoch,
+): { ax: number; ay: number; az: number } {
+  const g = fillEarthUpVel(t, pos, vel, epoch);
+  if (!bellyEntryActive(t, g.alt, g.vRel, prop, mode)) return { ax: 0, ay: 0, az: 0 };
+  const dl = bellyDragLift(g.alt, g.vRel, g.vRad);
+  const bank = bellyBankAccel(t, pos, g.alt, g.vRel, g.vRad, dl.aDrag, epoch);
+  return { ax: dl.ax + bank.ax, ay: dl.ay + bank.ay, az: dl.az + bank.az };
+}
+
+/** Project vector onto plane ⊥ up into `_horiz`; return false if degenerate. */
+function projectHorizOntoUp(vec: V3): boolean {
+  const rd = dot(vec, _up);
+  set(_horiz, vec.x - _up.x * rd, vec.y - _up.y * rd, vec.z - _up.z * rd);
+  if (len(_horiz) <= 1e-6) return false;
+  normalize(_horiz, _horiz);
+  return true;
+}
+
+/** Horizontal bank toward splash during entry. */
+function fillDesiredHorizHeading(t: number, pos: V3, alt: number, epoch: EphemerisEpoch): boolean {
+  const splash = splashSurfaceInertial(t, _tmp2, epoch);
+  const earth = getBodies(t, epoch).earth;
+  const r = R_EARTH + alt;
+  set(_tmp3, earth.x + splash.x * r - pos.x, earth.y + splash.y * r - pos.y, earth.z + splash.z * r - pos.z);
+  return projectHorizOntoUp(_tmp3);
+}
+
+function zeroAccel(): { ax: number; ay: number; az: number } {
+  return { ax: 0, ay: 0, az: 0 };
+}
+
+function bankCrossTrack(align: number, aDrag: number): { ax: number; ay: number; az: number } {
+  set(_tmp2, _horiz.x - _tmp3.x * align, _horiz.y - _tmp3.y * align, _horiz.z - _tmp3.z * align);
+  if (len(_tmp2) <= 1e-8) return zeroAccel();
+  normalize(_tmp2, _tmp2);
+  const aBank = Math.min(0.008, aDrag * 0.45 * (1 - align));
+  return { ax: _tmp2.x * aBank, ay: _tmp2.y * aBank, az: _tmp2.z * aBank };
+}
+
+function bankLateralAccel(vRad: number, aDrag: number): { ax: number; ay: number; az: number } {
+  set(_tmp3, _relV.x - _up.x * vRad, _relV.y - _up.y * vRad, _relV.z - _up.z * vRad);
+  if (len(_tmp3) <= 0.3) return zeroAccel();
+  normalize(_tmp3, _tmp3);
+  const align = dot(_horiz, _tmp3);
+  if (align >= 0.98) return zeroAccel();
+  return bankCrossTrack(align, aDrag);
+}
+
+function bellyBankAccel(
+  t: number, pos: V3, alt: number, vRel: number, vRad: number, aDrag: number, epoch: EphemerisEpoch,
+): { ax: number; ay: number; az: number } {
+  if (!(vRel > 1.0 && alt > 12 && alt < 90)) return { ax: 0, ay: 0, az: 0 };
+  if (!fillDesiredHorizHeading(t, pos, alt, epoch)) return { ax: 0, ay: 0, az: 0 };
+  return bankLateralAccel(vRad, aDrag);
+}
+
+function bookHotStageShip(loop: F13Loop, aTot: number, limForceN: number): number {
+  if (!(loop.mode === "hot_stage" && hasPropellant(loop.prop, "ship"))) return aTot;
+  const shipA = (SHIP_THRUST_N * 0.9) / Math.max(wetMassKg(loop.prop), 1) / 1000;
+  const shipLim = limitAccelByThrust(loop.prop, shipA, "ship");
+  loop.lastShipN += shipLim.forceN;
+  loop.lastBoostN = limForceN;
+  return aTot + shipLim.aKmS2;
+}
+
+/** Engine thrust accel + book last*N on loop. */
+function engineThrustAccel(
+  loop: F13Loop,
+  t: number,
+  pos: V3,
+  vel: V3,
+  thr: number,
+): number {
+  steer(t, pos, vel, loop.mode, _steer, loop.epoch); const tank = tankFor(loop.mode, loop.prop.staged);
+  const aCmd = peakForceN(loop.mode, thr) / Math.max(wetMassKg(loop.prop), 1) / 1000;
+  const lim = limitAccelByThrust(loop.prop, aCmd, tank);
+  loop.lastBoostN = tank === "booster" ? lim.forceN : 0;
+  loop.lastShipN = tank === "ship" ? lim.forceN : 0;
+  const aTot = bookHotStageShip(loop, lim.aKmS2, lim.forceN);
+  loop.lastThrustN = loop.lastBoostN + loop.lastShipN;
+  return aTot;
+}
+
+function clearThrustBook(loop: F13Loop): void {
+  loop.lastThrustN = 0;
+  loop.lastBoostN = 0;
+  loop.lastShipN = 0;
+}
+
+function aeroOnlyAcc(loop: F13Loop, aero: { ax: number; ay: number; az: number }): V3 | null {
+  clearThrustBook(loop);
+  if (aero.ax === 0 && aero.ay === 0 && aero.az === 0) return null;
+  set(loop.thrAcc, aero.ax, aero.ay, aero.az);
+  return loop.thrAcc;
+}
+
+function combineThrustAero(
+  loop: F13Loop, aTot: number, aero: { ax: number; ay: number; az: number },
+): V3 | null {
+  if (aTot < 1e-9 && aero.ax === 0 && aero.ay === 0 && aero.az === 0) return null;
+  scale(loop.thrAcc, _steer, aTot);
+  loop.thrAcc.x += aero.ax;
+  loop.thrAcc.y += aero.ay;
+  loop.thrAcc.z += aero.az;
+  return loop.thrAcc;
+}
+
+/** Combined thrustFn for RK4 (aero + engines). */
+function makeFlight13ThrustFn(loop: F13Loop): ThrustFn {
+  return (t, pos, vel) => {
+    const alt = altitudeEarth(t, pos, loop.epoch);
+    const thr = throttleFor(t, alt, loop.mode);
+    const aero = bellyAeroAccel(t, pos, vel, loop.prop, loop.mode, loop.epoch);
+    if (loop.mode === "idle" || thr < 1e-4) return aeroOnlyAcc(loop, aero);
+    return combineThrustAero(loop, engineThrustAccel(loop, t, pos, vel, thr), aero);
+  };
+}
+
+function hotStageDone(loop: F13Loop): boolean {
+  const t = loop.state.t;
+  return (
+    loop.mode === "hot_stage" &&
+    (t - loop.hotStageT0 >= HOT_STAGE_S || t >= F13.HOT_STAGE + HOT_STAGE_S)
+  );
+}
+
+function advanceBoostHot(loop: F13Loop): void {
+  const t = loop.state.t;
+  if (loop.mode === "boost" && t >= F13.MECO) {
+    loop.mode = "hot_stage";
+    loop.hotStageT0 = t;
+  }
+  if (hotStageDone(loop) || (!loop.prop.staged && t >= F13.HOT_STAGE + 1)) {
+    stageBooster(loop.prop, t);
+    loop.mode = "upper";
+  }
+}
+
+function advanceRelightWindow(loop: F13Loop): void {
+  const t = loop.state.t;
+  if (loop.mode === "idle" && t >= F13.RELIGHT && t < F13.RELIGHT_END) {
+    loop.mode = "relight";
+  }
+  if (loop.mode === "relight" && t >= F13.RELIGHT_END) loop.mode = "idle";
+}
+
+/** Boost / hot-stage / SECO / relight / land mode machine. */
+function advanceFlight13Mode(loop: F13Loop, alt: number): void {
+  advanceBoostHot(loop);
+  if (loop.mode === "upper") maybeSeco(loop, alt);
+  advanceRelightWindow(loop);
+  maybeStartLand(loop, alt);
+  if (loop.state.t >= F13.SPLASH + 5) loop.mode = "idle";
+}
+
+type SecoGeom = { vRad: number; vHoriz: number; vCirc: number };
+
+function fillHorizFromRel(r: number, vRad: number): number {
+  set(
+    _horiz,
+    _relV.x - (_relP.x / r) * vRad,
+    _relV.y - (_relP.y / r) * vRad,
+    _relV.z - (_relP.z / r) * vRad,
+  );
+  return len(_horiz);
+}
+
+function secoGeom(loop: F13Loop): SecoGeom {
+  const bCut = getBodies(loop.state.t, loop.epoch);
+  sub(_relV, loop.state.vel, bCut.earthVel);
+  sub(_relP, loop.state.pos, bCut.earth);
+  const r = len(_relP) || 1;
+  const vRad = dot(_relV, _relP) / r;
+  const vHoriz = fillHorizFromRel(r, vRad);
+  const vCirc = Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50));
+  return { vRad, vHoriz, vCirc };
+}
+
+function secoShouldCut(loop: F13Loop, alt: number, g: SecoGeom): boolean {
+  const t = loop.state.t; const vNeed = SECO_VCIRC_FRAC * g.vCirc;
+  const energyOk =
+    alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 0.998 && Math.abs(g.vRad) <= SECO_VRAD_MAX;
+  const speedCap = alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 1.025;
+  const propLow = fuelShipFrac(loop.prop) <= SHIP_PROP_RESERVE;
+  const clockCut =
+    t >= F13.SECO && (Math.abs(g.vRad) <= SECO_VRAD_MAX * 1.5 || propLow || alt < 100);
+  return energyOk || speedCap || propLow || clockCut;
+}
+
+/** SECO energy / clock cut for upper stage. */
+function maybeSeco(loop: F13Loop, alt: number): void {
+  if (secoShouldCut(loop, alt, secoGeom(loop))) loop.mode = "idle";
+}
+
+function landStartRangeKm(loop: F13Loop): { vRel: number; rangeKm: number } {
+  const t = loop.state.t;
+  const bL = getBodies(t, loop.epoch);
+  sub(_relV, loop.state.vel, bL.earthVel);
+  const splash = splashSurfaceInertial(t, _tmp2, loop.epoch);
+  sub(_relP, loop.state.pos, bL.earth);
+  normalize(_tmp3, _relP);
+  const ang = Math.acos(Math.min(1, Math.max(-1, dot(_tmp3, splash))));
+  return { vRel: len(_relV), rangeKm: ang * R_EARTH };
+}
+
+function shouldStartLand(t: number, alt: number, vRel: number, rangeKm: number): boolean {
+  if (t >= F13.LAND_BURN) return true;
+  if (alt < 12 && vRel < 0.9 && rangeKm < 600 && t >= F13.ENTRY - 60) return true;
+  return alt < 4 && vRel < 0.55 && t >= F13.ENTRY;
+}
+
+/** Light landing burn when aero has bled speed or public mark. */
+function maybeStartLand(loop: F13Loop, alt: number): void {
+  const t = loop.state.t;
+  if (loop.mode === "land" || loop.mode === "relight") return;
+  if (t < F13.ENTRY - 90) return;
+  const g = landStartRangeKm(loop);
+  if (shouldStartLand(t, alt, g.vRel, g.rangeKm)) loop.mode = "land";
+}
+
+/** HUD phase id from time / mode / altitude. */
+function flight13Phase(loop: F13Loop, alt: number): PhaseId {
+  const t = loop.state.t;
+  if (t < 12) return "launch";
+  if (t < F13.SECO) return "ascent";
+  if (loop.mode === "land") return "descent";
+  if (loop.prop.staged && t >= F13.RELIGHT && alt < 120) return "entry";
+  return "coast";
+}
+
+/** Integrator step size. */
+function flight13Dt(loop: F13Loop, phase: PhaseId, alt: number, maxT: number): number {
+  let dt = 1.0;
+  if (loop.mode === "boost" || loop.mode === "hot_stage" || loop.mode === "upper") {
+    dt = 0.25;
+  } else if (loop.mode === "land" || loop.mode === "relight") dt = 0.15;
+  else if (phase === "entry" || alt < 120) dt = 0.4;
+  else if (phase === "coast") dt = 2.0;
+  return Math.min(dt, maxT - loop.state.t);
+}
+
+function placeOnSphere(
+  pos: V3, center: V3, dir: V3, L: number, radius: number,
+): void {
+  pos.x = center.x + (dir.x / L) * radius;
+  pos.y = center.y + (dir.y / L) * radius;
+  pos.z = center.z + (dir.z / L) * radius;
+}
+
+function killInwardRadialRel(vel: V3, bodyVel: V3, dir: V3, L: number): void {
+  sub(_relV, vel, bodyVel);
+  const vr = dot(_relV, dir) / L;
+  if (vr >= 0) return;
+  vel.x -= (dir.x / L) * vr;
+  vel.y -= (dir.y / L) * vr;
+  vel.z -= (dir.z / L) * vr;
+}
+
+function dampRelVel(vel: V3, bodyVel: V3, factor: number): void {
+  vel.x = bodyVel.x + (vel.x - bodyVel.x) * factor;
+  vel.y = bodyVel.y + (vel.y - bodyVel.y) * factor;
+  vel.z = bodyVel.z + (vel.z - bodyVel.z) * factor;
+}
+
+/** Keep craft above surface with light friction when decked early. */
+function surfaceClamp(loop: F13Loop): void {
+  const b = getBodies(loop.state.t, loop.epoch);
+  sub(_relP, loop.state.pos, b.earth);
+  const L = len(_relP) || 1;
+  if (!(L - R_EARTH < 0.02 && loop.state.t < F13.SPLASH - 1)) return;
+  placeOnSphere(loop.state.pos, b.earth, _relP, L, R_EARTH + 0.02);
+  killInwardRadialRel(loop.state.vel, b.earthVel, _relP, L);
+  dampRelVel(loop.state.vel, b.earthVel, 0.96);
+}
+
+/** Drain propellant once per step. */
+function bookFlight13Prop(loop: F13Loop): void {
+  if (loop.lastBoostN > 1e-3 && !loop.prop.staged) {
+    burnForce(loop.prop, loop.state.t, loop.lastBoostN, "booster");
+  } else if (loop.lastBoostN > 1e-3) {
+    burnForce(loop.prop, loop.state.t, loop.lastBoostN, "ship");
+  }
+  if (loop.lastShipN > 1e-3) {
+    burnForce(loop.prop, loop.state.t, loop.lastShipN, "ship");
+  }
+  if (loop.lastThrustN < 1e-3) coastProp(loop.prop, loop.state.t);
+}
+
+/** Snap to splash / under-craft surface and push terminal sample. */
+function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vRel: number; rangeKm: number } {
+  const b = getBodies(loop.state.t, loop.epoch);
+  sub(_relP, loop.state.pos, b.earth);
+  const L = len(_relP) || 1;
+  sub(_relV, loop.state.vel, b.earthVel);
+  const ang = Math.acos(Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))));
+  return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
+}
+
+function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
+  const b = getBodies(loop.state.t, loop.epoch);
+  const targetR = R_EARTH + 0.02;
+  if (rangeKm < 200) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
+  else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
+  set(loop.state.vel, b.earthVel.x, b.earthVel.y, b.earthVel.z);
+}
+
+function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
+  return (
+    loop.mode === "land" &&
+    geo.curAlt < 2.5 &&
+    geo.vRel < 0.35 &&
+    geo.rangeKm < 180 &&
+    loop.state.t >= F13.ENTRY
+  );
+}
+
+function trySplashdown(loop: F13Loop): boolean {
+  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
+  const geo = splashRangeKm(loop, surf);
+  if (!(naturalSplashDone(loop, geo) || loop.state.t >= F13.SPLASH - 0.1)) return false;
+  snapSplash(loop, surf, geo.L, geo.rangeKm);
+  pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
+  return true;
+}
+
+function flight13SampleMinDt(loop: F13Loop, phase: PhaseId): number {
+  if (phase === "launch" || loop.mode === "boost" || loop.mode === "hot_stage") return 0.2;
+  if (phase === "coast" && loop.mode === "idle") return 4;
+  return 0.4;
+}
+
+/** Maybe push a trajectory sample this step. */
+function maybePushFlight13Sample(loop: F13Loop, phase: PhaseId): void {
+  const burning = loop.lastThrustN > 1e3;
+  const last = loop.samples[loop.samples.length - 1]!;
+  const due =
+    loop.state.t - last.t >= flight13SampleMinDt(loop, phase) ||
+    phase !== last.phase ||
+    burning !== last.burning;
+  if (due) pushSample(loop.samples, loop.state, phase, burning, loop.prop, loop.lastThrustN);
+}
+
+function makeFlight13Raw(
+  loop: F13Loop,
+  durationS: number,
+  meta: ReturnType<typeof deriveTrajectoryMeta>,
 ): MissionResult {
-  const epoch = opts?.epoch ?? makeFlight13Epoch(0, 0);
-  const accelOpts: AccelOptions = {
-    gravity: opts?.gravity ?? "nbody",
-    epoch,
-  };
-  const samples: Sample[] = [];
-  const prop = createPropState(0);
-  const pad = starbasePadState(0, epoch);
-  const state: CraftState = {
-    t: 0,
-    pos: clone(pad.pos),
-    vel: clone(pad.vel),
-  };
-  // Clear tower
-  state.vel.x += pad.up.x * 0.015;
-  state.vel.y += pad.up.y * 0.015;
-  state.vel.z += pad.up.z * 0.015;
+  return { samples: loop.samples, durationS, moonPhase0: loop.epoch.moonPhase0, translunarInjectionDeltaV: 0, minMoonAlt: Infinity, ok: true, message: "Flight 13 · suborbital · Indian Ocean splashdown (theater timeline)", peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, horizonsLandingT: durationS };
+}
 
-  let mode: BurnMode = "boost";
-  let hotStageT0 = -1;
-  let lastThrustN = 0;
-  let lastBoostN = 0;
-  let lastShipN = 0;
-
-  const thrAcc = v3();
-  /**
-   * Acceleration only — propellant is drained once after each RK4 step.
-   * Idle entry still returns a small belly-flop lift accel (no propellant).
-   */
-  const thrustFn: ThrustFn = (t, pos, vel) => {
-    const alt = altitudeEarth(t, pos, epoch);
-    const thr = throttleFor(t, alt, mode);
-
-    // Theater belly-flop lift during atmospheric entry / late coast
-    const bLift = getBodies(t, epoch);
-    sub(_relP, pos, bLift.earth);
-    const rL = len(_relP) || 1;
-    set(_up, _relP.x / rL, _relP.y / rL, _relP.z / rL);
-    sub(_relV, vel, bLift.earthVel);
-    const vRel = len(_relV);
-    const vRad = dot(_relV, _up);
-    let aeroAx = 0;
-    let aeroAy = 0;
-    let aeroAz = 0;
-    // High-AoA belly aero while hypersonic/supersonic in the atmosphere.
-    // No powered altitude-hold glide — ballistic + aero (+ bank toward splash).
-    if (
-      prop.staged &&
-      mode === "idle" &&
-      t >= F13.RELIGHT_END &&
-      alt > 8 &&
-      alt < 120 &&
-      vRel > 0.8
-    ) {
-      const rho = atmDensity(alt);
-      // a_drag = ½ (CdA/m) ρ |v|  along −v  (km/s²)
-      const aDrag = Math.min(
-        0.04,
-        0.5 * BELLY_CD_A_OVER_M * rho * vRel,
-      );
-      if (aDrag > 1e-9) {
-        aeroAx -= (_relV.x / vRel) * aDrag;
-        aeroAy -= (_relV.y / vRel) * aDrag;
-        aeroAz -= (_relV.z / vRel) * aDrag;
-      }
-      // Lift while descending: stretches the corridor at mid-altitudes
-      if (vRad < 0 && vRel > 1.5 && alt > 12 && alt < 95) {
-        const band =
-          alt > 25 && alt < 65 ? 1.1 : alt < 25 ? 0.65 : 1.0;
-        const aLift = Math.min(0.015, aDrag * BELLY_L_OVER_D * band);
-        aeroAx += _up.x * aLift;
-        aeroAy += _up.y * aLift;
-        aeroAz += _up.z * aLift;
-      }
-      // Bank toward splash (theater entry guidance — not RCS)
-      if (vRel > 1.0 && alt > 12 && alt < 90) {
-        const splash = splashSurfaceInertial(t, _tmp2, epoch);
-        const bG = getBodies(t, epoch);
-        set(
-          _tmp3,
-          bG.earth.x + splash.x * (R_EARTH + alt) - pos.x,
-          bG.earth.y + splash.y * (R_EARTH + alt) - pos.y,
-          bG.earth.z + splash.z * (R_EARTH + alt) - pos.z,
-        );
-        // Horizontal desired heading
-        const rd = dot(_tmp3, _up);
-        set(
-          _horiz,
-          _tmp3.x - _up.x * rd,
-          _tmp3.y - _up.y * rd,
-          _tmp3.z - _up.z * rd,
-        );
-        const hLen = len(_horiz);
-        if (hLen > 1e-6) {
-          normalize(_horiz, _horiz);
-          // Current horizontal velocity unit
-          set(
-            _tmp3,
-            _relV.x - _up.x * vRad,
-            _relV.y - _up.y * vRad,
-            _relV.z - _up.z * vRad,
-          );
-          const vh = len(_tmp3);
-          if (vh > 0.3) {
-            normalize(_tmp3, _tmp3);
-            // Lateral = desired × current (turn direction), magnitude from misalignment
-            const align = dot(_horiz, _tmp3);
-            if (align < 0.98) {
-              // Sideways unit in horizontal plane: horiz − proj onto v_h
-              set(
-                _tmp2,
-                _horiz.x - _tmp3.x * align,
-                _horiz.y - _tmp3.y * align,
-                _horiz.z - _tmp3.z * align,
-              );
-              if (len(_tmp2) > 1e-8) {
-                normalize(_tmp2, _tmp2);
-                const aBank = Math.min(0.008, aDrag * 0.45 * (1 - align));
-                aeroAx += _tmp2.x * aBank;
-                aeroAy += _tmp2.y * aBank;
-                aeroAz += _tmp2.z * aBank;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (mode === "idle" || thr < 1e-4) {
-      lastThrustN = 0;
-      lastBoostN = 0;
-      lastShipN = 0;
-      if (aeroAx === 0 && aeroAy === 0 && aeroAz === 0) return null;
-      set(thrAcc, aeroAx, aeroAy, aeroAz);
-      return thrAcc;
-    }
-    steer(t, pos, vel, mode, _steer, epoch);
-    const tank = tankFor(mode, prop.staged);
-    const fCmd = peakForceN(mode, thr);
-    const m = wetMassKg(prop);
-    const aCmd = fCmd / Math.max(m, 1) / 1000;
-    const lim = limitAccelByThrust(prop, aCmd, tank);
-    let aTot = lim.aKmS2;
-    lastBoostN = tank === "booster" ? lim.forceN : 0;
-    lastShipN = tank === "ship" ? lim.forceN : 0;
-    if (mode === "hot_stage" && hasPropellant(prop, "ship")) {
-      const shipA =
-        (SHIP_THRUST_N * 0.9) / Math.max(wetMassKg(prop), 1) / 1000;
-      const shipLim = limitAccelByThrust(prop, shipA, "ship");
-      aTot += shipLim.aKmS2;
-      lastShipN += shipLim.forceN;
-      lastBoostN = lim.forceN;
-    }
-    lastThrustN = lastBoostN + lastShipN;
-    if (aTot < 1e-9 && aeroAx === 0 && aeroAy === 0 && aeroAz === 0) {
-      return null;
-    }
-    scale(thrAcc, _steer, aTot);
-    thrAcc.x += aeroAx;
-    thrAcc.y += aeroAy;
-    thrAcc.z += aeroAz;
-    return thrAcc;
-  };
-
-  pushSample(samples, state, "launch", true, prop, peakForceN("boost", 0.98));
-
-  const maxT = F13.SPLASH + 2;
-  while (state.t < maxT) {
-    const alt = altitudeEarth(state.t, state.pos, epoch);
-    const t = state.t;
-
-    // ── Mode / phase machine (timeline-forced where possible) ──
-    if (mode === "boost" && t >= F13.MECO) {
-      mode = "hot_stage";
-      hotStageT0 = t;
-    }
-    if (
-      mode === "hot_stage" &&
-      (t - hotStageT0 >= HOT_STAGE_S || t >= F13.HOT_STAGE + HOT_STAGE_S)
-    ) {
-      stageBooster(prop, t);
-      mode = "upper";
-    }
-    if (!prop.staged && t >= F13.HOT_STAGE + 1) {
-      stageBooster(prop, t);
-      mode = "upper";
-    }
-    if (mode === "upper") {
-      const bCut = getBodies(t, epoch);
-      sub(_relV, state.vel, bCut.earthVel);
-      sub(_relP, state.pos, bCut.earth);
-      const r = len(_relP) || 1;
-      const vRad = dot(_relV, _relP) / r;
-      set(
-        _horiz,
-        _relV.x - (_relP.x / r) * vRad,
-        _relV.y - (_relP.y / r) * vRad,
-        _relV.z - (_relP.z / r) * vRad,
-      );
-      const vHoriz = len(_horiz);
-      const vCirc = Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50));
-      // Cut when near-circular at insert altitude (or public SECO / prop floor).
-      // Prefer waiting a few seconds past energy to kill residual radial rate.
-      const energyOk =
-        alt >= SECO_ALT_MIN_KM &&
-        vHoriz >= SECO_VCIRC_FRAC * vCirc * 0.998 &&
-        Math.abs(vRad) <= SECO_VRAD_MAX;
-      const speedCap =
-        alt >= SECO_ALT_MIN_KM &&
-        vHoriz >= SECO_VCIRC_FRAC * vCirc * 1.025;
-      const propLow = fuelShipFrac(prop) <= SHIP_PROP_RESERVE;
-      // Don't cut solely on the clock if still deeply lofted and have prop
-      const clockCut =
-        t >= F13.SECO &&
-        (Math.abs(vRad) <= SECO_VRAD_MAX * 1.5 || propLow || alt < 100);
-      if (energyOk || speedCap || propLow || clockCut) {
-        mode = "idle";
-      }
-    }
-    if (mode === "idle" && t >= F13.RELIGHT && t < F13.RELIGHT_END) {
-      mode = "relight";
-    }
-    if (mode === "relight" && t >= F13.RELIGHT_END) {
-      mode = "idle";
-    }
-    // Landing burn only after aero has bled most of the speed (or public mark).
-    // Lighting at hypersonic would empty the tank and leave a surface skid.
-    if (mode !== "land" && mode !== "relight" && t >= F13.ENTRY - 90) {
-      const bL = getBodies(t, epoch);
-      sub(_relV, state.vel, bL.earthVel);
-      const vRel = len(_relV);
-      const splash = splashSurfaceInertial(t, _tmp2, epoch);
-      sub(_relP, state.pos, bL.earth);
-      normalize(_tmp3, _relP);
-      const rangeKm =
-        Math.acos(Math.min(1, Math.max(-1, dot(_tmp3, splash)))) * R_EARTH;
-      if (
-        t >= F13.LAND_BURN ||
-        (alt < 12 && vRel < 0.9 && rangeKm < 600 && t >= F13.ENTRY - 60) ||
-        (alt < 4 && vRel < 0.55 && t >= F13.ENTRY)
-      ) {
-        mode = "land";
-      }
-    }
-    if (t >= F13.SPLASH + 5) {
-      mode = "idle";
-    }
-
-    // Phase id for HUD — dynamics-driven after SECO (not only public clock)
-    let phase: PhaseId;
-    if (t < 12) phase = "launch";
-    else if (t < F13.SECO) phase = "ascent";
-    else if (mode === "land") phase = "descent";
-    else if (
-      prop.staged &&
-      t >= F13.RELIGHT &&
-      alt < 120
-    ) {
-      // Atmospheric interface by altitude after deorbit window opens
-      phase = "entry";
-    } else phase = "coast";
-
-    // Step size
-    let dt = 1.0;
-    if (mode === "boost" || mode === "hot_stage" || mode === "upper") dt = 0.25;
-    else if (mode === "land" || mode === "relight") dt = 0.15;
-    else if (phase === "entry" || alt < 120) dt = 0.4;
-    else if (phase === "coast") dt = 2.0;
-    dt = Math.min(dt, maxT - state.t);
-    if (dt < 1e-4) break;
-
-    rk4Step(state, dt, thrustFn, accelOpts);
-
-    // Surface clamp only: never tunnel underground (no altitude-hold floor)
-    {
-      const b = getBodies(state.t, epoch);
-      sub(_relP, state.pos, b.earth);
-      const L = len(_relP) || 1;
-      const curAlt = L - R_EARTH;
-      if (curAlt < 0.02 && state.t < F13.SPLASH - 1) {
-        const holdR = R_EARTH + 0.02;
-        state.pos.x = b.earth.x + (_relP.x / L) * holdR;
-        state.pos.y = b.earth.y + (_relP.y / L) * holdR;
-        state.pos.z = b.earth.z + (_relP.z / L) * holdR;
-        sub(_relV, state.vel, b.earthVel);
-        const vr = dot(_relV, _relP) / L;
-        if (vr < 0) {
-          state.vel.x -= (_relP.x / L) * vr;
-          state.vel.y -= (_relP.y / L) * vr;
-          state.vel.z -= (_relP.z / L) * vr;
-        }
-        // Surface friction once decked (skid, not powered cruise)
-        state.vel.x = b.earthVel.x + (state.vel.x - b.earthVel.x) * 0.96;
-        state.vel.y = b.earthVel.y + (state.vel.y - b.earthVel.y) * 0.96;
-        state.vel.z = b.earthVel.z + (state.vel.z - b.earthVel.z) * 0.96;
-      }
-    }
-
-    // Book propellant once per step
-    if (lastBoostN > 1e-3 && !prop.staged) {
-      burnForce(prop, state.t, lastBoostN, "booster");
-    } else if (lastBoostN > 1e-3) {
-      burnForce(prop, state.t, lastBoostN, "ship");
-    }
-    if (lastShipN > 1e-3) {
-      burnForce(prop, state.t, lastShipN, "ship");
-    }
-    if (lastThrustN < 1e-3) {
-      coastProp(prop, state.t);
-    }
-
-    // Natural splashdown: low, slow, and near the theater fix — or public clock
-    {
-      const b = getBodies(state.t, epoch);
-      const surf = splashSurfaceInertial(state.t, _tmp, epoch);
-      sub(_relP, state.pos, b.earth);
-      const L = len(_relP) || 1;
-      const curAlt = L - R_EARTH;
-      sub(_relV, state.vel, b.earthVel);
-      const vRel = len(_relV);
-      const ang = Math.acos(
-        Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))),
-      );
-      const rangeKm = ang * R_EARTH;
-      const naturalDone =
-        mode === "land" &&
-        curAlt < 2.5 &&
-        vRel < 0.35 &&
-        rangeKm < 180 &&
-        t >= F13.ENTRY;
-      const clockDone = t >= F13.SPLASH - 0.1;
-      if (naturalDone || clockDone) {
-        const targetR = R_EARTH + 0.02;
-        if (rangeKm < 200) {
-          state.pos.x = b.earth.x + surf.x * targetR;
-          state.pos.y = b.earth.y + surf.y * targetR;
-          state.pos.z = b.earth.z + surf.z * targetR;
-        } else {
-          // Dynamics miss: land under the craft, not a multi-Mm teleport
-          state.pos.x = b.earth.x + (_relP.x / L) * targetR;
-          state.pos.y = b.earth.y + (_relP.y / L) * targetR;
-          state.pos.z = b.earth.z + (_relP.z / L) * targetR;
-        }
-        state.vel.x = b.earthVel.x;
-        state.vel.y = b.earthVel.y;
-        state.vel.z = b.earthVel.z;
-        pushSample(samples, state, "splashdown", false, prop, 0);
-        break;
-      }
-    }
-
-    const burning = lastThrustN > 1e3;
-    const last = samples[samples.length - 1]!;
-    const minDt =
-      phase === "launch" || mode === "boost" || mode === "hot_stage"
-        ? 0.2
-        : phase === "coast" && mode === "idle"
-          ? 4
-          : 0.4;
-    if (
-      state.t - last.t >= minDt ||
-      phase !== last.phase ||
-      burning !== last.burning
-    ) {
-      pushSample(samples, state, phase, burning, prop, lastThrustN);
-    }
-  }
-
-  // Ensure terminal splash sample
-  const last = samples[samples.length - 1]!;
-  if (last.phase !== "splashdown") {
-    pushSample(samples, state, "splashdown", false, prop, 0);
-  }
-
-  const durationS = samples[samples.length - 1]!.t;
-  const meta = deriveTrajectoryMeta(samples, epoch);
-  const raw: MissionResult = {
-    samples,
-    durationS,
-    moonPhase0: epoch.moonPhase0,
-    translunarInjectionDeltaV: 0,
-    minMoonAlt: Infinity,
-    ok: true,
-    message:
-      "Flight 13 · suborbital · Indian Ocean splashdown (theater timeline)",
-    peakSpeedKmS: meta.peakSpeedKmS,
-    stageT: meta.stageT,
-    horizonsLandingT: durationS,
-  };
-
-  const out = downsampleTrajectory(raw);
-  out.horizonsLandingT = durationS;
-  out.peakSpeedKmS = meta.peakSpeedKmS;
+function stampFlight13Out(
+  out: MissionResult,
+  durationS: number,
+  meta: ReturnType<typeof deriveTrajectoryMeta>,
+  gravity: GravityModel | undefined,
+): MissionResult {
+  out.horizonsLandingT = durationS; out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT ?? F13.HOT_STAGE;
   out.minMoonAlt = Infinity;
-  const gLabel = accelOpts.gravity === "earth" ? "earth-only" : "n-body";
+  const gLabel = gravity === "earth" ? "earth-only" : "n-body";
   console.info(
     `[flight13] ${out.message} · ${gLabel} · duration=${(out.durationS / 60).toFixed(1)} min · samples=${out.samples.length} · stageT=${out.stageT?.toFixed(0)}s`,
   );
   return out;
+}
+
+/** Pack + downsample Flight 13 result. */
+function finalizeFlight13(loop: F13Loop): MissionResult {
+  const last = loop.samples[loop.samples.length - 1]!;
+  if (last.phase !== "splashdown") {
+    pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
+  }
+  const durationS = loop.samples[loop.samples.length - 1]!.t;
+  const meta = deriveTrajectoryMeta(loop.samples, loop.epoch);
+  const out = downsampleTrajectory(makeFlight13Raw(loop, durationS, meta));
+  return stampFlight13Out(out, durationS, meta, loop.accelOpts.gravity);
+}
+
+function padLiftoffState(epoch: EphemerisEpoch): CraftState {
+  const pad = starbasePadState(0, epoch);
+  const state: CraftState = { t: 0, pos: clone(pad.pos), vel: clone(pad.vel) };
+  state.vel.x += pad.up.x * 0.015;
+  state.vel.y += pad.up.y * 0.015;
+  state.vel.z += pad.up.z * 0.015;
+  return state;
+}
+
+function emptyF13Loop(epoch: EphemerisEpoch, gravity: GravityModel): F13Loop {
+  return {
+    state: padLiftoffState(epoch), samples: [], prop: createPropState(0), epoch,
+    mode: "boost", hotStageT0: -1, lastThrustN: 0, lastBoostN: 0, lastShipN: 0,
+    thrAcc: v3(), accelOpts: { gravity, epoch },
+  };
+}
+
+/**
+ * Integrate Flight 13 from liftoff through Indian Ocean splashdown.
+ */
+function initFlight13Loop(opts?: Flight13MissionOptions): F13Loop {
+  const epoch = opts?.epoch ?? makeFlight13Epoch(0, 0);
+  return emptyF13Loop(epoch, opts?.gravity ?? "nbody");
+}
+
+function flight13PostStep(loop: F13Loop, phase: PhaseId): boolean {
+  surfaceClamp(loop);
+  bookFlight13Prop(loop);
+  if (trySplashdown(loop)) return false;
+  maybePushFlight13Sample(loop, phase);
+  return true;
+}
+
+function flight13Step(loop: F13Loop, thrustFn: ThrustFn, maxT: number): boolean {
+  const alt = altitudeEarth(loop.state.t, loop.state.pos, loop.epoch);
+  advanceFlight13Mode(loop, alt);
+  const phase = flight13Phase(loop, alt);
+  const dt = flight13Dt(loop, phase, alt, maxT);
+  if (dt < 1e-4) return false;
+  rk4Step(loop.state, dt, thrustFn, loop.accelOpts);
+  return flight13PostStep(loop, phase);
+}
+
+export function runFlight13Mission(opts?: Flight13MissionOptions): MissionResult {
+  const loop = initFlight13Loop(opts);
+  const thrustFn = makeFlight13ThrustFn(loop);
+  pushSample(loop.samples, loop.state, "launch", true, loop.prop, peakForceN("boost", 0.98));
+  const maxT = F13.SPLASH + 2;
+  while (loop.state.t < maxT) {
+    if (!flight13Step(loop, thrustFn, maxT)) break;
+  }
+  return finalizeFlight13(loop);
 }

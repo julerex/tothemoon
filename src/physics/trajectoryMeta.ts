@@ -42,31 +42,23 @@ export type SampleLikeForMeta = {
  * Scan lunar-relevant phases for lowest altitude above mean lunar radius.
  * Matches the pre-v2 load-time path so fallbacks stay consistent.
  */
+const MIN_ALT_PHASES = new Set(["approach", "braking", "descent", "landed", "impact", "coast"]);
+
+function moonAltAt(s: SampleLikeForMeta, epoch: EphemerisEpoch): number | null {
+  if (!MIN_ALT_PHASES.has(s.phase as string)) return null;
+  const b = bodyPositions(s.t, epoch);
+  const d = Math.hypot(s.pos.x - b.moon.x, s.pos.y - b.moon.y, s.pos.z - b.moon.z);
+  if (s.phase === "coast" && d > 80_000) return null;
+  return d - R_MOON;
+}
+
 export function computeMinMoonAlt(
-  samples: SampleLikeForMeta[],
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  samples: SampleLikeForMeta[], epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
   let minAlt = Infinity;
   for (const s of samples) {
-    if (
-      s.phase !== "approach" &&
-      s.phase !== "braking" &&
-      s.phase !== "descent" &&
-      s.phase !== "landed" &&
-      s.phase !== "impact" &&
-      s.phase !== "coast"
-    ) {
-      continue;
-    }
-    const b = bodyPositions(s.t, epoch);
-    const d = Math.hypot(
-      s.pos.x - b.moon.x,
-      s.pos.y - b.moon.y,
-      s.pos.z - b.moon.z,
-    );
-    // Coast: only late coast near the Moon (skip early cislunar)
-    if (s.phase === "coast" && d > 80_000) continue;
-    minAlt = Math.min(minAlt, d - R_MOON);
+    const a = moonAltAt(s, epoch);
+    if (a != null) minAlt = Math.min(minAlt, a);
   }
   return Number.isFinite(minAlt) ? minAlt : 0;
 }
@@ -108,26 +100,29 @@ export function deriveTrajectoryMeta(
  * Prefer packed meta when finite; otherwise derive from samples.
  * Accepts partial v1 packs (missing peak/stage) without throwing.
  */
+function resolveMinAlt(packed: Partial<TrajectoryPackMeta> | null | undefined, derived: TrajectoryPackMeta): number {
+  return packed?.minMoonAlt != null && Number.isFinite(packed.minMoonAlt) ? packed.minMoonAlt : derived.minMoonAlt;
+}
+
+function resolvePeak(packed: Partial<TrajectoryPackMeta> | null | undefined, derived: TrajectoryPackMeta): number {
+  return packed?.peakSpeedKmS != null && Number.isFinite(packed.peakSpeedKmS) && packed.peakSpeedKmS >= 0
+    ? packed.peakSpeedKmS : derived.peakSpeedKmS;
+}
+
+function resolveStageT(packed: Partial<TrajectoryPackMeta> | null | undefined, derived: TrajectoryPackMeta): number | null {
+  if (!packed || !("stageT" in packed)) return derived.stageT;
+  if (packed.stageT == null) return null;
+  return Number.isFinite(packed.stageT) ? packed.stageT : derived.stageT;
+}
+
 export function resolveTrajectoryMeta(
   packed: Partial<TrajectoryPackMeta> | null | undefined,
-  samples: SampleLikeForMeta[],
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  samples: SampleLikeForMeta[], epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): TrajectoryPackMeta {
   const derived = deriveTrajectoryMeta(samples, epoch);
-  const minMoonAlt =
-    packed?.minMoonAlt != null && Number.isFinite(packed.minMoonAlt)
-      ? packed.minMoonAlt
-      : derived.minMoonAlt;
-  const peakSpeedKmS =
-    packed?.peakSpeedKmS != null &&
-    Number.isFinite(packed.peakSpeedKmS) &&
-    packed.peakSpeedKmS >= 0
-      ? packed.peakSpeedKmS
-      : derived.peakSpeedKmS;
-  let stageT: number | null = derived.stageT;
-  if (packed && "stageT" in packed) {
-    if (packed.stageT == null) stageT = null;
-    else if (Number.isFinite(packed.stageT)) stageT = packed.stageT;
-  }
-  return { minMoonAlt, peakSpeedKmS, stageT };
+  return {
+    minMoonAlt: resolveMinAlt(packed, derived),
+    peakSpeedKmS: resolvePeak(packed, derived),
+    stageT: resolveStageT(packed, derived),
+  };
 }

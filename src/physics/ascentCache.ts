@@ -29,33 +29,42 @@ export function resetAscentCache(): void {
   _ascentClockUtc = undefined;
 }
 
+function ascentCacheHit(epoch: EphemerisEpoch): boolean {
+  return !!(
+    _ascentCache &&
+    _ascentPhaseKey === epoch.moonPhase0 &&
+    _ascentLandTKey === epoch.horizonsLandingT &&
+    _ascentUseHorizons === epoch.useHorizons &&
+    _ascentSunPhase0 === epoch.sunPhase0 &&
+    _ascentClockUtc === epoch.clockUtcMsAtT0
+  );
+}
+
+function storeAscentKeys(epoch: EphemerisEpoch): void {
+  _ascentPhaseKey = epoch.moonPhase0;
+  _ascentLandTKey = epoch.horizonsLandingT;
+  _ascentUseHorizons = epoch.useHorizons;
+  _ascentSunPhase0 = epoch.sunPhase0;
+  _ascentClockUtc = epoch.clockUtcMsAtT0;
+}
+
+function logAscent(a: AscentResult): void {
+  console.info(
+    `[tothemoon] Ascent ${a.ok ? "OK" : "FAIL"}: ${a.message} · ` +
+      `t=${(a.state.t / 60).toFixed(1)} min · alt=${a.insertionAlt.toFixed(1)} km · ` +
+      `v=${a.insertionSpeed.toFixed(3)} km/s · samples=${a.samples.length}`,
+  );
+}
+
 /**
  * Ensure ascent matches the given ephemeris (moon phase + Horizons landing map).
  * landT / sun / horizons flag are part of the key: craft absolute positions sit
  * on moving Earth.
  */
 export function ensureAscent(epoch: EphemerisEpoch): AscentResult {
-  const landT = epoch.horizonsLandingT;
-  if (
-    _ascentCache &&
-    _ascentPhaseKey === epoch.moonPhase0 &&
-    _ascentLandTKey === landT &&
-    _ascentUseHorizons === epoch.useHorizons &&
-    _ascentSunPhase0 === epoch.sunPhase0 &&
-    _ascentClockUtc === epoch.clockUtcMsAtT0
-  ) {
-    return _ascentCache;
-  }
-  _ascentPhaseKey = epoch.moonPhase0;
-  _ascentLandTKey = landT;
-  _ascentUseHorizons = epoch.useHorizons;
-  _ascentSunPhase0 = epoch.sunPhase0;
-  _ascentClockUtc = epoch.clockUtcMsAtT0;
+  if (ascentCacheHit(epoch)) return _ascentCache!;
+  storeAscentKeys(epoch);
   _ascentCache = flyAscent(epoch);
-  console.info(
-    `[tothemoon] Ascent ${_ascentCache.ok ? "OK" : "FAIL"}: ${_ascentCache.message} · ` +
-      `t=${(_ascentCache.state.t / 60).toFixed(1)} min · alt=${_ascentCache.insertionAlt.toFixed(1)} km · ` +
-      `v=${_ascentCache.insertionSpeed.toFixed(3)} km/s · samples=${_ascentCache.samples.length}`,
-  );
+  logAscent(_ascentCache);
   return _ascentCache;
 }

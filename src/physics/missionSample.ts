@@ -11,6 +11,33 @@ import type { CraftState } from "./integrator";
 import { clone } from "./vec3";
 import type { PhaseId, Sample } from "./missionTypes";
 
+function applySampleProp(
+  prop: PropState, t: number, aUse: number, tank: Tank, consumeFuel: boolean,
+): number {
+  if (aUse > 0 && consumeFuel) return burnProp(prop, t, aUse, tank);
+  if (aUse > 0) { const n = thrustForceN(prop, aUse); coastProp(prop, t); return n; }
+  coastProp(prop, t);
+  return 0;
+}
+
+function sampleThrustFuel(
+  prop: PropState | null, t: number, aKmS2: number, tank: Tank, consumeFuel: boolean,
+): { thrustN: number; fuelBooster: number; fuelShip: number } {
+  if (!prop) return { thrustN: 0, fuelBooster: 0, fuelShip: 1 };
+  const thrustN = applySampleProp(prop, t, aKmS2 >= 1e-4 ? aKmS2 : 0, tank, consumeFuel);
+  return { thrustN, fuelBooster: fuelBoosterFrac(prop), fuelShip: fuelShipFrac(prop) };
+}
+
+function makeSample(
+  state: CraftState, phase: PhaseId, burning: boolean, prop: PropState | null,
+  thrustN: number, fuelBooster: number, fuelShip: number,
+): Sample {
+  return {
+    t: state.t, pos: clone(state.pos), vel: clone(state.vel), phase, burning,
+    fuelBooster, fuelShip, thrustN, staged: prop?.staged ?? false,
+  };
+}
+
 /**
  * Append a trajectory sample, optionally consuming propellant for HUD thrust.
  * Shared by low Earth orbit coast, Translunar injection coast, and capture legs.
@@ -31,36 +58,6 @@ export function pushSample(
 ): void {
   if (!force && state.t - lastT.t < minDt) return;
   lastT.t = state.t;
-
-  let thrustN = 0;
-  let fuelBooster = 0;
-  let fuelShip = 1;
-  if (prop) {
-    // Floor tiny midcourse accel so coast reads idle on the HUD
-    const aUse = aKmS2 >= 1e-4 ? aKmS2 : 0;
-    if (aUse > 0) {
-      if (consumeFuel) {
-        thrustN = burnProp(prop, state.t, aUse, tank);
-      } else {
-        thrustN = thrustForceN(prop, aUse);
-        coastProp(prop, state.t);
-      }
-    } else {
-      coastProp(prop, state.t);
-    }
-    fuelBooster = fuelBoosterFrac(prop);
-    fuelShip = fuelShipFrac(prop);
-  }
-
-  samples.push({
-    t: state.t,
-    pos: clone(state.pos),
-    vel: clone(state.vel),
-    phase,
-    burning,
-    fuelBooster,
-    fuelShip,
-    thrustN,
-    staged: prop?.staged ?? false,
-  });
+  const f = sampleThrustFuel(prop, state.t, aKmS2, tank, consumeFuel);
+  samples.push(makeSample(state, phase, burning, prop, f.thrustN, f.fuelBooster, f.fuelShip));
 }

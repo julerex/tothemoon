@@ -53,38 +53,32 @@ export type Flight13ForceCompare = {
  * Interpolate sample trail at mission time t (linear in pos/vel).
  * Clamps to first/last sample.
  */
-export function sampleAtTime(samples: Sample[], t: number): Sample {
-  if (samples.length === 0) {
-    throw new Error("sampleAtTime: empty samples");
+function findBracket(samples: Sample[], t: number): { a: Sample; b: Sample; u: number } {
+  let lo = 0, hi = samples.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid]!.t <= t) lo = mid; else hi = mid;
   }
+  const a = samples[lo]!, b = samples[hi]!;
+  const dt = b.t - a.t;
+  return { a, b, u: dt > 1e-12 ? (t - a.t) / dt : 0 };
+}
+
+function lerpSample(a: Sample, b: Sample, t: number, u: number): Sample {
+  return {
+    ...a, t,
+    pos: { x: a.pos.x + (b.pos.x - a.pos.x) * u, y: a.pos.y + (b.pos.y - a.pos.y) * u, z: a.pos.z + (b.pos.z - a.pos.z) * u },
+    vel: { x: a.vel.x + (b.vel.x - a.vel.x) * u, y: a.vel.y + (b.vel.y - a.vel.y) * u, z: a.vel.z + (b.vel.z - a.vel.z) * u },
+  };
+}
+
+export function sampleAtTime(samples: Sample[], t: number): Sample {
+  if (samples.length === 0) throw new Error("sampleAtTime: empty samples");
   if (t <= samples[0]!.t) return samples[0]!;
   const last = samples[samples.length - 1]!;
   if (t >= last.t) return last;
-  let lo = 0;
-  let hi = samples.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (samples[mid]!.t <= t) lo = mid;
-    else hi = mid;
-  }
-  const a = samples[lo]!;
-  const b = samples[hi]!;
-  const dt = b.t - a.t;
-  const u = dt > 1e-12 ? (t - a.t) / dt : 0;
-  return {
-    ...a,
-    t,
-    pos: {
-      x: a.pos.x + (b.pos.x - a.pos.x) * u,
-      y: a.pos.y + (b.pos.y - a.pos.y) * u,
-      z: a.pos.z + (b.pos.z - a.pos.z) * u,
-    },
-    vel: {
-      x: a.vel.x + (b.vel.x - a.vel.x) * u,
-      y: a.vel.y + (b.vel.y - a.vel.y) * u,
-      z: a.vel.z + (b.vel.z - a.vel.z) * u,
-    },
-  };
+  const { a, b, u } = findBracket(samples, t);
+  return lerpSample(a, b, t, u);
 }
 
 function peakAltKm(samples: Sample[]): number {
@@ -99,98 +93,89 @@ function peakAltKm(samples: Sample[]): number {
 /**
  * Compare two sample trails (typically n-body vs Earth-only) at matched times.
  */
-export function summarizeForceDeviation(
-  nbodySamples: Sample[],
-  earthSamples: Sample[],
-  meta?: {
-    durationNbodyS?: number;
-    durationEarthS?: number;
-    stageTNbody?: number | null;
-    stageTEarth?: number | null;
-  },
-): Flight13ForceCompare {
-  if (nbodySamples.length < 2 || earthSamples.length < 2) {
-    return {
-      maxPosDevKm: 0,
-      maxVelDevKmS: 0,
-      maxAltDevKm: 0,
-      rmsPosDevKm: 0,
-      nPairs: 0,
-      coastMaxPosDevKm: 0,
-      coastMaxVelDevKmS: 0,
-      coastRmsPosDevKm: 0,
-      coastNPairs: 0,
-      peakAltNbodyKm: peakAltKm(nbodySamples),
-      peakAltEarthKm: peakAltKm(earthSamples),
-      durationNbodyS: meta?.durationNbodyS ?? 0,
-      durationEarthS: meta?.durationEarthS ?? 0,
-      stageTNbody: meta?.stageTNbody ?? null,
-      stageTEarth: meta?.stageTEarth ?? null,
-    };
-  }
+type DevAcc = {
+  maxPos: number; maxVel: number; maxAlt: number; sumSq: number; n: number;
+  coastMaxPos: number; coastMaxVel: number; coastSumSq: number; coastN: number;
+};
 
-  const tEnd = Math.min(
-    nbodySamples[nbodySamples.length - 1]!.t,
-    earthSamples[earthSamples.length - 1]!.t,
-  );
+function emptyDevAcc(): DevAcc {
+  return { maxPos: 0, maxVel: 0, maxAlt: 0, sumSq: 0, n: 0, coastMaxPos: 0, coastMaxVel: 0, coastSumSq: 0, coastN: 0 };
+}
 
-  let maxPos = 0;
-  let maxVel = 0;
-  let maxAlt = 0;
-  let sumSq = 0;
-  let n = 0;
+function pairDev(s: Sample, e: Sample): { dPos: number; dVel: number; dAlt: number } {
+  sub(_d, s.pos, e.pos);
+  const dPos = len(_d);
+  sub(_d, s.vel, e.vel);
+  return { dPos, dVel: len(_d), dAlt: Math.abs(altitudeEarth(s.t, s.pos) - altitudeEarth(e.t, e.pos)) };
+}
 
-  // Ballistic coast: after SECO energy insert, before deorbit relight
-  const coastT0 = F13.SECO + 30;
-  const coastT1 = F13.RELIGHT - 30;
-  let coastMaxPos = 0;
-  let coastMaxVel = 0;
-  let coastSumSq = 0;
-  let coastN = 0;
+function bumpMax(acc: DevAcc, d: { dPos: number; dVel: number; dAlt: number }): void {
+  if (d.dPos > acc.maxPos) acc.maxPos = d.dPos;
+  if (d.dVel > acc.maxVel) acc.maxVel = d.dVel;
+  if (d.dAlt > acc.maxAlt) acc.maxAlt = d.dAlt;
+  acc.sumSq += d.dPos * d.dPos;
+  acc.n++;
+}
 
+function accumulatePair(acc: DevAcc, s: Sample, d: { dPos: number; dVel: number; dAlt: number }): void {
+  bumpMax(acc, d);
+  if (s.t < F13.SECO + 30 || s.t > F13.RELIGHT - 30) return;
+  if (d.dPos > acc.coastMaxPos) acc.coastMaxPos = d.dPos;
+  if (d.dVel > acc.coastMaxVel) acc.coastMaxVel = d.dVel;
+  acc.coastSumSq += d.dPos * d.dPos;
+  acc.coastN++;
+}
+
+function scanDeviations(nbodySamples: Sample[], earthSamples: Sample[]): DevAcc {
+  const tEnd = Math.min(nbodySamples[nbodySamples.length - 1]!.t, earthSamples[earthSamples.length - 1]!.t);
+  const acc = emptyDevAcc();
   for (const s of nbodySamples) {
     if (s.t > tEnd + 1e-9) break;
-    const e = sampleAtTime(earthSamples, s.t);
-    sub(_d, s.pos, e.pos);
-    const dPos = len(_d);
-    sub(_d, s.vel, e.vel);
-    const dVel = len(_d);
-    const dAlt = Math.abs(
-      altitudeEarth(s.t, s.pos) - altitudeEarth(e.t, e.pos),
-    );
-    if (dPos > maxPos) maxPos = dPos;
-    if (dVel > maxVel) maxVel = dVel;
-    if (dAlt > maxAlt) maxAlt = dAlt;
-    sumSq += dPos * dPos;
-    n++;
-
-    if (s.t >= coastT0 && s.t <= coastT1) {
-      if (dPos > coastMaxPos) coastMaxPos = dPos;
-      if (dVel > coastMaxVel) coastMaxVel = dVel;
-      coastSumSq += dPos * dPos;
-      coastN++;
-    }
+    accumulatePair(acc, s, pairDev(s, sampleAtTime(earthSamples, s.t)));
   }
+  return acc;
+}
 
+function emptyCompare(
+  nbodySamples: Sample[], earthSamples: Sample[],
+  meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
+): Flight13ForceCompare {
   return {
-    maxPosDevKm: maxPos,
-    maxVelDevKmS: maxVel,
-    maxAltDevKm: maxAlt,
-    rmsPosDevKm: n > 0 ? Math.sqrt(sumSq / n) : 0,
-    nPairs: n,
-    coastMaxPosDevKm: coastMaxPos,
-    coastMaxVelDevKmS: coastMaxVel,
-    coastRmsPosDevKm: coastN > 0 ? Math.sqrt(coastSumSq / coastN) : 0,
-    coastNPairs: coastN,
-    peakAltNbodyKm: peakAltKm(nbodySamples),
-    peakAltEarthKm: peakAltKm(earthSamples),
-    durationNbodyS:
-      meta?.durationNbodyS ?? nbodySamples[nbodySamples.length - 1]!.t,
-    durationEarthS:
-      meta?.durationEarthS ?? earthSamples[earthSamples.length - 1]!.t,
-    stageTNbody: meta?.stageTNbody ?? null,
-    stageTEarth: meta?.stageTEarth ?? null,
+    maxPosDevKm: 0, maxVelDevKmS: 0, maxAltDevKm: 0, rmsPosDevKm: 0, nPairs: 0,
+    coastMaxPosDevKm: 0, coastMaxVelDevKmS: 0, coastRmsPosDevKm: 0, coastNPairs: 0,
+    peakAltNbodyKm: peakAltKm(nbodySamples), peakAltEarthKm: peakAltKm(earthSamples),
+    durationNbodyS: meta?.durationNbodyS ?? 0, durationEarthS: meta?.durationEarthS ?? 0,
+    stageTNbody: meta?.stageTNbody ?? null, stageTEarth: meta?.stageTEarth ?? null,
   };
+}
+
+function coastFields(acc: DevAcc) {
+  return {
+    coastMaxPosDevKm: acc.coastMaxPos, coastMaxVelDevKmS: acc.coastMaxVel,
+    coastRmsPosDevKm: acc.coastN > 0 ? Math.sqrt(acc.coastSumSq / acc.coastN) : 0, coastNPairs: acc.coastN,
+  };
+}
+
+function packCompare(
+  acc: DevAcc, nbodySamples: Sample[], earthSamples: Sample[],
+  meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
+): Flight13ForceCompare {
+  return {
+    maxPosDevKm: acc.maxPos, maxVelDevKmS: acc.maxVel, maxAltDevKm: acc.maxAlt,
+    rmsPosDevKm: acc.n > 0 ? Math.sqrt(acc.sumSq / acc.n) : 0, nPairs: acc.n, ...coastFields(acc),
+    peakAltNbodyKm: peakAltKm(nbodySamples), peakAltEarthKm: peakAltKm(earthSamples),
+    durationNbodyS: meta?.durationNbodyS ?? nbodySamples.at(-1)!.t,
+    durationEarthS: meta?.durationEarthS ?? earthSamples.at(-1)!.t,
+    stageTNbody: meta?.stageTNbody ?? null, stageTEarth: meta?.stageTEarth ?? null,
+  };
+}
+
+export function summarizeForceDeviation(
+  nbodySamples: Sample[], earthSamples: Sample[],
+  meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
+): Flight13ForceCompare {
+  if (nbodySamples.length < 2 || earthSamples.length < 2) return emptyCompare(nbodySamples, earthSamples, meta);
+  return packCompare(scanDeviations(nbodySamples, earthSamples), nbodySamples, earthSamples, meta);
 }
 
 /**
@@ -200,43 +185,25 @@ export function summarizeForceDeviation(
  */
 export function compareFlight13ToEarthOnly(
   nbodySamples: Sample[],
-  meta?: {
-    durationS?: number;
-    stageT?: number | null;
-  },
+  meta?: { durationS?: number; stageT?: number | null },
   earthOpts?: Flight13MissionOptions,
 ): Flight13ForceCompare {
-  const earth = runFlight13Mission({
-    ...earthOpts,
-    gravity: "earth",
-  });
+  const earth = runFlight13Mission({ ...earthOpts, gravity: "earth" });
   return summarizeForceDeviation(nbodySamples, earth.samples, {
-    durationNbodyS: meta?.durationS,
-    durationEarthS: earth.durationS,
-    stageTNbody: meta?.stageT ?? null,
-    stageTEarth: earth.stageT ?? null,
+    durationNbodyS: meta?.durationS, durationEarthS: earth.durationS,
+    stageTNbody: meta?.stageT ?? null, stageTEarth: earth.stageT ?? null,
   });
 }
 
 /**
  * Run Flight 13 under both force models and report path agreement.
  */
-export function compareFlight13ForceModels(
-  nbodyOpts?: Flight13MissionOptions,
-): Flight13ForceCompare {
-  const nbody = runFlight13Mission({
-    ...nbodyOpts,
-    gravity: "nbody",
-  });
-  const earth = runFlight13Mission({
-    ...nbodyOpts,
-    gravity: "earth",
-  });
+export function compareFlight13ForceModels(nbodyOpts?: Flight13MissionOptions): Flight13ForceCompare {
+  const nbody = runFlight13Mission({ ...nbodyOpts, gravity: "nbody" });
+  const earth = runFlight13Mission({ ...nbodyOpts, gravity: "earth" });
   return summarizeForceDeviation(nbody.samples, earth.samples, {
-    durationNbodyS: nbody.durationS,
-    durationEarthS: earth.durationS,
-    stageTNbody: nbody.stageT ?? null,
-    stageTEarth: earth.stageT ?? null,
+    durationNbodyS: nbody.durationS, durationEarthS: earth.durationS,
+    stageTNbody: nbody.stageT ?? null, stageTEarth: earth.stageT ?? null,
   });
 }
 

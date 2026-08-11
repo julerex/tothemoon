@@ -74,18 +74,16 @@ export function togglePolarOverlay(): boolean {
   return next;
 }
 
-export function ensurePolarOverlayBound(): void {
-  if (bound) return;
-  bound = true;
-  const { root, closeBtn } = els();
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => setPolarOverlayOpen(false));
-  }
+function bindPolarClose(root: HTMLElement | null, closeBtn: HTMLButtonElement | null): void {
+  if (closeBtn) closeBtn.addEventListener("click", () => setPolarOverlayOpen(false));
   if (root) {
     root.addEventListener("click", (ev) => {
       if (ev.target === root) setPolarOverlayOpen(false);
     });
   }
+}
+
+function bindPolarWindow(): void {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isPolarOverlayOpen()) {
       e.preventDefault();
@@ -95,4 +93,12 @@ export function ensurePolarOverlayBound(): void {
   window.addEventListener("resize", () => {
     if (isPolarOverlayOpen()) redrawPolarOverlay();
   });
+}
+
+export function ensurePolarOverlayBound(): void {
+  if (bound) return;
+  bound = true;
+  const { root, closeBtn } = els();
+  bindPolarClose(root, closeBtn);
+  bindPolarWindow();
 }

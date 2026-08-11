@@ -31,6 +31,75 @@ const LOCATOR_OPACITY = 0.55;
 const BOOSTBACK_THRUST_REF = 7e7; // ~half of ascent field, multi-engine boostback
 const LANDING_THRUST_REF = 2.5e7; // fewer engines into the catch
 
+/** Clone Super Heavy mesh for free-flyer recovery path. */
+function initDetachedBooster(proto: THREE.Object3D, meshScale: number): THREE.Group {
+  const booster = proto.clone(true) as THREE.Group;
+  booster.name = "booster-detached";
+  booster.visible = false;
+  booster.scale.setScalar(meshScale);
+  booster.userData.baseScale = meshScale;
+  return booster;
+}
+
+/** Multi-layer plume or legacy exhaust-glow from craft clone. */
+function findBoostPlume(booster: THREE.Group): THREE.Object3D | null {
+  const plume =
+    booster.getObjectByName("plume-booster") ??
+    booster.getObjectByName("exhaust-glow") ??
+    null;
+  if (plume) plume.visible = false;
+  return plume;
+}
+
+/** Local recovery plume light (world-km distance). */
+function makeBoosterExhaustLight(): THREE.PointLight {
+  const light = new THREE.PointLight(0xff9a58, 0, 0.28, 2);
+  light.name = "booster-recovery-light";
+  light.position.set(0, 0, -0.06);
+  return light;
+}
+
+function makeStageFlashMat(color: number, opacity: number): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+}
+
+function makeStageFlashMesh(
+  r: number,
+  w: number,
+  h: number,
+  mat: THREE.MeshBasicMaterial,
+  name: string,
+): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, w, h), mat);
+  mesh.name = name;
+  mesh.visible = false;
+  return mesh;
+}
+
+function makeStageFlashPair() {
+  const flashMat = makeStageFlashMat(0xffcc88, 0.85);
+  const boostbackFlashMat = makeStageFlashMat(0xffa060, 0);
+  return {
+    flashMat,
+    flash: makeStageFlashMesh(0.08, 12, 10, flashMat, "stage-flash"),
+    boostbackFlashMat,
+    boostbackFlash: makeStageFlashMesh(0.05, 10, 8, boostbackFlashMat, "boostback-flash"),
+  };
+}
+
+function makeBoosterLocator() {
+  const sprite = createLocatorSprite("#d4944a", "180, 120, 55", "booster-locator");
+  const mat = sprite.material as THREE.SpriteMaterial;
+  mat.opacity = LOCATOR_OPACITY;
+  return { sprite, mat };
+}
+
 export type StageEvent = {
   t: number;
   pos: THREE.Vector3;
@@ -73,68 +142,14 @@ export class StagingFx {
   private plumeLagT = 0;
 
   constructor(boosterPrototype: THREE.Object3D, meshScale = CRAFT_MESH_SCALE) {
-    this.booster = boosterPrototype.clone(true) as THREE.Group;
-    this.booster.name = "booster-detached";
-    this.booster.visible = false;
-    this.booster.scale.setScalar(meshScale);
-    this.booster.userData.baseScale = meshScale;
-
-    // Multi-layer plume from craft clone (V1); fall back to exhaust-glow sprite
-    const plume =
-      this.booster.getObjectByName("plume-booster") ??
-      this.booster.getObjectByName("exhaust-glow") ??
-      null;
-    this.boostPlume = plume;
-    if (this.boostPlume) this.boostPlume.visible = false;
-
-    // Local plume light (world km; parent scale does not apply to PointLight distance)
-    this.exhaustLight = new THREE.PointLight(0xff9a58, 0, 0.28, 2);
-    this.exhaustLight.name = "booster-recovery-light";
-    this.exhaustLight.position.set(0, 0, -0.06);
+    this.booster = initDetachedBooster(boosterPrototype, meshScale);
+    this.boostPlume = findBoostPlume(this.booster);
+    this.exhaustLight = makeBoosterExhaustLight();
     this.booster.add(this.exhaustLight);
-
-    this.group.add(this.booster);
-
-    this.flashMat = new THREE.MeshBasicMaterial({
-      color: 0xffcc88,
-      transparent: true,
-      opacity: 0.85,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    this.flash = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 12, 10),
-      this.flashMat,
-    );
-    this.flash.name = "stage-flash";
-    this.flash.visible = false;
-    this.group.add(this.flash);
-
-    // Brief boostback ignition cue (smaller / cooler than stage flash)
-    this.boostbackFlashMat = new THREE.MeshBasicMaterial({
-      color: 0xffa060,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    this.boostbackFlash = new THREE.Mesh(
-      new THREE.SphereGeometry(0.05, 10, 8),
-      this.boostbackFlashMat,
-    );
-    this.boostbackFlash.name = "boostback-flash";
-    this.boostbackFlash.visible = false;
-    this.group.add(this.boostbackFlash);
-
-    // Amber free-flyer locator — dimmer than ship red; ~30 s window in update()
-    this.locator = createLocatorSprite(
-      "#d4944a",
-      "180, 120, 55",
-      "booster-locator",
-    );
-    this.locatorMat = this.locator.material as THREE.SpriteMaterial;
-    this.locatorMat.opacity = LOCATOR_OPACITY;
-    this.group.add(this.locator);
+    ({ flashMat: this.flashMat, flash: this.flash,
+      boostbackFlashMat: this.boostbackFlashMat, boostbackFlash: this.boostbackFlash } = makeStageFlashPair());
+    ({ sprite: this.locator, mat: this.locatorMat } = makeBoosterLocator());
+    this.group.add(this.booster, this.flash, this.boostbackFlash, this.locator);
   }
 
   /**
@@ -151,6 +166,10 @@ export class StagingFx {
       this.keyframes = null;
       return;
     }
+    this.applyStageEvent(ev, recovery);
+  }
+
+  private applyStageEvent(ev: StageEvent, recovery: RecoveryProfile): void {
     this.stageState = {
       t: ev.t,
       pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
@@ -164,74 +183,70 @@ export class StagingFx {
    * @param craftQuat unused (kept for call-site compatibility)
    * @param camera optional — when set, drives far-range free-flyer locator
    */
-  update(
+  private hideAllFx(): void {
+    this.booster.visible = false;
+    this.flash.visible = false;
+    this.boostbackFlash.visible = false;
+    this.locator.visible = false;
+    this.exhaustLight.intensity = 0;
+    this.hidePlume();
+  }
+
+  private orientBooster(sample: ReturnType<typeof sampleBoosterRecovery>): void {
+    this.nose.set(sample.nose.x, sample.nose.y, sample.nose.z);
+    if (this.nose.lengthSq() <= 1e-12) return;
+    this.nose.normalize();
+    this.lookTarget.copy(this.booster.position).add(this.nose);
+    this.up.set(0, 1, 0);
+    if (Math.abs(this.nose.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
+    this.look.lookAt(this.lookTarget, this.booster.position, this.up);
+    this.quat.setFromRotationMatrix(this.look);
+    this.booster.quaternion.copy(this.quat);
+  }
+
+  private applyRecoverySample(
     missionT: number,
     craftPos: THREE.Vector3,
-    _craftQuat: THREE.Quaternion,
+    age: number,
+    sample: ReturnType<typeof sampleBoosterRecovery>,
     camera?: THREE.Camera,
   ): void {
-    if (!this.stage || !this.stageState || !this.keyframes) {
-      this.booster.visible = false;
-      this.flash.visible = false;
-      this.boostbackFlash.visible = false;
-      this.locator.visible = false;
-      this.exhaustLight.intensity = 0;
-      this.hidePlume();
-      return;
-    }
-
-    const age = missionT - this.stage.t;
-    const visS = boosterVisibleS(recoverySchedule(this.recoveryProfile));
-    if (age < 0 || age > visS) {
-      this.booster.visible = false;
-      this.flash.visible = false;
-      this.boostbackFlash.visible = false;
-      this.locator.visible = false;
-      this.exhaustLight.intensity = 0;
-      this.hidePlume();
-      return;
-    }
-
-    const sample = sampleBoosterRecovery(
-      this.stageState,
-      age,
-      this.keyframes,
-      this.recoveryProfile,
-    );
-
-    if (sample.fade < 0.02 || sample.phase === "done") {
-      this.booster.visible = false;
-      this.flash.visible = age >= 0 && age <= FLASH_S;
-      this.boostbackFlash.visible = false;
-      this.locator.visible = false;
-      this.exhaustLight.intensity = 0;
-      this.hidePlume();
-      if (this.flash.visible) this.updateFlash(age, craftPos);
-      return;
-    }
-
     this.booster.visible = true;
     this.booster.position.set(sample.pos.x, sample.pos.y, sample.pos.z);
-
-    // Nose (+Z) along sample.nose — same Matrix4.lookAt convention as main craft
-    this.nose.set(sample.nose.x, sample.nose.y, sample.nose.z);
-    if (this.nose.lengthSq() > 1e-12) {
-      this.nose.normalize();
-      this.lookTarget.copy(this.booster.position).add(this.nose);
-      this.up.set(0, 1, 0);
-      if (Math.abs(this.nose.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
-      this.look.lookAt(this.lookTarget, this.booster.position, this.up);
-      this.quat.setFromRotationMatrix(this.look);
-      this.booster.quaternion.copy(this.quat);
-    }
-
+    this.orientBooster(sample);
     const baseScale = this.booster.userData.baseScale as number;
     this.booster.scale.setScalar(baseScale * Math.max(sample.fade, 0.001));
-
     this.updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
     this.updateFlash(age, craftPos);
     this.updateBoostbackFlash(age);
     this.updateLocator(age, camera);
+  }
+
+  private recoveryAge(missionT: number): number | null {
+    if (!this.stage || !this.stageState || !this.keyframes) return null;
+    const age = missionT - this.stage.t;
+    if (age < 0 || age > boosterVisibleS(recoverySchedule(this.recoveryProfile))) return null;
+    return age;
+  }
+
+  private finishOrHide(
+    age: number, craftPos: THREE.Vector3, sample: ReturnType<typeof sampleBoosterRecovery>,
+  ): boolean {
+    if (sample.fade >= 0.02 && sample.phase !== "done") return false;
+    this.hideAllFx();
+    this.flash.visible = age >= 0 && age <= FLASH_S;
+    if (this.flash.visible) this.updateFlash(age, craftPos);
+    return true;
+  }
+
+  update(
+    missionT: number, craftPos: THREE.Vector3, _craftQuat: THREE.Quaternion, camera?: THREE.Camera,
+  ): void {
+    const age = this.recoveryAge(missionT);
+    if (age == null) { this.hideAllFx(); return; }
+    const sample = sampleBoosterRecovery(this.stageState!, age, this.keyframes!, this.recoveryProfile);
+    if (this.finishOrHide(age, craftPos, sample)) return;
+    this.applyRecoverySample(missionT, craftPos, age, sample, camera);
   }
 
   private hidePlume(): void {
@@ -242,11 +257,56 @@ export class StagingFx {
     this.plumeLagU = 0;
   }
 
+  private recoveryFlicker(missionT: number): number {
+    return (
+      0.9 +
+      0.06 * Math.sin(missionT * 53.1) +
+      0.04 * Math.sin(missionT * 91.7 + 1.3) +
+      0.03 * Math.sin(missionT * 137.2 + 0.4)
+    );
+  }
+
+  private lagRecoveryThrust(
+    missionT: number, throttle: number, phase: string,
+  ): number {
+    const isLanding = phase === "landing";
+    const thrN = throttle * (isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF);
+    const ref = isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF;
+    const uTarget = Math.min(1, thrN / ref) * throttle;
+    const u = plumeThrustLag(this.plumeLagU, uTarget, this.plumeLagT, missionT);
+    this.plumeLagU = u;
+    this.plumeLagT = missionT;
+    return u;
+  }
+
+  private applyRecoveryPlumeVisual(
+    u: number, look: ReturnType<typeof plumeLook>, flicker: number, missionT: number,
+  ): void {
+    if (this.boostPlume && this.boostPlume.name === "plume-booster") {
+      applyPlumeLayers(this.boostPlume, u, look, flicker, missionT);
+    } else if (this.boostPlume) {
+      this.applyLegacyPlumeSprite(u, look, flicker);
+    }
+    this.exhaustLight.intensity = (1.2 + 2.0 * u) * look.lightI * flicker;
+    this.exhaustLight.color.setRGB(look.light[0]!, look.light[1]!, look.light[2]!);
+    this.exhaustLight.distance = (0.14 + 0.16 * u) * look.lightDist;
+    this.exhaustLight.position.set(0, 0, -0.05);
+  }
+
+  private applyLegacyPlumeSprite(
+    u: number, look: ReturnType<typeof plumeLook>, flicker: number,
+  ): void {
+    if (!this.boostPlume) return;
+    this.boostPlume.visible = true;
+    const s = (0.3 + 0.4 * u) * look.radial * flicker;
+    this.boostPlume.scale.set(s, s * look.length, 1);
+    const mat = (this.boostPlume as THREE.Sprite).material as THREE.SpriteMaterial;
+    mat.opacity = (0.3 + 0.35 * u) * look.opacity * flicker;
+    this.boostPlume.position.z = -0.1 - 0.05 * u;
+  }
+
   private updatePlume(
-    missionT: number,
-    burning: boolean,
-    throttle: number,
-    phase: string,
+    missionT: number, burning: boolean, throttle: number, phase: string,
   ): void {
     if (!burning || throttle < 0.02) {
       this.hidePlume();
@@ -254,53 +314,9 @@ export class StagingFx {
       this.plumeLagT = missionT;
       return;
     }
-
-    const flicker =
-      0.9 +
-      0.06 * Math.sin(missionT * 53.1) +
-      0.04 * Math.sin(missionT * 91.7 + 1.3) +
-      0.03 * Math.sin(missionT * 137.2 + 0.4);
-
-    const isLanding = phase === "landing";
-    const thrN =
-      throttle * (isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF);
-    const ref = isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF;
-    const uTarget = Math.min(1, thrN / ref) * throttle;
-    const u = plumeThrustLag(
-      this.plumeLagU,
-      uTarget,
-      this.plumeLagT,
-      missionT,
-    );
-    this.plumeLagU = u;
-    this.plumeLagT = missionT;
-
-    const regime = plumeRegimeFor(undefined, "booster", {
-      recoveryPhase: phase,
-    });
-    const look = plumeLook(regime, "booster");
-
-    if (this.boostPlume && this.boostPlume.name === "plume-booster") {
-      applyPlumeLayers(this.boostPlume, u, look, flicker, missionT);
-    } else if (this.boostPlume) {
-      // Legacy single sprite fallback
-      this.boostPlume.visible = true;
-      const s = (0.3 + 0.4 * u) * look.radial * flicker;
-      this.boostPlume.scale.set(s, s * look.length, 1);
-      const mat = (this.boostPlume as THREE.Sprite)
-        .material as THREE.SpriteMaterial;
-      mat.opacity = (0.3 + 0.35 * u) * look.opacity * flicker;
-      this.boostPlume.position.z = -0.1 - 0.05 * u;
-    }
-
-    this.exhaustLight.intensity = (1.2 + 2.0 * u) * look.lightI * flicker;
-    this.exhaustLight.color.setRGB(
-      look.light[0]!,
-      look.light[1]!,
-      look.light[2]!,
-    );
-    this.exhaustLight.distance = (0.14 + 0.16 * u) * look.lightDist;
-    this.exhaustLight.position.set(0, 0, -0.05);
+    const u = this.lagRecoveryThrust(missionT, throttle, phase);
+    const look = plumeLook(plumeRegimeFor(undefined, "booster", { recoveryPhase: phase }), "booster");
+    this.applyRecoveryPlumeVisual(u, look, this.recoveryFlicker(missionT), missionT);
   }
 
   private updateFlash(age: number, craftPos: THREE.Vector3): void {
@@ -310,29 +326,28 @@ export class StagingFx {
     }
     const u = age / FLASH_S;
     this.flash.visible = true;
-    this.flash.position.copy(this.stage.pos);
-    if (age < 0.05) this.flash.position.copy(craftPos);
-    const s = 0.15 + u * 2.2;
-    this.flash.scale.setScalar(s);
+    this.flash.position.copy(age < 0.05 ? craftPos : this.stage.pos);
+    this.flash.scale.setScalar(0.15 + u * 2.2);
     this.flashMat.opacity = 0.9 * (1 - u) * (1 - u);
   }
 
   /** Tiny theater flash when boostback lights — readable at ship/Earth range. */
+  private placeBoostbackFlash(strength: number): void {
+    this.boostbackFlash.visible = true;
+    this.boostbackFlash.position.copy(this.booster.position);
+    this.nose.set(0, 0, -1).applyQuaternion(this.booster.quaternion);
+    this.boostbackFlash.position.addScaledVector(this.nose, 0.04);
+    this.boostbackFlash.scale.setScalar(0.06 + strength * 0.55);
+    this.boostbackFlashMat.opacity = 0.75 * strength;
+  }
+
   private updateBoostbackFlash(age: number): void {
     const strength = boostbackFlashStrength(age);
     if (strength < 0.02) {
       this.boostbackFlash.visible = false;
       return;
     }
-    this.boostbackFlash.visible = true;
-    // Sit near engine bells (−Z local); world position follows free-flyer
-    this.boostbackFlash.position.copy(this.booster.position);
-    this.nose.set(0, 0, -1).applyQuaternion(this.booster.quaternion);
-    this.boostbackFlash.position.addScaledVector(this.nose, 0.04);
-    // Compact pulse: smaller than stage flash, peaks early then decays
-    const s = 0.06 + strength * 0.55;
-    this.boostbackFlash.scale.setScalar(s);
-    this.boostbackFlashMat.opacity = 0.75 * strength;
+    this.placeBoostbackFlash(strength);
   }
 
   /**
@@ -346,13 +361,8 @@ export class StagingFx {
       return;
     }
     this.locator.position.copy(this.booster.position);
-    updateLocatorVisibility(this.locator, camera, this.booster.position, {
-      sizeKm: boosterLengthKm(),
-    });
-    // updateLocatorVisibility may hide when mesh is readable — keep that, just dim
-    if (this.locator.visible) {
-      this.locatorMat.opacity = LOCATOR_OPACITY * strength;
-    }
+    updateLocatorVisibility(this.locator, camera, this.booster.position, { sizeKm: boosterLengthKm() });
+    if (this.locator.visible) this.locatorMat.opacity = LOCATOR_OPACITY * strength;
   }
 }
 

@@ -9,7 +9,7 @@
  */
 import "./style.css";
 import { bindMenus } from "./app/menus";
-import { missionByPath } from "./app/missionCatalog";
+import { missionByPath, type MissionDef } from "./app/missionCatalog";
 import { navigate, parseRoute, setShellView } from "./app/shell";
 
 /** Once a full theater is running we avoid double-start without reload. */
@@ -17,80 +17,82 @@ let theaterStarted = false;
 
 bindMenus();
 
+function hideBriefing(): void {
+  const briefing = document.getElementById("flight13-briefing");
+  if (briefing) briefing.hidden = true;
+}
+
+/** Reload if leaving an active theater via hash navigation. */
+function leaveTheaterIfNeeded(): boolean {
+  if (!theaterStarted) return false;
+  location.reload();
+  return true;
+}
+
+function showMenuView(
+  view: "main" | "missions" | "glossary",
+  title: string,
+): void {
+  if (leaveTheaterIfNeeded()) return;
+  hideBriefing();
+  setShellView(view);
+  document.title = title;
+}
+
+async function startToTheMoonTheater(): Promise<void> {
+  theaterStarted = true;
+  setShellView("theater");
+  const { startToTheMoonMission } = await import("./missions/toTheMoon");
+  startToTheMoonMission();
+}
+
+async function startFlight13TheaterRoute(): Promise<void> {
+  theaterStarted = true;
+  setShellView("theater");
+  const { startFlight13Mission } = await import("./missions/flight13");
+  startFlight13Mission();
+}
+
+async function launchMissionTheater(def: MissionDef): Promise<void> {
+  if (def.id === "to-the-moon") {
+    await startToTheMoonTheater();
+    return;
+  }
+  if (def.id === "flight-13") {
+    await startFlight13TheaterRoute();
+    return;
+  }
+  navigate("/missions");
+}
+
+async function enterTheater(def: MissionDef): Promise<void> {
+  if (theaterStarted) {
+    setShellView("theater");
+    return;
+  }
+  await launchMissionTheater(def);
+}
+
 async function startMission(path: string): Promise<void> {
   const def = missionByPath(path);
   if (!def) {
     navigate("/missions");
     return;
   }
-
-  // Hide flight-13 briefing if leaving it
   hideBriefing();
-
-  if (def.id === "to-the-moon") {
-    if (theaterStarted) {
-      // Already in lunar theater (e.g. hash re-fire) — stay put
-      setShellView("theater");
-      return;
-    }
-    theaterStarted = true;
-    setShellView("theater");
-    const { startToTheMoonMission } = await import("./missions/toTheMoon");
-    startToTheMoonMission();
-    return;
-  }
-
-  if (def.id === "flight-13") {
-    if (theaterStarted) {
-      setShellView("theater");
-      return;
-    }
-    theaterStarted = true;
-    setShellView("theater");
-    const { startFlight13Mission } = await import("./missions/flight13");
-    startFlight13Mission();
-    return;
-  }
-
-  navigate("/missions");
+  await enterTheater(def);
 }
 
-function hideBriefing(): void {
-  const briefing = document.getElementById("flight13-briefing");
-  if (briefing) briefing.hidden = true;
+function applyMenuRoute(kind: "main" | "missions" | "glossary"): void {
+  if (kind === "main") showMenuView("main", "tothemoon");
+  else if (kind === "missions") showMenuView("missions", "tothemoon — Mission Menu");
+  else showMenuView("glossary", "tothemoon — Glossary");
 }
 
 function applyRoute(): void {
   const route = parseRoute();
-  if (route.kind === "main") {
-    if (theaterStarted) {
-      // Leaving an active theater via hash requires a clean reload
-      location.reload();
-      return;
-    }
-    hideBriefing();
-    setShellView("main");
-    document.title = "tothemoon";
-    return;
-  }
-  if (route.kind === "missions") {
-    if (theaterStarted) {
-      location.reload();
-      return;
-    }
-    hideBriefing();
-    setShellView("missions");
-    document.title = "tothemoon — Mission Menu";
-    return;
-  }
-  if (route.kind === "glossary") {
-    if (theaterStarted) {
-      location.reload();
-      return;
-    }
-    hideBriefing();
-    setShellView("glossary");
-    document.title = "tothemoon — Glossary";
+  if (route.kind === "main" || route.kind === "missions" || route.kind === "glossary") {
+    applyMenuRoute(route.kind);
     return;
   }
   if (route.kind === "mission" && route.missionPath) {

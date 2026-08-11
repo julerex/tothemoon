@@ -26,31 +26,38 @@ export function setTheaterVisible(visible: boolean): void {
   }
 }
 
+function showTheaterShell(): void {
+  const menusRoot = el("menus");
+  if (menusRoot) menusRoot.hidden = true;
+  setTheaterVisible(true);
+}
+
+function setMenuPanelVisibility(view: Exclude<ShellView, "theater">): void {
+  const mainMenu = el("main-menu");
+  const missionMenu = el("mission-menu");
+  const glossaryMenu = el("glossary-menu");
+  if (mainMenu) mainMenu.hidden = view !== "main";
+  if (missionMenu) missionMenu.hidden = view !== "missions";
+  if (glossaryMenu) glossaryMenu.hidden = view !== "glossary";
+}
+
+function showMenuShell(view: Exclude<ShellView, "theater">): void {
+  const menusRoot = el("menus");
+  setTheaterVisible(false);
+  if (menusRoot) menusRoot.hidden = false;
+  document.body.classList.add("menus-active");
+  document.body.classList.remove("theater-active");
+  setMenuPanelVisibility(view);
+}
+
 /**
  * Switch between main menu, mission picker, glossary, and (after a mission
  * starts) theater. Does not start mission code — only DOM visibility.
  */
 export function setShellView(view: ShellView): void {
   currentView = view;
-  const mainMenu = el("main-menu");
-  const missionMenu = el("mission-menu");
-  const glossaryMenu = el("glossary-menu");
-  const menusRoot = el("menus");
-
-  if (view === "theater") {
-    if (menusRoot) menusRoot.hidden = true;
-    setTheaterVisible(true);
-    return;
-  }
-
-  setTheaterVisible(false);
-  if (menusRoot) menusRoot.hidden = false;
-  document.body.classList.add("menus-active");
-  document.body.classList.remove("theater-active");
-
-  if (mainMenu) mainMenu.hidden = view !== "main";
-  if (missionMenu) missionMenu.hidden = view !== "missions";
-  if (glossaryMenu) glossaryMenu.hidden = view !== "glossary";
+  if (view === "theater") showTheaterShell();
+  else showMenuShell(view);
 }
 
 export function getShellView(): ShellView {
@@ -68,21 +75,26 @@ export function navigate(hashPath: string): void {
   location.hash = path;
 }
 
+type ParsedRoute = {
+  kind: "main" | "missions" | "glossary" | "mission";
+  missionPath?: string;
+};
+
+function parseMissionRoute(raw: string): ParsedRoute | null {
+  const m = raw.match(/^\/?mission\/([^/]+)$/);
+  if (!m?.[1]) return null;
+  return { kind: "mission", missionPath: m[1] };
+}
+
 /**
  * Parse location.hash into a route.
  * `#/` or empty → main; `#/missions` → picker; `#/glossary` → glossary;
  * `#/mission/<id>` → mission.
  */
-export function parseRoute(hash = location.hash): {
-  kind: "main" | "missions" | "glossary" | "mission";
-  missionPath?: string;
-} {
+export function parseRoute(hash = location.hash): ParsedRoute {
   const raw = (hash.replace(/^#/, "") || "/").replace(/\/+$/, "") || "/";
   if (raw === "/" || raw === "") return { kind: "main" };
   if (raw === "/missions" || raw === "missions") return { kind: "missions" };
   if (raw === "/glossary" || raw === "glossary") return { kind: "glossary" };
-  const m = raw.match(/^\/?mission\/([^/]+)$/);
-  if (m?.[1]) return { kind: "mission", missionPath: m[1] };
-  // Unknown → main menu
-  return { kind: "main" };
+  return parseMissionRoute(raw) ?? { kind: "main" };
 }

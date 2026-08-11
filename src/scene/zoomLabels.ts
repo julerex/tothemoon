@@ -47,6 +47,63 @@ export function markZoomLabel(
   sprite.renderOrder = 20;
 }
 
+function roundPillPath(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  bw: number,
+  bh: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0);
+  ctx.arcTo(x0 + bw, y0, x0 + bw, y0 + bh, r);
+  ctx.arcTo(x0 + bw, y0 + bh, x0, y0 + bh, r);
+  ctx.arcTo(x0, y0 + bh, x0, y0, r);
+  ctx.arcTo(x0, y0, x0 + bw, y0, r);
+  ctx.closePath();
+}
+
+function fillNamePill(ctx: CanvasRenderingContext2D, text: string): void {
+  ctx.font = "bold 34px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  // Soft pill background
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  const bw = Math.min(240, ctx.measureText(text).width + 28);
+  roundPillPath(ctx, (256 - bw) / 2, (64 - 40) / 2, bw, 40, 8);
+  ctx.fill();
+}
+
+function makeLabelCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  return canvas;
+}
+
+function finishNameLabelMap(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  return map;
+}
+
+function paintNameLabelCanvas(text: string, color: string): THREE.CanvasTexture {
+  const canvas = makeLabelCanvas();
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, 256, 64);
+  fillNamePill(ctx, text);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 128, 34);
+  return finishNameLabelMap(canvas);
+}
+
+function makeNameSpriteMat(map: THREE.CanvasTexture): THREE.SpriteMaterial {
+  return new THREE.SpriteMaterial({
+    map, transparent: true, depthWrite: false, sizeAttenuation: true,
+  });
+}
+
 /**
  * Body / craft name plate (canvas sprite). Screen size tracked by L-key zoom labels.
  */
@@ -55,46 +112,36 @@ export function createNameLabel(
   color: string,
   spec: ZoomLabelSpec = { targetPx: 18, aspect: 256 / 64, minH: 0.3 },
 ): THREE.Sprite {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.font = "bold 34px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  // Soft pill background
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  const tw = ctx.measureText(text).width;
-  const bw = Math.min(240, tw + 28);
-  const bh = 40;
-  const x0 = (256 - bw) / 2;
-  const y0 = (64 - bh) / 2;
-  const r = 8;
-  ctx.beginPath();
-  ctx.moveTo(x0 + r, y0);
-  ctx.arcTo(x0 + bw, y0, x0 + bw, y0 + bh, r);
-  ctx.arcTo(x0 + bw, y0 + bh, x0, y0 + bh, r);
-  ctx.arcTo(x0, y0 + bh, x0, y0, r);
-  ctx.arcTo(x0, y0, x0 + bw, y0, r);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = color;
-  ctx.fillText(text, 128, 34);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  const spr = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map,
-      transparent: true,
-      depthWrite: false,
-      sizeAttenuation: true,
-    }),
-  );
+  const spr = new THREE.Sprite(makeNameSpriteMat(paintNameLabelCanvas(text, color)));
   spr.name = `label-${text.toLowerCase()}`;
   markZoomLabel(spr, spec);
   spr.scale.set(spec.aspect * spec.minH * 4, spec.minH * 4, 1);
   return spr;
+}
+
+function zoomWorldHeight(
+  spec: ZoomLabelSpec, dist: number, viewH: number, tanHalf: number,
+): number {
+  const worldHeight = 2 * tanHalf * dist;
+  // Constant screen size; minH only floors when extremely close
+  let h = Math.max(spec.minH, (spec.targetPx / viewH) * worldHeight);
+  if (spec.maxH != null && Number.isFinite(spec.maxH)) h = Math.min(h, spec.maxH);
+  return h;
+}
+
+function scaleZoomSprite(
+  obj: THREE.Sprite,
+  spec: ZoomLabelSpec,
+  camera: THREE.PerspectiveCamera,
+  viewH: number,
+  tanHalf: number,
+): void {
+  obj.visible = labelsVisible;
+  if (!labelsVisible) return;
+  obj.getWorldPosition(_worldPos);
+  const dist = Math.max(1e-3, camera.position.distanceTo(_worldPos));
+  const h = zoomWorldHeight(spec, dist, viewH, tanHalf);
+  obj.scale.set(h * spec.aspect, h, 1);
 }
 
 /**
@@ -106,24 +153,10 @@ export function updateZoomLabels(
   camera: THREE.PerspectiveCamera,
 ): void {
   const viewH = window.innerHeight || 800;
-  const fov = (camera.fov * Math.PI) / 180;
-  const tanHalf = Math.tan(fov / 2);
-
+  const tanHalf = Math.tan((camera.fov * Math.PI) / 180 / 2);
   root.traverse((obj) => {
     const spec = obj.userData.zoomLabel as ZoomLabelSpec | undefined;
     if (!spec || !(obj instanceof THREE.Sprite)) return;
-
-    obj.visible = labelsVisible;
-    if (!labelsVisible) return;
-
-    obj.getWorldPosition(_worldPos);
-    const dist = Math.max(1e-3, camera.position.distanceTo(_worldPos));
-    const worldHeight = 2 * tanHalf * dist;
-    // Constant screen size; minH only floors when extremely close
-    let h = Math.max(spec.minH, (spec.targetPx / viewH) * worldHeight);
-    if (spec.maxH != null && Number.isFinite(spec.maxH)) {
-      h = Math.min(h, spec.maxH);
-    }
-    obj.scale.set(h * spec.aspect, h, 1);
+    scaleZoomSprite(obj, spec, camera, viewH, tanHalf);
   });
 }

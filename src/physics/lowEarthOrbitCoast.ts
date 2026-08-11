@@ -65,31 +65,22 @@ function clamp1(x: number): number {
 }
 
 /** Spherical linear interpolation of unit vectors (shortest arc). */
+function slerpFlip(b: V3, cosom: number): { cosom: number; bx: number; by: number; bz: number } {
+  if (cosom >= 0) return { cosom, bx: b.x, by: b.y, bz: b.z };
+  return { cosom: -cosom, bx: -b.x, by: -b.y, bz: -b.z };
+}
+
+function slerpNlerp(a: V3, bx: number, by: number, bz: number, t: number, out: V3): V3 {
+  out.x = a.x + t * (bx - a.x); out.y = a.y + t * (by - a.y); out.z = a.z + t * (bz - a.z);
+  return normalize(out, out);
+}
+
 function slerpUnit(a: V3, b: V3, t: number, out: V3): V3 {
-  let cosom = clamp1(dot(a, b));
-  let bx = b.x;
-  let by = b.y;
-  let bz = b.z;
-  // Prefer acute angle for plane normals / directions
-  if (cosom < 0) {
-    cosom = -cosom;
-    bx = -bx;
-    by = -by;
-    bz = -bz;
-  }
-  if (cosom > 0.9995) {
-    out.x = a.x + t * (bx - a.x);
-    out.y = a.y + t * (by - a.y);
-    out.z = a.z + t * (bz - a.z);
-    return normalize(out, out);
-  }
-  const omega = Math.acos(cosom);
-  const sinom = Math.sin(omega);
-  const s0 = Math.sin((1 - t) * omega) / sinom;
-  const s1 = Math.sin(t * omega) / sinom;
-  out.x = s0 * a.x + s1 * bx;
-  out.y = s0 * a.y + s1 * by;
-  out.z = s0 * a.z + s1 * bz;
+  const f = slerpFlip(b, clamp1(dot(a, b)));
+  if (f.cosom > 0.9995) return slerpNlerp(a, f.bx, f.by, f.bz, t, out);
+  const omega = Math.acos(f.cosom), sinom = Math.sin(omega);
+  const s0 = Math.sin((1 - t) * omega) / sinom, s1 = Math.sin(t * omega) / sinom;
+  out.x = s0 * a.x + s1 * f.bx; out.y = s0 * a.y + s1 * f.by; out.z = s0 * a.z + s1 * f.bz;
   return out;
 }
 
@@ -123,25 +114,12 @@ function projectToPlaneUnit(v: V3, n: V3, out: V3): V3 {
  * Circular low Earth orbit state: position along rHat, velocity n×rHat · v_circ
  * (prograde about normal n — co-rotating if n matches the Moon).
  */
-function setCircularLeo(
-  state: CraftState,
-  t: number,
-  rHat: V3,
-  n: V3,
-  epoch: EphemerisEpoch,
-): void {
-  const b = bodyPositions(t, epoch);
-  const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
-  // v_hat = n × r_hat
-  cross(_tangent, n, rHat);
-  normalize(_tangent, _tangent);
+function setCircularLeo(state: CraftState, t: number, rHat: V3, n: V3, epoch: EphemerisEpoch): void {
+  const b = bodyPositions(t, epoch), vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
+  cross(_tangent, n, rHat); normalize(_tangent, _tangent);
   state.t = t;
-  state.pos.x = b.earth.x + rHat.x * LOW_EARTH_ORBIT_RADIUS;
-  state.pos.y = b.earth.y + rHat.y * LOW_EARTH_ORBIT_RADIUS;
-  state.pos.z = b.earth.z + rHat.z * LOW_EARTH_ORBIT_RADIUS;
-  state.vel.x = b.earthVel.x + _tangent.x * vCirc;
-  state.vel.y = b.earthVel.y + _tangent.y * vCirc;
-  state.vel.z = b.earthVel.z + _tangent.z * vCirc;
+  set(state.pos, b.earth.x + rHat.x * LOW_EARTH_ORBIT_RADIUS, b.earth.y + rHat.y * LOW_EARTH_ORBIT_RADIUS, b.earth.z + rHat.z * LOW_EARTH_ORBIT_RADIUS);
+  set(state.vel, b.earthVel.x + _tangent.x * vCirc, b.earthVel.y + _tangent.y * vCirc, b.earthVel.z + _tangent.z * vCirc);
 }
 
 export function cloneState(s: CraftState): CraftState {
@@ -149,42 +127,24 @@ export function cloneState(s: CraftState): CraftState {
 }
 
 export function captureLowEarthOrbitRelative(
-  state: CraftState,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  state: CraftState, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): LowEarthOrbitRelative {
   const b = getBodies(state.t, epoch);
   return {
     t: state.t,
-    relPos: {
-      x: state.pos.x - b.earth.x,
-      y: state.pos.y - b.earth.y,
-      z: state.pos.z - b.earth.z,
-    },
-    relVel: {
-      x: state.vel.x - b.earthVel.x,
-      y: state.vel.y - b.earthVel.y,
-      z: state.vel.z - b.earthVel.z,
-    },
+    relPos: { x: state.pos.x - b.earth.x, y: state.pos.y - b.earth.y, z: state.pos.z - b.earth.z },
+    relVel: { x: state.vel.x - b.earthVel.x, y: state.vel.y - b.earthVel.y, z: state.vel.z - b.earthVel.z },
   };
 }
 
 export function restoreLowEarthOrbitRelative(
-  rel: LowEarthOrbitRelative,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  rel: LowEarthOrbitRelative, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): CraftState {
   const b = getBodies(rel.t, epoch);
   return {
     t: rel.t,
-    pos: {
-      x: b.earth.x + rel.relPos.x,
-      y: b.earth.y + rel.relPos.y,
-      z: b.earth.z + rel.relPos.z,
-    },
-    vel: {
-      x: b.earthVel.x + rel.relVel.x,
-      y: b.earthVel.y + rel.relVel.y,
-      z: b.earthVel.z + rel.relVel.z,
-    },
+    pos: { x: b.earth.x + rel.relPos.x, y: b.earth.y + rel.relPos.y, z: b.earth.z + rel.relPos.z },
+    vel: { x: b.earthVel.x + rel.relVel.x, y: b.earthVel.y + rel.relVel.y, z: b.earthVel.z + rel.relVel.z },
   };
 }
 
@@ -207,116 +167,96 @@ function planeChangeDv(vCirc: number, diRad: number): number {
  * normal rotation that step (smoothstep concentrates burn mid-coast).
  * In-plane prograde motion is free (orbital). No free plane slerp.
  */
-export function runLunarPlaneLowEarthOrbitCoast(
-  state: CraftState,
-  samples: Sample[] | null,
-  lastT: { t: number } | null,
-  prop: PropState | null = null,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): void {
-  const t0 = state.t;
-  const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
-  const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
-  // Fine samples so the plane-change arc is smooth (~10 s chords ≈ 70 km)
-  const steps = Math.max(180, Math.ceil(coastS / 10));
-  const dt = coastS / steps;
-  const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
-
+function leoAscentNormal(state: CraftState, t0: number, epoch: EphemerisEpoch): void {
   const b0 = bodyPositions(t0, epoch);
-  sub(_relP, state.pos, b0.earth);
-  sub(_relV, state.vel, b0.earthVel);
-
-  // Ascent orbital plane (prograde normal) — due-east parking ~site latitude
+  sub(_relP, state.pos, b0.earth); sub(_relV, state.vel, b0.earthVel);
   cross(_n0, _relP, _relV);
   if (len(_n0) < 1e-12) set(_n0, 0, 0, 1);
   normalize(_n0, _n0);
+}
 
-  // Target: south-biased transfer plane (matches translunar injection inject)
-  const t1 = t0 + coastS;
-  transferPlaneNormal(t1, _n1, epoch);
+function leoCoastGeom(state: CraftState, t0: number, coastS: number, epoch: EphemerisEpoch): number {
+  leoAscentNormal(state, t0, epoch);
+  transferPlaneNormal(t0 + coastS, _n1, epoch);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
-
-  const totalDi = Math.acos(clamp1(dot(_n0, _n1)));
-
-  // Start radial direction = ascent position (continuous)
   projectToPlaneUnit(_relP, _n0, _rHat0);
-
-  // End at transfer periapsis (opposite CCW-biased Moon arrival aim)
-  moonArrivalDirection(t1, _periHat, epoch);
+  moonArrivalDirection(t0 + coastS, _periHat, epoch);
   set(_periHat, -_periHat.x, -_periHat.y, -_periHat.z);
   projectToPlaneUnit(_periHat, _n1, _periHat);
+  return Math.acos(clamp1(dot(_n0, _n1)));
+}
 
-  // In-plane angle from start to periapsis (prograde about final normal)
+function leoInPlaneAngle(period: number, coastS: number): number {
   projectToPlaneUnit(_rHat0, _n1, _rHat);
-  let angInPlane = Math.atan2(
-    dot(cross(_tmp, _rHat, _periHat), _n1),
-    dot(_rHat, _periHat),
-  );
+  let angInPlane = Math.atan2(dot(cross(_tmp, _rHat, _periHat), _n1), dot(_rHat, _periHat));
   if (angInPlane < 0) angInPlane += 2 * Math.PI;
   const targetAngle = (coastS / period) * 2 * Math.PI;
   while (angInPlane < targetAngle * 0.85) angInPlane += 2 * Math.PI;
+  return angInPlane;
+}
 
-  // Insertion sample — not burning yet
-  if (samples && lastT) {
-    pushSample(samples, state, "lowEarthOrbit", false, true, 0, lastT, prop, 0, "ship");
-  }
+function leoStepDir(u: number, angInPlane: number): void {
+  slerpUnit(_rHat0, _periHat, u, _rHat);
+  projectToPlaneUnit(_rHat, _tmp, _rHat);
+  const extra = Math.max(0, angInPlane - Math.acos(clamp1(dot(_rHat0, _periHat)))) * u;
+  if (extra > 1e-6) rotateAbout(_rHat, _tmp, extra, _rHat);
+  projectToPlaneUnit(_rHat, _tmp, _rHat);
+}
 
+function leoPushStep(
+  samples: Sample[] | null, lastT: { t: number } | null, state: CraftState, prop: PropState | null,
+  aKmS2: number, force: boolean,
+): void {
+  if (samples && lastT) pushSample(samples, state, "lowEarthOrbit", aKmS2 >= 1e-4, force, 0, lastT, prop, aKmS2, "ship", false);
+}
+
+function leoCoastStep(
+  state: CraftState, i: number, steps: number, t0: number, coastS: number, dt: number, vCirc: number,
+  angInPlane: number, samples: Sample[] | null, lastT: { t: number } | null, prop: PropState | null, epoch: EphemerisEpoch,
+): number {
+  const u = i / steps;
+  slerpUnit(_n0, _n1, u * u * (3 - 2 * u), _tmp);
+  const dvPlane = planeChangeDv(vCirc, Math.acos(clamp1(dot(_nPrev, _tmp))));
+  leoStepDir(u, angInPlane);
+  setCircularLeo(state, t0 + coastS * u, _rHat, _tmp, epoch);
+  leoPushStep(samples, lastT, state, prop, dvPlane / Math.max(dt, 1e-6), i === steps);
+  set(_nPrev, _tmp.x, _tmp.y, _tmp.z);
+  return dvPlane;
+}
+
+function bookDogleg(prop: PropState | null, doglegDv: number, state: CraftState, coastS: number): void {
+  if (prop && doglegDv > 1e-6) applyImpulsiveShipDv(prop, state.t, Math.min(doglegDv, 0.9), Math.max(coastS * 0.4, 400));
+}
+
+function leoCoastTiming(): { t0: number; period: number; coastS: number; steps: number; dt: number; vCirc: number } {
+  const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
+  const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
+  const steps = Math.max(180, Math.ceil(coastS / 10));
+  return { t0: 0, period, coastS, steps, dt: coastS / steps, vCirc: Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS) };
+}
+
+function runLeoDoglegLoop(
+  state: CraftState, t0: number, coastS: number, steps: number, dt: number, vCirc: number, angInPlane: number,
+  samples: Sample[] | null, lastT: { t: number } | null, prop: PropState | null, epoch: EphemerisEpoch,
+): number {
   set(_nPrev, _n0.x, _n0.y, _n0.z);
   let doglegDv = 0;
-
   for (let i = 1; i <= steps; i++) {
-    const u = i / steps;
-    // Ease plane change through the middle of the coast (node-ish peak)
-    const uPlane = u * u * (3 - 2 * u); // smoothstep
-    slerpUnit(_n0, _n1, uPlane, _tmp); // n(u)
-
-    // Plane-change step angle → paid Δv (not free slerp)
-    const cosn = clamp1(dot(_nPrev, _tmp));
-    const di = Math.acos(cosn);
-    const dvPlane = planeChangeDv(vCirc, di);
-    doglegDv += dvPlane;
-    const aKmS2 = dvPlane / Math.max(dt, 1e-6);
-    const burning = aKmS2 >= 1e-4;
-
-    // Direction: slerp start→peri, then remaining prograde spin (free in-plane)
-    slerpUnit(_rHat0, _periHat, u, _rHat);
-    projectToPlaneUnit(_rHat, _tmp, _rHat);
-    const slerpArc = Math.acos(clamp1(dot(_rHat0, _periHat)));
-    const extra = Math.max(0, angInPlane - slerpArc) * u;
-    if (extra > 1e-6) rotateAbout(_rHat, _tmp, extra, _rHat);
-    projectToPlaneUnit(_rHat, _tmp, _rHat);
-
-    const t = t0 + coastS * u;
-    setCircularLeo(state, t, _rHat, _tmp, epoch);
-    if (samples && lastT) {
-      // Kinematic dogleg: show thrust for HUD; propellant booked once at end
-      pushSample(
-        samples,
-        state,
-        "lowEarthOrbit",
-        burning,
-        i === steps,
-        0,
-        lastT,
-        prop,
-        aKmS2,
-        "ship",
-        false,
-      );
-    }
-
-    set(_nPrev, _tmp.x, _tmp.y, _tmp.z);
+    doglegDv += leoCoastStep(state, i, steps, t0, coastS, dt, vCirc, angInPlane, samples, lastT, prop, epoch);
   }
+  return doglegDv;
+}
 
-  _lastDoglegDvKmS = doglegDv;
-  // Book a theater-capped plane-change cost (full 2v sin(Δi/2) would empty the
-  // ship under pure RE; path is kinematic — budget ~1.2 km/s for HUD honesty).
-  if (prop && doglegDv > 1e-6) {
-    const bookDv = Math.min(doglegDv, 0.9);
-    applyImpulsiveShipDv(prop, state.t, bookDv, Math.max(coastS * 0.4, 400));
-  }
-
-  // Sanity: continuous sum ≈ 2 v sin(Δi/2) for the total plane change
+export function runLunarPlaneLowEarthOrbitCoast(
+  state: CraftState, samples: Sample[] | null, lastT: { t: number } | null,
+  prop: PropState | null = null, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): void {
+  const t0 = state.t, timing = leoCoastTiming();
+  const totalDi = leoCoastGeom(state, t0, timing.coastS, epoch);
+  const angInPlane = leoInPlaneAngle(timing.period, timing.coastS);
+  if (samples && lastT) pushSample(samples, state, "lowEarthOrbit", false, true, 0, lastT, prop, 0, "ship");
+  _lastDoglegDvKmS = runLeoDoglegLoop(state, t0, timing.coastS, timing.steps, timing.dt, timing.vCirc, angInPlane, samples, lastT, prop, epoch);
+  bookDogleg(prop, _lastDoglegDvKmS, state, timing.coastS);
   void totalDi;
 }
 
@@ -333,38 +273,33 @@ export function computeLowEarthOrbitRelative(
 }
 
 /** Append ascent samples, then low Earth orbit dogleg into the lunar plane (paid ship Δv). */
-export function appendAscentAndLowEarthOrbitCoast(
-  samples: Sample[],
-  lastT: { t: number },
-  prop: PropState,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-  _coastS?: number,
-): CraftState {
-  void _coastS;
-  const ascent = getAscent();
-  // Continue bookkeeping from ascent propellant state
+function copyAscentProp(prop: PropState, ascent: ReturnType<typeof getAscent>): void {
   const ap = ascent.prop ?? createPropState(ascent.state.t);
   prop.boosterPropKg = ap.boosterPropKg;
   prop.shipPropKg = ap.shipPropKg;
   prop.lastT = ap.lastT;
   prop.staged = ap.staged;
+}
 
+function appendAscentSamples(samples: Sample[], lastT: { t: number }, ascent: ReturnType<typeof getAscent>): void {
   for (const s of ascent.samples) {
     samples.push({
-      t: s.t,
-      pos: clone(s.pos),
-      vel: clone(s.vel),
-      phase: s.phase,
-      burning: s.burning,
-      fuelBooster: s.fuelBooster,
-      fuelShip: s.fuelShip,
-      thrustN: s.thrustN,
-      staged: s.staged,
+      t: s.t, pos: clone(s.pos), vel: clone(s.vel), phase: s.phase, burning: s.burning,
+      fuelBooster: s.fuelBooster, fuelShip: s.fuelShip, thrustN: s.thrustN, staged: s.staged,
     });
     lastT.t = s.t;
   }
+}
+
+export function appendAscentAndLowEarthOrbitCoast(
+  samples: Sample[], lastT: { t: number }, prop: PropState,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS, _coastS?: number,
+): CraftState {
+  void _coastS;
+  const ascent = getAscent();
+  copyAscentProp(prop, ascent);
+  appendAscentSamples(samples, lastT, ascent);
   const state = cloneState(ascent.state);
-  // First low Earth orbit sample is continuous with last ascent sample (same r direction)
   runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop, epoch);
   return state;
 }

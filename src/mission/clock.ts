@@ -77,6 +77,12 @@ export function clockSeek(state: ClockState, t: number): ClockState {
  * Negative speed rewinds; clamps and pauses at 0 / 1.
  * Returns the same reference when paused or when state is unchanged.
  */
+function applyEndClamps(speed: number, t: number, playing: boolean): { t: number; playing: boolean } {
+  if (speed > 0 && t >= 1) return { t: 1, playing: false };
+  if (speed < 0 && t <= 0) return { t: 0, playing: false };
+  return { t, playing };
+}
+
 export function clockTick(
   state: ClockState,
   dtSec: number,
@@ -84,22 +90,10 @@ export function clockTick(
 ): ClockState {
   if (!state.playing) return state;
   if (!(missionDurationS > 0) || !Number.isFinite(dtSec)) return state;
-
   const rate = state.speed / missionDurationS;
-  let t = clamp01(state.t + dtSec * rate);
-  // Explicit boolean: after `if (!state.playing) return`, TS narrows playing to true
-  let playing: boolean = state.playing;
-
-  if (state.speed > 0 && t >= 1) {
-    t = 1;
-    playing = false;
-  } else if (state.speed < 0 && t <= 0) {
-    t = 0;
-    playing = false;
-  }
-
-  if (t === state.t && playing === state.playing) return state;
-  return Object.freeze({ ...state, t, playing });
+  const next = applyEndClamps(state.speed, clamp01(state.t + dtSec * rate), state.playing);
+  if (next.t === state.t && next.playing === state.playing) return state;
+  return Object.freeze({ ...state, t: next.t, playing: next.playing });
 }
 
 /**

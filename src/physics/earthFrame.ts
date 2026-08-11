@@ -104,117 +104,57 @@ const _eastOut = v3();
  * Apply R that maps mesh +Y → unit `north` (same as THREE setFromUnitVectors).
  * Rodrigues about k ∥ (+Y)×north.
  */
-function applyAlignYToNorth(
-  vx: number,
-  vy: number,
-  vz: number,
-  nx: number,
-  ny: number,
-  nz: number,
-  out: V3,
-): void {
-  // a = (0,1,0), b = n̂; cosθ = a·b = ny; k_raw = a×b = (nz, 0, −nx)
-  const cosA = ny;
-  let kx = nz;
-  let ky = 0;
-  let kz = -nx;
-  const sinA = Math.hypot(kx, ky, kz);
-  if (sinA < 1e-12) {
-    if (cosA > 0) {
-      // Identity
-      out.x = vx;
-      out.y = vy;
-      out.z = vz;
-    } else {
-      // 180° about +X
-      out.x = vx;
-      out.y = -vy;
-      out.z = -vz;
-    }
-    return;
-  }
+function alignDegenerate(vx: number, vy: number, vz: number, cosA: number, out: V3): void {
+  if (cosA > 0) set(out, vx, vy, vz);
+  else set(out, vx, -vy, -vz);
+}
+
+function rodriguesAxis(nx: number, ny: number, nz: number): { kx: number; ky: number; kz: number; cosA: number; sinA: number } | null {
+  const cosA = ny, sinA = Math.hypot(nz, 0, -nx);
+  if (sinA < 1e-12) return null;
   const inv = 1 / sinA;
-  kx *= inv;
-  ky *= inv;
-  kz *= inv;
-  const c = cosA;
-  const s = sinA;
-  const t = 1 - c;
+  return { kx: nz * inv, ky: 0, kz: -nx * inv, cosA, sinA };
+}
+
+function applyRodrigues(vx: number, vy: number, vz: number, ax: ReturnType<typeof rodriguesAxis> & object, sSign: number, out: V3): void {
+  const { kx, ky, kz, cosA, sinA } = ax;
+  const c = cosA, s = sSign * sinA, t = 1 - c;
   const kdot = kx * vx + ky * vy + kz * vz;
-  // v′ = v c + (k×v) s + k (k·v) (1−c)
   out.x = vx * c + (ky * vz - kz * vy) * s + kx * kdot * t;
   out.y = vy * c + (kz * vx - kx * vz) * s + ky * kdot * t;
   out.z = vz * c + (kx * vy - ky * vx) * s + kz * kdot * t;
 }
 
+function applyAlignYToNorth(vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, out: V3): void {
+  const ax = rodriguesAxis(nx, ny, nz);
+  if (!ax) { alignDegenerate(vx, vy, vz, ny, out); return; }
+  applyRodrigues(vx, vy, vz, ax, 1, out);
+}
+
 /** Inverse of applyAlignYToNorth (Rodrigues with −θ, same k). */
-function applyAlignNorthToY(
-  vx: number,
-  vy: number,
-  vz: number,
-  nx: number,
-  ny: number,
-  nz: number,
-  out: V3,
-): void {
-  const cosA = ny;
-  let kx = nz;
-  let ky = 0;
-  let kz = -nx;
-  const sinA = Math.hypot(kx, ky, kz);
-  if (sinA < 1e-12) {
-    if (cosA > 0) {
-      out.x = vx;
-      out.y = vy;
-      out.z = vz;
-    } else {
-      out.x = vx;
-      out.y = -vy;
-      out.z = -vz;
-    }
-    return;
-  }
-  const inv = 1 / sinA;
-  kx *= inv;
-  ky *= inv;
-  kz *= inv;
-  const c = cosA;
-  const s = -sinA; // −θ
-  const t = 1 - c;
-  const kdot = kx * vx + ky * vy + kz * vz;
-  out.x = vx * c + (ky * vz - kz * vy) * s + kx * kdot * t;
-  out.y = vy * c + (kz * vx - kx * vz) * s + ky * kdot * t;
-  out.z = vz * c + (kx * vy - ky * vx) * s + kz * kdot * t;
+function applyAlignNorthToY(vx: number, vy: number, vz: number, nx: number, ny: number, nz: number, out: V3): void {
+  const ax = rodriguesAxis(nx, ny, nz);
+  if (!ax) { alignDegenerate(vx, vy, vz, ny, out); return; }
+  applyRodrigues(vx, vy, vz, ax, -1, out);
 }
 
 /**
  * Mesh local → inertial using the same composition as the scene graph:
  * world = R_axis · R_y(spin) · local, with R_axis: +Y → north pole.
  */
-export function meshLocalToInertial(
-  local: V3,
-  t: number,
-  out: V3 = v3(),
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): V3 {
-  const spin = earthSpinAngle(t, epoch);
-  const c = Math.cos(spin);
-  const s = Math.sin(spin);
-  // R_y(spin)
-  _spun.x = c * local.x + s * local.z;
-  _spun.y = local.y;
-  _spun.z = -s * local.x + c * local.z;
+function spinRy(local: V3, spin: number, out: V3): void {
+  const c = Math.cos(spin), s = Math.sin(spin);
+  out.x = c * local.x + s * local.z;
+  out.y = local.y;
+  out.z = -s * local.x + c * local.z;
+}
 
+export function meshLocalToInertial(
+  local: V3, t: number, out: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): V3 {
+  spinRy(local, earthSpinAngle(t, epoch), _spun);
   earthNorthPole(_north);
-  applyAlignYToNorth(
-    _spun.x,
-    _spun.y,
-    _spun.z,
-    _north.x,
-    _north.y,
-    _north.z,
-    out,
-  );
+  applyAlignYToNorth(_spun.x, _spun.y, _spun.z, _north.x, _north.y, _north.z, out);
   return out;
 }
 
@@ -223,28 +163,11 @@ export function meshLocalToInertial(
  * (for parenting surface graphics under the spinning Earth mesh).
  */
 export function inertialRelToMeshLocal(
-  inertial: V3,
-  t: number,
-  out: V3 = v3(),
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+  inertial: V3, t: number, out: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
   earthNorthPole(_north);
-  applyAlignNorthToY(
-    inertial.x,
-    inertial.y,
-    inertial.z,
-    _north.x,
-    _north.y,
-    _north.z,
-    _spun,
-  );
-
-  const spin = earthSpinAngle(t, epoch);
-  const c = Math.cos(-spin);
-  const s = Math.sin(-spin);
-  out.x = c * _spun.x + s * _spun.z;
-  out.y = _spun.y;
-  out.z = -s * _spun.x + c * _spun.z;
+  applyAlignNorthToY(inertial.x, inertial.y, inertial.z, _north.x, _north.y, _north.z, _spun);
+  spinRy(_spun, -earthSpinAngle(t, epoch), out);
   return out;
 }
 
@@ -291,88 +214,63 @@ export type SurfaceState = {
  * Inertial position & velocity of a ground site (incl. Earth rotation).
  * `alt` is height above mean spherical Earth (km).
  */
-export function surfaceState(
-  lat: number,
-  lon: number,
-  alt: number,
-  t: number,
-  outPos: V3 = v3(),
-  outVel: V3 = v3(),
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): SurfaceState {
+function surfacePos(lat: number, lon: number, alt: number, t: number, outPos: V3, epoch: EphemerisEpoch): ReturnType<typeof bodyPositions> {
   const b = bodyPositions(t, epoch);
-  const radius = R_EARTH + alt;
-  geodeticToMeshLocal(lat, lon, radius, _local);
+  geodeticToMeshLocal(lat, lon, R_EARTH + alt, _local);
   meshLocalToInertial(_local, t, outPos, epoch);
-  // Translate to barycentric (Earth center + relative)
-  outPos.x += b.earth.x;
-  outPos.y += b.earth.y;
-  outPos.z += b.earth.z;
+  outPos.x += b.earth.x; outPos.y += b.earth.y; outPos.z += b.earth.z;
+  return b;
+}
 
-  // ω along north pole
+function surfaceSpinVel(outPos: V3, b: ReturnType<typeof bodyPositions>, outVel: V3): void {
   earthNorthPole(_north);
   const ω = (2 * Math.PI) / EARTH_SIDEREAL_DAY_S;
   set(_omega, _north.x * ω, _north.y * ω, _north.z * ω);
-  // r_rel = pos - earth
   set(_tmp, outPos.x - b.earth.x, outPos.y - b.earth.y, outPos.z - b.earth.z);
-  cross(_tmp2, _omega, _tmp); // spin velocity
-  set(
-    outVel,
-    b.earthVel.x + _tmp2.x,
-    b.earthVel.y + _tmp2.y,
-    b.earthVel.z + _tmp2.z,
-  );
+  cross(_tmp2, _omega, _tmp);
+  set(outVel, b.earthVel.x + _tmp2.x, b.earthVel.y + _tmp2.y, b.earthVel.z + _tmp2.z);
+}
 
-  // Must not reuse _tmp/_tmp2: localEastInertial scratches those with R_EARTH-scale
-  // positions and would leave `up` as a ~6400 km vector (pad hop → ~64 km/s).
+function surfaceBasis(t: number, lat: number, lon: number, epoch: EphemerisEpoch, outPos: V3, outVel: V3): SurfaceState {
   localUpInertial(t, lat, lon, _upOut, epoch);
   localEastInertial(t, lat, lon, _eastOut, epoch);
   return {
-    pos: outPos,
-    vel: outVel,
+    pos: outPos, vel: outVel,
     up: { x: _upOut.x, y: _upOut.y, z: _upOut.z },
     east: { x: _eastOut.x, y: _eastOut.y, z: _eastOut.z },
   };
 }
 
-/** Starbase pad state at mission time t. */
-export function starbasePadState(
-  t: number,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+export function surfaceState(
+  lat: number, lon: number, alt: number, t: number,
+  outPos: V3 = v3(), outVel: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): SurfaceState {
-  return surfaceState(
-    STARBASE_LAT,
-    STARBASE_LON,
-    STARBASE_ALT,
-    t,
-    v3(),
-    v3(),
-    epoch,
-  );
+  const b = surfacePos(lat, lon, alt, t, outPos, epoch);
+  surfaceSpinVel(outPos, b, outVel);
+  return surfaceBasis(t, lat, lon, epoch, outPos, outVel);
+}
+
+/** Starbase pad state at mission time t. */
+export function starbasePadState(t: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): SurfaceState {
+  return surfaceState(STARBASE_LAT, STARBASE_LON, STARBASE_ALT, t, v3(), v3(), epoch);
 }
 
 /** Local ENU-ish basis at an arbitrary Earth-relative position (for ascent guidance). */
+function enuEast(outEast: V3, outUp: V3): void {
+  earthNorthPole(_north);
+  cross(outEast, _north, outUp);
+  if (Math.hypot(outEast.x, outEast.y, outEast.z) < 1e-8) cross(outEast, set(_tmp2, 1, 0, 0), outUp);
+  normalize(outEast, outEast);
+}
+
 export function enuAtPosition(
-  t: number,
-  pos: V3,
-  earthPos: V3,
-  outUp: V3,
-  outEast: V3,
-  outNorth: V3,
+  t: number, pos: V3, earthPos: V3, outUp: V3, outEast: V3, outNorth: V3,
 ): void {
   set(_tmp, pos.x - earthPos.x, pos.y - earthPos.y, pos.z - earthPos.z);
   normalize(outUp, _tmp);
-  earthNorthPole(_north);
-  // east ∝ north × up (horizontal)
-  cross(outEast, _north, outUp);
-  if (Math.hypot(outEast.x, outEast.y, outEast.z) < 1e-8) {
-    // near pole — use inertial X
-    cross(outEast, set(_tmp2, 1, 0, 0), outUp);
-  }
-  normalize(outEast, outEast);
+  enuEast(outEast, outUp);
   cross(outNorth, outUp, outEast);
   normalize(outNorth, outNorth);
-  // keep east = north × up re-orthogonalized
   cross(outEast, outNorth, outUp);
   normalize(outEast, outEast);
   void t;

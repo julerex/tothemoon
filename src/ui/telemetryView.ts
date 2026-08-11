@@ -196,10 +196,7 @@ function safeSkyLine(
 ): string {
   try {
     if (opts?.skyLine) return opts.skyLine(missionT);
-    return formatSkyPhaseLine(
-      missionT,
-      opts?.epoch ?? DEFAULT_EPHEMERIS,
-    );
+    return formatSkyPhaseLine(missionT, opts?.epoch ?? DEFAULT_EPHEMERIS);
   } catch {
     return "—";
   }
@@ -250,60 +247,117 @@ export function buildTelemetryView(
   tel: Telemetry,
   opts?: TelemetryViewOptions,
 ): TelemetryView {
-  const progressU =
-    tel.durationS > 0 ? Math.min(1, Math.max(0, tel.t / tel.durationS)) : 0;
   const skyLive = safeSkyLine(Math.max(0, tel.t), opts);
-  const skyTerminal = safeSkyLine(
-    Math.max(0, tel.durationS > 0 ? tel.durationS : tel.t),
-    opts,
-  );
+  const skyTerminal = safeSkyLine(terminalSkyT(tel), opts);
+  return Object.freeze({
+    main: buildMainLabels(tel, skyLive),
+    complete: buildCompleteLabels(tel, skyTerminal),
+    metrics: buildMetricsLabels(tel, skyLive),
+  });
+}
 
-  const main: MainTelemetryLabels = Object.freeze({
+function terminalSkyT(tel: Telemetry): number {
+  return Math.max(0, tel.durationS > 0 ? tel.durationS : tel.t);
+}
+
+function progressUOf(tel: Telemetry): number {
+  return tel.durationS > 0
+    ? Math.min(1, Math.max(0, tel.t / tel.durationS))
+    : 0;
+}
+
+function buildMainLabels(
+  tel: Telemetry,
+  skyLive: string,
+): MainTelemetryLabels {
+  return Object.freeze({
+    ...mainClockFields(tel),
+    ...mainRangeFields(tel),
+    ...mainPropFields(tel, skyLive),
+    ...mainControlFields(tel),
+  });
+}
+
+function mainClockFields(tel: Telemetry) {
+  return {
     phase: tel.phase,
     missionClock: formatWebcastMissionTime(tel.t),
     dateUtc: tel.dateUtc,
     distance: formatDistance(tel.distanceToMoon),
     progress: formatProgressPercent(tel.t, tel.durationS),
+  };
+}
+
+function mainRangeFields(tel: Telemetry) {
+  return {
     altitude: formatDistance(Math.max(0, tel.altitude)),
     focusDistance: formatFocusDistance(tel.focusDistance),
     speed: formatSpeed(tel.speed),
+  };
+}
+
+function mainPropFields(tel: Telemetry, skyLive: string) {
+  return {
     fuelBooster: formatFuel(tel.fuelBooster, "booster"),
     fuelShip: formatFuel(tel.fuelShip, "ship"),
     thrust: formatThrust(tel.thrustN),
     sky: skyLive,
     fuelBoosterBar: fuelBarWidthPercent(tel.fuelBooster),
     fuelShipBar: fuelBarWidthPercent(tel.fuelShip),
+  };
+}
+
+function mainControlFields(tel: Telemetry) {
+  return {
     playLabel: tel.playing ? "Pause" : "Play",
     playPressed: tel.playing,
     scrubValue: scrubRangeValue(tel.t, tel.durationS),
-    progressU,
+    progressU: progressUOf(tel),
     playbackSpeed: tel.playbackSpeed,
     phaseId: tel.phaseId,
     missionComplete: tel.missionComplete,
+  };
+}
+
+function buildCompleteLabels(
+  tel: Telemetry,
+  skyTerminal: string,
+): CompleteCardLabels | null {
+  if (!tel.missionComplete) return null;
+  return Object.freeze({
+    ...completePrimaryFields(tel),
+    ...completeMetaFields(tel, skyTerminal),
   });
+}
 
-  const complete: CompleteCardLabels | null = tel.missionComplete
-    ? Object.freeze({
-        subtitle: landingBeatCompleteSubtitle(tel.completeKind, {
-          splashdown: tel.phaseId === "splashdown",
-        }),
-        duration: formatMissionTime(tel.durationS),
-        translunarInjectionDeltaV: formatTranslunarInjectionDv(
-          tel.translunarInjectionDeltaV,
-        ),
-        minMoonAlt: formatMinMoonAlt(tel.minMoonAlt),
-        fuelShip: formatFuel(tel.fuelShip, "ship"),
-        peakSpeed: formatOptional(tel.peakSpeedKmS, formatSpeed),
-        stageT: formatOptional(tel.stageT, formatMissionTime),
-        sky: skyTerminal,
-      })
-    : null;
+function completePrimaryFields(tel: Telemetry) {
+  return {
+    subtitle: completeSubtitle(tel),
+    duration: formatMissionTime(tel.durationS),
+    translunarInjectionDeltaV: formatTranslunarInjectionDv(
+      tel.translunarInjectionDeltaV,
+    ),
+    minMoonAlt: formatMinMoonAlt(tel.minMoonAlt),
+  };
+}
 
-  const rEarth = R_EARTH + tel.altEarth;
-  const rMoon = tel.distMoon;
-  const boosterKg = clamp01(tel.fuelBooster) * BOOSTER_PROP_KG;
-  const shipKg = clamp01(tel.fuelShip) * SHIP_PROP_KG;
-  const wetKg = wetMassFromFuel(
+function completeSubtitle(tel: Telemetry): string {
+  return landingBeatCompleteSubtitle(tel.completeKind, {
+    splashdown: tel.phaseId === "splashdown",
+  });
+}
+
+function completeMetaFields(tel: Telemetry, skyTerminal: string) {
+  return {
+    fuelShip: formatFuel(tel.fuelShip, "ship"),
+    peakSpeed: formatOptional(tel.peakSpeedKmS, formatSpeed),
+    stageT: formatOptional(tel.stageT, formatMissionTime),
+    sky: skyTerminal,
+  };
+}
+
+function wetMassKg(tel: Telemetry): number {
+  return wetMassFromFuel(
     tel.fuelBooster,
     tel.fuelShip,
     tel.staged,
@@ -312,45 +366,114 @@ export function buildTelemetryView(
     SHIP_DRY_KG,
     SHIP_PROP_KG,
   );
-  const accelG = thrustAccelG(tel.thrustN, wetKg);
-  const forceLine = tel.forceCompareLine?.trim() ?? "";
+}
 
-  const metrics: MetricsLabels = Object.freeze({
+function minAltLabel(tel: Telemetry): string {
+  if (!Number.isFinite(tel.minMoonAlt)) return "—";
+  return formatDistancePrecise(Math.max(0, tel.minMoonAlt));
+}
+
+function buildMetricsLabels(
+  tel: Telemetry,
+  skyLive: string,
+): MetricsLabels {
+  return Object.freeze({
+    ...metricsClockFields(tel, skyLive),
+    ...metricsGeoFields(tel),
+    ...metricsDynFields(tel),
+    ...metricsPropFields(tel),
+    ...metricsPackFields(tel),
+  });
+}
+
+function metricsClockFields(tel: Telemetry, skyLive: string) {
+  return {
     phase: tel.phase,
     time: formatMissionTimeDetailed(tel.t),
     date: tel.dateUtc,
     sky: skyLive,
     progress: formatProgressRemainingLine(tel.t, tel.durationS),
     playback: formatPlaybackLine(tel.playbackSpeed, tel.playing),
+  };
+}
+
+function metricsGeoFields(tel: Telemetry) {
+  const rMoon = tel.distMoon;
+  return {
     altEarth: formatDistancePrecise(tel.altEarth),
-    rEarth: formatDistancePrecise(rEarth),
+    rEarth: formatDistancePrecise(R_EARTH + tel.altEarth),
     altMoon: formatDistancePrecise(tel.altMoon),
     distMoon: formatDistancePrecise(Math.max(0, rMoon - R_MOON)),
     rMoon: formatDistancePrecise(rMoon),
     cam: formatFocusDistance(tel.focusDistance),
+  };
+}
+
+function metricsDynFields(tel: Telemetry) {
+  return {
     speed: formatSpeedPrecise(tel.speed),
     speedEarth: formatSpeedPrecise(tel.speedEarth),
     speedMoon: formatSpeedPrecise(tel.speedMoon),
-    booster: boosterMetricsLabel(tel.staged, tel.fuelBooster, boosterKg),
-    ship: formatFuelDetailed(tel.fuelShip, shipKg, SHIP_PROP_KG),
+  };
+}
+
+function metricsPropFields(tel: Telemetry) {
+  const wetKg = wetMassKg(tel);
+  return {
+    ...metricsFuelFields(tel),
     mass: formatMassKg(wetKg),
     thrust: formatThrustDetailed(tel.thrustN),
-    accel: formatAccelG(accelG),
+    accel: formatAccelG(thrustAccelG(tel.thrustN, wetKg)),
     engines: enginesLabel(tel.burning, tel.thrustN),
     staged: stagedLabel(tel.staged),
+  };
+}
+
+function metricsFuelFields(tel: Telemetry) {
+  const boosterKg = clamp01(tel.fuelBooster) * BOOSTER_PROP_KG;
+  const shipKg = clamp01(tel.fuelShip) * SHIP_PROP_KG;
+  return {
+    booster: boosterMetricsLabel(tel.staged, tel.fuelBooster, boosterKg),
+    ship: formatFuelDetailed(tel.fuelShip, shipKg, SHIP_PROP_KG),
+  };
+}
+
+function metricsPackFields(tel: Telemetry) {
+  return {
+    ...metricsDurationFields(tel),
+    ...metricsForceFields(tel),
+  };
+}
+
+function metricsDurationFields(tel: Telemetry) {
+  return {
+    ...metricsTimePack(tel),
+    ...metricsMetaPack(tel),
+  };
+}
+
+function metricsTimePack(tel: Telemetry) {
+  return {
     duration: formatMissionTimeDetailed(tel.durationS),
     translunarInjectionDeltaV: formatTranslunarInjectionDvDetailed(
       tel.translunarInjectionDeltaV,
     ),
-    minalt: Number.isFinite(tel.minMoonAlt)
-      ? formatDistancePrecise(Math.max(0, tel.minMoonAlt))
-      : "—",
+    minalt: minAltLabel(tel),
+  };
+}
+
+function metricsMetaPack(tel: Telemetry) {
+  return {
     peakSpeed: formatOptional(tel.peakSpeedKmS, formatSpeedPrecise),
     stageT: formatOptional(tel.stageT, formatMissionTimeDetailed),
     keplerDev: keplerDevLabel(tel.keplerRefMaxDevKm),
+  };
+}
+
+function metricsForceFields(tel: Telemetry) {
+  const forceLine = tel.forceCompareLine?.trim() ?? "";
+  return {
     forceCheck: forceLine || "—",
     forceCheckVisible: forceLine.length > 0,
-  });
-
-  return Object.freeze({ main, complete, metrics });
+  };
 }

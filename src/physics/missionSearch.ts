@@ -56,13 +56,38 @@ const MOON_SPHERE_OF_INFLUENCE_ALTITUDE = MOON_SPHERE_OF_INFLUENCE_KM - R_MOON;
  */
 function launchDayPenalty(epoch: EphemerisEpoch): number {
   const elev = starbaseSunElev(0, epoch);
-  // Below horizon — strong push toward another epoch
   if (elev < 0) return 12_000 + (-elev) * 8_000;
-  // Civil twilight band
   if (elev < 0.2) return 4_000 * ((0.2 - elev) / 0.2);
-  // Low morning/evening sun — mild
   if (elev < 0.35) return 400 * ((0.35 - elev) / 0.35);
   return 0;
+}
+
+/** Altitude term of perilune score. */
+function periluneAltTerm(alt: number): number {
+  if (alt < 0) return 100;
+  return (
+    Math.abs(alt - IDEAL_PERILUNE) +
+    (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 10 : 0) +
+    (alt > 150_000 ? (alt - 150_000) * 8 : 0)
+  );
+}
+
+/** Time-of-arrival window penalty. */
+function periluneWindowPen(periluneT: number): number {
+  if (periluneT < TOA_MIN) return ((TOA_MIN - periluneT) / 3600) ** 2 * 40;
+  if (periluneT > TOA_MAX) return ((periluneT - TOA_MAX) / 3600) ** 2 * 40;
+  return 0;
+}
+
+/** Reward / penalty for sphere-of-influence altitude. */
+function sphereOfInfluenceTerm(alt: number): number {
+  if (alt < MOON_SPHERE_OF_INFLUENCE_ALTITUDE) return -80_000;
+  return (alt - MOON_SPHERE_OF_INFLUENCE_ALTITUDE) * 1.5;
+}
+
+function nearLunarTerm(rEarth: number): number {
+  if (rEarth > A_EM * 0.75 && rEarth < A_EM * 1.2) return 0;
+  return ((rEarth - A_EM) / 1000) ** 2 * 50;
 }
 
 function periluneScore(
@@ -71,34 +96,232 @@ function periluneScore(
   rEarth: number,
 ): number {
   if (!Number.isFinite(alt) || alt > 400_000) return 1e12;
-  // Ignore "closest approach" still in low Earth orbit (rE ≪ A_EM)
   if (rEarth < A_EM * 0.5 && alt > 50_000) return 1e12;
-  const altTerm =
-    alt < 0
-      ? 100
-      : Math.abs(alt - IDEAL_PERILUNE) +
-        (alt > INTERCEPT_ALT ? (alt - INTERCEPT_ALT) * 10 : 0) +
-        (alt > 150_000 ? (alt - 150_000) * 8 : 0);
   const dtH = (periluneT - IDEAL_TOA) / 3600;
-  const timeTerm = dtH * dtH * 12;
   const rErr = Math.abs(rEarth - A_EM) / 1000;
-  const rTerm = rErr * rErr * 25;
-  const windowPen =
-    periluneT < TOA_MIN
-      ? ((TOA_MIN - periluneT) / 3600) ** 2 * 40
-      : periluneT > TOA_MAX
-        ? ((periluneT - TOA_MAX) / 3600) ** 2 * 40
-        : 0;
-  const nearLunar =
-    rEarth > A_EM * 0.75 && rEarth < A_EM * 1.2
-      ? 0
-      : ((rEarth - A_EM) / 1000) ** 2 * 50;
-  // Reward sphere of influence entry so the trail punches the Moon sphere of influence shell near A_EM
-  const sphereOfInfluenceTerm =
-    alt < MOON_SPHERE_OF_INFLUENCE_ALTITUDE
-      ? -80_000
-      : (alt - MOON_SPHERE_OF_INFLUENCE_ALTITUDE) * 1.5;
-  return altTerm + timeTerm + rTerm + windowPen + nearLunar + sphereOfInfluenceTerm;
+  return (
+    periluneAltTerm(alt) + dtH * dtH * 12 + rErr * rErr * 25 +
+    periluneWindowPen(periluneT) + nearLunarTerm(rEarth) + sphereOfInfluenceTerm(alt)
+  );
+}
+
+type CandidateEval = { sc: number; alt: number; t: number; rE: number };
+
+type SearchBest = {
+  bestPhase: number;
+  bestDv: number;
+  bestAlt: number;
+  bestPeriluneT: number;
+  bestREarth: number;
+  bestScore: number;
+  bestLandingT: number;
+};
+
+/** Apply a candidate eval if it improves the best score. */
+function considerEval(
+  best: SearchBest,
+  ev: CandidateEval,
+  ph: number,
+  dv: number,
+  landT: number,
+): void {
+  if (!(ev.sc < best.bestScore)) return;
+  best.bestScore = ev.sc;
+  best.bestAlt = ev.alt;
+  best.bestPeriluneT = ev.t;
+  best.bestREarth = ev.rE;
+  best.bestPhase = ph;
+  best.bestDv = dv;
+  best.bestLandingT = landT;
+}
+
+/** Apply eval only when score improves by more than 1e-6 (refine steps). */
+function considerEvalStrict(
+  best: SearchBest,
+  ev: CandidateEval,
+  ph: number,
+  dv: number,
+  landT: number,
+): boolean {
+  if (!(ev.sc < best.bestScore - 1e-6)) return false;
+  best.bestScore = ev.sc; best.bestAlt = ev.alt;
+  best.bestPeriluneT = ev.t;
+  best.bestREarth = ev.rE;
+  best.bestPhase = ph;
+  best.bestDv = dv;
+  best.bestLandingT = landT;
+  return true;
+}
+
+type SearchCtx = {
+  useHorizons: boolean;
+  baseDv: number;
+  dvMax: number;
+  T: number;
+  lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
+  epoch: EphemerisEpoch;
+};
+
+/** Rebuild ascent + LEO template under epoch. */
+function rebuildLeo(ctx: SearchCtx, epoch: EphemerisEpoch): void {
+  ctx.epoch = epoch;
+  ensureAscent(epoch);
+  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
+}
+
+/** Score a (Δv, moon-phase) pair; optionally rebuild LEO. */
+function evalCandidate(
+  ctx: SearchCtx,
+  dv: number,
+  ph: number,
+  landT: number,
+  reAscent: boolean,
+): CandidateEval {
+  ctx.epoch = makeLunarEpoch(ph, landT, ctx.useHorizons);
+  if (reAscent) ensureAscent(ctx.epoch);
+  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ctx.epoch);
+  const pr = probePerilune(dv, ctx.lowEarthOrbitRelative.current, ctx.epoch);
+  return { sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(ctx.epoch), alt: pr.minAlt, t: pr.periluneT, rE: pr.rEarth };
+}
+
+function rangeOffsets(lo: number, hi: number, step: number): number[] {
+  const out: number[] = [];
+  for (let i = lo; i <= hi; i++) out.push(i * step);
+  return out;
+}
+
+/** Build phase / epoch / Δv grids for the coarse pass. */
+function buildSearchGrids(
+  useHorizons: boolean,
+  baseDv: number,
+  dvMax: number,
+): { phaseOffsets: number[]; epochOffsetsS: number[]; dvScales: number[] } {
+  return { phaseOffsets: useHorizons ? [0] : rangeOffsets(-80, 80, 0.03), epochOffsetsS: useHorizons ? rangeOffsets(-20, 20, 12 * 3600) : [0], dvScales: [1.0, 1.015, 1.03, 1.045, 1.06].filter((s) => baseDv * s <= dvMax + 1e-9) };
+}
+
+function coarseAtLandOff(
+  ctx: SearchCtx, best: SearchBest, grids: ReturnType<typeof buildSearchGrids>,
+  guess: number, landOff: number,
+): void {
+  if (ctx.useHorizons) rebuildLeo(ctx, makeLunarEpoch(0, ctx.T + landOff, true));
+  for (const dS of grids.dvScales) {
+    const dv = Math.min(ctx.baseDv * dS, ctx.dvMax);
+    for (const off of grids.phaseOffsets) {
+      const ph = ctx.useHorizons ? 0 : guess + off;
+      const landT = ctx.T + landOff;
+      considerEval(best, evalCandidate(ctx, dv, ph, landT, false), ph, dv, landT);
+    }
+  }
+}
+
+/** Coarse grid over epoch × Δv × phase. */
+function runCoarseGrid(
+  ctx: SearchCtx,
+  best: SearchBest,
+  grids: ReturnType<typeof buildSearchGrids>,
+  guess: number,
+): void {
+  for (const landOff of grids.epochOffsetsS) coarseAtLandOff(ctx, best, grids, guess, landOff);
+  if (ctx.useHorizons) ctx.epoch = makeLunarEpoch(0, best.bestLandingT, true);
+}
+
+function mediumAtLandT(ctx: SearchCtx, best: SearchBest, seedDv: number, landT: number): void {
+  rebuildLeo(ctx, makeLunarEpoch(0, landT, true));
+  for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
+    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, seedDv + s));
+    considerEval(best, evalCandidate(ctx, dv, 0, landT, false), 0, dv, landT);
+  }
+}
+
+/** Medium refine under Horizons: ±48 h epoch × small Δv. */
+function mediumPassHorizons(ctx: SearchCtx, best: SearchBest): void {
+  const seedDv = best.bestDv;
+  const seedLand = best.bestLandingT;
+  best.bestScore = Infinity;
+  for (let i = -12; i <= 12; i++) mediumAtLandT(ctx, best, seedDv, seedLand + i * 4 * 3600);
+  ctx.epoch = makeLunarEpoch(0, best.bestLandingT, true);
+}
+
+/** One analytic medium-pass phase sample over Δv offsets. */
+function mediumAnalyticAtPhase(ctx: SearchCtx, best: SearchBest, ph: number, seedDv: number): void {
+  rebuildLeo(ctx, makeLunarEpoch(ph, ctx.T, false));
+  for (const s of [0, -0.012, 0.012]) {
+    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, seedDv + s));
+    considerEval(best, evalCandidate(ctx, dv, ph, ctx.T, false), ph, dv, ctx.T);
+  }
+}
+
+/** Medium refine under analytic Moon phase. */
+function mediumPassAnalytic(ctx: SearchCtx, best: SearchBest): void {
+  const seedPhase = best.bestPhase;
+  const seedDv = best.bestDv;
+  best.bestScore = Infinity;
+  for (let i = -20; i <= 20; i++) mediumAnalyticAtPhase(ctx, best, seedPhase + i * 0.05, seedDv);
+}
+
+/** One coordinate-descent iteration: epoch/phase then Δv. */
+function refineIteration(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+  let improved = false;
+  if (ctx.useHorizons) {
+    improved = refineLandingT(ctx, best, iter) || improved;
+  } else {
+    improved = refinePhase(ctx, best, iter) || improved;
+  }
+  improved = refineDv(ctx, best, iter) || improved;
+  return improved;
+}
+
+/** Coordinate descent on landing map (Horizons). */
+function refineLandingT(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+  let improved = false; const dT = (3 * 3600) / (1 + iter);
+  for (const s of [-2, -1, 1, 2]) {
+    const landT = best.bestLandingT + s * dT;
+    rebuildLeo(ctx, makeLunarEpoch(0, landT, true));
+    const ev = evalCandidate(ctx, best.bestDv, 0, landT, false);
+    if (considerEvalStrict(best, ev, 0, best.bestDv, landT)) improved = true;
+  }
+  rebuildLeo(ctx, makeLunarEpoch(0, best.bestLandingT, true));
+  return improved;
+}
+
+/** Coordinate descent on Moon phase (analytic). */
+function refinePhase(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+  let improved = false;
+  const dPh = 0.02 / (1 + iter);
+  for (const s of [-2, -1, 1, 2]) {
+    const ph = best.bestPhase + s * dPh;
+    const ev = evalCandidate(ctx, best.bestDv, ph, ctx.T, true);
+    if (considerEvalStrict(best, ev, ph, best.bestDv, best.bestLandingT)) improved = true;
+  }
+  return improved;
+}
+
+/** Coordinate descent on Δv. */
+function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+  let improved = false;
+  const dDv = 0.008 / (1 + iter);
+  for (const s of [-2, -1, 1, 2]) {
+    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, best.bestDv + s * dDv));
+    const ev = evalCandidate(ctx, dv, best.bestPhase, best.bestLandingT, true);
+    if (considerEvalStrict(best, ev, best.bestPhase, dv, best.bestLandingT)) improved = true;
+  }
+  return improved;
+}
+
+/** Log search summary. */
+function logSearchResult(best: SearchBest, baseDv: number, found: boolean): void {
+  const raDes = apogeeFromTranslunarInjectionDeltaV(LOW_EARTH_ORBIT_RADIUS, best.bestDv); const raLabel = Number.isFinite(raDes) ? (raDes / A_EM).toFixed(3) : "∞";
+  console.info(
+    `[tothemoon] Ballistic 4-body probe minMoonAlt=${best.bestAlt.toFixed(0)} km @${(best.bestPeriluneT / 3600).toFixed(1)}h ` +
+      `rEarth=${(best.bestREarth / A_EM).toFixed(3)}×A_EM phase=${best.bestPhase.toFixed(3)} ` +
+      `landT=${(best.bestLandingT / 3600).toFixed(1)}h ` +
+      `dv=${best.bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}) · ra_des≈${raLabel}×A_EM · ` +
+      `${found ? "close-pass" : "best-effort"}`,
+  );
+}
+
+function emptySearchBest(guess: number, baseDv: number, T: number): SearchBest {
+  return { bestPhase: guess, bestDv: baseDv, bestAlt: Infinity, bestPeriluneT: T, bestREarth: Infinity, bestScore: Infinity, bestLandingT: T };
 }
 
 /**
@@ -106,238 +329,37 @@ function periluneScore(
  * Rebuilds ascent + low Earth orbit under explicit {@link EphemerisEpoch} candidates.
  * Updates `lowEarthOrbitRelative.current` whenever low Earth orbit is rebuilt.
  */
+function initSearch(opts: {
+  baseDv: number; designTof: number; tTli0: number;
+  lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
+}): { ctx: SearchCtx; best: SearchBest; grids: ReturnType<typeof buildSearchGrids>; guess: number } {
+  const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative } = opts;
+  const useHorizons = hasHorizonsTable(); const dvMax = maxTranslunarInjectionDeltaV();
+  const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
+  const ctx: SearchCtx = {
+    useHorizons, baseDv, dvMax, T, lowEarthOrbitRelative,
+    epoch: makeLunarEpoch(useHorizons ? 0 : guess, T, useHorizons),
+  };
+  return { ctx, best: emptySearchBest(guess, baseDv, T), grids: buildSearchGrids(useHorizons, baseDv, dvMax), guess };
+}
+
+function toSearchResult(best: SearchBest, found: boolean): TransferSearchResult {
+  return { bestPhase: best.bestPhase, bestDv: best.bestDv, bestLandingT: best.bestLandingT, bestAlt: best.bestAlt, bestPeriluneT: best.bestPeriluneT, bestREarth: best.bestREarth, found };
+}
+
 export function searchBallisticTransfer(opts: {
   baseDv: number;
   designTof: number;
   tTli0: number;
   lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
 }): TransferSearchResult {
-  const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative } = opts;
-  const useHorizons = hasHorizonsTable();
-  const dvMax = maxTranslunarInjectionDeltaV();
-
-  // Lead angle for outbound lunar-distance intercept (~3 d), not full apo time of flight
-  const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
-
-  const phaseOffsets: number[] = [];
-  if (!useHorizons) {
-    for (let i = -80; i <= 80; i++) phaseOffsets.push(i * 0.03);
-  } else {
-    phaseOffsets.push(0);
-  }
-  const epochOffsetsS: number[] = [];
-  if (useHorizons) {
-    // ±10 d around design landing map, 12 h steps. Coarse pass rebuilds
-    // low Earth orbit per offset so dogleg / translunar injection aim match DE441 Moon geometry.
-    for (let i = -20; i <= 20; i++) epochOffsetsS.push(i * 12 * 3600);
-  } else {
-    epochOffsetsS.push(0);
-  }
-
-  // Prefer design / hotter injects for free-coast reach
-  const dvScales = [1.0, 1.015, 1.03, 1.045, 1.06].filter(
-    (s) => baseDv * s <= dvMax + 1e-9,
-  );
-
-  let epoch = makeLunarEpoch(useHorizons ? 0 : guess, T, useHorizons);
-
-  /**
-   * Score a (Δv, moon-phase) pair. `reAscent` rebuilds low Earth orbit under that phase so
-   * the probe matches flyMission (ascent is weakly barycenter-coupled).
-   */
-  function evalCandidate(
-    dv: number,
-    ph: number,
-    landT: number,
-    reAscent = false,
-  ): {
-    sc: number;
-    alt: number;
-    t: number;
-    rE: number;
-  } {
-    epoch = makeLunarEpoch(ph, landT, useHorizons);
-    if (reAscent) ensureAscent(epoch);
-    lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-    const pr = probePerilune(dv, lowEarthOrbitRelative.current, epoch);
-    return {
-      sc:
-        periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) +
-        launchDayPenalty(epoch),
-      alt: pr.minAlt,
-      t: pr.periluneT,
-      rE: pr.rEarth,
-    };
-  }
-
-  let bestPhase = guess;
-  let bestDv = baseDv;
-  let bestAlt = Infinity;
-  let bestPeriluneT = T;
-  let bestREarth = Infinity;
-  let bestScore = Infinity;
-  let bestLandingT = T;
-  let found = false;
-
-  // Coarse grid: epoch offset (Horizons) and/or Moon phase (analytic) × Δv.
-  // Horizons: rebuild ascent+ low Earth orbit at every epoch so the transfer plane aims at
-  // the DE441 Moon (stale low Earth orbit from a fixed landT systematically missed).
-  for (const landOff of epochOffsetsS) {
-    if (useHorizons) {
-      epoch = makeLunarEpoch(0, T + landOff, useHorizons);
-      ensureAscent(epoch);
-      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-    }
-    for (const dS of dvScales) {
-      const dv = Math.min(baseDv * dS, dvMax);
-      for (const off of phaseOffsets) {
-        const ph = useHorizons ? 0 : guess + off;
-        const landT = T + landOff;
-        const ev = evalCandidate(dv, ph, landT, false);
-        if (ev.sc < bestScore) {
-          bestScore = ev.sc;
-          bestAlt = ev.alt;
-          bestPeriluneT = ev.t;
-          bestREarth = ev.rE;
-          bestPhase = ph;
-          bestDv = dv;
-          bestLandingT = landT;
-        }
-      }
-    }
-  }
-  if (useHorizons) {
-    epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
-  }
-
-  // Medium pass: re-ascent so scores match the path flyMission will bake
-  {
-    const seedPhase = bestPhase;
-    const seedDv = bestDv;
-    const seedLand = bestLandingT;
-    bestScore = Infinity;
-    if (useHorizons) {
-      // Refine epoch ±48 h at 4 h, rebuild low Earth orbit each step
-      for (let i = -12; i <= 12; i++) {
-        const landT = seedLand + i * 4 * 3600;
-        epoch = makeLunarEpoch(0, landT, useHorizons);
-        ensureAscent(epoch);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-        for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
-          const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
-          const ev = evalCandidate(dv, 0, landT, false);
-          if (ev.sc < bestScore) {
-            bestScore = ev.sc;
-            bestAlt = ev.alt;
-            bestPeriluneT = ev.t;
-            bestREarth = ev.rE;
-            bestPhase = 0;
-            bestDv = dv;
-            bestLandingT = landT;
-          }
-        }
-      }
-      epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
-    } else {
-      for (let i = -20; i <= 20; i++) {
-        const ph = seedPhase + i * 0.05;
-        epoch = makeLunarEpoch(ph, T, useHorizons);
-        ensureAscent(epoch);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-        for (const s of [0, -0.012, 0.012]) {
-          const dv = Math.min(dvMax, Math.max(baseDv * 0.999, seedDv + s));
-          const ev = evalCandidate(dv, ph, T, false);
-          if (ev.sc < bestScore) {
-            bestScore = ev.sc;
-            bestAlt = ev.alt;
-            bestPeriluneT = ev.t;
-            bestREarth = ev.rE;
-            bestPhase = ph;
-            bestDv = dv;
-          }
-        }
-      }
-    }
-  }
-
-  // Coordinate descent refine (rebuild low Earth orbit when epoch or phase changes)
+  const { ctx, best, grids, guess } = initSearch(opts);
+  runCoarseGrid(ctx, best, grids, guess);
+  if (ctx.useHorizons) mediumPassHorizons(ctx, best);
+  else mediumPassAnalytic(ctx, best);
   for (let iter = 0; iter < 8; iter++) {
-    let improved = false;
-    if (useHorizons) {
-      const dT = (3 * 3600) / (1 + iter);
-      for (const s of [-2, -1, 1, 2]) {
-        const landT = bestLandingT + s * dT;
-        epoch = makeLunarEpoch(0, landT, useHorizons);
-        ensureAscent(epoch);
-        lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-        const ev = evalCandidate(bestDv, 0, landT, false);
-        if (ev.sc < bestScore - 1e-6) {
-          bestScore = ev.sc;
-          bestAlt = ev.alt;
-          bestPeriluneT = ev.t;
-          bestREarth = ev.rE;
-          bestLandingT = landT;
-          bestPhase = 0;
-          improved = true;
-        }
-      }
-      epoch = makeLunarEpoch(0, bestLandingT, useHorizons);
-      ensureAscent(epoch);
-      lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-    } else {
-      const dPh = 0.02 / (1 + iter);
-      for (const s of [-2, -1, 1, 2]) {
-        const ph = bestPhase + s * dPh;
-        const ev = evalCandidate(bestDv, ph, T, true);
-        if (ev.sc < bestScore - 1e-6) {
-          bestScore = ev.sc;
-          bestAlt = ev.alt;
-          bestPeriluneT = ev.t;
-          bestREarth = ev.rE;
-          bestPhase = ph;
-          improved = true;
-        }
-      }
-    }
-    const dDv = 0.008 / (1 + iter);
-    for (const s of [-2, -1, 1, 2]) {
-      // Never cool below design (sub-lunar apo → early Earth return)
-      const dv = Math.min(dvMax, Math.max(baseDv * 0.999, bestDv + s * dDv));
-      const ev = evalCandidate(dv, bestPhase, bestLandingT, true);
-      if (ev.sc < bestScore - 1e-6) {
-        bestScore = ev.sc;
-        bestAlt = ev.alt;
-        bestPeriluneT = ev.t;
-        bestREarth = ev.rE;
-        bestDv = dv;
-        improved = true;
-      }
-    }
-    if (!improved) break;
+    if (!refineIteration(ctx, best, iter)) break;
   }
-
-  if (bestAlt < INTERCEPT_ALT) found = true;
-
-  const raDes = apogeeFromTranslunarInjectionDeltaV(
-    LOW_EARTH_ORBIT_RADIUS,
-    bestDv,
-  );
-  console.info(
-    `[tothemoon] Ballistic 4-body probe minMoonAlt=${bestAlt.toFixed(0)} km @${(bestPeriluneT / 3600).toFixed(1)}h ` +
-      `rEarth=${(bestREarth / A_EM).toFixed(3)}×A_EM phase=${bestPhase.toFixed(3)} ` +
-      `landT=${(bestLandingT / 3600).toFixed(1)}h ` +
-      `dv=${bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}) · ` +
-      `ra_des≈${Number.isFinite(raDes) ? (raDes / A_EM).toFixed(3) : "∞"}×A_EM · ` +
-      `${found ? "close-pass" : "best-effort"}`,
-  );
-
-  return {
-    bestPhase,
-    bestDv,
-    bestLandingT,
-    bestAlt,
-    bestPeriluneT,
-    bestREarth,
-    found,
-  };
+  const found = best.bestAlt < INTERCEPT_ALT; logSearchResult(best, ctx.baseDv, found);
+  return toSearchResult(best, found);
 }

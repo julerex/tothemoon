@@ -105,23 +105,24 @@ export function starDomeOpacity(camAltKm: number, brownout = 0): number {
  * Entry brownout factor for atmosphere / star tint (0..1).
  * Uses phase + altitude (+ optional plasma strength from entry FX).
  */
+function entryAltBrownout(altKm: number): number {
+  // Theater fallback when plasma helper is not wired (lunar mission)
+  if (!Number.isFinite(altKm) || altKm > 100 || altKm < 0.5) return 0;
+  // Peak around 40–70 km: rise through 15–35 km, fall through 55–95 km
+  const rise = 1 - altitudeFade(altKm, 15, 35);
+  const fall = altitudeFade(altKm, 55, 95);
+  return Math.max(0, Math.min(1, rise * fall * 0.55));
+}
+
 export function atmosphereBrownout(
   phase: string | undefined,
   altKm: number,
   plasmaStrength = 0,
 ): number {
   const plasma = Math.max(0, Math.min(1, plasmaStrength));
-  if (plasma > 0.02) {
-    return Math.min(1, plasma * 0.95);
-  }
+  if (plasma > 0.02) return Math.min(1, plasma * 0.95);
   if (phase !== "entry" && phase !== "descent") return 0;
-  // Theater fallback when plasma helper is not wired (lunar mission)
-  if (!Number.isFinite(altKm)) return 0;
-  if (altKm > 100 || altKm < 0.5) return 0;
-  // Peak around 40–70 km: rise through 15–35 km, fall through 55–95 km
-  const rise = 1 - altitudeFade(altKm, 15, 35);
-  const fall = altitudeFade(altKm, 55, 95);
-  return Math.max(0, Math.min(1, rise * fall * 0.55));
+  return entryAltBrownout(altKm);
 }
 
 /**
@@ -147,20 +148,7 @@ export function shadowsActive(camAltKm: number): boolean {
  * Bias notes (scene unit = 1 km): flat pad slabs must **not** cast (see
  * {@link markPadShadowMeshes}) or they self-acne into TV-snow noise.
  */
-export function enableSunShadows(
-  renderer: THREE.WebGLRenderer,
-  sunLight: THREE.DirectionalLight,
-): void {
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(2048, 2048);
-  // Conservative bias: enough to hide residual acne on craft/OLM without
-  // large peter-panning (values in world km / shadow depth).
-  sunLight.shadow.bias = -0.0004;
-  sunLight.shadow.normalBias = 0.004;
-  sunLight.shadow.radius = 3;
-  const cam = sunLight.shadow.camera;
+function configureShadowCamera(cam: THREE.OrthographicCamera): void {
   cam.near = 0.05;
   cam.far = 8;
   cam.left = -0.4;
@@ -170,10 +158,52 @@ export function enableSunShadows(
   cam.updateProjectionMatrix();
 }
 
+export function enableSunShadows(
+  renderer: THREE.WebGLRenderer,
+  sunLight: THREE.DirectionalLight,
+): void {
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.bias = -0.0004;
+  sunLight.shadow.normalBias = 0.004;
+  sunLight.shadow.radius = 3;
+  configureShadowCamera(sunLight.shadow.camera);
+}
+
 /**
  * Mark meshes under a root as shadow casters and/or receivers.
  * Skips lights, sprites, and non-mesh objects.
  */
+function materialsOf(mesh: THREE.Mesh): THREE.Material[] {
+  return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+}
+
+function isAdditiveBasic(m: THREE.Material): boolean {
+  return (
+    (m as THREE.MeshBasicMaterial).isMeshBasicMaterial &&
+    m.transparent &&
+    m.blending === THREE.AdditiveBlending
+  );
+}
+
+function applyMeshShadowFlags(
+  mesh: THREE.Mesh,
+  cast: boolean,
+  receive: boolean,
+): void {
+  const mats = materialsOf(mesh);
+  if (mats.some((m) => m && (m as THREE.Material).userData?.noShadow)) return;
+  if (mats.some((m) => m && isAdditiveBasic(m))) {
+    mesh.castShadow = false;
+    mesh.receiveShadow = receive;
+    return;
+  }
+  mesh.castShadow = cast;
+  mesh.receiveShadow = receive;
+}
+
 export function markShadowMeshes(
   root: THREE.Object3D,
   opts: { cast?: boolean; receive?: boolean } = { cast: true, receive: true },
@@ -182,31 +212,7 @@ export function markShadowMeshes(
   const receive = opts.receive !== false;
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    // Skip pure additive / HUD-like basic materials that should not write shadows
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    const shadowOk = mats.some((m) => {
-      if (!m) return false;
-      // Sprites / particles often use transparent additive — skip
-      if ((m as THREE.Material).userData?.noShadow) return false;
-      return true;
-    });
-    if (!shadowOk) return;
-    // Don't cast from fully transparent additive fire / steam if MeshBasic + additive
-    for (const m of mats) {
-      if (
-        m &&
-        (m as THREE.MeshBasicMaterial).isMeshBasicMaterial &&
-        (m as THREE.Material).transparent &&
-        (m as THREE.Material).blending === THREE.AdditiveBlending
-      ) {
-        mesh.castShadow = false;
-        mesh.receiveShadow = receive;
-        return;
-      }
-    }
-    mesh.castShadow = cast;
-    mesh.receiveShadow = receive;
+    if (mesh.isMesh) applyMeshShadowFlags(mesh, cast, receive);
   });
 }
 
@@ -217,74 +223,60 @@ export function markShadowMeshes(
  * Flat hardstand / scrub / landmark rings must not cast — coplanar cast+receive
  * produces noisy self-acne (“TV snow”) on the launch apron.
  */
-export function markPadShadowMeshes(pad: THREE.Object3D): void {
-  // Ground / apron / FX: receive only
-  markShadowMeshes(pad, { cast: false, receive: true });
+const PAD_CAST_ROOTS = [
+  "mechazilla", "pad-tank-farm", "pad-warehouse", "pad-olm",
+  "pad-chopstick-carriage", "pad-chopstick-L", "pad-chopstick-R", "pad-qd-arm",
+  "pad-flood-fixture-0", "pad-flood-fixture-1", "pad-flood-fixture-2", "pad-flood-fixture-3",
+] as const;
 
-  // Named vertical massing that should throw a real shadow on the concrete
-  const castRoots = [
-    "mechazilla",
-    "pad-tank-farm",
-    "pad-warehouse",
-    "pad-olm",
-    "pad-chopstick-carriage",
-    "pad-chopstick-L",
-    "pad-chopstick-R",
-    "pad-qd-arm",
-    "pad-flood-fixture-0",
-    "pad-flood-fixture-1",
-    "pad-flood-fixture-2",
-    "pad-flood-fixture-3",
-  ] as const;
+const PAD_RECEIVE_ONLY = [
+  "pad-landmark-scrub", "pad-landmark-ring", "pad-scorch", "pad-surroundings",
+] as const;
 
-  for (const name of castRoots) {
+function isFlatBoxGeometry(geom: THREE.BoxGeometry): boolean {
+  const p = geom.parameters as { width: number; height: number; depth: number };
+  return Math.min(p.width, p.height, p.depth) < Math.max(p.width, p.height, p.depth) * 0.08;
+}
+
+function isFlatPadGeometry(geom: THREE.BufferGeometry): boolean {
+  if (geom instanceof THREE.CircleGeometry) return true;
+  if (geom instanceof THREE.RingGeometry) return true;
+  if (geom instanceof THREE.PlaneGeometry) return true;
+  if (geom instanceof THREE.BoxGeometry) return isFlatBoxGeometry(geom);
+  return false;
+}
+
+function silenceFlatPadMeshes(node: THREE.Object3D): void {
+  node.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (isFlatPadGeometry(mesh.geometry)) {
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+    }
+  });
+}
+
+function markPadCastRoots(pad: THREE.Object3D): void {
+  for (const name of PAD_CAST_ROOTS) {
     const node = pad.getObjectByName(name);
     if (node) markShadowMeshes(node, { cast: true, receive: true });
   }
+}
 
-  // Explicitly silence large flat landmark discs (receive only, never cast)
-  for (const name of [
-    "pad-landmark-scrub",
-    "pad-landmark-ring",
-    "pad-scorch",
-    "pad-surroundings",
-  ] as const) {
+function markPadReceiveOnly(pad: THREE.Object3D): void {
+  for (const name of PAD_RECEIVE_ONLY) {
     const node = pad.getObjectByName(name);
     if (!node) continue;
-    if (name === "pad-surroundings") {
-      // Surroundings: keep receive; only re-enable cast on nested farm/warehouse
-      // (already handled via getObjectByName above if parented under pad).
-      // Force flat discs under surroundings not to cast.
-      node.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        const geom = mesh.geometry;
-        if (
-          geom instanceof THREE.CircleGeometry ||
-          geom instanceof THREE.RingGeometry ||
-          geom instanceof THREE.PlaneGeometry
-        ) {
-          mesh.castShadow = false;
-          mesh.receiveShadow = true;
-        } else if (geom instanceof THREE.BoxGeometry) {
-          // Thin horizontal slabs (hardstand): do not cast
-          const p = geom.parameters as {
-            width: number;
-            height: number;
-            depth: number;
-          };
-          const minDim = Math.min(p.width, p.height, p.depth);
-          const maxDim = Math.max(p.width, p.height, p.depth);
-          if (minDim < maxDim * 0.08) {
-            mesh.castShadow = false;
-            mesh.receiveShadow = true;
-          }
-        }
-      });
-    } else {
-      markShadowMeshes(node, { cast: false, receive: true });
-    }
+    if (name === "pad-surroundings") silenceFlatPadMeshes(node);
+    else markShadowMeshes(node, { cast: false, receive: true });
   }
+}
+
+export function markPadShadowMeshes(pad: THREE.Object3D): void {
+  markShadowMeshes(pad, { cast: false, receive: true });
+  markPadCastRoots(pad);
+  markPadReceiveOnly(pad);
 }
 
 /**
@@ -296,45 +288,51 @@ export function markPadShadowMeshes(pad: THREE.Object3D): void {
  *
  * @returns effective shadow strength 0..1 (for optional UI / debug)
  */
+function setOrthoHalf(cam: THREE.OrthographicCamera, half: number, far: number): void {
+  cam.left = -half;
+  cam.right = half;
+  cam.top = half;
+  cam.bottom = -half;
+  cam.near = 0.05;
+  cam.far = far;
+  cam.updateProjectionMatrix();
+}
+
+function placeSunShadow(
+  sunLight: THREE.DirectionalLight, focus: Vec3Like, sunUnit: Vec3Like, half: number, pull: number,
+): void {
+  sunLight.position.set(focus.x + sunUnit.x * pull, focus.y + sunUnit.y * pull, focus.z + sunUnit.z * pull);
+  sunLight.target.position.set(focus.x, focus.y, focus.z);
+  sunLight.target.updateMatrixWorld();
+  setOrthoHalf(sunLight.shadow.camera, half, pull + half * 3);
+}
+
+function enableSunShadowFocus(
+  sunLight: THREE.DirectionalLight,
+  focus: Vec3Like,
+  sunUnit: Vec3Like,
+  camAltKm: number,
+  strength: number,
+): number {
+  sunLight.castShadow = true;
+  const half = shadowHalfExtentKm(camAltKm);
+  placeSunShadow(sunLight, focus, sunUnit, half, Math.max(1.2, half * 4));
+  sunLight.shadow.radius = 1.8 + 1.2 * strength;
+  return strength;
+}
+
 export function updateSunShadowFocus(
   sunLight: THREE.DirectionalLight,
   focus: Vec3Like,
   sunUnit: Vec3Like,
   camAltKm: number,
 ): number {
-  const strength = altitudeFade(
-    camAltKm,
-    SHADOW_FULL_ALT_KM,
-    SHADOW_FADE_ALT_KM,
-  );
+  const strength = altitudeFade(camAltKm, SHADOW_FULL_ALT_KM, SHADOW_FADE_ALT_KM);
   if (strength < 0.02) {
     sunLight.castShadow = false;
     return 0;
   }
-
-  sunLight.castShadow = true;
-  const half = shadowHalfExtentKm(camAltKm);
-  // Pull light sunward of focus so the ortho frustum covers pad + stack
-  const pull = Math.max(1.2, half * 4);
-  sunLight.position.set(
-    focus.x + sunUnit.x * pull,
-    focus.y + sunUnit.y * pull,
-    focus.z + sunUnit.z * pull,
-  );
-  sunLight.target.position.set(focus.x, focus.y, focus.z);
-  sunLight.target.updateMatrixWorld();
-
-  const cam = sunLight.shadow.camera;
-  cam.left = -half;
-  cam.right = half;
-  cam.top = half;
-  cam.bottom = -half;
-  cam.near = 0.05;
-  cam.far = pull + half * 3;
-  cam.updateProjectionMatrix();
-  // Soften as we fade out with altitude
-  sunLight.shadow.radius = 1.8 + 1.2 * strength;
-  return strength;
+  return enableSunShadowFocus(sunLight, focus, sunUnit, camAltKm, strength);
 }
 
 /**
@@ -353,6 +351,13 @@ export function cameraAltitudeEarthKm(
 /**
  * Build EffectComposer with mild Unreal bloom + OutputPass (tone map / color).
  */
+function makeBloomPass(size: THREE.Vector2): UnrealBloomPass {
+  return new UnrealBloomPass(
+    new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
+    0.28, 0.45, 0.82,
+  );
+}
+
 export function createCinemaComposer(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
@@ -363,16 +368,9 @@ export function createCinemaComposer(
   const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
-
-  const bloom = new UnrealBloomPass(
-    new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
-    0.28, // strength — kept mild
-    0.45, // radius
-    0.82, // threshold
-  );
+  const bloom = makeBloomPass(size);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
-
   return { composer, bloom, renderPass };
 }
 
@@ -413,6 +411,15 @@ export function renderCinema(
 /**
  * Fade / dim the star dome for low-altitude and brownout (V5 haze).
  */
+function tintStarDome(mat: THREE.MeshBasicMaterial, brownout: number): void {
+  if (brownout > 0.02) {
+    const t = Math.min(1, brownout);
+    mat.color.setRGB(0.35 + 0.25 * t, 0.32 + 0.05 * t, 0.38 * (1 - 0.5 * t));
+  } else {
+    mat.color.setHex(0x555566);
+  }
+}
+
 export function updateStarDomeCinema(
   scene: THREE.Scene,
   camAltKm: number,
@@ -425,15 +432,5 @@ export function updateStarDomeCinema(
   mat.transparent = true;
   mat.depthWrite = false;
   mat.opacity = starDomeOpacity(camAltKm, brownout);
-  // Warm the dome slightly during brownout so residual stars don't stay pure white
-  if (brownout > 0.02) {
-    const t = Math.min(1, brownout);
-    mat.color.setRGB(
-      0.35 + 0.25 * t,
-      0.32 + 0.05 * t,
-      0.38 * (1 - 0.5 * t),
-    );
-  } else {
-    mat.color.setHex(0x555566);
-  }
+  tintStarDome(mat, brownout);
 }

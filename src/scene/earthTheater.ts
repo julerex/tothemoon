@@ -89,471 +89,427 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * @see updateStarbaseLaunchFx
  * @see padLaunchFx.derivePadFx
  */
-export function createStarbasePad(): THREE.Group {
-  const pad = new THREE.Group();
-  pad.name = "starbase-pad";
 
-  // Match main.ts near-Earth surface clamp (R_EARTH + 0.05) so the stack sits
-  // on the OLM rather than under a floating deck.
+const GROUND_OFFSET = {
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -1,
+} as const;
+
+/** Place pad group at Starbase geodetic on the Earth mesh. */
+function placePadOnEarth(pad: THREE.Group): void {
   const padAlt = Math.max(STARBASE_ALT, 0.05);
-  const local = geodeticToMeshLocal(
-    STARBASE_LAT,
-    STARBASE_LON,
-    R_EARTH + padAlt,
-  );
+  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, R_EARTH + padAlt);
   pad.position.set(local.x, local.y, local.z);
-
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+}
 
-  // Satellite-style hardstand, tank farm, road, scrub (true-scale + mid-field)
-  pad.add(createPadSurroundings());
+/** Earth-cam landmark rings (scrub + concrete + coast rim). */
+function addPadLandmarks(pad: THREE.Group): void {
+  addLandmarkScrub(pad);
+  addLandmarkConcrete(pad);
+  addLandmarkRim(pad);
+}
 
-  // --- Earth-cam landmark: tan scrub + concrete industrial core ---
-  const groundOffset = {
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-  } as const;
-  // Outer Boca Chica scrub (tan / olive, not marsh green)
-  const landmarkScrub = new THREE.Mesh(
+function addLandmarkScrub(pad: THREE.Group): void {
+  const mesh = new THREE.Mesh(
     new THREE.RingGeometry(0.4, 2.7, 64, 1),
-    new THREE.MeshStandardMaterial({
-      color: 0x8a7a5c,
-      metalness: 0.05,
-      roughness: 0.97,
-      ...groundOffset,
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x8a7a5c, metalness: 0.05, roughness: 0.97, ...GROUND_OFFSET }),
   );
-  landmarkScrub.rotation.x = -Math.PI / 2;
-  landmarkScrub.position.y = -0.01;
-  landmarkScrub.name = "pad-landmark-scrub";
-  pad.add(landmarkScrub);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.01;
+  mesh.name = "pad-landmark-scrub";
+  pad.add(mesh);
+}
 
-  // Inner concrete / industrial band (reads gray from LEO)
-  const landmarkConcrete = new THREE.Mesh(
+function addLandmarkConcrete(pad: THREE.Group): void {
+  const mesh = new THREE.Mesh(
     new THREE.RingGeometry(0.08, 0.48, 48, 1),
-    new THREE.MeshStandardMaterial({
-      color: 0x7a7e84,
-      metalness: 0.22,
-      roughness: 0.85,
-      ...groundOffset,
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x7a7e84, metalness: 0.22, roughness: 0.85, ...GROUND_OFFSET }),
   );
-  landmarkConcrete.rotation.x = -Math.PI / 2;
-  landmarkConcrete.position.y = -0.008;
-  landmarkConcrete.name = "pad-landmark-ring";
-  pad.add(landmarkConcrete);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.008;
+  mesh.name = "pad-landmark-ring";
+  pad.add(mesh);
+}
 
-  // Soft outer coast rim
-  const landmarkRim = new THREE.Mesh(
+function addLandmarkRim(pad: THREE.Group): void {
+  const mesh = new THREE.Mesh(
     new THREE.TorusGeometry(2.65, 0.028, 8, 64),
-    new THREE.MeshStandardMaterial({
-      color: 0x6a7a70,
-      metalness: 0.12,
-      roughness: 0.9,
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x6a7a70, metalness: 0.12, roughness: 0.9 }),
   );
-  landmarkRim.rotation.x = Math.PI / 2;
-  landmarkRim.position.y = -0.005;
-  pad.add(landmarkRim);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.y = -0.005;
+  pad.add(mesh);
+}
 
-  // Flame trench / water deluge channel (true-scale-ish under OLM)
-  // Charred steel sides read under trench cam (V3 close-up)
-  const trenchSteel = new THREE.MeshStandardMaterial({
-    color: 0x1a1c20,
-    metalness: 0.45,
-    roughness: 0.72,
+function makeAdditiveBasic(color: number): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
-  const trench = new THREE.Mesh(
-    new THREE.BoxGeometry(0.018, 0.006, 0.055),
-    trenchSteel,
-  );
+}
+
+/** Flame trench + floor + flame sheet + tongues. */
+function addPadTrenchAndFlame(pad: THREE.Group): void {
+  addTrenchMeshes(pad);
+  addFlameSheet(pad);
+  addFlameTongues(pad);
+}
+
+function addTrenchMeshes(pad: THREE.Group): void {
+  const trenchSteel = new THREE.MeshStandardMaterial({ color: 0x1a1c20, metalness: 0.45, roughness: 0.72 });
+  const trench = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.006, 0.055), trenchSteel);
   trench.position.y = -0.006;
   trench.name = "pad-trench";
   pad.add(trench);
-  // Inner scorched floor of trench
+  addTrenchFloor(pad);
+}
+
+function addTrenchFloor(pad: THREE.Group): void {
   const trenchFloor = new THREE.Mesh(
     new THREE.BoxGeometry(0.014, 0.0012, 0.048),
-    new THREE.MeshStandardMaterial({
-      color: 0x0c0c0e,
-      metalness: 0.35,
-      roughness: 0.9,
-      map: makeScorchTexture(),
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x0c0c0e, metalness: 0.35, roughness: 0.9, map: makeScorchTexture() }),
   );
   trenchFloor.position.y = -0.0082;
   trenchFloor.name = "pad-trench-floor";
   pad.add(trenchFloor);
+}
 
-  // Flame sheet in the trench — cool methane/orange, not pure yellow
-  const flameMat = new THREE.MeshBasicMaterial({
-    color: 0xff8a48,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
-  });
+function addFlameSheet(pad: THREE.Group): void {
+  const flameMat = makeAdditiveBasic(0xff8a48);
   const flame = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.028, 0.05), flameMat);
   flame.position.y = 0.006;
   flame.name = "pad-flame";
   flame.visible = false;
   flame.userData.mat = flameMat;
   pad.add(flame);
+}
 
-  // Secondary flame tongues (stack-scale, muted)
-  const tongueMat = new THREE.MeshBasicMaterial({
-    color: 0xffa060,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
-  });
+const FLAME_TONGUE_ZS = [-0.016, -0.005, 0.005, 0.016] as const;
+
+function addOneFlameTongue(tongues: THREE.Group, mat: THREE.Material, z: number): void {
+  const tongue = new THREE.Mesh(new THREE.ConeGeometry(0.007, 0.05, 10, 1, true), mat);
+  tongue.position.set(0, 0.02, z);
+  tongues.add(tongue);
+}
+
+function addFlameTongues(pad: THREE.Group): void {
+  const tongueMat = makeAdditiveBasic(0xffa060);
   const tongues = new THREE.Group();
   tongues.name = "pad-flame-tongues";
   tongues.visible = false;
-  for (const z of [-0.016, -0.005, 0.005, 0.016]) {
-    const tongue = new THREE.Mesh(
-      new THREE.ConeGeometry(0.007, 0.05, 10, 1, true),
-      tongueMat,
-    );
-    tongue.position.set(0, 0.02, z);
-    tongues.add(tongue);
-  }
+  for (const z of FLAME_TONGUE_ZS) addOneFlameTongue(tongues, tongueMat, z);
   tongues.userData.mat = tongueMat;
   pad.add(tongues);
+}
 
-  const steamTex = makeSteamTexture();
+function makeSteamSpriteMat(map: THREE.CanvasTexture, color: number): THREE.SpriteMaterial {
+  return new THREE.SpriteMaterial({
+    map, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.NormalBlending, color,
+  });
+}
 
-  // Deluge steam around OLM — layout from pure specs (`padLaunchFx`)
+function configureSteamSprite(sprite: THREE.Sprite, s: ReturnType<typeof expandSteamSprites>[number]): void {
+  sprite.position.set(Math.cos(s.ang) * s.r0, s.y0, Math.sin(s.ang) * s.r0);
+  sprite.scale.setScalar(s.scale);
+  sprite.userData.baseAng = s.ang;
+  sprite.userData.baseR = s.r0;
+  sprite.userData.baseY = s.y0;
+  sprite.userData.baseScale = s.scale;
+  sprite.userData.phase = s.phase;
+  sprite.userData.tier = s.tier;
+}
+
+function addPadSteamGroup(pad: THREE.Group, steamTex: THREE.CanvasTexture): void {
   const steamGroup = new THREE.Group();
   steamGroup.name = "pad-steam";
   steamGroup.visible = false;
   for (const s of expandSteamSprites()) {
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: steamTex,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.NormalBlending,
-        color: s.color,
-      }),
-    );
-    sprite.position.set(Math.cos(s.ang) * s.r0, s.y0, Math.sin(s.ang) * s.r0);
-    sprite.scale.setScalar(s.scale);
-    sprite.userData.baseAng = s.ang;
-    sprite.userData.baseR = s.r0;
-    sprite.userData.baseY = s.y0;
-    sprite.userData.baseScale = s.scale;
-    sprite.userData.phase = s.phase;
-    sprite.userData.tier = s.tier;
+    const sprite = new THREE.Sprite(makeSteamSpriteMat(steamTex, s.color));
+    configureSteamSprite(sprite, s);
     steamGroup.add(sprite);
   }
   pad.add(steamGroup);
+}
 
-  // Sheet-like deluge curtains (data-driven)
+function configureSheetSprite(sprite: THREE.Sprite, a: (typeof DELUGE_SHEETS)[number]): void {
+  sprite.position.set(a.pos[0], a.pos[1], a.pos[2]);
+  sprite.scale.set(a.sx, a.sy, 1);
+  sprite.userData.baseX = a.pos[0];
+  sprite.userData.baseY = a.pos[1];
+  sprite.userData.baseZ = a.pos[2];
+  sprite.userData.baseSx = a.sx;
+  sprite.userData.baseSy = a.sy;
+  sprite.userData.phase = a.phase;
+}
+
+function addPadDelugeSheets(pad: THREE.Group, steamTex: THREE.CanvasTexture): void {
   const delugeSheets = new THREE.Group();
   delugeSheets.name = "pad-deluge-sheets";
   delugeSheets.visible = false;
   for (const a of DELUGE_SHEETS) {
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: steamTex,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.NormalBlending,
-        color: 0xd8e0e8,
-      }),
-    );
-    sprite.position.set(a.pos[0], a.pos[1], a.pos[2]);
-    sprite.scale.set(a.sx, a.sy, 1);
-    sprite.userData.baseX = a.pos[0];
-    sprite.userData.baseY = a.pos[1];
-    sprite.userData.baseZ = a.pos[2];
-    sprite.userData.baseSx = a.sx;
-    sprite.userData.baseSy = a.sy;
-    sprite.userData.phase = a.phase;
+    const sprite = new THREE.Sprite(makeSteamSpriteMat(steamTex, 0xd8e0e8));
+    configureSheetSprite(sprite, a);
     delugeSheets.add(sprite);
   }
   pad.add(delugeSheets);
+}
 
-  // Heat haze above trench (scrub-driven; bases from pure helper)
+function makeHazeSpriteMat(map: THREE.CanvasTexture): THREE.SpriteMaterial {
+  return new THREE.SpriteMaterial({
+    map, transparent: true, opacity: 0, depthWrite: false, depthTest: true,
+    blending: THREE.AdditiveBlending, color: 0xffc8a0,
+  });
+}
+
+function addPadHeatHaze(pad: THREE.Group): void {
   const hazeTex = makeHeatHazeTexture();
   const heatHaze = new THREE.Group();
   heatHaze.name = "pad-heat-haze";
   heatHaze.visible = false;
   const hazeZs = hazeBaseZs();
-  for (let i = 0; i < hazeZs.length; i++) {
-    const z = hazeZs[i]!;
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: hazeTex,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        depthTest: true,
-        blending: THREE.AdditiveBlending,
-        color: 0xffc8a0,
-      }),
-    );
-    sprite.position.set(0, 0.014, z);
-    sprite.scale.set(0.028, 0.022, 1);
-    sprite.userData.baseZ = z;
-    sprite.userData.phase = i * 1.3;
-    heatHaze.add(sprite);
-  }
+  for (let i = 0; i < hazeZs.length; i++) addHazeSprite(heatHaze, hazeTex, hazeZs[i]!, i);
   pad.add(heatHaze);
+}
 
-  // Tank-farm vent steam (prelaunch hold) — anchors from pure data
+function addHazeSprite(group: THREE.Group, map: THREE.CanvasTexture, z: number, i: number): void {
+  const sprite = new THREE.Sprite(makeHazeSpriteMat(map));
+  sprite.position.set(0, 0.014, z);
+  sprite.scale.set(0.028, 0.022, 1);
+  sprite.userData.baseZ = z;
+  sprite.userData.phase = i * 1.3;
+  group.add(sprite);
+}
+
+function addPadVentSteam(pad: THREE.Group, steamTex: THREE.CanvasTexture): void {
   const ventSteam = new THREE.Group();
   ventSteam.name = "pad-vent-steam";
   ventSteam.visible = false;
-  for (let i = 0; i < VENT_ANCHORS.length; i++) {
-    const [x, y, z] = VENT_ANCHORS[i]!;
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: steamTex,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        blending: THREE.NormalBlending,
-        color: 0xe8ecf0,
-      }),
-    );
-    sprite.position.set(x, y, z);
-    sprite.scale.setScalar(0.12);
-    sprite.userData.baseX = x;
-    sprite.userData.baseY = y;
-    sprite.userData.baseZ = z;
-    sprite.userData.phase = i * 1.1;
-    ventSteam.add(sprite);
-  }
+  for (let i = 0; i < VENT_ANCHORS.length; i++) addVentSprite(ventSteam, steamTex, i);
   pad.add(ventSteam);
+}
 
-  // True-scale Mechazilla + OLM (engines sit on OLM at y≈0)
-  pad.add(createMechazillaTower());
+function addVentSprite(group: THREE.Group, map: THREE.CanvasTexture, i: number): void {
+  const [x, y, z] = VENT_ANCHORS[i]!;
+  const sprite = new THREE.Sprite(makeSteamSpriteMat(map, 0xe8ecf0));
+  sprite.position.set(x, y, z);
+  sprite.scale.setScalar(0.12);
+  sprite.userData.baseX = x;
+  sprite.userData.baseY = y;
+  sprite.userData.baseZ = z;
+  sprite.userData.phase = i * 1.1;
+  group.add(sprite);
+}
 
-  // --- Pad lighting (floods + plume fill) ---
-  // Cool metal-halide floodlights for night ops; warm plume fill when burning.
-  const lights = createPadLights();
-  pad.add(lights);
-
-  // Beacon on tower peak
+function addPadBeacon(pad: THREE.Group): void {
   const beacon = new THREE.Mesh(
     new THREE.SphereGeometry(0.003, 10, 8),
-    new THREE.MeshBasicMaterial({
-      color: 0xff5533,
-      transparent: true,
-      opacity: 0.95,
-    }),
+    new THREE.MeshBasicMaterial({ color: 0xff5533, transparent: true, opacity: 0.95 }),
   );
   beacon.position.set(0.022, 0.152, 0);
   beacon.name = "pad-beacon";
   pad.add(beacon);
+}
 
-  // Tight ground bloom only while engines fire (no always-on yellow landmark)
+function addPadGroundBloom(pad: THREE.Group): void {
   const groundBloom = makeGroundBloomSprite();
   groundBloom.name = "pad-ground-bloom";
   groundBloom.position.set(0, 0.01, 0);
   groundBloom.scale.setScalar(0.12);
   groundBloom.visible = false;
   pad.add(groundBloom);
+}
 
+function addPadFxSprites(pad: THREE.Group): void {
+  const steamTex = makeSteamTexture();
+  addPadSteamGroup(pad, steamTex);
+  addPadDelugeSheets(pad, steamTex);
+  addPadHeatHaze(pad);
+  addPadVentSteam(pad, steamTex);
+}
+
+function populateStarbasePad(pad: THREE.Group): void {
+  pad.add(createPadSurroundings());
+  addPadLandmarks(pad);
+  addPadTrenchAndFlame(pad);
+  addPadFxSprites(pad);
+  pad.add(createMechazillaTower());
+  pad.add(createPadLights());
+  addPadBeacon(pad);
+  addPadGroundBloom(pad);
+}
+
+export function createStarbasePad(): THREE.Group {
+  const pad = new THREE.Group();
+  pad.name = "starbase-pad";
+  placePadOnEarth(pad);
+  populateStarbasePad(pad);
   return pad;
 }
+
 
 /**
  * OLP-2-style pad complex (theater massing from public satellite layout).
  *
  * Local frame (km): origin = stack / OLM, +Y up, tower at +X.
- *
- * Contents:
- * - Angular concrete hardstand slabs (not a round disc)
- * - Dense white horizontal tank rows E/NE of the tower + pipe racks / GSE
- * - Warehouse, Boca Chica Blvd + parking to the north
- * - Tan coastal scrub outside the fence line
- * - V3 apron decals: scorch disc, water stains, runoff trails
- *
- * Keeps vertical clearance under the stack so OLM / engines stay clear.
  * Group name: `pad-surroundings`.
  */
+function populatePadSurroundings(g: THREE.Group, mats: PadSurroundMats): void {
+  addPadScrubAndPond(g, mats);
+  addPadHardstand(g, mats);
+  addPadApronDecals(g);
+  addPadRoadsAndCars(g, mats);
+  g.add(buildTankFarm(mats));
+  addPadWarehouseAndYards(g, mats);
+  addPadHopperAndCrane(g, mats);
+}
+
 function createPadSurroundings(): THREE.Group {
   const g = new THREE.Group();
   g.name = "pad-surroundings";
+  populatePadSurroundings(g, makePadSurroundMats());
+  return g;
+}
 
-  const groundOff = {
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-  } as const;
+type PadSurroundMats = {
+  concrete: THREE.MeshStandardMaterial;
+  concreteLight: THREE.MeshStandardMaterial;
+  concreteDark: THREE.MeshStandardMaterial;
+  scrub: THREE.MeshStandardMaterial;
+  scrubDark: THREE.MeshStandardMaterial;
+  dirt: THREE.MeshStandardMaterial;
+  asphalt: THREE.MeshStandardMaterial;
+  water: THREE.MeshStandardMaterial;
+  steel: THREE.MeshStandardMaterial;
+  steelDark: THREE.MeshStandardMaterial;
+  tankWhite: THREE.MeshStandardMaterial;
+  warehouseRoof: THREE.MeshStandardMaterial;
+  warehouseWall: THREE.MeshStandardMaterial;
+  carPaint: THREE.MeshStandardMaterial;
+};
 
-  // Satellite palette: light industrial concrete, darker service pads, tan dirt
-  const concrete = new THREE.MeshStandardMaterial({
-    color: 0x9a9ea4,
-    metalness: 0.18,
-    roughness: 0.9,
-    ...groundOff,
+function groundStd(
+  color: number,
+  metalness: number,
+  roughness: number,
+  ground = true,
+): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    metalness,
+    roughness,
+    ...(ground ? GROUND_OFFSET : {}),
   });
-  const concreteLight = new THREE.MeshStandardMaterial({
-    color: 0xb0b4b8,
-    metalness: 0.15,
-    roughness: 0.88,
-    ...groundOff,
-  });
-  const concreteDark = new THREE.MeshStandardMaterial({
-    color: 0x6a6e74,
-    metalness: 0.22,
-    roughness: 0.86,
-    ...groundOff,
-  });
-  const scrub = new THREE.MeshStandardMaterial({
-    color: 0x9a8a68,
-    metalness: 0.04,
-    roughness: 0.98,
-    ...groundOff,
-  });
-  const scrubDark = new THREE.MeshStandardMaterial({
-    color: 0x7a6a4e,
-    metalness: 0.04,
-    roughness: 0.97,
-    ...groundOff,
-  });
-  const dirt = new THREE.MeshStandardMaterial({
-    color: 0xb0a080,
-    metalness: 0.05,
-    roughness: 0.96,
-    ...groundOff,
-  });
-  const asphalt = new THREE.MeshStandardMaterial({
-    color: 0x4a4c50,
-    metalness: 0.12,
-    roughness: 0.92,
-    ...groundOff,
-  });
-  const water = new THREE.MeshStandardMaterial({
-    color: 0x4a6a62,
-    metalness: 0.4,
-    roughness: 0.4,
-    ...groundOff,
-  });
-  const steel = new THREE.MeshStandardMaterial({
-    color: 0x8a9098,
-    metalness: 0.72,
-    roughness: 0.42,
-  });
-  const steelDark = new THREE.MeshStandardMaterial({
-    color: 0x4a5058,
-    metalness: 0.65,
-    roughness: 0.5,
-  });
-  const tankWhite = new THREE.MeshStandardMaterial({
-    color: 0xd8dce0,
-    metalness: 0.5,
-    roughness: 0.4,
-  });
-  const warehouseRoof = new THREE.MeshStandardMaterial({
-    color: 0xc4b8a0,
-    metalness: 0.25,
-    roughness: 0.75,
-  });
-  const warehouseWall = new THREE.MeshStandardMaterial({
-    color: 0xb8b0a0,
-    metalness: 0.2,
-    roughness: 0.8,
-  });
-  const carPaint = new THREE.MeshStandardMaterial({
-    color: 0x3a3e48,
-    metalness: 0.4,
-    roughness: 0.55,
-  });
+}
 
-  // --- Tan scrub / dirt outside the complex (Boca Chica coastal plain) ---
-  const scrubPatches: { r: number; pos: [number, number]; mat: THREE.MeshStandardMaterial }[] = [
-    { r: 0.9, pos: [-0.55, -0.4], mat: scrub },
-    { r: 0.7, pos: [0.55, -0.65], mat: scrubDark },
-    { r: 0.85, pos: [-0.7, 0.35], mat: dirt },
-    { r: 0.6, pos: [0.85, 0.15], mat: scrub },
-    { r: 0.75, pos: [0.2, 0.85], mat: scrubDark },
-    { r: 0.5, pos: [-0.3, -0.85], mat: dirt },
-    { r: 0.55, pos: [0.95, -0.35], mat: scrub },
-    { r: 0.45, pos: [-0.9, -0.1], mat: scrubDark },
-  ];
-  for (const p of scrubPatches) {
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(p.r, 24), p.mat);
-    disc.rotation.x = -Math.PI / 2;
-    disc.position.set(p.pos[0], -0.007, p.pos[1]);
-    g.add(disc);
-  }
+function makePadGroundMats(): Pick<PadSurroundMats, "concrete" | "concreteLight" | "concreteDark" | "scrub" | "scrubDark" | "dirt" | "asphalt" | "water"> {
+  return {
+    concrete: groundStd(0x9a9ea4, 0.18, 0.9), concreteLight: groundStd(0xb0b4b8, 0.15, 0.88),
+    concreteDark: groundStd(0x6a6e74, 0.22, 0.86), scrub: groundStd(0x9a8a68, 0.04, 0.98),
+    scrubDark: groundStd(0x7a6a4e, 0.04, 0.97), dirt: groundStd(0xb0a080, 0.05, 0.96),
+    asphalt: groundStd(0x4a4c50, 0.12, 0.92), water: groundStd(0x4a6a62, 0.4, 0.4),
+  };
+}
 
-  // Small green water / drainage pond (satellite N edge near Starhopper)
-  const pond = new THREE.Mesh(new THREE.CircleGeometry(0.08, 20), water);
-  pond.rotation.x = -Math.PI / 2;
-  pond.position.set(0.05, -0.0058, 0.42);
-  g.add(pond);
+function makePadStructureMats(): Pick<PadSurroundMats, "steel" | "steelDark" | "tankWhite" | "warehouseRoof" | "warehouseWall" | "carPaint"> {
+  return {
+    steel: groundStd(0x8a9098, 0.72, 0.42, false), steelDark: groundStd(0x4a5058, 0.65, 0.5, false),
+    tankWhite: groundStd(0xd8dce0, 0.5, 0.4, false), warehouseRoof: groundStd(0xc4b8a0, 0.25, 0.75, false),
+    warehouseWall: groundStd(0xb8b0a0, 0.2, 0.8, false), carPaint: groundStd(0x3a3e48, 0.4, 0.55, false),
+  };
+}
 
-  // --- Main OLP hardstand: angular concrete (satellite is a big irregular pad) ---
-  // Layered boxes approximate the SW tower apron + NE industrial yard.
-  // Dimensions in km: 0.001 = 1 m.
-  const padSlabs: {
-    size: [number, number, number];
-    pos: [number, number, number];
-    mat: THREE.MeshStandardMaterial;
-  }[] = [
-    // Tower apron around stack (light gray)
-    { size: [0.16, 0.0028, 0.14], pos: [0.02, -0.0024, 0.0], mat: concreteLight },
-    // Main industrial yard E of tower (tank farm sits here)
-    { size: [0.22, 0.0026, 0.2], pos: [0.14, -0.0026, 0.06], mat: concrete },
-    // NW service apron toward the road
-    { size: [0.18, 0.0025, 0.12], pos: [0.04, -0.0028, 0.14], mat: concreteDark },
-    // SE extension
-    { size: [0.12, 0.0025, 0.1], pos: [0.12, -0.0028, -0.08], mat: concrete },
-    // NE warehouse approach
-    { size: [0.14, 0.0025, 0.1], pos: [0.22, -0.0027, 0.12], mat: concreteLight },
-  ];
-  for (const s of padSlabs) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), s.mat);
-    slab.position.set(...s.pos);
-    g.add(slab);
-  }
+function makePadSurroundMats(): PadSurroundMats {
+  return { ...makePadGroundMats(), ...makePadStructureMats() };
+}
 
-  // Scorch / stained apron under OLM (V3 close-up: textured rings + water)
-  const scorchMap = makeScorchTexture();
-  const scorch = new THREE.Mesh(
-    new THREE.CircleGeometry(0.048, 40),
-    new THREE.MeshStandardMaterial({
-      color: 0x4a4640,
-      map: scorchMap,
-      metalness: 0.18,
-      roughness: 0.94,
-      transparent: true,
-      opacity: 0.92,
-      ...groundOff,
-    }),
-  );
+function addGroundDisc(
+  g: THREE.Group,
+  r: number,
+  mat: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  segs = 24,
+): void {
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(r, segs), mat);
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.set(x, y, z);
+  g.add(disc);
+}
+
+const SCRUB_PATCHES: { r: number; pos: [number, number]; kind: "scrub" | "scrubDark" | "dirt" }[] = [
+  { r: 0.9, pos: [-0.55, -0.4], kind: "scrub" },
+  { r: 0.7, pos: [0.55, -0.65], kind: "scrubDark" },
+  { r: 0.85, pos: [-0.7, 0.35], kind: "dirt" },
+  { r: 0.6, pos: [0.85, 0.15], kind: "scrub" },
+  { r: 0.75, pos: [0.2, 0.85], kind: "scrubDark" },
+  { r: 0.5, pos: [-0.3, -0.85], kind: "dirt" },
+  { r: 0.55, pos: [0.95, -0.35], kind: "scrub" },
+  { r: 0.45, pos: [-0.9, -0.1], kind: "scrubDark" },
+];
+
+function addPadScrubAndPond(g: THREE.Group, mats: PadSurroundMats): void {
+  for (const p of SCRUB_PATCHES) addGroundDisc(g, p.r, mats[p.kind], p.pos[0], -0.007, p.pos[1]);
+  addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20);
+}
+
+type PadSlab = { size: [number, number, number]; pos: [number, number, number]; kind: "concrete" | "concreteLight" | "concreteDark" };
+const PAD_SLABS: PadSlab[] = [
+  { size: [0.16, 0.0028, 0.14], pos: [0.02, -0.0024, 0.0], kind: "concreteLight" },
+  { size: [0.22, 0.0026, 0.2], pos: [0.14, -0.0026, 0.06], kind: "concrete" },
+  { size: [0.18, 0.0025, 0.12], pos: [0.04, -0.0028, 0.14], kind: "concreteDark" },
+  { size: [0.12, 0.0025, 0.1], pos: [0.12, -0.0028, -0.08], kind: "concrete" },
+  { size: [0.14, 0.0025, 0.1], pos: [0.22, -0.0027, 0.12], kind: "concreteLight" },
+];
+
+function addPadSlab(g: THREE.Group, mats: PadSurroundMats, s: PadSlab): void {
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), mats[s.kind]);
+  slab.position.set(...s.pos);
+  g.add(slab);
+}
+
+function addPadHardstand(g: THREE.Group, mats: PadSurroundMats): void {
+  for (const s of PAD_SLABS) addPadSlab(g, mats, s);
+}
+
+function makeScorchMat(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0x4a4640, map: makeScorchTexture(), metalness: 0.18, roughness: 0.94,
+    transparent: true, opacity: 0.92, ...GROUND_OFFSET,
+  });
+}
+
+function addPadScorch(g: THREE.Group): void {
+  const scorch = new THREE.Mesh(new THREE.CircleGeometry(0.048, 40), makeScorchMat());
   scorch.rotation.x = -Math.PI / 2;
   scorch.position.y = -0.0004;
   scorch.name = "pad-scorch";
   g.add(scorch);
+  addPadScorchCore(g);
+}
 
-  // Darker inner burn ring (hotter core under engines)
+function addPadScorchCore(g: THREE.Group): void {
   const scorchCore = new THREE.Mesh(
     new THREE.RingGeometry(0.01, 0.022, 32, 1),
-    new THREE.MeshStandardMaterial({
-      color: 0x1c1a18,
-      metalness: 0.28,
-      roughness: 0.88,
-      ...groundOff,
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x1c1a18, metalness: 0.28, roughness: 0.88, ...GROUND_OFFSET }),
   );
   scorchCore.rotation.x = -Math.PI / 2;
   scorchCore.position.y = -0.0003;
   g.add(scorchCore);
+}
 
-  // Water / deluge runoff stains on apron (asymmetric streaks toward trench ends)
+function stainMaterial(map: THREE.CanvasTexture): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0x5a6258, map, transparent: true, opacity: 0.55,
+    metalness: 0.08, roughness: 0.95, depthWrite: false, ...GROUND_OFFSET,
+  });
+}
+
+function addPadWaterStains(g: THREE.Group): void {
   const stainMap = makeWaterStainTexture();
   const stainSpecs: { size: [number, number]; pos: [number, number]; rot: number }[] = [
     { size: [0.055, 0.028], pos: [0.02, 0.03], rot: 0.35 },
@@ -562,302 +518,275 @@ function createPadSurroundings(): THREE.Group {
     { size: [0.036, 0.022], pos: [-0.03, 0.018], rot: -1.4 },
     { size: [0.03, 0.016], pos: [0.008, 0.045], rot: 0.15 },
   ];
-  for (let i = 0; i < stainSpecs.length; i++) {
-    const s = stainSpecs[i]!;
-    const stain = new THREE.Mesh(
-      new THREE.PlaneGeometry(s.size[0], s.size[1]),
-      new THREE.MeshStandardMaterial({
-        color: 0x5a6258,
-        map: stainMap,
-        transparent: true,
-        opacity: 0.55,
-        metalness: 0.08,
-        roughness: 0.95,
-        depthWrite: false,
-        ...groundOff,
-      }),
-    );
-    stain.rotation.x = -Math.PI / 2;
-    stain.rotation.z = s.rot;
-    stain.position.set(s.pos[0], -0.0002, s.pos[1]);
-    stain.name = `pad-water-stain-${i}`;
-    g.add(stain);
-  }
+  for (let i = 0; i < stainSpecs.length; i++) addOneWaterStain(g, stainMap, stainSpecs[i]!, i);
+}
 
-  // Thin dark oil / runoff trails from OLM toward tank farm
+function addOneWaterStain(
+  g: THREE.Group,
+  map: THREE.CanvasTexture,
+  s: { size: [number, number]; pos: [number, number]; rot: number },
+  i: number,
+): void {
+  const stain = new THREE.Mesh(new THREE.PlaneGeometry(s.size[0], s.size[1]), stainMaterial(map));
+  stain.rotation.x = -Math.PI / 2;
+  stain.rotation.z = s.rot;
+  stain.position.set(s.pos[0], -0.0002, s.pos[1]);
+  stain.name = `pad-water-stain-${i}`;
+  g.add(stain);
+}
+
+function trailMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0x2a2c28, transparent: true, opacity: 0.4,
+    metalness: 0.1, roughness: 0.96, depthWrite: false, ...GROUND_OFFSET,
+  });
+}
+
+function addPadRunoffTrails(g: THREE.Group): void {
   for (const [x0, z0, len, ang] of [
-    [0.02, 0.01, 0.06, 0.4],
-    [0.015, -0.015, 0.045, -0.6],
-    [-0.01, 0.025, 0.035, 1.2],
+    [0.02, 0.01, 0.06, 0.4], [0.015, -0.015, 0.045, -0.6], [-0.01, 0.025, 0.035, 1.2],
   ] as const) {
-    const trail = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.004, len),
-      new THREE.MeshStandardMaterial({
-        color: 0x2a2c28,
-        transparent: true,
-        opacity: 0.4,
-        metalness: 0.1,
-        roughness: 0.96,
-        depthWrite: false,
-        ...groundOff,
-      }),
-    );
+    const trail = new THREE.Mesh(new THREE.PlaneGeometry(0.004, len), trailMaterial());
     trail.rotation.x = -Math.PI / 2;
     trail.rotation.z = ang;
     trail.position.set(x0, -0.00015, z0);
     g.add(trail);
   }
+}
 
-  // Perimeter fence-line shadow (dark strip along pad edge)
-  const fence = new THREE.Mesh(
-    new THREE.BoxGeometry(0.32, 0.0015, 0.004),
-    steelDark,
-  );
+function addPadFences(g: THREE.Group, mats: PadSurroundMats): void {
+  const fence = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.0015, 0.004), mats.steelDark);
   fence.position.set(0.08, -0.001, -0.12);
   g.add(fence);
-  const fence2 = new THREE.Mesh(
-    new THREE.BoxGeometry(0.004, 0.0015, 0.28),
-    steelDark,
-  );
+  const fence2 = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.0015, 0.28), mats.steelDark);
   fence2.position.set(-0.08, -0.001, 0.04);
   g.add(fence2);
+}
 
-  // --- Boca Chica Blvd (E–W asphalt north of complex) ---
-  const blvd = new THREE.Mesh(
-    new THREE.BoxGeometry(0.7, 0.002, 0.014),
-    asphalt,
-  );
-  blvd.position.set(0.1, -0.0035, 0.28);
-  blvd.name = "pad-boca-chica-blvd";
-  g.add(blvd);
+function addPadApronDecals(g: THREE.Group): void {
+  addPadScorch(g);
+  addPadWaterStains(g);
+  addPadRunoffTrails(g);
+}
 
-  // Road shoulder / dirt verge
-  const verge = new THREE.Mesh(
-    new THREE.BoxGeometry(0.72, 0.0015, 0.03),
-    dirt,
-  );
-  verge.position.set(0.1, -0.004, 0.28);
-  g.add(verge);
+function addPadRoadsAndCars(g: THREE.Group, mats: PadSurroundMats): void {
+  addPadFences(g, mats);
+  addBlvd(g, mats);
+  addParkingCars(g, mats);
+}
 
-  // Parking lot N of hardstand / S of road
-  const parking = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.002, 0.04),
-    concreteDark,
-  );
-  parking.position.set(-0.05, -0.003, 0.22);
-  g.add(parking);
+function addNamedBox(
+  g: THREE.Group, size: [number, number, number], mat: THREE.Material,
+  pos: [number, number, number], name?: string,
+): void {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), mat);
+  mesh.position.set(...pos);
+  if (name) mesh.name = name;
+  g.add(mesh);
+}
 
-  // Cars along the road (tiny blocks)
+function addBlvd(g: THREE.Group, mats: PadSurroundMats): void {
+  addNamedBox(g, [0.7, 0.002, 0.014], mats.asphalt, [0.1, -0.0035, 0.28], "pad-boca-chica-blvd");
+  addNamedBox(g, [0.72, 0.0015, 0.03], mats.dirt, [0.1, -0.004, 0.28]);
+  addNamedBox(g, [0.2, 0.002, 0.04], mats.concreteDark, [-0.05, -0.003, 0.22]);
+}
+
+function addParkingCars(g: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 14; i++) {
-    const car = new THREE.Mesh(
-      new THREE.BoxGeometry(0.0045, 0.0016, 0.0022),
-      carPaint,
-    );
+    const car = new THREE.Mesh(new THREE.BoxGeometry(0.0045, 0.0016, 0.0022), mats.carPaint);
     const side = i < 8 ? 1 : -1;
-    car.position.set(
-      -0.12 + (i % 8) * 0.018,
-      -0.0015,
-      0.22 + side * 0.012 + (i % 3) * 0.002,
-    );
+    car.position.set(-0.12 + (i % 8) * 0.018, -0.0015, 0.22 + side * 0.012 + (i % 3) * 0.002);
     g.add(car);
   }
+}
 
-  // --- Tank farm + GSE (satellite: dense white tanks E of tower) ---
-  const farm = new THREE.Group();
-  farm.name = "pad-tank-farm";
-  // Origin of farm ≈ center of tank rows relative to stack
-  farm.position.set(0.09, 0, 0.04);
+function addHorizontalTank(
+  farm: THREE.Group,
+  mats: PadSurroundMats,
+  tankR: number,
+  tankLen: number,
+  x: number,
+  z: number,
+): void {
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(tankR, tankR, tankLen, 14), mats.tankWhite);
+  tank.rotation.x = Math.PI / 2;
+  tank.position.set(x, tankR + 0.001, z);
+  farm.add(tank);
+  for (const end of [-1, 1] as const) {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(tankR * 1.02, 10, 8), mats.tankWhite);
+    cap.position.set(x, tankR + 0.001, z + end * (tankLen * 0.5));
+    farm.add(cap);
+  }
+}
 
-  // Primary white horizontal tank bank (rows like satellite)
-  // Real-ish: ~3–4 m diameter, ~25–30 m long → 0.0035–0.004 r, 0.028 len
+function addPrimaryTankBank(farm: THREE.Group, mats: PadSurroundMats): void {
   const tankR = 0.0038;
   const tankLen = 0.03;
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 4; col++) {
-      const tank = new THREE.Mesh(
-        new THREE.CylinderGeometry(tankR, tankR, tankLen, 14),
-        tankWhite,
-      );
-      // Horizontal along +Z (N–S rows on satellite, slightly angled)
-      tank.rotation.x = Math.PI / 2;
-      tank.position.set(
-        0.01 + col * 0.011,
-        tankR + 0.001,
-        -0.02 + row * 0.012,
-      );
-      farm.add(tank);
-      // End caps (slightly larger)
-      for (const end of [-1, 1] as const) {
-        const cap = new THREE.Mesh(
-          new THREE.SphereGeometry(tankR * 1.02, 10, 8),
-          tankWhite,
-        );
-        cap.position.set(
-          0.01 + col * 0.011,
-          tankR + 0.001,
-          -0.02 + row * 0.012 + end * (tankLen * 0.5),
-        );
-        farm.add(cap);
-      }
+      addHorizontalTank(farm, mats, tankR, tankLen, 0.01 + col * 0.011, -0.02 + row * 0.012);
     }
   }
+}
 
-  // Second bank of shorter tanks (satellite has staggered groups)
+function addSecondaryHorizTanks(farm: THREE.Group, mats: PadSurroundMats): void {
   for (let col = 0; col < 3; col++) {
-    const tank = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0032, 0.0032, 0.022, 12),
-      tankWhite,
-    );
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.022, 12), mats.tankWhite);
     tank.rotation.x = Math.PI / 2;
     tank.position.set(0.055 + col * 0.01, 0.0042, 0.03);
     farm.add(tank);
   }
+}
 
-  // Vertical bullet / sphere tanks
+function addBulletTanks(farm: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 6; i++) {
     const h = 0.01 + (i % 3) * 0.003;
-    const bullet = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.002, 0.002, h, 10),
-      steel,
-    );
+    const bullet = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, h, 10), mats.steel);
     bullet.position.set(-0.02 + i * 0.008, h * 0.5, 0.045);
     farm.add(bullet);
   }
+}
 
-  // Dark pipe-rack lattice (satellite: dense dark grid W of white tanks)
+function addSecondaryTanks(farm: THREE.Group, mats: PadSurroundMats): void {
+  addSecondaryHorizTanks(farm, mats);
+  addBulletTanks(farm, mats);
+}
+
+function addPipeRackBoxes(farm: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 5; i++) {
-    const rack = new THREE.Mesh(
-      new THREE.BoxGeometry(0.028, 0.006 + (i % 2) * 0.003, 0.01),
-      steelDark,
-    );
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.006 + (i % 2) * 0.003, 0.01), mats.steelDark);
     rack.position.set(-0.02, 0.005, -0.025 + i * 0.012);
     farm.add(rack);
   }
-  // Cross pipes
+}
+
+function addPipeRuns(farm: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 4; i++) {
-    const pipe = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0006, 0.0006, 0.05, 6),
-      steel,
-    );
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.0006, 0.0006, 0.05, 6), mats.steel);
     pipe.rotation.z = Math.PI / 2;
     pipe.position.set(0.01, 0.008, -0.02 + i * 0.014);
     farm.add(pipe);
   }
+}
 
-  // Equipment skids / electrical yards (dark rectangular pads of gear)
-  const equip: { size: [number, number, number]; pos: [number, number, number] }[] = [
-    { size: [0.022, 0.008, 0.016], pos: [0.07, 0.005, -0.01] },
-    { size: [0.016, 0.01, 0.02], pos: [0.08, 0.006, 0.04] },
-    { size: [0.03, 0.005, 0.012], pos: [0.04, 0.004, 0.055] },
-    { size: [0.012, 0.012, 0.012], pos: [-0.03, 0.007, 0.02] },
-    { size: [0.018, 0.004, 0.018], pos: [0.06, 0.003, -0.04] },
-  ];
-  for (const e of equip) {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(...e.size), steelDark);
+function addPipeRacks(farm: THREE.Group, mats: PadSurroundMats): void {
+  addPipeRackBoxes(farm, mats);
+  addPipeRuns(farm, mats);
+}
+
+const FARM_EQUIP: { size: [number, number, number]; pos: [number, number, number] }[] = [
+  { size: [0.022, 0.008, 0.016], pos: [0.07, 0.005, -0.01] },
+  { size: [0.016, 0.01, 0.02], pos: [0.08, 0.006, 0.04] },
+  { size: [0.03, 0.005, 0.012], pos: [0.04, 0.004, 0.055] },
+  { size: [0.012, 0.012, 0.012], pos: [-0.03, 0.007, 0.02] },
+  { size: [0.018, 0.004, 0.018], pos: [0.06, 0.003, -0.04] },
+];
+const FARM_STACKS: readonly (readonly [number, number, number])[] = [
+  [0.05, 0.06, 0.03], [0.07, 0.05, 0.024], [0.03, 0.065, 0.02], [0.085, 0.03, 0.018],
+];
+
+function addFarmEquipBoxes(farm: THREE.Group, mats: PadSurroundMats): void {
+  for (const e of FARM_EQUIP) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(...e.size), mats.steelDark);
     box.position.set(...e.pos);
     farm.add(box);
   }
+}
 
-  // Vent / flare stacks
-  for (const [sx, sz, h] of [
-    [0.05, 0.06, 0.03],
-    [0.07, 0.05, 0.024],
-    [0.03, 0.065, 0.02],
-    [0.085, 0.03, 0.018],
-  ] as const) {
-    const stack = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0007, 0.0009, h, 8),
-      steelDark,
-    );
+function addFarmStacks(farm: THREE.Group, mats: PadSurroundMats): void {
+  for (const [sx, sz, h] of FARM_STACKS) {
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.0007, 0.0009, h, 8), mats.steelDark);
     stack.position.set(sx, h * 0.5, sz);
     farm.add(stack);
   }
+}
 
-  g.add(farm);
+function addFarmEquipment(farm: THREE.Group, mats: PadSurroundMats): void {
+  addFarmEquipBoxes(farm, mats);
+  addFarmStacks(farm, mats);
+}
 
-  // --- Large warehouse / hangar (satellite NE of tank farm, pale roof) ---
+function buildTankFarm(mats: PadSurroundMats): THREE.Group {
+  const farm = new THREE.Group();
+  farm.name = "pad-tank-farm";
+  farm.position.set(0.09, 0, 0.04);
+  addPrimaryTankBank(farm, mats);
+  addSecondaryTanks(farm, mats);
+  addPipeRacks(farm, mats);
+  addFarmEquipment(farm, mats);
+  return farm;
+}
+
+function addPadWarehouseAndYards(g: THREE.Group, mats: PadSurroundMats): void {
+  g.add(buildWarehouse(mats));
+  addEastYard(g, mats);
+}
+
+function buildWarehouse(mats: PadSurroundMats): THREE.Group {
   const warehouse = new THREE.Group();
   warehouse.name = "pad-warehouse";
   warehouse.position.set(0.22, 0, 0.12);
-  const whBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.055, 0.012, 0.035),
-    warehouseWall,
-  );
+  addWarehouseShell(warehouse, mats);
+  return warehouse;
+}
+
+function addWarehouseShell(warehouse: THREE.Group, mats: PadSurroundMats): void {
+  const whBody = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.012, 0.035), mats.warehouseWall);
   whBody.position.y = 0.006;
   warehouse.add(whBody);
-  const whRoof = new THREE.Mesh(
-    new THREE.BoxGeometry(0.058, 0.002, 0.038),
-    warehouseRoof,
-  );
+  const whRoof = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.002, 0.038), mats.warehouseRoof);
   whRoof.position.y = 0.013;
   warehouse.add(whRoof);
-  // Adjacent smaller shed
-  const shed = new THREE.Mesh(
-    new THREE.BoxGeometry(0.028, 0.008, 0.02),
-    steelDark,
-  );
+  const shed = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.008, 0.02), mats.steelDark);
   shed.position.set(-0.04, 0.004, -0.01);
   warehouse.add(shed);
-  g.add(warehouse);
+}
 
-  // Secondary equipment yard further east (satellite far-right dark blocks)
+function addEastYard(g: THREE.Group, mats: PadSurroundMats): void {
   const eastYard = new THREE.Group();
   eastYard.position.set(0.28, 0, 0.05);
   for (let i = 0; i < 8; i++) {
-    const unit = new THREE.Mesh(
-      new THREE.BoxGeometry(0.01, 0.006, 0.008),
-      i % 2 === 0 ? steelDark : steel,
-    );
+    const unit = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.006, 0.008), i % 2 === 0 ? mats.steelDark : mats.steel);
     unit.position.set((i % 4) * 0.014, 0.003, Math.floor(i / 4) * 0.015);
     eastYard.add(unit);
   }
   g.add(eastYard);
+}
 
-  // --- Starhopper site silhouette (N of road) ---
-  const hopperPad = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.038, 0.002, 24),
-    concreteDark,
-  );
+function addPadHopperAndCrane(g: THREE.Group, mats: PadSurroundMats): void {
+  addStarhopperSite(g, mats);
+  addCrane(g, mats);
+  addTrailers(g);
+}
+
+function addStarhopperSite(g: THREE.Group, mats: PadSurroundMats): void {
+  const hopperPad = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.038, 0.002, 24), mats.concreteDark);
   hopperPad.position.set(0.05, -0.0035, 0.42);
   g.add(hopperPad);
-  // Tiny Starhopper stand-in (cone + cylinder)
-  const hopper = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.004, 0.005, 0.012, 10),
-    steel,
-  );
+  const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.012, 10), mats.steel);
   hopper.position.set(0.05, 0.005, 0.42);
   g.add(hopper);
+}
 
-  // Construction / crane-ish boom near tower apron (satellite has clutter SW)
-  const craneBase = new THREE.Mesh(
-    new THREE.BoxGeometry(0.008, 0.004, 0.008),
-    steelDark,
-  );
+function addCrane(g: THREE.Group, mats: PadSurroundMats): void {
+  const craneBase = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.004, 0.008), mats.steelDark);
   craneBase.position.set(-0.04, 0.002, -0.05);
   g.add(craneBase);
-  const craneBoom = new THREE.Mesh(
-    new THREE.BoxGeometry(0.04, 0.0012, 0.0012),
-    steel,
-  );
+  const craneBoom = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.0012, 0.0012), mats.steel);
   craneBoom.position.set(-0.02, 0.012, -0.05);
   craneBoom.rotation.z = -0.35;
   g.add(craneBoom);
+}
 
-  // Trailers / portable buildings along NW edge
+function addTrailers(g: THREE.Group): void {
   for (let i = 0; i < 4; i++) {
     const trailer = new THREE.Mesh(
       new THREE.BoxGeometry(0.012, 0.0035, 0.005),
-      new THREE.MeshStandardMaterial({
-        color: 0xc0c4c8,
-        metalness: 0.3,
-        roughness: 0.7,
-      }),
+      new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.3, roughness: 0.7 }),
     );
     trailer.position.set(-0.06 + i * 0.02, 0.001, 0.16);
     g.add(trailer);
   }
-
-  return g;
 }
 
 /**
@@ -869,72 +798,78 @@ function createPadSurroundings(): THREE.Group {
  * Named lights: `pad-flood-0..2`, `pad-fill`, `pad-plume-light`,
  * `pad-flood-fixture-*`, `pad-olm-lamp-*`.
  */
-function createPadLights(): THREE.Group {
-  const g = new THREE.Group();
-  g.name = "pad-lights";
+const FLOOD_TARGETS: { pos: [number, number, number]; look: [number, number, number] }[] = [
+  { pos: [0.018, 0.09, 0.012], look: [0, 0.055, 0] },
+  { pos: [0.018, 0.055, -0.012], look: [0, 0.04, 0] },
+  { pos: [0.012, 0.12, 0], look: [0, 0.09, 0] },
+];
 
-  // Tower floodlights aimed at the stack (cool white)
-  const floodTargets: { pos: [number, number, number]; look: [number, number, number] }[] = [
-    { pos: [0.018, 0.09, 0.012], look: [0, 0.055, 0] }, // mid tower → stack mid
-    { pos: [0.018, 0.055, -0.012], look: [0, 0.04, 0] }, // lower tower → booster
-    { pos: [0.012, 0.12, 0], look: [0, 0.09, 0] }, // upper → ship
-  ];
-  for (let i = 0; i < floodTargets.length; i++) {
-    const f = floodTargets[i]!;
-    const spot = new THREE.SpotLight(
-      0xe8f0ff,
-      0,
-      0.35, // ~350 m reach
-      Math.PI / 5.5,
-      0.45,
-      1.6,
-    );
-    spot.name = `pad-flood-${i}`;
-    spot.position.set(f.pos[0], f.pos[1], f.pos[2]);
-    spot.target.position.set(f.look[0], f.look[1], f.look[2]);
+function makeFloodSpot(i: number, f: (typeof FLOOD_TARGETS)[number]): THREE.SpotLight {
+  const spot = new THREE.SpotLight(0xe8f0ff, 0, 0.35, Math.PI / 5.5, 0.45, 1.6);
+  spot.name = `pad-flood-${i}`;
+  spot.position.set(f.pos[0], f.pos[1], f.pos[2]);
+  spot.target.position.set(f.look[0], f.look[1], f.look[2]);
+  return spot;
+}
+
+function makeFloodFixtureMat(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0x8890a0, emissive: 0xc8d4e8, emissiveIntensity: 0.35, metalness: 0.6, roughness: 0.4,
+  });
+}
+
+function makeFloodFixture(i: number, pos: THREE.Vector3): THREE.Mesh {
+  const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.0015, 0.002), makeFloodFixtureMat());
+  fixture.position.copy(pos);
+  fixture.name = `pad-flood-fixture-${i}`;
+  return fixture;
+}
+
+function addFloodLights(g: THREE.Group): void {
+  for (let i = 0; i < FLOOD_TARGETS.length; i++) {
+    const f = FLOOD_TARGETS[i]!;
+    const spot = makeFloodSpot(i, f);
     g.add(spot);
     g.add(spot.target);
-
-    // Small emissive fixture so floods read as real lamps
-    const fixture = new THREE.Mesh(
-      new THREE.BoxGeometry(0.002, 0.0015, 0.002),
-      new THREE.MeshStandardMaterial({
-        color: 0x8890a0,
-        emissive: 0xc8d4e8,
-        emissiveIntensity: 0.35,
-        metalness: 0.6,
-        roughness: 0.4,
-      }),
-    );
-    fixture.position.copy(spot.position);
-    fixture.name = `pad-flood-fixture-${i}`;
-    g.add(fixture);
+    g.add(makeFloodFixture(i, spot.position));
   }
+}
 
-  // Soft fill under / around the stack (cool at night, warm when burning)
+function addPadFillLights(g: THREE.Group): void {
   const fill = new THREE.PointLight(0xdde6f4, 0, 0.28, 1.8);
   fill.name = "pad-fill";
   fill.position.set(0, 0.03, 0);
   g.add(fill);
-
-  // Plume-only warm fill at engine plane (tight, no multi-km wash)
   const plume = new THREE.PointLight(0xff9a58, 0, 0.22, 2);
   plume.name = "pad-plume-light";
   plume.position.set(0, 0.008, 0);
   g.add(plume);
+}
 
-  // OLM ring of tiny work lights (emissive dots)
-  for (let i = 0; i < 8; i++) {
-    const ang = (i / 8) * Math.PI * 2;
-    const lamp = new THREE.Mesh(
-      new THREE.SphereGeometry(0.0006, 6, 4),
-      new THREE.MeshBasicMaterial({ color: 0xf0f4ff }),
-    );
-    lamp.position.set(Math.cos(ang) * 0.013, 0.003, Math.sin(ang) * 0.013);
-    lamp.name = `pad-olm-lamp-${i}`;
-    g.add(lamp);
-  }
+function addOlmLamp(g: THREE.Group, i: number): void {
+  const ang = (i / 8) * Math.PI * 2;
+  const lamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.0006, 6, 4),
+    new THREE.MeshBasicMaterial({ color: 0xf0f4ff }),
+  );
+  lamp.position.set(Math.cos(ang) * 0.013, 0.003, Math.sin(ang) * 0.013);
+  lamp.name = `pad-olm-lamp-${i}`;
+  g.add(lamp);
+}
 
+function addOlmLamps(g: THREE.Group): void {
+  for (let i = 0; i < 8; i++) addOlmLamp(g, i);
+}
+
+/**
+ * Cool-white tower floods + warm plume fill under the stack.
+ */
+function createPadLights(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "pad-lights";
+  addFloodLights(g);
+  addPadFillLights(g);
+  addOlmLamps(g);
   return g;
 }
 
@@ -952,199 +887,232 @@ function createPadLights(): THREE.Group {
  * @param pad - Root from {@link createStarbasePad} (or any parent of the named FX nodes)
  * @param state - Mission sample fields + optional `sunElev`
  */
-export function updateStarbaseLaunchFx(
-  pad: THREE.Object3D,
-  state: LaunchPadFxState,
+/** Map a pure SpritePose onto a billboard (opacity + transform). */
+function applySpritePose(
+  obj: THREE.Sprite,
+  pose: { opacity: number; position: { x: number; y: number; z: number }; scale: { x: number; y: number } },
 ): void {
-  // Pure tick: all strengths / day-night / vents derived once
-  const fx = derivePadFx(state);
-  const { animT, day, night, flame, steamStr, hazePeak, ventStr, padOps, floodBase } =
-    fx;
-  const { strength, flicker } = flame;
+  const mat = obj.material as THREE.SpriteMaterial;
+  mat.opacity = pose.opacity;
+  obj.position.set(pose.position.x, pose.position.y, pose.position.z);
+  obj.scale.set(pose.scale.x, pose.scale.y, 1);
+}
 
-  /** Map a pure {@link SpritePose} onto a billboard (opacity + transform). */
-  const applySpritePose = (
-    obj: THREE.Sprite,
-    pose: { opacity: number; position: { x: number; y: number; z: number }; scale: { x: number; y: number } },
-  ): void => {
-    const mat = obj.material as THREE.SpriteMaterial;
-    mat.opacity = pose.opacity;
-    obj.position.set(pose.position.x, pose.position.y, pose.position.z);
-    obj.scale.set(pose.scale.x, pose.scale.y, 1);
-  };
-
-  // --- Trench flame sheet + tongue cones ---------------------------------
+function updatePadFlame(pad: THREE.Object3D, strength: number): void {
   const flameMesh = pad.getObjectByName("pad-flame") as THREE.Mesh | undefined;
   if (flameMesh) {
     const fv = flameVisual(strength);
-    const mat =
-      (flameMesh.userData.mat as THREE.MeshBasicMaterial) ??
-      (flameMesh.material as THREE.MeshBasicMaterial);
+    const mat = (flameMesh.userData.mat as THREE.MeshBasicMaterial) ?? (flameMesh.material as THREE.MeshBasicMaterial);
     flameMesh.visible = fv.visible;
     mat.opacity = fv.opacity;
     flameMesh.scale.set(1, fv.scaleY, 1);
   }
+  updatePadTongues(pad, strength);
+}
 
+function updatePadTongues(pad: THREE.Object3D, strength: number): void {
   const tongues = pad.getObjectByName("pad-flame-tongues");
-  if (tongues) {
-    const tv = tongueVisual(strength);
-    tongues.visible = tv.visible;
-    const mat = tongues.userData.mat as THREE.MeshBasicMaterial | undefined;
-    if (mat) mat.opacity = tv.opacity;
-    tongues.scale.set(1, tv.scaleY, 1);
-  }
+  if (!tongues) return;
+  const tv = tongueVisual(strength);
+  tongues.visible = tv.visible;
+  const mat = tongues.userData.mat as THREE.MeshBasicMaterial | undefined;
+  if (mat) mat.opacity = tv.opacity;
+  tongues.scale.set(1, tv.scaleY, 1);
+}
 
-  // --- Deluge ring / sheets / haze / vents (userData holds rest pose) ----
+function steamBaseFromUserData(obj: THREE.Sprite) {
+  return {
+    baseAng: (obj.userData.baseAng as number) ?? 0,
+    baseR: (obj.userData.baseR as number) ?? 0.04,
+    baseY: (obj.userData.baseY as number) ?? 0.02,
+    baseScale: (obj.userData.baseScale as number) ?? 0.1,
+    phase: (obj.userData.phase as number) ?? 0,
+    tier: (obj.userData.tier as number) ?? 0,
+  };
+}
+
+function updatePadSteam(pad: THREE.Object3D, steamStr: number, night: number, animT: number): void {
   const steam = pad.getObjectByName("pad-steam");
-  if (steam) {
-    steam.visible = steamStr > 0.03;
-    steam.traverse((obj) => {
-      if (!(obj instanceof THREE.Sprite)) return;
-      // Rest fields written at create time from expandSteamSprites()
-      applySpritePose(
-        obj,
-        steamSpritePose(
-          {
-            baseAng: (obj.userData.baseAng as number) ?? 0,
-            baseR: (obj.userData.baseR as number) ?? 0.04,
-            baseY: (obj.userData.baseY as number) ?? 0.02,
-            baseScale: (obj.userData.baseScale as number) ?? 0.1,
-            phase: (obj.userData.phase as number) ?? 0,
-            tier: (obj.userData.tier as number) ?? 0,
-          },
-          steamStr,
-          night,
-          animT,
-        ),
-      );
-    });
-  }
+  if (!steam) return;
+  steam.visible = steamStr > 0.03;
+  steam.traverse((obj) => {
+    if (!(obj instanceof THREE.Sprite)) return;
+    applySpritePose(obj, steamSpritePose(steamBaseFromUserData(obj), steamStr, night, animT));
+  });
+}
 
+function sheetBaseFromUserData(obj: THREE.Sprite) {
+  return {
+    baseX: (obj.userData.baseX as number) ?? 0,
+    baseY: (obj.userData.baseY as number) ?? 0,
+    baseZ: (obj.userData.baseZ as number) ?? 0,
+    baseSx: (obj.userData.baseSx as number) ?? 0.05,
+    baseSy: (obj.userData.baseSy as number) ?? 0.04,
+    phase: (obj.userData.phase as number) ?? 0,
+  };
+}
+
+function updatePadSheets(pad: THREE.Object3D, steamStr: number, night: number, animT: number): void {
   const sheets = pad.getObjectByName("pad-deluge-sheets");
-  if (sheets) {
-    sheets.visible = steamStr > 0.04;
-    sheets.traverse((obj) => {
-      if (!(obj instanceof THREE.Sprite)) return;
-      applySpritePose(
-        obj,
-        sheetSpritePose(
-          {
-            baseX: (obj.userData.baseX as number) ?? 0,
-            baseY: (obj.userData.baseY as number) ?? 0,
-            baseZ: (obj.userData.baseZ as number) ?? 0,
-            baseSx: (obj.userData.baseSx as number) ?? 0.05,
-            baseSy: (obj.userData.baseSy as number) ?? 0.04,
-            phase: (obj.userData.phase as number) ?? 0,
-          },
-          steamStr,
-          night,
-          animT,
-        ),
-      );
-    });
-  }
+  if (!sheets) return;
+  sheets.visible = steamStr > 0.04;
+  sheets.traverse((obj) => {
+    if (!(obj instanceof THREE.Sprite)) return;
+    applySpritePose(obj, sheetSpritePose(sheetBaseFromUserData(obj), steamStr, night, animT));
+  });
+}
 
+function hazeBaseFromUserData(obj: THREE.Object3D) {
+  return {
+    baseZ: (obj.userData.baseZ as number) ?? 0,
+    phase: (obj.userData.phase as number) ?? 0,
+  };
+}
+
+function updatePadHaze(pad: THREE.Object3D, hazePeak: number, animT: number): void {
   const haze = pad.getObjectByName("pad-heat-haze");
-  if (haze) {
-    // Ignition shimmer — peaks early; pure hazePeak already includes time/alt
-    haze.visible = hazePeak > 0.04;
-    haze.traverse((obj) => {
-      if (!(obj instanceof THREE.Sprite)) return;
-      applySpritePose(
-        obj,
-        hazeSpritePose(
-          {
-            baseZ: (obj.userData.baseZ as number) ?? 0,
-            phase: (obj.userData.phase as number) ?? 0,
-          },
-          hazePeak,
-          animT,
-        ),
-      );
-    });
-  }
+  if (!haze) return;
+  haze.visible = hazePeak > 0.04;
+  haze.traverse((obj) => {
+    if (obj instanceof THREE.Sprite) applySpritePose(obj, hazeSpritePose(hazeBaseFromUserData(obj), hazePeak, animT));
+  });
+}
 
+function ventBaseFromUserData(obj: THREE.Object3D) {
+  return {
+    baseX: (obj.userData.baseX as number) ?? 0,
+    baseY: (obj.userData.baseY as number) ?? 0,
+    baseZ: (obj.userData.baseZ as number) ?? 0,
+    phase: (obj.userData.phase as number) ?? 0,
+  };
+}
+
+function updatePadVent(pad: THREE.Object3D, ventStr: number, night: number, animT: number): void {
   const vent = pad.getObjectByName("pad-vent-steam");
-  if (vent) {
-    vent.visible = ventStr > 0.04;
-    vent.traverse((obj) => {
-      if (!(obj instanceof THREE.Sprite)) return;
-      applySpritePose(
-        obj,
-        ventSpritePose(
-          {
-            baseX: (obj.userData.baseX as number) ?? 0,
-            baseY: (obj.userData.baseY as number) ?? 0,
-            baseZ: (obj.userData.baseZ as number) ?? 0,
-            phase: (obj.userData.phase as number) ?? 0,
-          },
-          ventStr,
-          night,
-          animT,
-        ),
-      );
-    });
-  }
+  if (!vent) return;
+  vent.visible = ventStr > 0.04;
+  vent.traverse((obj) => {
+    if (obj instanceof THREE.Sprite) {
+      applySpritePose(obj, ventSpritePose(ventBaseFromUserData(obj), ventStr, night, animT));
+    }
+  });
+}
 
-  // --- Floods / fill / plume light / OLM lamps / ground bloom ------------
+function updatePadFloods(
+  pad: THREE.Object3D,
+  floodBase: number,
+  strength: number,
+  night: number,
+): void {
   for (let i = 0; i < 3; i++) {
-    const spot = pad.getObjectByName(`pad-flood-${i}`) as
-      | THREE.SpotLight
-      | undefined;
+    const spot = pad.getObjectByName(`pad-flood-${i}`) as THREE.SpotLight | undefined;
     if (!spot) continue;
     spot.intensity = floodSpotIntensity(floodBase, strength, i);
     spot.distance = floodSpotDistance(night);
   }
+}
 
+function updatePadFillLight(
+  pad: THREE.Object3D,
+  padOps: boolean,
+  day: number,
+  night: number,
+  strength: number,
+): void {
   const fill = pad.getObjectByName("pad-fill") as THREE.PointLight | undefined;
-  if (fill) {
-    fill.intensity = padFillIntensity(padOps, day, night, strength);
-    fill.color.setHex(padFillColorHex(strength));
-    fill.distance = padFillDistance(night);
-  }
+  if (!fill) return;
+  fill.intensity = padFillIntensity(padOps, day, night, strength);
+  fill.color.setHex(padFillColorHex(strength));
+  fill.distance = padFillDistance(night);
+}
 
-  const plume = pad.getObjectByName("pad-plume-light") as
-    | THREE.PointLight
-    | undefined;
-  if (plume) {
-    plume.intensity = plumeLightIntensity(strength);
-    plume.distance = plumeLightDistance(strength);
-    const [r, g, b] = plumeLightRgb(flicker);
-    plume.color.setRGB(r, g, b);
-  }
+function updatePadPlumeLight(pad: THREE.Object3D, strength: number, flicker: number): void {
+  const plume = pad.getObjectByName("pad-plume-light") as THREE.PointLight | undefined;
+  if (!plume) return;
+  plume.intensity = plumeLightIntensity(strength);
+  plume.distance = plumeLightDistance(strength);
+  const [r, g, b] = plumeLightRgb(flicker);
+  plume.color.setRGB(r, g, b);
+}
 
+function updatePadFixtures(pad: THREE.Object3D, floodBase: number): void {
   for (let i = 0; i < 3; i++) {
-    const fixture = pad.getObjectByName(`pad-flood-fixture-${i}`) as
-      | THREE.Mesh
-      | undefined;
+    const fixture = pad.getObjectByName(`pad-flood-fixture-${i}`) as THREE.Mesh | undefined;
     if (!fixture) continue;
-    const mat = fixture.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = floodFixtureEmissive(floodBase);
+    (fixture.material as THREE.MeshStandardMaterial).emissiveIntensity = floodFixtureEmissive(floodBase);
   }
+}
 
+function updatePadOlmLamps(pad: THREE.Object3D, padOps: boolean, night: number): void {
   for (let i = 0; i < 8; i++) {
-    const lamp = pad.getObjectByName(`pad-olm-lamp-${i}`) as
-      | THREE.Mesh
-      | undefined;
+    const lamp = pad.getObjectByName(`pad-olm-lamp-${i}`) as THREE.Mesh | undefined;
     if (!lamp) continue;
     lamp.visible = padOps;
     const mat = lamp.material as THREE.MeshBasicMaterial;
     mat.opacity = 1;
     mat.color.setHex(olmLampColorHex(padOps, night));
   }
+}
 
-  const bloom = pad.getObjectByName("pad-ground-bloom") as
-    | THREE.Sprite
-    | undefined;
-  if (bloom) {
-    const bv = bloomVisual(strength, flicker);
-    bloom.visible = bv.visible;
-    if (bv.visible) {
-      const mat = bloom.material as THREE.SpriteMaterial;
-      mat.opacity = bv.opacity;
-      bloom.scale.set(bv.scale, bv.scale, 1);
-    }
+function updatePadBloom(pad: THREE.Object3D, strength: number, flicker: number): void {
+  const bloom = pad.getObjectByName("pad-ground-bloom") as THREE.Sprite | undefined;
+  if (!bloom) return;
+  const bv = bloomVisual(strength, flicker);
+  bloom.visible = bv.visible;
+  if (bv.visible) {
+    (bloom.material as THREE.SpriteMaterial).opacity = bv.opacity;
+    bloom.scale.set(bv.scale, bv.scale, 1);
   }
+}
+
+function updatePadSpriteFx(
+  pad: THREE.Object3D,
+  steamStr: number,
+  hazePeak: number,
+  ventStr: number,
+  night: number,
+  animT: number,
+): void {
+  updatePadSteam(pad, steamStr, night, animT);
+  updatePadSheets(pad, steamStr, night, animT);
+  updatePadHaze(pad, hazePeak, animT);
+  updatePadVent(pad, ventStr, night, animT);
+}
+
+function updatePadLightingFx(
+  pad: THREE.Object3D,
+  fx: ReturnType<typeof derivePadFx>,
+): void {
+  const { day, night, flame, padOps, floodBase } = fx;
+  const { strength, flicker } = flame;
+  updatePadFloods(pad, floodBase, strength, night);
+  updatePadFillLight(pad, padOps, day, night, strength);
+  updatePadPlumeLight(pad, strength, flicker);
+  updatePadFixtures(pad, floodBase);
+  updatePadOlmLamps(pad, padOps, night);
+  updatePadBloom(pad, strength, flicker);
+}
+
+/**
+ * Drive flame trench, deluge steam / sheets, heat haze, vent plumes, and pad
+ * lighting from mission state.
+ *
+ * **Scrub-safe:** scalars and poses come only from pure helpers in
+ * `padLaunchFx.ts` (`derivePadFx`, `*SpritePose`, `*Visual`). This function
+ * mutates THREE objects and does not allocate new meshes.
+ *
+ * @param pad - Root from {@link createStarbasePad}
+ * @param state - Mission sample fields + optional `sunElev`
+ */
+export function updateStarbaseLaunchFx(
+  pad: THREE.Object3D,
+  state: LaunchPadFxState,
+): void {
+  const fx = derivePadFx(state);
+  const { animT, night, flame, steamStr, hazePeak, ventStr } = fx;
+  updatePadFlame(pad, flame.strength);
+  updatePadSpriteFx(pad, steamStr, hazePeak, ventStr, night, animT);
+  updatePadLightingFx(pad, fx);
 }
 
 /**
@@ -1157,49 +1125,72 @@ export function updateStarbaseLaunchFx(
  * @param samples - Baked trajectory samples (mission time ascending)
  * @returns Fat line named `ascent-ground-track`, or `null` if too few points
  */
+function shouldKeepAscentSample(s: Sample, ptsLen: number): "keep" | "skip" | "stop" {
+  if (s.phase !== "launch" && s.phase !== "ascent" && s.phase !== "lowEarthOrbit") {
+    return ptsLen > 10 ? "stop" : "skip";
+  }
+  if (s.phase === "lowEarthOrbit" && s.t > 6000) return "stop";
+  return "keep";
+}
+
+function projectOntoShell(
+  s: Sample, epoch: EphemerisEpoch, rel: ReturnType<typeof v3>,
+): void {
+  const b = bodyPositions(s.t, epoch);
+  const rx = s.pos.x - b.earth.x;
+  const ry = s.pos.y - b.earth.y;
+  const rz = s.pos.z - b.earth.z;
+  const r = Math.hypot(rx, ry, rz) || 1;
+  const shell = R_EARTH + 1.5;
+  rel.x = (rx / r) * shell;
+  rel.y = (ry / r) * shell;
+  rel.z = (rz / r) * shell;
+}
+
+function projectSampleToMeshLocal(
+  s: Sample, epoch: EphemerisEpoch, rel: ReturnType<typeof v3>, local: ReturnType<typeof v3>,
+): THREE.Vector3 {
+  projectOntoShell(s, epoch, rel);
+  inertialRelToMeshLocal(rel, s.t, local, epoch);
+  return new THREE.Vector3(local.x, local.y, local.z);
+}
+
+function tryPushAscentSample(
+  pts: THREE.Vector3[], s: Sample, epoch: EphemerisEpoch,
+  rel: ReturnType<typeof v3>, local: ReturnType<typeof v3>,
+): "continue" | "stop" {
+  const gate = shouldKeepAscentSample(s, pts.length);
+  if (gate === "stop") return "stop";
+  if (gate === "keep") pts.push(projectSampleToMeshLocal(s, epoch, rel, local));
+  return "continue";
+}
+
+function collectAscentPoints(samples: Sample[], epoch: EphemerisEpoch): THREE.Vector3[] {
+  const pts: THREE.Vector3[] = [];
+  const rel = v3();
+  const local = v3();
+  for (const s of samples) {
+    if (tryPushAscentSample(pts, s, epoch, rel, local) === "stop") break;
+  }
+  return pts;
+}
+
+function downsamplePts(pts: THREE.Vector3[], maxPts: number): THREE.Vector3[] {
+  if (pts.length <= maxPts) return pts;
+  return Array.from({ length: maxPts }, (_, i) => {
+    const u = i / (maxPts - 1);
+    return pts[Math.round(u * (pts.length - 1))]!;
+  });
+}
+
 export function createAscentGroundTrack(
   samples: Sample[],
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): THREE.Object3D | null {
-  const pts: THREE.Vector3[] = [];
-  const rel = v3();
-  const local = v3();
-
-  for (const s of samples) {
-    if (s.phase !== "launch" && s.phase !== "ascent" && s.phase !== "lowEarthOrbit") {
-      if (pts.length > 10) break;
-      continue;
-    }
-    if (s.phase === "lowEarthOrbit" && s.t > 6000) break;
-
-    const b = bodyPositions(s.t, epoch);
-    const rx = s.pos.x - b.earth.x;
-    const ry = s.pos.y - b.earth.y;
-    const rz = s.pos.z - b.earth.z;
-    const r = Math.hypot(rx, ry, rz) || 1;
-    rel.x = (rx / r) * (R_EARTH + 1.5);
-    rel.y = (ry / r) * (R_EARTH + 1.5);
-    rel.z = (rz / r) * (R_EARTH + 1.5);
-    inertialRelToMeshLocal(rel, s.t, local, epoch);
-    pts.push(new THREE.Vector3(local.x, local.y, local.z));
-  }
-
+  const pts = collectAscentPoints(samples, epoch);
   if (pts.length < 4) return null;
-
-  const maxPts = 400;
-  const used =
-    pts.length <= maxPts
-      ? pts
-      : Array.from({ length: maxPts }, (_, i) => {
-          const u = i / (maxPts - 1);
-          return pts[Math.round(u * (pts.length - 1))]!;
-        });
-
-  const line = createFatLine(used, {
-    color: 0xff8866,
-    opacity: 0.85,
-    linewidth: 2.75,
-    depthTest: true,
+  const line = createFatLine(downsamplePts(pts, 400), {
+    color: 0xff8866, opacity: 0.85, linewidth: 2.75, depthTest: true,
   });
   line.name = "ascent-ground-track";
   return line;
@@ -1209,12 +1200,7 @@ export function createAscentGroundTrack(
  * Tight warm bloom sprite under the plume (true-scale; only while burning).
  * Procedural canvas radial; opacity driven each tick by {@link bloomVisual}.
  */
-function makeGroundBloomSprite(): THREE.Sprite {
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+function paintGroundBloom(ctx: CanvasRenderingContext2D, size: number): void {
   const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 30);
   g.addColorStop(0, "rgba(255, 200, 140, 0.9)");
   g.addColorStop(0.3, "rgba(255, 120, 60, 0.35)");
@@ -1222,17 +1208,13 @@ function makeGroundBloomSprite(): THREE.Sprite {
   g.addColorStop(1, "rgba(255, 60, 30, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map,
-      transparent: true,
-      depthWrite: false,
-      depthTest: true,
-      blending: THREE.AdditiveBlending,
-    }),
-  );
+}
+
+function makeGroundBloomSprite(): THREE.Sprite {
+  const map = makeSizedCanvasTexture(64, paintGroundBloom);
+  return new THREE.Sprite(new THREE.SpriteMaterial({
+    map, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
+  }));
 }
 
 /**
@@ -1244,274 +1226,245 @@ function makeGroundBloomSprite(): THREE.Sprite {
  * V3 silhouette: thicker chopsticks, carriage cheeks, QD boom with umbilical
  * bellows, heat-darkened OLM top ring. Group name: `mechazilla`.
  */
-function createMechazillaTower(): THREE.Group {
-  const g = new THREE.Group();
-  g.name = "mechazilla";
+type TowerMats = {
+  steel: THREE.MeshStandardMaterial;
+  steelDark: THREE.MeshStandardMaterial;
+  steelBright: THREE.MeshStandardMaterial;
+  accent: THREE.MeshStandardMaterial;
+};
 
-  // Real-ish meters → km
-  const H = 0.146; // tower height
-  const FACE = 0.014; // ~14 m square face
-  const COL = 0.0016; // column thickness ~1.6 m
-  // Offset from pad center: clear of 9 m stack + OLM lip (~22 m)
-  const OX = 0.022;
-  // Apron top is y≈0; tower base sits on the steel deck
-  const OY0 = 0.0;
+function makeTowerMats(): TowerMats {
+  return {
+    steel: new THREE.MeshStandardMaterial({ color: 0xb4b8c0, metalness: 0.72, roughness: 0.38 }),
+    steelDark: new THREE.MeshStandardMaterial({ color: 0x7a8088, metalness: 0.65, roughness: 0.45 }),
+    steelBright: new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.78, roughness: 0.32 }),
+    accent: new THREE.MeshStandardMaterial({ color: 0x5a6068, metalness: 0.55, roughness: 0.5 }),
+  };
+}
 
-  const steel = new THREE.MeshStandardMaterial({
-    color: 0xb4b8c0,
-    metalness: 0.72,
-    roughness: 0.38,
-  });
-  const steelDark = new THREE.MeshStandardMaterial({
-    color: 0x7a8088,
-    metalness: 0.65,
-    roughness: 0.45,
-  });
-  const steelBright = new THREE.MeshStandardMaterial({
-    color: 0xc8ccd2,
-    metalness: 0.78,
-    roughness: 0.32,
-  });
-  const accent = new THREE.MeshStandardMaterial({
-    color: 0x5a6068,
-    metalness: 0.55,
-    roughness: 0.5,
-  });
+const TOWER_H = 0.146;
+const TOWER_FACE = 0.014;
+const TOWER_COL = 0.0016;
+const TOWER_OX = 0.022;
+const TOWER_OY0 = 0.0;
 
-  // Four corner columns (lattice spine)
-  const half = FACE * 0.5;
-  const corners: [number, number][] = [
-    [-half, -half],
-    [half, -half],
-    [-half, half],
-    [half, half],
-  ];
+function addTowerColumns(g: THREE.Group, mats: TowerMats): void {
+  const half = TOWER_FACE * 0.5;
+  const corners: [number, number][] = [[-half, -half], [half, -half], [-half, half], [half, half]];
   for (const [cx, cz] of corners) {
-    const col = new THREE.Mesh(
-      new THREE.BoxGeometry(COL, H, COL),
-      steel,
-    );
-    col.position.set(OX + cx, OY0 + H * 0.5, cz);
+    const col = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL, TOWER_H, TOWER_COL), mats.steel);
+    col.position.set(TOWER_OX + cx, TOWER_OY0 + TOWER_H * 0.5, cz);
     g.add(col);
   }
+}
 
-  // Horizontal ring beams every ~12 m
+function addTowerRingBeamsZ(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
+  for (const z of [-half, half]) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE, TOWER_COL * 0.7, TOWER_COL * 0.65), mats.steelDark);
+    beam.position.set(TOWER_OX, y, z);
+    g.add(beam);
+  }
+}
+
+function addTowerRingBeamsX(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
+  for (const x of [-half, half]) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 0.65, TOWER_COL * 0.7, TOWER_FACE), mats.steelDark);
+    beam.position.set(TOWER_OX + x, y, 0);
+    g.add(beam);
+  }
+}
+
+function addTowerRingAtY(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
+  addTowerRingBeamsZ(g, mats, y, half);
+  addTowerRingBeamsX(g, mats, y, half);
+}
+
+function addTowerRings(g: THREE.Group, mats: TowerMats): void {
+  const half = TOWER_FACE * 0.5;
   const nRings = 12;
   for (let i = 1; i <= nRings; i++) {
-    const y = OY0 + (i / nRings) * H * 0.96;
-    // X-facing faces
-    for (const z of [-half, half]) {
-      const beam = new THREE.Mesh(
-        new THREE.BoxGeometry(FACE, COL * 0.7, COL * 0.65),
-        steelDark,
-      );
-      beam.position.set(OX, y, z);
-      g.add(beam);
-    }
-    // Z-facing faces
-    for (const x of [-half, half]) {
-      const beam = new THREE.Mesh(
-        new THREE.BoxGeometry(COL * 0.65, COL * 0.7, FACE),
-        steelDark,
-      );
-      beam.position.set(OX + x, y, 0);
-      g.add(beam);
-    }
+    addTowerRingAtY(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
   }
+}
 
-  // Diagonal X-bracing on pad-facing and flank faces
-  addTowerBracing(g, OX, OY0, H, FACE, COL, nRings, accent);
-
-  // Elevator / rail trunk on pad-facing side
-  const rail = new THREE.Mesh(
-    new THREE.BoxGeometry(COL * 1.2, H * 0.92, COL * 2.2),
-    steelBright,
-  );
-  rail.position.set(OX - half - COL * 0.4, OY0 + H * 0.48, 0);
+function addTowerRail(g: THREE.Group, mats: TowerMats, half: number): void {
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 1.2, TOWER_H * 0.92, TOWER_COL * 2.2), mats.steelBright);
+  rail.position.set(TOWER_OX - half - TOWER_COL * 0.4, TOWER_OY0 + TOWER_H * 0.48, 0);
   g.add(rail);
+}
 
-  // Peak sheave / crane head
-  const peak = new THREE.Mesh(
-    new THREE.BoxGeometry(FACE * 1.15, 0.008, FACE * 1.15),
-    steelBright,
-  );
-  peak.position.set(OX, OY0 + H + 0.002, 0);
+function addTowerPeakAndSheave(g: THREE.Group, mats: TowerMats, half: number): void {
+  const peak = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 1.15, 0.008, TOWER_FACE * 1.15), mats.steelBright);
+  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + 0.002, 0);
   g.add(peak);
-  const sheave = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.004, 0.004, FACE * 0.7, 10),
-    steelDark,
-  );
+  const sheave = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, TOWER_FACE * 0.7, 10), mats.steelDark);
   sheave.rotation.z = Math.PI / 2;
-  sheave.position.set(OX - half * 0.3, OY0 + H + 0.006, 0);
+  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + 0.006, 0);
   g.add(sheave);
+}
 
-  // Chopstick carriage (rides rails) — open for stacked vehicle
-  // Catch height ~ mid-upper booster when returning (~70–85 m); prelaunch open beside stack
-  const carryY = OY0 + 0.078; // ~78 m
-  const carriage = new THREE.Mesh(
-    new THREE.BoxGeometry(FACE * 1.35, 0.012, FACE * 1.55),
-    steelDark,
-  );
-  carriage.position.set(OX, carryY, 0);
-  carriage.name = "pad-chopstick-carriage";
-  g.add(carriage);
-  // Carriage side cheeks (reads as bulk against sky from pad/trench cam)
+function addTowerRailAndPeak(g: THREE.Group, mats: TowerMats): void {
+  const half = TOWER_FACE * 0.5;
+  addTowerRail(g, mats, half);
+  addTowerPeakAndSheave(g, mats, half);
+}
+
+function addChopstickCheeks(g: THREE.Group, mats: TowerMats, carryY: number, half: number): void {
   for (const side of [-1, 1] as const) {
-    const cheek = new THREE.Mesh(
-      new THREE.BoxGeometry(FACE * 0.55, 0.008, 0.004),
-      steelBright,
-    );
-    cheek.position.set(OX - half * 0.3, carryY + 0.002, side * (FACE * 0.72));
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 0.55, 0.008, 0.004), mats.steelBright);
+    cheek.position.set(TOWER_OX - half * 0.3, carryY + 0.002, side * (TOWER_FACE * 0.72));
     g.add(cheek);
   }
+}
 
-  // Chopsticks: two long arms reaching toward / around the stack (open)
-  // V3: thicker silhouette + rails so prelaunch pad cam reads Mechazilla arms
-  // Arm length ~24 m each side; stacked open width clears 9 m vehicle
+function addChopstickCarriage(g: THREE.Group, mats: TowerMats, carryY: number): void {
+  const half = TOWER_FACE * 0.5;
+  const carriage = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 1.35, 0.012, TOWER_FACE * 1.55), mats.steelDark);
+  carriage.position.set(TOWER_OX, carryY, 0);
+  carriage.name = "pad-chopstick-carriage";
+  g.add(carriage);
+  addChopstickCheeks(g, mats, carryY, half);
+}
+
+function buildChopstickArm(mats: TowerMats, side: number): THREE.Group {
   const armLen = 0.026;
   const armSq = 0.0028;
-  for (const side of [-1, 1] as const) {
-    const stick = new THREE.Group();
-    stick.name = side < 0 ? "pad-chopstick-L" : "pad-chopstick-R";
-    // Main box beam (brighter for sky silhouette)
-    const beam = new THREE.Mesh(
-      new THREE.BoxGeometry(armLen, armSq, armSq * 1.6),
-      steelBright,
-    );
-    // Extend from tower toward −X (pad center / stack)
-    beam.position.set(-armLen * 0.5, 0, 0);
-    stick.add(beam);
-    // Underside rail / guide
-    const railUnd = new THREE.Mesh(
-      new THREE.BoxGeometry(armLen * 0.92, armSq * 0.45, armSq * 0.55),
-      accent,
-    );
-    railUnd.position.set(-armLen * 0.5, -armSq * 0.55, 0);
-    stick.add(railUnd);
-    // Inner "finger" / rack pad
-    const finger = new THREE.Mesh(
-      new THREE.BoxGeometry(0.007, armSq * 1.5, armSq * 2.6),
-      steel,
-    );
-    finger.position.set(-armLen + 0.002, 0, 0);
-    stick.add(finger);
-    // Cross tooth near tip (catch contact)
-    const tooth = new THREE.Mesh(
-      new THREE.BoxGeometry(0.0035, armSq * 1.1, 0.012),
-      accent,
-    );
-    tooth.position.set(-armLen + 0.005, 0, 0);
-    stick.add(tooth);
-    // Vertical pin at tip (reads at distance)
-    const pin = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0007, 0.0007, 0.006, 8),
-      steelDark,
-    );
-    pin.position.set(-armLen + 0.003, 0.001, 0);
-    stick.add(pin);
+  const stick = new THREE.Group();
+  stick.name = side < 0 ? "pad-chopstick-L" : "pad-chopstick-R";
+  addChopstickParts(stick, mats, armLen, armSq);
+  return stick;
+}
 
-    stick.position.set(
-      OX - half,
-      carryY + 0.005,
-      side * 0.013, // ~13 m half-gap when open
-    );
-    // Slight inward angle (open but ready)
+function addChopstickParts(stick: THREE.Group, mats: TowerMats, armLen: number, armSq: number): void {
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(armLen, armSq, armSq * 1.6), mats.steelBright);
+  beam.position.set(-armLen * 0.5, 0, 0);
+  stick.add(beam);
+  const railUnd = new THREE.Mesh(new THREE.BoxGeometry(armLen * 0.92, armSq * 0.45, armSq * 0.55), mats.accent);
+  railUnd.position.set(-armLen * 0.5, -armSq * 0.55, 0);
+  stick.add(railUnd);
+  addChopstickTip(stick, mats, armLen, armSq);
+}
+
+function addChopstickTip(stick: THREE.Group, mats: TowerMats, armLen: number, armSq: number): void {
+  const finger = new THREE.Mesh(new THREE.BoxGeometry(0.007, armSq * 1.5, armSq * 2.6), mats.steel);
+  finger.position.set(-armLen + 0.002, 0, 0);
+  stick.add(finger);
+  const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.0035, armSq * 1.1, 0.012), mats.accent);
+  tooth.position.set(-armLen + 0.005, 0, 0);
+  stick.add(tooth);
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0007, 0.0007, 0.006, 8), mats.steelDark);
+  pin.position.set(-armLen + 0.003, 0.001, 0);
+  stick.add(pin);
+}
+
+function addChopsticks(g: THREE.Group, mats: TowerMats, carryY: number): void {
+  const half = TOWER_FACE * 0.5;
+  for (const side of [-1, 1] as const) {
+    const stick = buildChopstickArm(mats, side);
+    stick.position.set(TOWER_OX - half, carryY + 0.005, side * 0.013);
     stick.rotation.y = side * 0.05;
-    // Tiny droop so arms aren't perfectly flat against sky
     stick.rotation.z = -0.03;
     g.add(stick);
   }
+}
 
-  // Ship QD / propellant transfer boom (higher, reaches ship mid-barrel)
-  // V3: stronger silhouette — boom + umbilical bellows + head (prelaunch cue)
-  // Ship mid ~ 71 + 26 ≈ 97 m
-  const qdY = OY0 + 0.098;
+function addQdArm(g: THREE.Group, mats: TowerMats): void {
+  const half = TOWER_FACE * 0.5;
+  const qdY = TOWER_OY0 + 0.098;
   const qd = new THREE.Group();
   qd.name = "pad-qd-arm";
-  const qdBoom = new THREE.Mesh(
-    new THREE.BoxGeometry(0.022, 0.0024, 0.0024),
-    steelBright,
-  );
-  qdBoom.position.set(-0.011, 0, 0);
-  qd.add(qdBoom);
-  // Secondary truss under boom
-  const qdTruss = new THREE.Mesh(
-    new THREE.BoxGeometry(0.018, 0.001, 0.001),
-    accent,
-  );
-  qdTruss.position.set(-0.01, -0.0022, 0);
-  qd.add(qdTruss);
-  // Umbilical bellows stack (dark accordion near head)
+  addQdBoom(qd, mats);
+  addQdHead(qd, mats);
+  qd.position.set(TOWER_OX - half, qdY, 0.004);
+  qd.rotation.z = 0.08;
+  g.add(qd);
+}
+
+function addQdBellows(qd: THREE.Group, mats: TowerMats): void {
   for (let i = 0; i < 4; i++) {
-    const bellow = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0014, 0.0016, 0.0018, 8),
-      steelDark,
-    );
+    const bellow = new THREE.Mesh(new THREE.CylinderGeometry(0.0014, 0.0016, 0.0018, 8), mats.steelDark);
     bellow.rotation.z = Math.PI / 2;
     bellow.position.set(-0.018 - i * 0.0016, -0.001, 0);
     qd.add(bellow);
   }
-  const qdHead = new THREE.Mesh(
-    new THREE.BoxGeometry(0.005, 0.0055, 0.0055),
-    steelDark,
-  );
+}
+
+function addQdBoom(qd: THREE.Group, mats: TowerMats): void {
+  const qdBoom = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.0024, 0.0024), mats.steelBright);
+  qdBoom.position.set(-0.011, 0, 0);
+  qd.add(qdBoom);
+  const qdTruss = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.001, 0.001), mats.accent);
+  qdTruss.position.set(-0.01, -0.0022, 0);
+  qd.add(qdTruss);
+  addQdBellows(qd, mats);
+}
+
+function addQdHead(qd: THREE.Group, mats: TowerMats): void {
+  const qdHead = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.0055, 0.0055), mats.steelDark);
   qdHead.position.set(-0.024, 0, 0);
   qd.add(qdHead);
-  // QD face plate toward ship
   const qdFace = new THREE.Mesh(
     new THREE.BoxGeometry(0.0012, 0.004, 0.004),
-    new THREE.MeshStandardMaterial({
-      color: 0x3a4048,
-      metalness: 0.5,
-      roughness: 0.55,
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x3a4048, metalness: 0.5, roughness: 0.55 }),
   );
   qdFace.position.set(-0.027, 0, 0);
   qd.add(qdFace);
-  qd.position.set(OX - half, qdY, 0.004);
-  // Slight hang toward stack
-  qd.rotation.z = 0.08;
-  g.add(qd);
+}
 
-  // OLM lip / hold-down ring under the stack (true-scale cue)
-  // V3: heat-darkened steel + scorched top face
-  const olmMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4844,
-    metalness: 0.62,
-    roughness: 0.55,
-  });
-  const olm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20),
-    olmMat,
-  );
-  olm.position.set(0, OY0 + 0.002, 0);
+function addOlm(g: THREE.Group, mats: TowerMats): void {
+  const olmMat = new THREE.MeshStandardMaterial({ color: 0x4a4844, metalness: 0.62, roughness: 0.55 });
+  const olm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20), olmMat);
+  olm.position.set(0, TOWER_OY0 + 0.002, 0);
   olm.name = "pad-olm";
   g.add(olm);
-  // Scorched top ring on OLM deck
+  addOlmTopAndLegs(g, mats);
+}
+
+function addOlmTop(g: THREE.Group): void {
   const olmTop = new THREE.Mesh(
     new THREE.RingGeometry(0.006, 0.0115, 24, 1),
-    new THREE.MeshStandardMaterial({
-      color: 0x2a2824,
-      metalness: 0.4,
-      roughness: 0.75,
-      map: makeScorchTexture(),
-    }),
+    new THREE.MeshStandardMaterial({ color: 0x2a2824, metalness: 0.4, roughness: 0.75, map: makeScorchTexture() }),
   );
   olmTop.rotation.x = -Math.PI / 2;
-  olmTop.position.set(0, OY0 + 0.0042, 0);
+  olmTop.position.set(0, TOWER_OY0 + 0.0042, 0);
   g.add(olmTop);
+}
 
-  // Six OLM legs (stubby) — slightly darker near ground (soot)
+function addOlmLegs(g: THREE.Group, mats: TowerMats): void {
   for (let i = 0; i < 6; i++) {
     const ang = (i / 6) * Math.PI * 2;
-    const leg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.0025, 0.008, 0.0025),
-      accent,
-    );
-    leg.position.set(Math.cos(ang) * 0.011, OY0 + 0.004, Math.sin(ang) * 0.011);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.008, 0.0025), mats.accent);
+    leg.position.set(Math.cos(ang) * 0.011, TOWER_OY0 + 0.004, Math.sin(ang) * 0.011);
     g.add(leg);
   }
+}
 
+function addOlmTopAndLegs(g: THREE.Group, mats: TowerMats): void {
+  addOlmTop(g);
+  addOlmLegs(g, mats);
+}
+
+function addTowerUpper(g: THREE.Group, mats: TowerMats): void {
+  addTowerColumns(g, mats);
+  addTowerRings(g, mats);
+  addTowerBracing(g, TOWER_OX, TOWER_OY0, TOWER_H, TOWER_FACE, TOWER_COL, 12, mats.accent);
+  addTowerRailAndPeak(g, mats);
+}
+
+function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {
+  const carryY = TOWER_OY0 + 0.078;
+  addChopstickCarriage(g, mats, carryY);
+  addChopsticks(g, mats, carryY);
+  addQdArm(g, mats);
+  addOlm(g, mats);
+}
+
+function createMechazillaTower(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "mechazilla";
+  const mats = makeTowerMats();
+  addTowerUpper(g, mats);
+  addTowerArmsAndOlm(g, mats);
   return g;
 }
 
@@ -1519,49 +1472,49 @@ function createMechazillaTower(): THREE.Group {
  * Diagonal X-brace panels on Mechazilla faces.
  * Places braces every other ring bay to avoid an over-dense lattice from LEO.
  */
+function addBracePairX(
+  g: THREE.Group, ox: number, half: number, midY: number, len: number, tilt: number, col: number, mat: THREE.Material,
+): void {
+  for (const flip of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(col * 0.35, len, col * 0.35), mat);
+    b.position.set(ox - half, midY, 0);
+    b.rotation.x = flip * tilt;
+    g.add(b);
+  }
+}
+
+function addBracePairZ(
+  g: THREE.Group, ox: number, half: number, midY: number, len: number, tilt: number, col: number, mat: THREE.Material,
+): void {
+  for (const z of [-half, half]) {
+    for (const flip of [-1, 1]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(col * 0.35, len, col * 0.35), mat);
+      b.position.set(ox, midY, z);
+      b.rotation.z = flip * tilt;
+      g.add(b);
+    }
+  }
+}
+
+function addBraceBay(
+  g: THREE.Group, ox: number, half: number, y0: number, h: number, face: number,
+  col: number, nRings: number, i: number, mat: THREE.Material,
+): void {
+  const ya = y0 + ((i + 0.12) / nRings) * h * 0.96;
+  const yb = y0 + ((i + 0.88) / nRings) * h * 0.96;
+  const midY = (ya + yb) * 0.5;
+  const len = Math.hypot(face, yb - ya);
+  const tilt = Math.atan2(face, yb - ya);
+  addBracePairX(g, ox, half, midY, len, tilt, col, mat);
+  addBracePairZ(g, ox, half, midY, len, tilt, col, mat);
+}
+
 function addTowerBracing(
-  g: THREE.Group,
-  ox: number,
-  y0: number,
-  h: number,
-  face: number,
-  col: number,
-  nRings: number,
-  mat: THREE.Material,
+  g: THREE.Group, ox: number, y0: number, h: number, face: number, col: number, nRings: number, mat: THREE.Material,
 ): void {
   const half = face * 0.5;
   for (let i = 0; i < nRings - 1; i += 1) {
-    if (i % 2 === 1) continue; // every other bay
-    const ya = y0 + ((i + 0.12) / nRings) * h * 0.96;
-    const yb = y0 + ((i + 0.88) / nRings) * h * 0.96;
-    const midY = (ya + yb) * 0.5;
-    const segH = yb - ya;
-    const len = Math.hypot(face, segH);
-    const tilt = Math.atan2(face, segH);
-
-    // Pad-facing face (constant x = ox - half): braces in YZ
-    for (const flip of [-1, 1]) {
-      const b = new THREE.Mesh(
-        new THREE.BoxGeometry(col * 0.35, len, col * 0.35),
-        mat,
-      );
-      b.position.set(ox - half, midY, 0);
-      b.rotation.x = flip * tilt;
-      g.add(b);
-    }
-
-    // Side faces (constant z = ±half): braces in XY
-    for (const z of [-half, half]) {
-      for (const flip of [-1, 1]) {
-        const b = new THREE.Mesh(
-          new THREE.BoxGeometry(col * 0.35, len, col * 0.35),
-          mat,
-        );
-        b.position.set(ox, midY, z);
-        b.rotation.z = flip * tilt;
-        g.add(b);
-      }
-    }
+    if (i % 2 === 0) addBraceBay(g, ox, half, y0, h, face, col, nRings, i, mat);
   }
 }
 
@@ -1569,21 +1522,27 @@ function addTowerBracing(
  * Soft radial steam billboard texture (shared by deluge ring, sheets, vents).
  * Procedural canvas — no external assets.
  */
-function makeSteamTexture(): THREE.CanvasTexture {
-  const size = 64;
+function makeSizedCanvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+  paint(canvas.getContext("2d")!, size);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  return map;
+}
+
+function paintSteam(ctx: CanvasRenderingContext2D, size: number): void {
   const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
   g.addColorStop(0, "rgba(230, 235, 240, 0.85)");
   g.addColorStop(0.4, "rgba(200, 210, 220, 0.35)");
   g.addColorStop(1, "rgba(180, 190, 200, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return map;
+}
+
+function makeSteamTexture(): THREE.CanvasTexture {
+  return makeSizedCanvasTexture(64, paintSteam);
 }
 
 /**
@@ -1592,87 +1551,87 @@ function makeSteamTexture(): THREE.CanvasTexture {
  * Theater-grade procedural map — fixed blotch positions so scrub/recreate is
  * stable. Not a photo texture; cheap and pipeline-free.
  */
-function makeScorchTexture(): THREE.CanvasTexture {
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  // Transparent outside; dark mottled core
+const SCORCH_BLOTCHES: readonly (readonly [number, number, number, number])[] = [
+  [0.35, 0.4, 0.14, 0.55], [0.62, 0.55, 0.12, 0.45], [0.48, 0.28, 0.1, 0.4],
+  [0.55, 0.7, 0.11, 0.35], [0.28, 0.58, 0.09, 0.5], [0.7, 0.38, 0.1, 0.38],
+];
+
+function paintScorchBase(ctx: CanvasRenderingContext2D, size: number): void {
   ctx.clearRect(0, 0, size, size);
   const cx = size * 0.5;
-  const cy = size * 0.5;
-  const base = ctx.createRadialGradient(cx, cy, 4, cx, cy, size * 0.48);
+  const base = ctx.createRadialGradient(cx, cx, 4, cx, cx, size * 0.48);
   base.addColorStop(0, "rgba(18, 16, 14, 0.95)");
   base.addColorStop(0.35, "rgba(42, 36, 30, 0.75)");
   base.addColorStop(0.65, "rgba(70, 60, 48, 0.4)");
   base.addColorStop(1, "rgba(90, 80, 65, 0)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, size, size);
-  // Seeded-looking soot blotches (fixed offsets = scrub-stable)
-  const blotches: [number, number, number, number][] = [
-    [0.35, 0.4, 0.14, 0.55],
-    [0.62, 0.55, 0.12, 0.45],
-    [0.48, 0.28, 0.1, 0.4],
-    [0.55, 0.7, 0.11, 0.35],
-    [0.28, 0.58, 0.09, 0.5],
-    [0.7, 0.38, 0.1, 0.38],
-  ];
-  for (const [ux, uy, ur, a] of blotches) {
-    const x = ux * size;
-    const y = uy * size;
-    const r = ur * size;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, `rgba(12, 10, 8, ${a})`);
-    g.addColorStop(1, "rgba(20, 18, 14, 0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return map;
+}
+
+function fillRadialDisc(
+  ctx: CanvasRenderingContext2D, x: number, y: number, r: number, inner: string, outer: string,
+): void {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, inner);
+  g.addColorStop(1, outer);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function paintScorchBlotch(
+  ctx: CanvasRenderingContext2D, size: number, ux: number, uy: number, ur: number, a: number,
+): void {
+  fillRadialDisc(
+    ctx, ux * size, uy * size, ur * size,
+    `rgba(12, 10, 8, ${a})`, "rgba(20, 18, 14, 0)",
+  );
+}
+
+function paintScorch(ctx: CanvasRenderingContext2D, size: number): void {
+  paintScorchBase(ctx, size);
+  for (const [ux, uy, ur, a] of SCORCH_BLOTCHES) paintScorchBlotch(ctx, size, ux, uy, ur, a);
+}
+
+function makeScorchTexture(): THREE.CanvasTexture {
+  return makeSizedCanvasTexture(128, paintScorch);
 }
 
 /**
  * Soft green-gray water / deluge runoff stain for apron decals.
  * Used as a transparent map on thin ground planes around the OLM.
  */
-function makeWaterStainTexture(): THREE.CanvasTexture {
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, size, size);
-  const g = ctx.createRadialGradient(32, 28, 2, 32, 34, 28);
-  g.addColorStop(0, "rgba(90, 110, 95, 0.7)");
-  g.addColorStop(0.45, "rgba(70, 85, 75, 0.4)");
-  g.addColorStop(1, "rgba(60, 70, 60, 0)");
+function fillWaterBlob(
+  ctx: CanvasRenderingContext2D, size: number,
+  x0: number, y0: number, r0: number, x1: number, y1: number, r1: number,
+  stops: [number, string][],
+): void {
+  const g = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+  for (const [t, c] of stops) g.addColorStop(t, c);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-  // Secondary lobe
-  const g2 = ctx.createRadialGradient(40, 40, 1, 38, 42, 18);
-  g2.addColorStop(0, "rgba(80, 95, 85, 0.45)");
-  g2.addColorStop(1, "rgba(60, 70, 60, 0)");
-  ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, size, size);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return map;
+}
+
+function paintWaterStain(ctx: CanvasRenderingContext2D, size: number): void {
+  ctx.clearRect(0, 0, size, size);
+  fillWaterBlob(ctx, size, 32, 28, 2, 32, 34, 28, [
+    [0, "rgba(90, 110, 95, 0.7)"], [0.45, "rgba(70, 85, 75, 0.4)"], [1, "rgba(60, 70, 60, 0)"],
+  ]);
+  fillWaterBlob(ctx, size, 40, 40, 1, 38, 42, 18, [
+    [0, "rgba(80, 95, 85, 0.45)"], [1, "rgba(60, 70, 60, 0)"],
+  ]);
+}
+
+function makeWaterStainTexture(): THREE.CanvasTexture {
+  return makeSizedCanvasTexture(64, paintWaterStain);
 }
 
 /**
  * Soft additive shimmer for trench heat haze.
  * No real refraction — a warm gradient billboard as a theater cue only.
  */
-function makeHeatHazeTexture(): THREE.CanvasTexture {
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+function paintHeatHaze(ctx: CanvasRenderingContext2D, size: number): void {
   ctx.clearRect(0, 0, size, size);
   const g = ctx.createRadialGradient(32, 40, 2, 32, 28, 28);
   g.addColorStop(0, "rgba(255, 220, 180, 0.55)");
@@ -1681,9 +1640,10 @@ function makeHeatHazeTexture(): THREE.CanvasTexture {
   g.addColorStop(1, "rgba(255, 100, 40, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return map;
+}
+
+function makeHeatHazeTexture(): THREE.CanvasTexture {
+  return makeSizedCanvasTexture(64, paintHeatHaze);
 }
 
 /**

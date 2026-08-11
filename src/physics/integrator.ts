@@ -114,31 +114,17 @@ function addGravity(acc: V3, craft: V3, body: V3, mu: number): void {
  * Earth-relative energy on multi-day coasts. Tidal form is the correct
  * restricted n-body residual.
  */
-function addTidalGravity(
-  acc: V3,
-  craft: V3,
-  body: V3,
-  primary: V3,
-  mu: number,
-): void {
-  // −μ (craft − body) / |craft − body|³
-  sub(_r, craft, body);
-  let r = len(_r);
-  if (r > 1e-6) {
-    const f = -mu / (r * r * r);
-    acc.x += _r.x * f;
-    acc.y += _r.y * f;
-    acc.z += _r.z * f;
-  }
-  // +μ (primary − body) / |primary − body|³  (cancel bulk field on primary)
-  sub(_r, primary, body);
-  r = len(_r);
-  if (r > 1e-6) {
-    const f = -mu / (r * r * r);
-    acc.x -= _r.x * f;
-    acc.y -= _r.y * f;
-    acc.z -= _r.z * f;
-  }
+function addPointMass(acc: V3, from: V3, to: V3, mu: number, sign: number): void {
+  sub(_r, from, to);
+  const r = len(_r);
+  if (r <= 1e-6) return;
+  const f = sign * (-mu / (r * r * r));
+  acc.x += _r.x * f; acc.y += _r.y * f; acc.z += _r.z * f;
+}
+
+function addTidalGravity(acc: V3, craft: V3, body: V3, primary: V3, mu: number): void {
+  addPointMass(acc, craft, body, mu, 1);
+  addPointMass(acc, primary, body, mu, -1);
 }
 
 /**
@@ -146,20 +132,20 @@ function addTidalGravity(
  * a = 1½ J₂ μ R² / r⁵ · [ (5 ζ² − 1) r − 2 ζ n̂ ]
  * where ζ = (r · n̂)/r and n̂ is the Earth north pole.
  */
+function j2Accel(acc: V3, r: number, zeta: number): void {
+  const r2 = r * r, fac = 1.5 * EARTH_J2 * MU_EARTH * (R_EARTH * R_EARTH) / (r2 * r2 * r);
+  const s = (5 * (zeta * zeta) / r2 - 1);
+  acc.x += fac * (s * _r.x - 2 * zeta * _pole.x);
+  acc.y += fac * (s * _r.y - 2 * zeta * _pole.y);
+  acc.z += fac * (s * _r.z - 2 * zeta * _pole.z);
+}
+
 export function addEarthJ2(acc: V3, craft: V3, earth: V3): void {
   sub(_r, craft, earth);
   const r = len(_r);
   if (r < R_EARTH * 0.5) return;
   earthNorthPole(_pole);
-  const zeta = dot(_r, _pole); // r · n̂  (km)
-  const r2 = r * r;
-  const r5 = r2 * r2 * r;
-  const fac = 1.5 * EARTH_J2 * MU_EARTH * (R_EARTH * R_EARTH) / r5;
-  const s = (5 * (zeta * zeta) / r2 - 1);
-  // a = fac * (s * r − 2 ζ n̂)
-  acc.x += fac * (s * _r.x - 2 * zeta * _pole.x);
-  acc.y += fac * (s * _r.y - 2 * zeta * _pole.y);
-  acc.z += fac * (s * _r.z - 2 * zeta * _pole.z);
+  j2Accel(acc, r, dot(_r, _pole));
 }
 
 /**
@@ -176,35 +162,27 @@ export function atmDensity(hKm: number): number {
  * a = −½ (Cd A/m) ρ |v_rel| v_rel
  * Uses fixed ballistic factor (theater stack).
  */
-export function addEarthDrag(
-  acc: V3,
-  craft: V3,
-  earth: V3,
-  vel: V3,
-  earthVel: V3,
-): void {
-  sub(_r, craft, earth);
-  const r = len(_r);
-  const h = r - R_EARTH;
-  const rho = atmDensity(h);
-  if (rho < 1e-30) return;
-
-  // Atmosphere co-rotates: v_atm = ω × r, ω along Earth pole
+function dragRelVel(vel: V3, earthVel: V3): number {
   earthNorthPole(_pole);
   set(_omega, _pole.x * EARTH_OMEGA, _pole.y * EARTH_OMEGA, _pole.z * EARTH_OMEGA);
   cross(_vAtm, _omega, _r);
-  // v_rel = (v − earthVel) − v_atm
   _vRel.x = vel.x - earthVel.x - _vAtm.x;
   _vRel.y = vel.y - earthVel.y - _vAtm.y;
   _vRel.z = vel.z - earthVel.z - _vAtm.z;
-  const speed = len(_vRel);
-  if (speed < 1e-9) return;
+  return len(_vRel);
+}
 
-  // a = −0.5 * (CdA/m) * ρ * speed * v_rel
+function applyDrag(acc: V3, rho: number, speed: number): void {
   const k = -0.5 * DRAG_CD_A_OVER_M * rho * speed;
-  acc.x += k * _vRel.x;
-  acc.y += k * _vRel.y;
-  acc.z += k * _vRel.z;
+  acc.x += k * _vRel.x; acc.y += k * _vRel.y; acc.z += k * _vRel.z;
+}
+
+export function addEarthDrag(acc: V3, craft: V3, earth: V3, vel: V3, earthVel: V3): void {
+  sub(_r, craft, earth);
+  const rho = atmDensity(len(_r) - R_EARTH);
+  if (rho < 1e-30) return;
+  const speed = dragRelVel(vel, earthVel);
+  if (speed >= 1e-9) applyDrag(acc, rho, speed);
 }
 
 /**
@@ -215,35 +193,31 @@ export function addEarthDrag(
  * With `{ gravity: "earth" }`: Earth μ + J₂ + drag only.
  * Pass `vel` to include atmospheric drag; omit for pure gravity+J2.
  */
-export function acceleration(
-  t: number,
-  pos: V3,
-  thrust: V3 | null,
-  out: V3 = _a,
-  vel: V3 | null = null,
-  opts?: AccelOptions,
-): V3 {
-  const gravity: GravityModel = opts?.gravity ?? "nbody";
-  const epoch = resolveEpoch(opts);
-  bodyPositions(t, epoch, _bodies);
-  set(out, 0, 0, 0);
-  // Earth dominant + J2 (always)
+function addNbodyTerms(out: V3, pos: V3): void {
+  addGravity(out, pos, _bodies.moon, MU_MOON);
+  addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
+}
+
+function addThrust(out: V3, thrust: V3 | null): void {
+  if (!thrust) return;
+  out.x += thrust.x; out.y += thrust.y; out.z += thrust.z;
+}
+
+function earthBaseAccel(out: V3, pos: V3): void {
   addGravity(out, pos, _bodies.earth, MU_EARTH);
   addEarthJ2(out, pos, _bodies.earth);
-  if (gravity === "nbody") {
-    // Moon: full point-mass (nearby; EM barycenter ephemeris is self-consistent)
-    addGravity(out, pos, _bodies.moon, MU_MOON);
-    // Sun: tidal only — full point-mass would strip Earth-relative orbits
-    addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
-  }
-  if (vel) {
-    addEarthDrag(out, pos, _bodies.earth, vel, _bodies.earthVel);
-  }
-  if (thrust) {
-    out.x += thrust.x;
-    out.y += thrust.y;
-    out.z += thrust.z;
-  }
+}
+
+export function acceleration(
+  t: number, pos: V3, thrust: V3 | null, out: V3 = _a, vel: V3 | null = null, opts?: AccelOptions,
+): V3 {
+  const gravity: GravityModel = opts?.gravity ?? "nbody";
+  bodyPositions(t, resolveEpoch(opts), _bodies);
+  set(out, 0, 0, 0);
+  earthBaseAccel(out, pos);
+  if (gravity === "nbody") addNbodyTerms(out, pos);
+  if (vel) addEarthDrag(out, pos, _bodies.earth, vel, _bodies.earthVel);
+  addThrust(out, thrust);
   return out;
 }
 
@@ -267,46 +241,44 @@ export type ThrustFn = (t: number, pos: V3, vel: V3) => V3 | null;
  * Includes Earth J2 + atmospheric drag (when in atmosphere).
  * Pass `{ gravity: "earth" }` to drop Moon / solar-tide terms.
  */
-export function rk4Step(
-  state: CraftState,
-  dt: number,
-  thrustFn?: ThrustFn,
-  opts?: AccelOptions,
+function rk4Stage(
+  t: number, pos: V3, vel: V3, kr: V3, kv: V3, h: number,
+  thrustFn: ThrustFn | undefined, opts: AccelOptions | undefined,
+  outR: V3, outV: V3,
 ): void {
-  const { t, pos, vel } = state;
+  madd(rp, pos, kr, h);
+  madd(vp, vel, kv, h);
+  const th = thrustFn?.(t + h, rp, vp) ?? null;
+  acceleration(t + h, rp, th, outV, vp, opts);
+  copy(outR, vp);
+}
 
-  const th0 = thrustFn?.(t, pos, vel) ?? null;
+function rk4Combine(dst: V3, k1: V3, k2: V3, k3: V3, k4: V3, dt: number): void {
+  dst.x += (dt / 6) * (k1.x + 2 * k2.x + 2 * k3.x + k4.x);
+  dst.y += (dt / 6) * (k1.y + 2 * k2.y + 2 * k3.y + k4.y);
+  dst.z += (dt / 6) * (k1.z + 2 * k2.z + 2 * k3.z + k4.z);
+}
+
+function rk4First(state: CraftState, thrustFn: ThrustFn | undefined, opts: AccelOptions | undefined): void {
+  const th0 = thrustFn?.(state.t, state.pos, state.vel) ?? null;
   if (th0) copy(thr, th0);
-  acceleration(t, pos, th0, k1v, vel, opts);
-  copy(k1r, vel);
+  acceleration(state.t, state.pos, th0, k1v, state.vel, opts);
+  copy(k1r, state.vel);
+}
 
-  madd(rp, pos, k1r, dt * 0.5);
-  madd(vp, vel, k1v, dt * 0.5);
-  const th1 = thrustFn?.(t + dt * 0.5, rp, vp) ?? null;
-  acceleration(t + dt * 0.5, rp, th1, k2v, vp, opts);
-  copy(k2r, vp);
+function rk4Stages(state: CraftState, dt: number, thrustFn: ThrustFn | undefined, opts: AccelOptions | undefined): void {
+  const { t, pos, vel } = state;
+  rk4Stage(t, pos, vel, k1r, k1v, dt * 0.5, thrustFn, opts, k2r, k2v);
+  rk4Stage(t, pos, vel, k2r, k2v, dt * 0.5, thrustFn, opts, k3r, k3v);
+  rk4Stage(t, pos, vel, k3r, k3v, dt, thrustFn, opts, k4r, k4v);
+}
 
-  madd(rp, pos, k2r, dt * 0.5);
-  madd(vp, vel, k2v, dt * 0.5);
-  const th2 = thrustFn?.(t + dt * 0.5, rp, vp) ?? null;
-  acceleration(t + dt * 0.5, rp, th2, k3v, vp, opts);
-  copy(k3r, vp);
-
-  madd(rp, pos, k3r, dt);
-  madd(vp, vel, k3v, dt);
-  const th3 = thrustFn?.(t + dt, rp, vp) ?? null;
-  acceleration(t + dt, rp, th3, k4v, vp, opts);
-  copy(k4r, vp);
-
-  pos.x += (dt / 6) * (k1r.x + 2 * k2r.x + 2 * k3r.x + k4r.x);
-  pos.y += (dt / 6) * (k1r.y + 2 * k2r.y + 2 * k3r.y + k4r.y);
-  pos.z += (dt / 6) * (k1r.z + 2 * k2r.z + 2 * k3r.z + k4r.z);
-
-  vel.x += (dt / 6) * (k1v.x + 2 * k2v.x + 2 * k3v.x + k4v.x);
-  vel.y += (dt / 6) * (k1v.y + 2 * k2v.y + 2 * k3v.y + k4v.y);
-  vel.z += (dt / 6) * (k1v.z + 2 * k2v.z + 2 * k3v.z + k4v.z);
-
-  state.t = t + dt;
+export function rk4Step(state: CraftState, dt: number, thrustFn?: ThrustFn, opts?: AccelOptions): void {
+  rk4First(state, thrustFn, opts);
+  rk4Stages(state, dt, thrustFn, opts);
+  rk4Combine(state.pos, k1r, k2r, k3r, k4r, dt);
+  rk4Combine(state.vel, k1v, k2v, k3v, k4v, dt);
+  state.t += dt;
 }
 
 /** Surface collision / proximity checks. */

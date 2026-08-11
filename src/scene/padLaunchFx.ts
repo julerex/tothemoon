@@ -227,27 +227,30 @@ export type ExpandedSteamSprite = Readonly<{
  * @param tiers - Defaults to {@link STEAM_TIERS}
  * @returns Flat list of sprites (length = sum of `n` over tiers)
  */
+function pushSteamTier(
+  out: ExpandedSteamSprite[],
+  tier: SteamTierSpec,
+  ti: number,
+  steamIdx: number,
+): number {
+  for (let i = 0; i < tier.n; i++) {
+    const ang = (i / tier.n) * Math.PI * 2 + steamIdx * 0.17;
+    out.push({
+      ang, r0: tier.r0, y0: tier.y0, scale: tier.scale,
+      color: tier.color, phase: steamIdx * 0.85, tier: ti,
+    });
+    steamIdx++;
+  }
+  return steamIdx;
+}
+
 export function expandSteamSprites(
   tiers: readonly SteamTierSpec[] = STEAM_TIERS,
 ): readonly ExpandedSteamSprite[] {
   const out: ExpandedSteamSprite[] = [];
   let steamIdx = 0;
   for (let ti = 0; ti < tiers.length; ti++) {
-    const tier = tiers[ti]!;
-    for (let i = 0; i < tier.n; i++) {
-      // Offset each successive sprite so rings do not stack on the same rays
-      const ang = (i / tier.n) * Math.PI * 2 + steamIdx * 0.17;
-      out.push({
-        ang,
-        r0: tier.r0,
-        y0: tier.y0,
-        scale: tier.scale,
-        color: tier.color,
-        phase: steamIdx * 0.85,
-        tier: ti,
-      });
-      steamIdx++;
-    }
+    steamIdx = pushSteamTier(out, tiers[ti]!, ti, steamIdx);
   }
   return out;
 }
@@ -319,16 +322,23 @@ export type PadFlameBundle = Readonly<{
  * below 25 km) and after liftoff (`missionT >= 0`). Flicker is a cheap dual
  * sine of mission time (scrub-stable).
  */
-export function padFlameStrength(state: LaunchPadFxState): PadFlameBundle {
+function padFlameActive(state: LaunchPadFxState): boolean {
   const onPadPhase =
     state.phase === "launch" ||
     (state.phase === "ascent" && state.altEarth < 25);
-  const active = state.burning && onPadPhase && state.missionT >= 0;
-  const altFade = clamp01(1 - state.altEarth / 18);
+  return state.burning && onPadPhase && state.missionT >= 0;
+}
+
+function padFlameFlicker(missionT: number): number {
   // Prelaunch (t < 0) does not flicker flame — clamp for the sin clock only
-  const t = Math.max(0, state.missionT);
-  const flicker =
-    0.9 + 0.06 * Math.sin(t * 41.2) + 0.04 * Math.sin(t * 77.5 + 0.7);
+  const t = Math.max(0, missionT);
+  return 0.9 + 0.06 * Math.sin(t * 41.2) + 0.04 * Math.sin(t * 77.5 + 0.7);
+}
+
+export function padFlameStrength(state: LaunchPadFxState): PadFlameBundle {
+  const active = padFlameActive(state);
+  const altFade = clamp01(1 - state.altEarth / 18);
+  const flicker = padFlameFlicker(state.missionT);
   const strength = active ? altFade * flicker : 0;
   return { active, altFade, flicker, strength };
 }
@@ -422,21 +432,22 @@ export type PadOpsLights = Readonly<{
  * read cleanly. Ops stay on through countdown, early ascent near pad, and
  * briefly after liftoff on the launch phase.
  */
+function isNearPadOps(state: LaunchPadFxState): boolean {
+  return (
+    state.phase === "launch" ||
+    (state.phase === "ascent" && state.altEarth < 8) ||
+    state.missionT < 30 ||
+    state.missionT < 0 ||
+    (state.phase === "launch" && state.missionT < 120)
+  );
+}
+
 export function padOpsLights(
   state: LaunchPadFxState,
   dayNight: PadDayNight,
 ): PadOpsLights {
-  const nearPad =
-    state.phase === "launch" ||
-    (state.phase === "ascent" && state.altEarth < 8) ||
-    state.missionT < 30;
-  const padOps =
-    nearPad ||
-    state.missionT < 0 ||
-    (state.phase === "launch" && state.missionT < 120);
-  const floodBase = padOps
-    ? 0.04 * dayNight.day + 1.2 * dayNight.night
-    : 0;
+  const padOps = isNearPadOps(state);
+  const floodBase = padOps ? 0.04 * dayNight.day + 1.2 * dayNight.night : 0;
   return { padOps, floodBase };
 }
 
@@ -469,25 +480,20 @@ export type PadFxDerived = Readonly<{
  * @param state - Mission pad input
  * @returns Immutable derived bundle (same inputs → same outputs)
  */
+function padFxScalars(state: LaunchPadFxState, flame: PadFlameBundle, animT: number) {
+  return {
+    steamStr: padSteamStrength(state),
+    hazePeak: padHazePeak(flame.strength, state.missionT, state.altEarth),
+    ventStr: padVentStrength(state, flame.strength, animT),
+  };
+}
+
 export function derivePadFx(state: LaunchPadFxState): PadFxDerived {
   const animT = state.missionT;
   const { day, night } = padDayNight(state.sunElev);
   const flame = padFlameStrength(state);
-  const steamStr = padSteamStrength(state);
-  const hazePeak = padHazePeak(flame.strength, state.missionT, state.altEarth);
-  const ventStr = padVentStrength(state, flame.strength, animT);
-  const { padOps, floodBase } = padOpsLights(state, { day, night });
-  return {
-    animT,
-    day,
-    night,
-    flame,
-    steamStr,
-    hazePeak,
-    ventStr,
-    padOps,
-    floodBase,
-  };
+  const lights = padOpsLights(state, { day, night });
+  return { animT, day, night, flame, ...padFxScalars(state, flame, animT), ...lights };
 }
 
 // ---------------------------------------------------------------------------
@@ -519,36 +525,37 @@ export type SteamSpriteBase = Readonly<{
  * @param night - From {@link padDayNight}
  * @param animT - Mission-time clock
  */
+function steamOpacity(base: SteamSpriteBase, steamStr: number, night: number, animT: number): number {
+  const tierOp = 1 - base.tier * 0.18;
+  const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + base.phase);
+  return (0.26 + 0.14 * night) * steamStr * wobble * tierOp;
+}
+
+function steamGrow(base: SteamSpriteBase, steamStr: number, animT: number): number {
+  return base.baseScale * (0.85 + steamStr * 0.9) + 0.015 * Math.sin(animT * 2.2 + base.phase);
+}
+
+function steamPosition(base: SteamSpriteBase, steamStr: number, animT: number): Vec3 {
+  const r = base.baseR + steamStr * (0.04 + base.tier * 0.02) + 0.008 * Math.sin(animT * 1.7 + base.phase);
+  const ang = base.baseAng + animT * 0.05;
+  return {
+    x: Math.cos(ang) * r,
+    y: base.baseY + steamStr * (0.04 + base.tier * 0.025) + 0.01 * Math.sin(animT * 2.5 + base.phase),
+    z: Math.sin(ang) * r,
+  };
+}
+
 export function steamSpritePose(
   base: SteamSpriteBase,
   steamStr: number,
   night: number,
   animT: number,
 ): SpritePose {
-  // Outer tiers are thinner / loft more
-  const tierOp = 1 - base.tier * 0.18;
-  const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + base.phase);
-  // Slightly brighter steam at night (backlit by floods / plume)
-  const opacity = (0.26 + 0.14 * night) * steamStr * wobble * tierOp;
-  const grow =
-    base.baseScale * (0.85 + steamStr * 0.9) +
-    0.015 * Math.sin(animT * 2.2 + base.phase);
-  const r =
-    base.baseR +
-    steamStr * (0.04 + base.tier * 0.02) +
-    0.008 * Math.sin(animT * 1.7 + base.phase);
-  const ang = base.baseAng + animT * 0.05;
+  const grow = steamGrow(base, steamStr, animT);
   return {
-    opacity,
+    opacity: steamOpacity(base, steamStr, night, animT),
     scale: { x: grow, y: grow },
-    position: {
-      x: Math.cos(ang) * r,
-      y:
-        base.baseY +
-        steamStr * (0.04 + base.tier * 0.025) +
-        0.01 * Math.sin(animT * 2.5 + base.phase),
-      z: Math.sin(ang) * r,
-    },
+    position: steamPosition(base, steamStr, animT),
   };
 }
 
@@ -568,6 +575,20 @@ export type SheetSpriteBase = Readonly<{
  * Pose for one trench-aligned deluge sheet (stretched billboard).
  * Vertical scale pulses harder than horizontal so curtains “breathe.”
  */
+function sheetScale(base: SheetSpriteBase, steamStr: number, animT: number): Scale2 {
+  const sx = base.baseSx * (0.9 + steamStr * 0.55);
+  const sy = base.baseSy * (0.85 + steamStr * 0.7 + 0.08 * Math.sin(animT * 3.3 + base.phase));
+  return { x: sx, y: sy };
+}
+
+function sheetPosition(base: SheetSpriteBase, steamStr: number, animT: number): Vec3 {
+  return {
+    x: base.baseX + 0.004 * Math.sin(animT * 2.1 + base.phase),
+    y: base.baseY + steamStr * 0.025 + 0.006 * Math.sin(animT * 2.8 + base.phase),
+    z: base.baseZ + 0.003 * Math.cos(animT * 1.9 + base.phase),
+  };
+}
+
 export function sheetSpritePose(
   base: SheetSpriteBase,
   steamStr: number,
@@ -575,22 +596,10 @@ export function sheetSpritePose(
   animT: number,
 ): SpritePose {
   const wobble = 0.8 + 0.2 * Math.sin(animT * 4.2 + base.phase);
-  const opacity = (0.32 + 0.12 * night) * steamStr * wobble;
-  const sx = base.baseSx * (0.9 + steamStr * 0.55);
-  const sy =
-    base.baseSy *
-    (0.85 + steamStr * 0.7 + 0.08 * Math.sin(animT * 3.3 + base.phase));
   return {
-    opacity,
-    scale: { x: sx, y: sy },
-    position: {
-      x: base.baseX + 0.004 * Math.sin(animT * 2.1 + base.phase),
-      y:
-        base.baseY +
-        steamStr * 0.025 +
-        0.006 * Math.sin(animT * 2.8 + base.phase),
-      z: base.baseZ + 0.003 * Math.cos(animT * 1.9 + base.phase),
-    },
+    opacity: (0.32 + 0.12 * night) * steamStr * wobble,
+    scale: sheetScale(base, steamStr, animT),
+    position: sheetPosition(base, steamStr, animT),
   };
 }
 
@@ -610,27 +619,31 @@ export type HazeSpriteBase = Readonly<{
  *
  * @param hazePeak - From {@link padHazePeak}
  */
+function hazeScale(base: HazeSpriteBase, hazePeak: number, animT: number): Scale2 {
+  return {
+    x: 0.024 + 0.02 * hazePeak + 0.006 * Math.sin(animT * 11 + base.phase),
+    y: 0.018 + 0.028 * hazePeak + 0.008 * Math.sin(animT * 14.2 + base.phase * 1.3),
+  };
+}
+
+function hazePosition(base: HazeSpriteBase, hazePeak: number, animT: number): Vec3 {
+  return {
+    x: 0.003 * Math.sin(animT * 9.1 + base.phase),
+    y: 0.012 + hazePeak * 0.018 + 0.004 * Math.sin(animT * 12.5 + base.phase),
+    z: base.baseZ + 0.002 * Math.cos(animT * 8.3 + base.phase),
+  };
+}
+
 export function hazeSpritePose(
   base: HazeSpriteBase,
   hazePeak: number,
   animT: number,
 ): SpritePose {
   const shimmer = 0.75 + 0.25 * Math.sin(animT * 18.5 + base.phase);
-  const opacity = 0.22 * hazePeak * shimmer;
-  const sx =
-    0.024 + 0.02 * hazePeak + 0.006 * Math.sin(animT * 11 + base.phase);
-  const sy =
-    0.018 +
-    0.028 * hazePeak +
-    0.008 * Math.sin(animT * 14.2 + base.phase * 1.3);
   return {
-    opacity,
-    scale: { x: sx, y: sy },
-    position: {
-      x: 0.003 * Math.sin(animT * 9.1 + base.phase),
-      y: 0.012 + hazePeak * 0.018 + 0.004 * Math.sin(animT * 12.5 + base.phase),
-      z: base.baseZ + 0.002 * Math.cos(animT * 8.3 + base.phase),
-    },
+    opacity: 0.22 * hazePeak * shimmer,
+    scale: hazeScale(base, hazePeak, animT),
+    position: hazePosition(base, hazePeak, animT),
   };
 }
 
@@ -648,6 +661,14 @@ export type VentSpriteBase = Readonly<{
  * Pose for one tank-farm vent plume sprite.
  * Taller than wide (scale Y > X) so hold steam reads as rising columns.
  */
+function ventPosition(base: VentSpriteBase, ventStr: number, animT: number): Vec3 {
+  return {
+    x: base.baseX + 0.012 * Math.sin(animT * 0.4 + base.phase),
+    y: base.baseY + ventStr * 0.08 + 0.02 * Math.sin(animT * 1.1 + base.phase),
+    z: base.baseZ + 0.01 * Math.cos(animT * 0.35 + base.phase),
+  };
+}
+
 export function ventSpritePose(
   base: VentSpriteBase,
   ventStr: number,
@@ -655,20 +676,11 @@ export function ventSpritePose(
   animT: number,
 ): SpritePose {
   const wobble = 0.8 + 0.2 * Math.sin(animT * 1.8 + base.phase);
-  const opacity = (0.35 + 0.2 * night) * ventStr * wobble;
-  const grow =
-    0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + base.phase);
+  const grow = 0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + base.phase);
   return {
-    opacity,
+    opacity: (0.35 + 0.2 * night) * ventStr * wobble,
     scale: { x: grow * 1.15, y: grow * 1.4 },
-    position: {
-      x: base.baseX + 0.012 * Math.sin(animT * 0.4 + base.phase),
-      y:
-        base.baseY +
-        ventStr * 0.08 +
-        0.02 * Math.sin(animT * 1.1 + base.phase),
-      z: base.baseZ + 0.01 * Math.cos(animT * 0.35 + base.phase),
-    },
+    position: ventPosition(base, ventStr, animT),
   };
 }
 

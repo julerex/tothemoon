@@ -32,121 +32,178 @@ export type GroundSky = {
   material: THREE.ShaderMaterial;
 };
 
-export function createGroundSky(): GroundSky {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uEarthPos: { value: new THREE.Vector3() },
-      uSunDir: { value: new THREE.Vector3(1, 0, 0) },
-      uOpacity: { value: 0 },
-      uDay: { value: 1 },
-      /** Entry brownout 0..1 — warms horizon / dims blue (visual V5). */
-      uBrownout: { value: 0 },
-    },
-    vertexShader: /* glsl */ `
-      #include <common>
-      #include <logdepthbuf_pars_vertex>
-      varying vec3 vWorldPos;
-      void main() {
-        vec4 wp = modelMatrix * vec4(position, 1.0);
-        vWorldPos = wp.xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        #include <logdepthbuf_vertex>
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      #include <common>
-      #include <logdepthbuf_pars_fragment>
-      uniform vec3 uEarthPos;
-      uniform vec3 uSunDir;
-      uniform float uOpacity;
-      uniform float uDay;
-      uniform float uBrownout;
-      varying vec3 vWorldPos;
+const GROUND_SKY_VERTEX = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+  varying vec3 vWorldPos;
+  void main() {
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPos = wp.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #include <logdepthbuf_vertex>
+  }
+`;
 
-      void main() {
-        if (uOpacity < 0.004) discard;
+const GROUND_SKY_FRAGMENT = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_fragment>
+  uniform vec3 uEarthPos;
+  uniform vec3 uSunDir;
+  uniform float uOpacity;
+  uniform float uDay;
+  uniform float uBrownout;
+  varying vec3 vWorldPos;
 
-        // View direction from camera through this sky point
-        vec3 viewDir = normalize(vWorldPos - cameraPosition);
-        // Local vertical at the camera (geocentric)
-        vec3 up = normalize(cameraPosition - uEarthPos);
-        float elev = clamp(dot(viewDir, up), -1.0, 1.0);
-        // 0 at horizon, 1 at zenith
-        float zenith = clamp(elev, 0.0, 1.0);
-        // Soft horizon band for haze
-        float horizon = 1.0 - smoothstep(-0.05, 0.35, elev);
+  void main() {
+    if (uOpacity < 0.004) discard;
 
-        // Day palette
-        vec3 zenithDay = vec3(0.25, 0.52, 0.92);
-        vec3 midDay = vec3(0.45, 0.68, 0.95);
-        vec3 horizonDay = vec3(0.72, 0.82, 0.95);
-        // Warm haze toward the sun
-        float sunFacing = clamp(dot(viewDir, uSunDir), 0.0, 1.0);
-        sunFacing = pow(sunFacing, 4.0);
-        vec3 sunHaze = vec3(1.0, 0.82, 0.55) * sunFacing * 0.55;
+    // View direction from camera through this sky point
+    vec3 viewDir = normalize(vWorldPos - cameraPosition);
+    // Local vertical at the camera (geocentric)
+    vec3 up = normalize(cameraPosition - uEarthPos);
+    float elev = clamp(dot(viewDir, up), -1.0, 1.0);
+    // 0 at horizon, 1 at zenith
+    float zenith = clamp(elev, 0.0, 1.0);
+    // Soft horizon band for haze
+    float horizon = 1.0 - smoothstep(-0.05, 0.35, elev);
 
-        vec3 dayCol = mix(horizonDay, midDay, smoothstep(0.0, 0.45, zenith));
-        dayCol = mix(dayCol, zenithDay, smoothstep(0.35, 1.0, zenith));
-        dayCol += sunHaze * (0.35 + 0.65 * horizon);
+    // Day palette
+    vec3 zenithDay = vec3(0.25, 0.52, 0.92);
+    vec3 midDay = vec3(0.45, 0.68, 0.95);
+    vec3 horizonDay = vec3(0.72, 0.82, 0.95);
+    // Warm haze toward the sun
+    float sunFacing = clamp(dot(viewDir, uSunDir), 0.0, 1.0);
+    sunFacing = pow(sunFacing, 4.0);
+    vec3 sunHaze = vec3(1.0, 0.82, 0.55) * sunFacing * 0.55;
 
-        // Night / twilight (deep blue + faint horizon glow)
-        vec3 zenithNight = vec3(0.02, 0.04, 0.10);
-        vec3 horizonNight = vec3(0.06, 0.09, 0.16);
-        vec3 nightCol = mix(horizonNight, zenithNight, smoothstep(0.0, 0.8, zenith));
-        float twilight = (1.0 - abs(uDay * 2.0 - 1.0));
-        twilight *= twilight;
-        nightCol += vec3(0.35, 0.18, 0.08) * twilight * horizon * 0.45;
+    vec3 dayCol = mix(horizonDay, midDay, smoothstep(0.0, 0.45, zenith));
+    dayCol = mix(dayCol, zenithDay, smoothstep(0.35, 1.0, zenith));
+    dayCol += sunHaze * (0.35 + 0.65 * horizon);
 
-        vec3 col = mix(nightCol, dayCol, clamp(uDay, 0.0, 1.0));
+    // Night / twilight (deep blue + faint horizon glow)
+    vec3 zenithNight = vec3(0.02, 0.04, 0.10);
+    vec3 horizonNight = vec3(0.06, 0.09, 0.16);
+    vec3 nightCol = mix(horizonNight, zenithNight, smoothstep(0.0, 0.8, zenith));
+    float twilight = (1.0 - abs(uDay * 2.0 - 1.0));
+    twilight *= twilight;
+    nightCol += vec3(0.35, 0.18, 0.08) * twilight * horizon * 0.45;
 
-        // Entry brownout: warm orange-brown, strongest near horizon (V5)
-        float bo = clamp(uBrownout, 0.0, 1.0);
-        if (bo > 0.001) {
-          vec3 brown = vec3(0.55, 0.22, 0.06);
-          vec3 amber = vec3(0.75, 0.35, 0.1);
-          vec3 boCol = mix(brown, amber, sunFacing * 0.6);
-          float boMix = bo * (0.35 + 0.65 * horizon);
-          col = mix(col, boCol, boMix);
-          // Slightly denser haze so stars drop out behind the shell
-          // (alpha boost applied below)
-        }
+    vec3 col = mix(nightCol, dayCol, clamp(uDay, 0.0, 1.0));
 
-        // Stronger near the horizon; slightly thinner at zenith
-        float density = mix(0.92, 0.72, zenith) + horizon * 0.12;
-        density += bo * horizon * 0.18;
-        float alpha = uOpacity * density;
-        // Fade fragments looking into the ground (below local horizon)
-        alpha *= smoothstep(-0.12, 0.02, elev);
+    // Entry brownout: warm orange-brown, strongest near horizon (V5)
+    float bo = clamp(uBrownout, 0.0, 1.0);
+    if (bo > 0.001) {
+      vec3 brown = vec3(0.55, 0.22, 0.06);
+      vec3 amber = vec3(0.75, 0.35, 0.1);
+      vec3 boCol = mix(brown, amber, sunFacing * 0.6);
+      float boMix = bo * (0.35 + 0.65 * horizon);
+      col = mix(col, boCol, boMix);
+      // Slightly denser haze so stars drop out behind the shell
+      // (alpha boost applied below)
+    }
 
-        gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.96));
-        #include <logdepthbuf_fragment>
-      }
-    `,
+    // Stronger near the horizon; slightly thinner at zenith
+    float density = mix(0.92, 0.72, zenith) + horizon * 0.12;
+    density += bo * horizon * 0.18;
+    float alpha = uOpacity * density;
+    // Fade fragments looking into the ground (below local horizon)
+    alpha *= smoothstep(-0.12, 0.02, elev);
+
+    gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.96));
+    #include <logdepthbuf_fragment>
+  }
+`;
+
+/** Shader uniforms for the ground-sky shell. */
+function groundSkyUniforms(): THREE.ShaderMaterialParameters["uniforms"] {
+  return {
+    uEarthPos: { value: new THREE.Vector3() },
+    uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+    uOpacity: { value: 0 },
+    uDay: { value: 1 },
+    uBrownout: { value: 0 },
+  };
+}
+
+/** Shared transparent shell flags (no depth write). */
+const SHELL_MAT = {
+  transparent: true,
+  depthWrite: false,
+  depthTest: true,
+  toneMapped: true,
+} as const;
+
+/** Build the ground-sky ShaderMaterial (uniforms + BackSide shell). */
+function makeGroundSkyMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: groundSkyUniforms(),
+    vertexShader: GROUND_SKY_VERTEX,
+    fragmentShader: GROUND_SKY_FRAGMENT,
     side: THREE.BackSide,
-    transparent: true,
-    depthWrite: false,
-    depthTest: true,
     blending: THREE.NormalBlending,
-    toneMapped: true,
+    ...SHELL_MAT,
   });
+}
 
+/** Configure shell mesh draw flags (after stars, before opaque pad). */
+function configureGroundSkyMesh(mesh: THREE.Mesh): void {
+  mesh.name = "ground-sky";
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 1;
+  mesh.visible = false;
+}
+
+export function createGroundSky(): GroundSky {
+  const material = makeGroundSkyMaterial();
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(SHELL_R, 64, 48),
     material,
   );
-  mesh.name = "ground-sky";
-  mesh.frustumCulled = false;
-  // After star dome (default 0) so the atmosphere covers stars near the pad;
-  // still under typical opaque craft/pad draws via depth test.
-  mesh.renderOrder = 1;
-  mesh.visible = false;
-
+  configureGroundSkyMesh(mesh);
   return { mesh, material };
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
+}
+
+/** Hide sky shell and zero opacity / brownout uniforms. */
+function hideGroundSky(sky: GroundSky): void {
+  sky.mesh.visible = false;
+  sky.material.uniforms.uOpacity!.value = 0;
+  sky.material.uniforms.uBrownout!.value = 0;
+}
+
+/** Normalize sun direction into `_sunDir` (fallback +X). */
+function normalizeSunDir(sunWorldDir: THREE.Vector3): void {
+  _sunDir.copy(sunWorldDir);
+  if (_sunDir.lengthSq() < 1e-12) _sunDir.set(1, 0, 0);
+  else _sunDir.normalize();
+}
+
+/** Write frame uniforms and show the shell. */
+function applyGroundSkyUniforms(
+  sky: GroundSky,
+  earthPos: THREE.Vector3,
+  opacity: number,
+  day: number,
+  brownout: number,
+): void {
+  sky.material.uniforms.uEarthPos!.value.copy(earthPos);
+  sky.material.uniforms.uSunDir!.value.copy(_sunDir);
+  sky.material.uniforms.uOpacity!.value = opacity;
+  sky.material.uniforms.uDay!.value = day;
+  sky.material.uniforms.uBrownout!.value = Math.max(0, Math.min(1, brownout));
+  sky.mesh.visible = true;
+}
+
+/** Opacity from geocentric radius: height fade × inside-shell gate. */
+function groundSkyOpacity(r: number): number {
+  const alt = r - R_EARTH;
+  const heightFade = 1 - smoothstep(SKY_FULL_ALT_KM, SKY_FADE_ALT_KM, alt);
+  const insideShell = r < SHELL_R * 0.995 ? 1 : 0;
+  return heightFade * insideShell;
 }
 
 /**
@@ -156,6 +213,12 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
  * @param sunWorldDir unit vector roughly Earth → Sun (or light direction)
  * @param brownout entry brownout 0..1 (visual V5; optional)
  */
+/** Day factor from sun elevation at camera (after normalizeSunDir). */
+function groundSkyDayFactor(r: number): number {
+  _localUp.copy(_camRel).multiplyScalar(1 / r);
+  return smoothstep(-0.12, 0.28, _sunDir.dot(_localUp));
+}
+
 export function updateGroundSky(
   sky: GroundSky,
   camera: THREE.Camera,
@@ -164,51 +227,12 @@ export function updateGroundSky(
   brownout = 0,
 ): void {
   sky.mesh.position.copy(earthPos);
-
   _camRel.copy(camera.position).sub(earthPos);
   const r = _camRel.length();
-  if (r < R_EARTH * 0.5) {
-    // Degenerate (inside core) — hide
-    sky.mesh.visible = false;
-    sky.material.uniforms.uOpacity!.value = 0;
-    sky.material.uniforms.uBrownout!.value = 0;
+  if (r < R_EARTH * 0.5 || groundSkyOpacity(r) < 0.01) {
+    hideGroundSky(sky);
     return;
   }
-
-  const alt = r - R_EARTH;
-  // 1 at surface / low pad cams, 0 above fade altitude
-  const heightFade = 1 - smoothstep(SKY_FULL_ALT_KM, SKY_FADE_ALT_KM, alt);
-  // Only when camera is inside the shell (otherwise BackSide is wrong)
-  const insideShell = r < SHELL_R * 0.995 ? 1 : 0;
-  const opacity = heightFade * insideShell;
-
-  if (opacity < 0.01) {
-    sky.mesh.visible = false;
-    sky.material.uniforms.uOpacity!.value = 0;
-    sky.material.uniforms.uBrownout!.value = 0;
-    return;
-  }
-
-  _localUp.copy(_camRel).multiplyScalar(1 / r);
-  _sunDir.copy(sunWorldDir);
-  if (_sunDir.lengthSq() < 1e-12) {
-    _sunDir.set(1, 0, 0);
-  } else {
-    _sunDir.normalize();
-  }
-
-  // Sun elevation at camera: 1 = overhead day, 0 = horizon, <0 night
-  const sunElev = _sunDir.dot(_localUp);
-  // Map elev −0.15..0.35 → 0..1 day factor (soft twilight)
-  const day = smoothstep(-0.12, 0.28, sunElev);
-
-  sky.material.uniforms.uEarthPos!.value.copy(earthPos);
-  sky.material.uniforms.uSunDir!.value.copy(_sunDir);
-  sky.material.uniforms.uOpacity!.value = opacity;
-  sky.material.uniforms.uDay!.value = day;
-  sky.material.uniforms.uBrownout!.value = Math.max(
-    0,
-    Math.min(1, brownout),
-  );
-  sky.mesh.visible = true;
+  normalizeSunDir(sunWorldDir);
+  applyGroundSkyUniforms(sky, earthPos, groundSkyOpacity(r), groundSkyDayFactor(r), brownout);
 }

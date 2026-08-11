@@ -36,6 +36,10 @@ export const TRAIL_STYLE_LOI: TrailStyle = Object.freeze({
  *
  * @returns Clamped position, or the original `pos` when no lift is needed.
  */
+function liftAboveSurface(earth: Vec3Like, dx: number, dy: number, dz: number, s: number): Vec3Like {
+  return { x: earth.x + dx * s, y: earth.y + dy * s, z: earth.z + dz * s };
+}
+
 export function clampCraftAboveEarth(
   pos: Vec3Like,
   earth: Vec3Like,
@@ -46,12 +50,7 @@ export function clampCraftAboveEarth(
   const dz = pos.z - earth.z;
   const r = Math.hypot(dx, dy, dz);
   if (!(r > 1e-6) || r >= minR) return pos;
-  const s = minR / r;
-  return {
-    x: earth.x + dx * s,
-    y: earth.y + dy * s,
-    z: earth.z + dz * s,
-  };
+  return liftAboveSurface(earth, dx, dy, dz, minR / r);
 }
 
 /**

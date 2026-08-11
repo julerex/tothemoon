@@ -39,37 +39,20 @@ export type ShipAttitudeMode =
  * Entry interface → belly-flop; landing burn → engines-first after a short flip;
  * final meters → radial up for a readable splash settle.
  */
+function landingAttitude(t: number): ShipAttitudeMode | null {
+  if (t < F13_ATT.LAND_BURN || t >= F13_ATT.SPLASH) return null;
+  return t < F13_ATT.LAND_FLIP ? "belly" : "engines_first";
+}
+
 export function shipAttitudeMode(
-  t: number,
-  phase: PhaseId,
-  altKm: number,
-  burning: boolean,
+  t: number, phase: PhaseId, altKm: number, burning: boolean,
 ): ShipAttitudeMode {
-  if (phase === "splashdown" || (phase === "descent" && altKm < 0.15)) {
-    return "radial_up";
-  }
-
-  // Landing burn window: flip belly → engines-first over ~2 s
-  if (t >= F13_ATT.LAND_BURN && t < F13_ATT.SPLASH) {
-    if (t < F13_ATT.LAND_FLIP) return "belly";
-    return "engines_first";
-  }
-
-  if (phase === "descent") {
-    return burning ? "engines_first" : "belly";
-  }
-
-  // Entry: belly-flop once in the sensible atmosphere band (or past public entry mark)
-  if (phase === "entry") {
-    if (altKm < 120 || t >= F13_ATT.ENTRY) return "belly";
-    return "prograde";
-  }
-
-  // Late coast / high-altitude approach to entry interface
-  if (phase === "coast" && t >= F13_ATT.ENTRY - 120 && altKm < 160) {
-    return "belly";
-  }
-
+  if (phase === "splashdown" || (phase === "descent" && altKm < 0.15)) return "radial_up";
+  const land = landingAttitude(t);
+  if (land) return land;
+  if (phase === "descent") return burning ? "engines_first" : "belly";
+  if (phase === "entry") return altKm < 120 || t >= F13_ATT.ENTRY ? "belly" : "prograde";
+  if (phase === "coast" && t >= F13_ATT.ENTRY - 120 && altKm < 160) return "belly";
   return "prograde";
 }
 
@@ -102,35 +85,25 @@ export function landingEngineCount(t: number): number {
  * Entry plasma strength in [0, 1] — hypersonic heat pulse.
  * Peaks mid-entry; fades through transonic. Scrub-deterministic.
  */
+function plasmaAltU(altKm: number): number {
+  if (altKm >= 25 && altKm <= 95) {
+    const d = (altKm - 55) / 28;
+    return Math.exp(-0.5 * d * d);
+  }
+  if (altKm > 95 && altKm < 110) return (110 - altKm) / 15;
+  if (altKm > 12 && altKm < 25) return (altKm - 12) / 13;
+  return 0;
+}
+
+function plasmaLate(t: number): number {
+  return t > F13_ATT.TRANSONIC ? Math.max(0, 1 - (t - F13_ATT.TRANSONIC) / 40) : 1;
+}
+
 export function entryPlasmaStrength(
-  t: number,
-  phase: PhaseId,
-  altKm: number,
-  speedKmS: number,
+  t: number, phase: PhaseId, altKm: number, speedKmS: number,
 ): number {
   if (phase !== "entry" && phase !== "descent" && phase !== "coast") return 0;
-  // Need hypersonic air-relative speed and atmosphere
-  if (speedKmS < 1.5 || altKm > 110 || altKm < 5) return 0;
-  if (t < F13_ATT.ENTRY - 60) return 0;
-
-  // Speed factor: full above ~5 km/s, fade below ~2.5
+  if (speedKmS < 1.5 || altKm > 110 || altKm < 5 || t < F13_ATT.ENTRY - 60) return 0;
   const speedU = Math.max(0, Math.min(1, (speedKmS - 1.8) / 3.5));
-  // Altitude envelope: strongest ~40–80 km
-  let altU = 0;
-  if (altKm >= 25 && altKm <= 95) {
-    const mid = 55;
-    const w = 28;
-    const d = (altKm - mid) / w;
-    altU = Math.exp(-0.5 * d * d);
-  } else if (altKm > 95 && altKm < 110) {
-    altU = (110 - altKm) / 15;
-  } else if (altKm > 12 && altKm < 25) {
-    altU = (altKm - 12) / 13;
-  }
-  // Fade after transonic mark
-  const late =
-    t > F13_ATT.TRANSONIC
-      ? Math.max(0, 1 - (t - F13_ATT.TRANSONIC) / 40)
-      : 1;
-  return Math.max(0, Math.min(1, speedU * altU * late * 1.15));
+  return Math.max(0, Math.min(1, speedU * plasmaAltU(altKm) * plasmaLate(t) * 1.15));
 }

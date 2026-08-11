@@ -31,13 +31,7 @@ export function classifyLandingBeat(
   missionComplete: boolean,
 ): LandingBeatKind | null {
   if (!missionComplete) return null;
-  if (
-    phase === "landed" ||
-    phase === "descent" ||
-    phase === "splashdown"
-  ) {
-    return "landed";
-  }
+  if (phase === "landed" || phase === "descent" || phase === "splashdown") return "landed";
   if (phase === "impact") return "impact";
   return "flyby";
 }
@@ -65,22 +59,18 @@ export function landingBeatCardReady(
   return wallAgeS >= holdS;
 }
 
+function lunarCompleteSubtitle(kind: LandingBeatKind | null | undefined): string {
+  if (kind === "landed") return `Starbase → ${LANDING_SITE_LABEL} · July 2027`;
+  if (kind === "impact") return "Starbase → lunar impact · July 2027";
+  if (kind === "flyby") return "Starbase → lunar flyby · July 2027";
+  return "Starbase → lunar surface · July 2027";
+}
+
 /** Subtitle copy for the mission-complete card. */
 export function landingBeatCompleteSubtitle(
   kind: LandingBeatKind | null | undefined,
   opts?: { splashdown?: boolean },
 ): string {
-  if (opts?.splashdown) {
-    return "Starbase → Indian Ocean splashdown · Flight 13";
-  }
-  switch (kind) {
-    case "landed":
-      return `Starbase → ${LANDING_SITE_LABEL} · July 2027`;
-    case "impact":
-      return "Starbase → lunar impact · July 2027";
-    case "flyby":
-      return "Starbase → lunar flyby · July 2027";
-    default:
-      return "Starbase → lunar surface · July 2027";
-  }
+  if (opts?.splashdown) return "Starbase → Indian Ocean splashdown · Flight 13";
+  return lunarCompleteSubtitle(kind);
 }

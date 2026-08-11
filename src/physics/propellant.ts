@@ -133,33 +133,23 @@ export function thrustForceN(p: PropState, aKmS2: number): number {
  * Drain propellant under constant force (N) for [lastT, t] via rocket equation.
  * Returns the force used (0 if tank empty). Hard-stops when prop runs out mid-step.
  */
-export function burnForce(
-  p: PropState,
-  t: number,
-  forceN: number,
-  tank: Tank,
-): number {
+function drainTank(p: PropState, tank: Tank, dm: number): void {
+  if (tank === "booster") p.boosterPropKg = Math.max(0, p.boosterPropKg - dm);
+  else p.shipPropKg = Math.max(0, p.shipPropKg - dm);
+}
+
+function propMassForDt(p: PropState, forceN: number, tank: Tank, dt: number): number {
+  const isp = tank === "booster" ? SPECIFIC_IMPULSE_BOOSTER : SPECIFIC_IMPULSE_SHIP;
+  const available = tank === "booster" ? p.boosterPropKg : p.shipPropKg;
+  return Math.min(available, (forceN / (isp * G0)) * dt);
+}
+
+export function burnForce(p: PropState, t: number, forceN: number, tank: Tank): number {
   const dt = Math.max(0, t - p.lastT);
   p.lastT = t;
-  if (forceN < 1e-6) return 0;
-  if (!hasPropellant(p, tank)) return 0;
-
+  if (forceN < 1e-6 || !hasPropellant(p, tank)) return 0;
   if (dt <= 0) return forceN;
-
-  const isp = tank === "booster" ? SPECIFIC_IMPULSE_BOOSTER : SPECIFIC_IMPULSE_SHIP;
-  // ṁ = F / (Isp g0)  [kg/s] — pure rocket equation
-  let dm = (forceN / (isp * G0)) * dt;
-  const available = tank === "booster" ? p.boosterPropKg : p.shipPropKg;
-  if (dm > available) {
-    // Partial step until dry; report force but tank empties
-    dm = available;
-  }
-
-  if (tank === "booster") {
-    p.boosterPropKg = Math.max(0, p.boosterPropKg - dm);
-  } else {
-    p.shipPropKg = Math.max(0, p.shipPropKg - dm);
-  }
+  drainTank(p, tank, propMassForDt(p, forceN, tank, dt));
   return forceN;
 }
 
@@ -197,20 +187,12 @@ export function stageBooster(p: PropState, t: number): void {
  * Impulsive Δv (km/s) as rocket-equation ship propellant use + display thrust.
  * Pure RE (no scale fudge).
  */
-export function applyImpulsiveShipDv(
-  p: PropState,
-  t: number,
-  dvKmS: number,
-  burnS = 180,
-): number {
+export function applyImpulsiveShipDv(p: PropState, t: number, dvKmS: number, burnS = 180): number {
   p.lastT = t;
-  if (dvKmS < 1e-9) return 0;
-  if (!hasPropellant(p, "ship")) return 0;
+  if (dvKmS < 1e-9 || !hasPropellant(p, "ship")) return 0;
   const m0 = wetMassKg(p);
-  const F = m0 * (dvKmS / Math.max(burnS, 1)) * 1000; // N display
-  const ve = (SPECIFIC_IMPULSE_SHIP * G0) / 1000; // km/s
-  const frac = 1 - Math.exp(-dvKmS / ve);
-  const dm = Math.min(p.shipPropKg, m0 * frac);
-  p.shipPropKg = Math.max(0, p.shipPropKg - dm);
+  const F = m0 * (dvKmS / Math.max(burnS, 1)) * 1000;
+  const ve = (SPECIFIC_IMPULSE_SHIP * G0) / 1000;
+  p.shipPropKg = Math.max(0, p.shipPropKg - Math.min(p.shipPropKg, m0 * (1 - Math.exp(-dvKmS / ve))));
   return F;
 }

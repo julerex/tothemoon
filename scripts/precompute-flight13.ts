@@ -24,35 +24,35 @@ type PackedSample = {
   st: boolean;
 };
 
-function pack(result: ReturnType<typeof runFlight13Mission>) {
+function packSample(s: Sample): PackedSample {
+  return {
+    t: s.t, p: [s.pos.x, s.pos.y, s.pos.z], v: [s.vel.x, s.vel.y, s.vel.z],
+    phase: s.phase, burning: s.burning, fb: s.fuelBooster, fs: s.fuelShip,
+    th: s.thrustN / 1000, st: s.staged,
+  };
+}
+
+function packCore(result: ReturnType<typeof runFlight13Mission>) {
+  return {
+    version: TRAJECTORY_PACK_VERSION, missionId: "flight-13" as const,
+    generatedAt: new Date().toISOString(), moonPhase0: result.moonPhase0,
+    translunarInjectionDeltaV: 0, durationS: result.durationS,
+    horizonsLandingT: result.horizonsLandingT ?? result.durationS,
+    ok: result.ok, message: result.message,
+  };
+}
+
+function packMeta(result: ReturnType<typeof runFlight13Mission>) {
   const meta = deriveTrajectoryMeta(result.samples);
   return {
-    version: TRAJECTORY_PACK_VERSION,
-    missionId: "flight-13" as const,
-    generatedAt: new Date().toISOString(),
-    moonPhase0: result.moonPhase0,
-    translunarInjectionDeltaV: 0,
-    durationS: result.durationS,
-    horizonsLandingT: result.horizonsLandingT ?? result.durationS,
-    ok: result.ok,
-    message: result.message,
     minMoonAlt: Number.isFinite(result.minMoonAlt) ? result.minMoonAlt : 1e9,
     peakSpeedKmS: result.peakSpeedKmS ?? meta.peakSpeedKmS,
     stageT: result.stageT ?? meta.stageT,
-    samples: result.samples.map(
-      (s): PackedSample => ({
-        t: s.t,
-        p: [s.pos.x, s.pos.y, s.pos.z],
-        v: [s.vel.x, s.vel.y, s.vel.z],
-        phase: s.phase,
-        burning: s.burning,
-        fb: s.fuelBooster,
-        fs: s.fuelShip,
-        th: s.thrustN / 1000,
-        st: s.staged,
-      }),
-    ),
   };
+}
+
+function pack(result: ReturnType<typeof runFlight13Mission>) {
+  return { ...packCore(result), ...packMeta(result), samples: result.samples.map(packSample) };
 }
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

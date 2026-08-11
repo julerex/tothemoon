@@ -29,12 +29,17 @@ export const PLAYBACK_SPEED_STEPS = [
  * `dir > 0` → next faster (or less reverse); `dir < 0` → next slower / reverse.
  */
 export function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
-  if (dir > 0) {
-    for (const step of PLAYBACK_SPEED_STEPS) {
-      if (step > current + 1e-9) return step;
-    }
-    return PLAYBACK_SPEED_STEPS[PLAYBACK_SPEED_STEPS.length - 1]!;
+  return dir > 0 ? nextFasterSpeed(current) : nextSlowerSpeed(current);
+}
+
+function nextFasterSpeed(current: number): number {
+  for (const step of PLAYBACK_SPEED_STEPS) {
+    if (step > current + 1e-9) return step;
   }
+  return PLAYBACK_SPEED_STEPS[PLAYBACK_SPEED_STEPS.length - 1]!;
+}
+
+function nextSlowerSpeed(current: number): number {
   for (let i = PLAYBACK_SPEED_STEPS.length - 1; i >= 0; i--) {
     const step = PLAYBACK_SPEED_STEPS[i]!;
     if (step < current - 1e-9) return step;
@@ -53,7 +58,6 @@ export function parseSpeedMode(value: string): number {
 export function formatRate(speed: number): string {
   const sign = speed < 0 ? "−" : "";
   const mag = Math.abs(speed);
-  if (mag >= 100) return `${sign}${Math.round(mag)}×`;
   if (mag >= 10) return `${sign}${Math.round(mag)}×`;
   return `${sign}${mag.toFixed(0)}×`;
 }
@@ -69,12 +73,25 @@ export function formatPlaybackLine(speed: number, playing: boolean): string {
  */
 export function formatMissionTime(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h ${String(m).padStart(2, "0")}m`;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
+  const parts = splitMissionTime(s);
+  if (parts.d > 0) {
+    return `${parts.d}d ${parts.h}h ${String(parts.m).padStart(2, "0")}m`;
+  }
+  return `${parts.h}h ${String(parts.m).padStart(2, "0")}m`;
 }
+
+function splitMissionTime(s: number): {
+  d: number;
+  h: number;
+  m: number;
+  sec: number;
+} {
+  return {
+    d: Math.floor(s / 86400), h: Math.floor((s % 86400) / 3600),
+    m: Math.floor((s % 3600) / 60), sec: s % 60,
+  };
+}
+
 
 /**
  * SpaceX webcast-style mission clock: T+HH:MM:SS (or T− for pre-liftoff).
@@ -86,22 +103,25 @@ export function formatWebcastMissionTime(seconds: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  // Match webcast badge: T+00:01:14 — hours always two digits when < 100
-  const hh = h < 100 ? pad(h) : String(h);
-  return `${neg ? "T−" : "T+"}${hh}:${pad(m)}:${pad(sec)}`;
+  return `${neg ? "T−" : "T+"}${padClockHours(h)}:${pad2(m)}:${pad2(sec)}`;
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function padClockHours(h: number): string {
+  return h < 100 ? pad2(h) : String(h);
 }
 
 /** Metrics panel: include seconds. */
 export function formatMissionTimeDetailed(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (d > 0) return `${d}d ${h}h ${pad(m)}m ${pad(sec)}s`;
-  return `${h}h ${pad(m)}m ${pad(sec)}s · ${s.toLocaleString()} s`;
+  const parts = splitMissionTime(s);
+  if (parts.d > 0) {
+    return `${parts.d}d ${parts.h}h ${pad2(parts.m)}m ${pad2(parts.sec)}s`;
+  }
+  return `${parts.h}h ${pad2(parts.m)}m ${pad2(parts.sec)}s · ${s.toLocaleString()} s`;
 }
 
 /** Main telemetry distance (Moon range, altitude). Non-negative. */
@@ -115,24 +135,32 @@ export function formatDistance(km: number): string {
 
 /** Metrics distance: allows negative altitude (below mean radius). */
 export function formatDistancePrecise(km: number): string {
-  const v = km;
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "−" : "";
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(3)} Mkm`;
-  if (abs >= 1000) {
-    return `${sign}${(abs / 1000).toFixed(3)} Mm (${abs.toFixed(1)} km)`;
-  }
-  if (abs >= 1) return `${sign}${abs.toFixed(3)} km`;
-  if (abs >= 0.001) return `${sign}${(abs * 1000).toFixed(1)} m`;
-  return `${sign}${(abs * 1e6).toFixed(0)} mm`;
+  const abs = Math.abs(km);
+  const sign = km < 0 ? "−" : "";
+  return sign + formatDistancePreciseAbs(abs);
+}
+
+function formatDistancePreciseAbs(abs: number): string {
+  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(3)} Mkm`;
+  if (abs >= 1000) return `${(abs / 1000).toFixed(3)} Mm (${abs.toFixed(1)} km)`;
+  if (abs >= 1) return `${abs.toFixed(3)} km`;
+  if (abs >= 0.001) return `${(abs * 1000).toFixed(1)} m`;
+  return `${(abs * 1e6).toFixed(0)} mm`;
 }
 
 /** Camera–focus range: AU-scale down to meters. */
 export function formatFocusDistance(km: number): string {
-  const v = Math.max(0, km);
+  return formatFocusDistanceAbs(Math.max(0, km));
+}
+
+function formatFocusDistanceAbs(v: number): string {
   if (v >= 149_597_870.7) return `${(v / 149_597_870.7).toFixed(3)} AU`;
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
   if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
+  return formatFocusDistanceNear(v);
+}
+
+function formatFocusDistanceNear(v: number): string {
   if (v >= 10) return `${Math.round(v)} km`;
   if (v >= 1) return `${v.toFixed(2)} km`;
   if (v >= 0.001) return `${(v * 1000).toFixed(0)} m`;
@@ -157,7 +185,10 @@ export function formatSpeedPrecise(kmPerS: number): string {
 export function formatFuel(frac: number, tank: "booster" | "ship"): string {
   const f = Math.max(0, Math.min(1, frac));
   const cap = tank === "booster" ? BOOSTER_PROP_KG : SHIP_PROP_KG;
-  const kg = f * cap;
+  return formatFuelFromKg(f, f * cap);
+}
+
+function formatFuelFromKg(f: number, kg: number): string {
   const pct = `${Math.round(f * 100)}%`;
   if (kg >= 1_000_000) return `${pct} · ${(kg / 1_000_000).toFixed(2)} kt`;
   if (kg >= 1000) return `${pct} · ${(kg / 1000).toFixed(0)} t`;
@@ -199,9 +230,7 @@ export function formatThrust(newtons: number): string {
 export function formatThrustDetailed(newtons: number): string {
   const n = Math.max(0, newtons);
   if (n < 1) return "0 N";
-  if (n >= 1e6) {
-    return `${(n / 1e6).toFixed(3)} MN · ${(n / 1e3).toFixed(0)} kN`;
-  }
+  if (n >= 1e6) return `${(n / 1e6).toFixed(3)} MN · ${(n / 1e3).toFixed(0)} kN`;
   if (n >= 1e3) {
     return `${(n / 1e3).toFixed(2)} kN · ${Math.round(n).toLocaleString()} N`;
   }
@@ -223,7 +252,8 @@ export function formatProgressRemainingLine(
 ): string {
   const u = durationS > 0 ? t / durationS : 0;
   const left = Math.max(0, durationS - t);
-  return `${(Math.min(1, Math.max(0, u)) * 100).toFixed(2)}% · ${formatMissionTimeDetailed(left)} left`;
+  const pct = (Math.min(1, Math.max(0, u)) * 100).toFixed(2);
+  return `${pct}% · ${formatMissionTimeDetailed(left)} left`;
 }
 
 /** Complete-card min lunar altitude (meters when sub-km). */
@@ -270,9 +300,7 @@ export function wetMassFromFuel(
 ): number {
   const shipKg = shipDryKg + clamp01(fuelShip) * shipPropKg;
   if (staged) return shipKg;
-  return (
-    shipKg + boosterDryKg + clamp01(fuelBooster) * boosterPropKg
-  );
+  return shipKg + boosterDryKg + clamp01(fuelBooster) * boosterPropKg;
 }
 
 /** Accel in g from thrust (N) and wet mass (kg). */

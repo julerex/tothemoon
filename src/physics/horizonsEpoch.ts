@@ -77,32 +77,24 @@ function lerp6(
  * @param missionT mission clock (s from launch)
  * @param horizonsLandingT mission t at which Horizons τ = 0
  */
+function horizonsBracket(τ: number): { a: (typeof samples)[number]; b: (typeof samples)[number]; u: number } {
+  let lo = 0, hi = samples.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid]!.dtS <= τ) lo = mid; else hi = mid;
+  }
+  const a = samples[lo]!, b = samples[hi]!;
+  return { a, b, u: (τ - a.dtS) / (b.dtS - a.dtS || 1) };
+}
+
 export function interpolateHorizons(
-  missionT: number,
-  horizonsLandingT: number,
-  earthPos: V3,
-  earthVel: V3,
-  moonRelPos: V3,
-  moonRelVel: V3,
+  missionT: number, horizonsLandingT: number,
+  earthPos: V3, earthVel: V3, moonRelPos: V3, moonRelVel: V3,
 ): boolean {
   if (samples.length < 2) return false;
   const τ = missionT - horizonsLandingT;
-  const first = samples[0]!;
-  const last = samples[samples.length - 1]!;
-  if (τ < first.dtS || τ > last.dtS) return false;
-
-  // Binary search for segment
-  let lo = 0;
-  let hi = samples.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (samples[mid]!.dtS <= τ) lo = mid;
-    else hi = mid;
-  }
-  const a = samples[lo]!;
-  const b = samples[hi]!;
-  const span = b.dtS - a.dtS || 1;
-  const u = (τ - a.dtS) / span;
+  if (τ < samples[0]!.dtS || τ > samples[samples.length - 1]!.dtS) return false;
+  const { a, b, u } = horizonsBracket(τ);
   lerp6(a.earth, b.earth, u, earthPos, earthVel);
   lerp6(a.moonRel, b.moonRel, u, moonRelPos, moonRelVel);
   return true;

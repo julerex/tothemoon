@@ -26,161 +26,140 @@ function clamp(x: number, lo: number, hi: number): number {
 }
 
 /** Solve Kepler’s equation M = E − e sin E. */
-export function solveEccentricAnomaly(M: number, e: number): number {
-  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
-  let E = e < 0.8 ? m : Math.PI * Math.sign(m || 1);
+function newtonE(E: number, e: number, m: number): number {
   for (let k = 0; k < 16; k++) {
-    const f = E - e * Math.sin(E) - m;
-    const fp = 1 - e * Math.cos(E);
-    const d = f / fp;
+    const d = (E - e * Math.sin(E) - m) / (1 - e * Math.cos(E));
     E -= d;
     if (Math.abs(d) < 1e-14) break;
   }
   return E;
 }
 
+export function solveEccentricAnomaly(M: number, e: number): number {
+  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  const E0 = e < 0.8 ? m : Math.PI * Math.sign(m || 1);
+  return newtonE(E0, e, m);
+}
+
 /**
  * Convert Earth-relative position & velocity to classical elements.
  * Assumes bound elliptical orbit (e < 1).
  */
-export function rvToKepler(r: V3, v: V3, mu: number, t0: number): KeplerOrbit {
-  const R = len(r);
-  const V = len(v);
-  const vr = dot(r, v) / R;
-
-  cross(_h, r, v);
-  const h = len(_h);
-  const i = Math.acos(clamp(_h.z / h, -1, 1));
-
-  // Node vector n = k̂ × h
+function nodeOm(_hLen: number): { nLen: number; Om: number } {
+  void _hLen;
   set(_n, -_h.y, _h.x, 0);
   const nLen = len(_n);
-  let Om: number;
-  if (nLen < 1e-12) {
-    Om = 0; // equatorial
-  } else {
-    Om = Math.acos(clamp(_n.x / nLen, -1, 1));
-    if (_n.y < 0) Om = 2 * Math.PI - Om;
-  }
+  if (nLen < 1e-12) return { nLen, Om: 0 };
+  let Om = Math.acos(clamp(_n.x / nLen, -1, 1));
+  if (_n.y < 0) Om = 2 * Math.PI - Om;
+  return { nLen, Om };
+}
 
-  // Eccentricity vector
-  // e = ((v² − μ/r) r − (r·v) v) / μ
+function eccVector(r: V3, v: V3, R: number, V: number, vr: number, mu: number): number {
   const v2 = V * V;
   _eVec.x = ((v2 - mu / R) * r.x - vr * R * v.x) / mu;
   _eVec.y = ((v2 - mu / R) * r.y - vr * R * v.y) / mu;
   _eVec.z = ((v2 - mu / R) * r.z - vr * R * v.z) / mu;
-  const e = len(_eVec);
+  return len(_eVec);
+}
 
-  let w: number;
+function argPeri(nLen: number, e: number): number {
   if (nLen < 1e-12) {
-    // Argument of periapsis measured from x-axis
-    w = Math.atan2(_eVec.y, _eVec.x);
-    if (w < 0) w += 2 * Math.PI;
-  } else if (e > 1e-10) {
-    w = Math.acos(clamp(dot(_n, _eVec) / (nLen * e), -1, 1));
-    if (_eVec.z < 0) w = 2 * Math.PI - w;
-  } else {
-    w = 0;
+    const w = Math.atan2(_eVec.y, _eVec.x);
+    return w < 0 ? w + 2 * Math.PI : w;
   }
-
-  // True anomaly
-  let nu: number;
   if (e > 1e-10) {
-    nu = Math.acos(clamp(dot(_eVec, r) / (e * R), -1, 1));
-    if (vr < 0) nu = 2 * Math.PI - nu;
-  } else if (nLen > 1e-12) {
-    nu = Math.acos(clamp(dot(_n, r) / (nLen * R), -1, 1));
-    if (r.z < 0) nu = 2 * Math.PI - nu;
-  } else {
-    nu = Math.atan2(r.y, r.x);
-    if (nu < 0) nu += 2 * Math.PI;
+    const w = Math.acos(clamp(dot(_n, _eVec) / (nLen * e), -1, 1));
+    return _eVec.z < 0 ? 2 * Math.PI - w : w;
   }
+  return 0;
+}
 
-  // Eccentric anomaly → mean anomaly
+function anomalyFromUnit(a: V3, r: V3, scale: number, flip: boolean): number {
+  const nu = Math.acos(clamp(dot(a, r) / scale, -1, 1));
+  return flip ? 2 * Math.PI - nu : nu;
+}
+
+function trueAnomaly(r: V3, R: number, vr: number, e: number, nLen: number): number {
+  if (e > 1e-10) return anomalyFromUnit(_eVec, r, e * R, vr < 0);
+  if (nLen > 1e-12) return anomalyFromUnit(_n, r, nLen * R, r.z < 0);
+  const nu = Math.atan2(r.y, r.x);
+  return nu < 0 ? nu + 2 * Math.PI : nu;
+}
+
+function meanFromTrue(e: number, nu: number): number {
   const cosE = clamp((e + Math.cos(nu)) / (1 + e * Math.cos(nu)), -1, 1);
   let E = Math.acos(cosE);
   if (nu > Math.PI) E = 2 * Math.PI - E;
-  const M0 = E - e * Math.sin(E);
+  return E - e * Math.sin(E);
+}
 
-  const a = 1 / (2 / R - v2 / mu);
-
-  return { a, e, i, Om, w, M0, t0, mu };
+export function rvToKepler(r: V3, v: V3, mu: number, t0: number): KeplerOrbit {
+  const R = len(r), V = len(v), vr = dot(r, v) / R;
+  cross(_h, r, v);
+  const h = len(_h), i = Math.acos(clamp(_h.z / h, -1, 1));
+  const { nLen, Om } = nodeOm(h), e = eccVector(r, v, R, V, vr, mu);
+  const w = argPeri(nLen, e), nu = trueAnomaly(r, R, vr, e, nLen);
+  return { a: 1 / (2 / R - (V * V) / mu), e, i, Om, w, M0: meanFromTrue(e, nu), t0, mu };
 }
 
 /**
  * Propagate Kepler orbit to time t; returns Earth-relative r, v.
  */
+type RotBasis = {
+  cosO: number; sinO: number; cosi: number; sini: number; cosw: number; sinw: number;
+};
+
+function rotBasis(Om: number, i: number, w: number): RotBasis {
+  return {
+    cosO: Math.cos(Om), sinO: Math.sin(Om),
+    cosi: Math.cos(i), sini: Math.sin(i),
+    cosw: Math.cos(w), sinw: Math.sin(w),
+  };
+}
+
+function rot(x: number, y: number, b: RotBasis, out: V3): void {
+  const x1 = b.cosw * x - b.sinw * y;
+  const y1 = b.sinw * x + b.cosw * y;
+  const y2 = y1 * b.cosi, z2 = y1 * b.sini;
+  out.x = b.cosO * x1 - b.sinO * y2;
+  out.y = b.sinO * x1 + b.cosO * y2;
+  out.z = z2;
+}
+
+function perifocalRV(a: number, e: number, E: number, mu: number) {
+  const cosE = Math.cos(E), sinE = Math.sin(E), den = 1 - e * cosE;
+  const cosNu = (cosE - e) / den, sinNu = (Math.sqrt(Math.max(0, 1 - e * e)) * sinE) / den;
+  const rPerif = a * den, sp = Math.sqrt(mu / (a * (1 - e * e)));
+  return { xp: rPerif * cosNu, yp: rPerif * sinNu, vxp: -sp * sinNu, vyp: sp * (e + cosNu) };
+}
+
 export function keplerRvAt(
-  orb: KeplerOrbit,
-  t: number,
-  outR: V3 = v3(),
-  outV: V3 = v3(),
+  orb: KeplerOrbit, t: number, outR: V3 = v3(), outV: V3 = v3(),
 ): { r: V3; v: V3 } {
   const { a, e, i, Om, w, M0, t0, mu } = orb;
   const n = Math.sqrt(mu / (a * a * a));
-  const M = M0 + n * (t - t0);
-  const E = solveEccentricAnomaly(M, e);
-
-  const cosE = Math.cos(E);
-  const sinE = Math.sin(E);
-  const rPerif = a * (1 - e * cosE);
-  // Perifocal position
-  const cosNu = (cosE - e) / (1 - e * cosE);
-  const sinNu =
-    (Math.sqrt(Math.max(0, 1 - e * e)) * sinE) / (1 - e * cosE);
-  const xp = rPerif * cosNu;
-  const yp = rPerif * sinNu;
-
-  // Perifocal velocity
-  const p = a * (1 - e * e);
-  const sp = Math.sqrt(mu / p);
-  const vxp = -sp * sinNu;
-  const vyp = sp * (e + cosNu);
-
-  // R_z(Om) R_x(i) R_z(w)
-  const cosO = Math.cos(Om);
-  const sinO = Math.sin(Om);
-  const cosi = Math.cos(i);
-  const sini = Math.sin(i);
-  const cosw = Math.cos(w);
-  const sinw = Math.sin(w);
-
-  const rot = (x: number, y: number, out: V3) => {
-    // R_z(w)
-    const x1 = cosw * x - sinw * y;
-    const y1 = sinw * x + cosw * y;
-    // R_x(i)
-    const x2 = x1;
-    const y2 = y1 * cosi;
-    const z2 = y1 * sini;
-    // R_z(Om)
-    out.x = cosO * x2 - sinO * y2;
-    out.y = sinO * x2 + cosO * y2;
-    out.z = z2;
-  };
-
-  rot(xp, yp, outR);
-  rot(vxp, vyp, outV);
+  const E = solveEccentricAnomaly(M0 + n * (t - t0), e);
+  const pf = perifocalRV(a, e, E, mu);
+  const b = rotBasis(Om, i, w);
+  rot(pf.xp, pf.yp, b, outR);
+  rot(pf.vxp, pf.vyp, b, outV);
   return { r: outR, v: outV };
 }
 
 /** Sample smooth points along a Kepler arc from t0 to t1 (inclusive). */
+function sampleKeplerPoint(orb: KeplerOrbit, t: number): { t: number; r: V3; v: V3 } {
+  const rr = v3(), vv = v3();
+  keplerRvAt(orb, t, rr, vv);
+  return { t, r: { x: rr.x, y: rr.y, z: rr.z }, v: { x: vv.x, y: vv.y, z: vv.z } };
+}
+
 export function sampleKeplerArc(
-  orb: KeplerOrbit,
-  t0: number,
-  t1: number,
-  count: number,
+  orb: KeplerOrbit, t0: number, t1: number, count: number,
 ): { t: number; r: V3; v: V3 }[] {
   const out: { t: number; r: V3; v: V3 }[] = [];
   const n = Math.max(2, count);
-  for (let i = 0; i < n; i++) {
-    const u = i / (n - 1);
-    const t = t0 + (t1 - t0) * u;
-    const rr = v3();
-    const vv = v3();
-    keplerRvAt(orb, t, rr, vv);
-    out.push({ t, r: { x: rr.x, y: rr.y, z: rr.z }, v: { x: vv.x, y: vv.y, z: vv.z } });
-  }
+  for (let i = 0; i < n; i++) out.push(sampleKeplerPoint(orb, t0 + (t1 - t0) * (i / (n - 1))));
   return out;
 }
 

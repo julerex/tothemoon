@@ -9,32 +9,72 @@ import * as THREE from "three";
 import { entryPlasmaStrength } from "../physics/flight13Attitude";
 import type { PhaseId } from "../physics/missionTypes";
 
-function makePlasmaSprite(color: number, size: number): THREE.Sprite {
+const PLASMA_STOPS: [number, string][] = [
+  [0, "rgba(255,255,255,1)"],
+  [0.25, "rgba(255,200,120,0.9)"],
+  [0.55, "rgba(255,80,30,0.45)"],
+  [1, "rgba(40,0,0,0)"],
+];
+
+function fillPlasmaGradient(ctx: CanvasRenderingContext2D): void {
+  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  for (const [t, c] of PLASMA_STOPS) g.addColorStop(t, c);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+}
+
+function paintPlasmaCanvas(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 64;
   canvas.height = 64;
-  const ctx = canvas.getContext("2d")!;
-  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.25, "rgba(255,200,120,0.9)");
-  g.addColorStop(0.55, "rgba(255,80,30,0.45)");
-  g.addColorStop(1, "rgba(40,0,0,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 64, 64);
+  fillPlasmaGradient(canvas.getContext("2d")!);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.SpriteMaterial({
-    map: tex,
-    color,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
+  return tex;
+}
+
+function makePlasmaMat(color: number): THREE.SpriteMaterial {
+  return new THREE.SpriteMaterial({
+    map: paintPlasmaCanvas(), color, transparent: true, opacity: 0,
+    depthWrite: false, blending: THREE.AdditiveBlending,
   });
-  const sprite = new THREE.Sprite(mat);
+}
+
+function makePlasmaSprite(color: number, size: number): THREE.Sprite {
+  const sprite = new THREE.Sprite(makePlasmaMat(color));
   sprite.scale.setScalar(size);
   sprite.visible = false;
   return sprite;
+}
+
+function hidePlasmaSprites(sprites: THREE.Sprite[]): void {
+  for (const s of sprites) {
+    s.visible = false;
+    (s.material as THREE.SpriteMaterial).opacity = 0;
+  }
+}
+
+function setPlasmaSprite(
+  s: THREE.Sprite,
+  baseOp: number,
+  baseScale: number,
+  str: number,
+  flick: number,
+): void {
+  s.visible = true;
+  (s.material as THREE.SpriteMaterial).opacity = baseOp * str * flick;
+  s.scale.setScalar(baseScale * (0.75 + 0.5 * str) * (0.95 + 0.08 * flick));
+}
+
+function plasmaFlicker(missionT: number): number {
+  return 0.85 + 0.1 * Math.sin(missionT * 41.3) + 0.05 * Math.sin(missionT * 73.7 + 1.1);
+}
+
+function placeEntrySprites(core: THREE.Sprite, sheath: THREE.Sprite, trail: THREE.Sprite): void {
+  // Mesh units (craft local): belly is +Y, nose +Z
+  core.position.set(0, 0.12, 0.55);
+  sheath.position.set(0, 0.18, 0.4);
+  trail.position.set(0, 0.08, -0.2);
 }
 
 /**
@@ -49,13 +89,10 @@ export class EntryFx {
 
   constructor() {
     this.group.name = "entry-plasma";
-    // Mesh units (craft local): belly is +Y, nose +Z
     this.core = makePlasmaSprite(0xffcc88, 0.55);
-    this.core.position.set(0, 0.12, 0.55);
     this.sheath = makePlasmaSprite(0xff6622, 1.1);
-    this.sheath.position.set(0, 0.18, 0.4);
     this.trail = makePlasmaSprite(0xff4400, 1.6);
-    this.trail.position.set(0, 0.08, -0.2);
+    placeEntrySprites(this.core, this.sheath, this.trail);
     this.group.add(this.core, this.sheath, this.trail);
   }
 
@@ -70,32 +107,12 @@ export class EntryFx {
     speedKmS: number,
   ): void {
     const str = entryPlasmaStrength(missionT, phase, altKm, speedKmS);
-    const on = str > 0.02;
-    this.group.visible = on;
-    if (!on) {
-      for (const s of [this.core, this.sheath, this.trail]) {
-        s.visible = false;
-        (s.material as THREE.SpriteMaterial).opacity = 0;
-      }
-      return;
-    }
-
+    this.group.visible = str > 0.02;
+    if (str <= 0.02) { hidePlasmaSprites([this.core, this.sheath, this.trail]); return; }
     // Flicker (scrub-stable)
-    const flick =
-      0.85 +
-      0.1 * Math.sin(missionT * 41.3) +
-      0.05 * Math.sin(missionT * 73.7 + 1.1);
-
-    const setSprite = (s: THREE.Sprite, baseOp: number, baseScale: number) => {
-      s.visible = true;
-      const mat = s.material as THREE.SpriteMaterial;
-      mat.opacity = baseOp * str * flick;
-      const sc = baseScale * (0.75 + 0.5 * str) * (0.95 + 0.08 * flick);
-      s.scale.setScalar(sc);
-    };
-
-    setSprite(this.core, 0.85, 0.5);
-    setSprite(this.sheath, 0.45, 1.0);
-    setSprite(this.trail, 0.3, 1.5);
+    const flick = plasmaFlicker(missionT);
+    setPlasmaSprite(this.core, 0.85, 0.5, str, flick);
+    setPlasmaSprite(this.sheath, 0.45, 1.0, str, flick);
+    setPlasmaSprite(this.trail, 0.3, 1.5, str, flick);
   }
 }

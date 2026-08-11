@@ -109,6 +109,50 @@ const SPECS: BookmarkSpec[] = [
   },
 ];
 
+function bookmarkFromSpec(
+  spec: BookmarkSpec,
+  t: number,
+  dur: number,
+  mode: CameraMode,
+  label: string,
+  shortLabel: string,
+): CinematicBookmark {
+  return {
+    id: spec.id, label, shortLabel, t, u: clamp(t / dur, 0, 1),
+    mode, frame: spec.frame, frameScale: spec.frameScale,
+  };
+}
+
+function resolveTouchdownBookmark(
+  timeline: MissionTimeline,
+  spec: BookmarkSpec,
+  dur: number,
+): CinematicBookmark | null {
+  const term = resolveTouchdown(timeline);
+  if (!term) return null;
+  return bookmarkFromSpec(spec, clamp(term.t, 0, dur), dur, term.mode, term.label, term.shortLabel);
+}
+
+function resolveTimedBookmark(
+  timeline: MissionTimeline,
+  spec: BookmarkSpec,
+  dur: number,
+): CinematicBookmark | null {
+  const tRaw = spec.resolveT(timeline);
+  if (tRaw == null || !Number.isFinite(tRaw)) return null;
+  return bookmarkFromSpec(spec, clamp(tRaw, 0, dur), dur, spec.mode, spec.label, spec.shortLabel);
+}
+
+/** Resolve one bookmark spec; null when the beat is absent. */
+function resolveBookmark(
+  timeline: MissionTimeline,
+  spec: BookmarkSpec,
+  dur: number,
+): CinematicBookmark | null {
+  if (spec.id === "touchdown") return resolveTouchdownBookmark(timeline, spec, dur);
+  return resolveTimedBookmark(timeline, spec, dur);
+}
+
 /**
  * Build available cinematic bookmarks from a mission timeline.
  * Order is always {@link BOOKMARK_IDS}; absent beats are skipped.
@@ -116,38 +160,10 @@ const SPECS: BookmarkSpec[] = [
 export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
   const dur = Math.max(timeline.durationS, 1);
   const out: CinematicBookmark[] = [];
-
   for (const spec of SPECS) {
-    const tRaw = spec.resolveT(timeline);
-    if (tRaw == null || !Number.isFinite(tRaw)) continue;
-
-    let t = clamp(tRaw, 0, dur);
-    let mode = spec.mode;
-    let label = spec.label;
-    let shortLabel = spec.shortLabel;
-
-    // Impact arcs: still offer a terminal beat, framed on the Moon.
-    if (spec.id === "touchdown") {
-      const term = resolveTouchdown(timeline);
-      if (!term) continue;
-      t = clamp(term.t, 0, dur);
-      mode = term.mode;
-      label = term.label;
-      shortLabel = term.shortLabel;
-    }
-
-    out.push({
-      id: spec.id,
-      label,
-      shortLabel,
-      t,
-      u: clamp(t / dur, 0, 1),
-      mode,
-      frame: spec.frame,
-      frameScale: spec.frameScale,
-    });
+    const bm = resolveBookmark(timeline, spec, dur);
+    if (bm) out.push(bm);
   }
-
   return out;
 }
 
@@ -195,34 +211,27 @@ function halfwayCoastT(tl: MissionTimeline): number | null {
   return null;
 }
 
-function resolveTouchdown(
-  tl: MissionTimeline,
-): {
+type TouchdownTerm = {
   t: number;
   mode: CameraMode;
   label: string;
   shortLabel: string;
-} | null {
-  const landT =
-    eventT(tl, "touchdown") ?? segmentT0(tl, "landed");
-  if (landT != null) {
-    return {
-      t: landT,
-      mode: "chase",
-      label: "Touchdown",
-      shortLabel: "Land",
-    };
-  }
+};
+
+function landTouchdown(tl: MissionTimeline): TouchdownTerm | null {
+  const landT = eventT(tl, "touchdown") ?? segmentT0(tl, "landed");
+  if (landT == null) return null;
+  return { t: landT, mode: "chase", label: "Touchdown", shortLabel: "Land" };
+}
+
+function impactTouchdown(tl: MissionTimeline): TouchdownTerm | null {
   const impactT = eventT(tl, "impact") ?? segmentT0(tl, "impact");
-  if (impactT != null) {
-    return {
-      t: impactT,
-      mode: "moon",
-      label: "Impact",
-      shortLabel: "Impact",
-    };
-  }
-  return null;
+  if (impactT == null) return null;
+  return { t: impactT, mode: "moon", label: "Impact", shortLabel: "Impact" };
+}
+
+function resolveTouchdown(tl: MissionTimeline): TouchdownTerm | null {
+  return landTouchdown(tl) ?? impactTouchdown(tl);
 }
 
 function clamp(v: number, lo: number, hi: number): number {

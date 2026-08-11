@@ -47,21 +47,12 @@ export function wrapPi(rad: number): number {
  * Name from elongation past new (0…2π) and illuminated fraction.
  * Boundaries are theater-rounded (±~10° of quarters).
  */
-export function moonPhaseName(
-  elongationRad: number,
-  illumination: number,
-): MoonPhaseName {
-  const e = wrapPi(elongationRad); // (−π, π]
-  const waxing = e > 0;
-  const k = illumination;
+export function moonPhaseName(elongationRad: number, illumination: number): MoonPhaseName {
+  const waxing = wrapPi(elongationRad) > 0, k = illumination;
   if (k < 0.03) return "new";
   if (k > 0.97) return "full";
-  if (k > 0.45 && k < 0.55) {
-    return waxing ? "first quarter" : "last quarter";
-  }
-  if (k < 0.5) {
-    return waxing ? "waxing crescent" : "waning crescent";
-  }
+  if (k > 0.45 && k < 0.55) return waxing ? "first quarter" : "last quarter";
+  if (k < 0.5) return waxing ? "waxing crescent" : "waning crescent";
   return waxing ? "waxing gibbous" : "waning gibbous";
 }
 
@@ -69,30 +60,17 @@ export function moonPhaseName(
  * Sky phase at mission time from body ephemeris (heliocentric theater).
  * Prefer body geometry so Horizons and analytic stay consistent.
  */
-export function skyPhaseAt(
-  missionT: number,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): SkyPhase {
+function eclipticLon(dx: number, dy: number): number {
+  return Math.atan2(dy, dx);
+}
+
+export function skyPhaseAt(missionT: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): SkyPhase {
   const b = bodyPositions(missionT, epoch);
-  // Earth → Sun (ecliptic XY)
-  const sx = b.sun.x - b.earth.x;
-  const sy = b.sun.y - b.earth.y;
-  const sunLonRad = Math.atan2(sy, sx);
-  // Earth → Moon
-  const mx = b.moon.x - b.earth.x;
-  const my = b.moon.y - b.earth.y;
-  const moonLonRad = Math.atan2(my, mx);
+  const sunLonRad = eclipticLon(b.sun.x - b.earth.x, b.sun.y - b.earth.y);
+  const moonLonRad = eclipticLon(b.moon.x - b.earth.x, b.moon.y - b.earth.y);
   const elongationRad = wrapPi(moonLonRad - sunLonRad);
-  const elongAbs = Math.abs(elongationRad);
-  // 0 at new (elongation 0), 1 at full (elongation π)
-  const illumination = 0.5 * (1 - Math.cos(elongAbs));
-  return {
-    illumination,
-    moonPhase: moonPhaseName(elongationRad, illumination),
-    sunLonRad,
-    moonLonRad,
-    elongationRad,
-  };
+  const illumination = 0.5 * (1 - Math.cos(Math.abs(elongationRad)));
+  return { illumination, moonPhase: moonPhaseName(elongationRad, illumination), sunLonRad, moonLonRad, elongationRad };
 }
 
 /** Compact ecliptic longitude for HUD, e.g. "118°". */

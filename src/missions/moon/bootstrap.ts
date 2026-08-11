@@ -1,0 +1,638 @@
+/**
+ * Starbase → Moon theater bootstrap.
+ * Scene unit = 1 km.
+ */
+
+import * as THREE from "three";
+import type { Line2 } from "three/addons/lines/Line2.js";
+import { MissionClock } from "../../mission/clock";
+import {
+  createLandingBeatState,
+  type LandingBeatState,
+} from "../../mission/landingBeatHold";
+import { buildTimeline } from "../../mission/timeline";
+import {
+  timelineWithPrelaunch,
+  transportDurationS,
+} from "../../mission/prelaunch";
+import {
+  computeLunarTrajectory,
+  loadPrecomputedTrajectory,
+  sampleAtProgress,
+  trailPoints,
+  trajectoryCoastCorridor,
+  type Trajectory,
+} from "../../physics/trajectoryCache";
+import {
+  daysPastFullAtLanding,
+  formatMissionDateUtc,
+} from "../../physics/epoch";
+import { hasHorizonsEpoch, horizonsSource } from "../../physics/horizonsEpoch";
+import { EARTH_SPIN_RATE, earthNorthPole } from "../../physics/earthFrame";
+import {
+  createMoonPathThroughSim,
+  createMoonRelativeOrbit,
+  createScene,
+} from "../../scene/createScene";
+import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
+import { createCoastCorridorOverlay } from "../../scene/coastCorridor";
+import { createTrailFromPoints } from "../../scene/trail";
+import { StagingFx, findStageEvent } from "../../scene/stagingFx";
+import { LandingFx } from "../../scene/landingFx";
+import {
+  createAscentGroundTrack,
+  createStarbasePad,
+} from "../../scene/earthTheater";
+import { createGroundSky } from "../../scene/groundSky";
+import {
+  createCinemaComposer,
+  enableSunShadows,
+  markPadShadowMeshes,
+  markShadowMeshes,
+} from "../../scene/cinema";
+import { createVectorArrows } from "../../scene/vectorArrows";
+import { createBodies } from "../../scene/bodies";
+import { CameraDirector, type CameraMode } from "../../camera/modes";
+import type { CinematicBookmark } from "../../mission/bookmarks";
+import type { PhaseId } from "../../physics/missionTypes";
+import { bindHud, type HudHandlers } from "../../ui/hud";
+import { nudgePlaybackSpeed } from "../../ui/hudFormat";
+import { setTheaterVisible } from "../../app/shell";
+import { toggleZoomLabels } from "../../scene/zoomLabels";
+import type { MoonOrientScratch } from "./orientCraft";
+
+export type MoonAutoCam = {
+  enabled: boolean;
+  phase: PhaseId | null;
+  staged: boolean;
+};
+
+export type MoonCinemaState = { burning: boolean; phase: string };
+
+export type MoonFlags = { orbitsVisible: boolean };
+
+export type MoonCtx = {
+  canvas: HTMLCanvasElement;
+  cache: Trajectory;
+  epoch: Trajectory["epoch"];
+  renderer: THREE.WebGLRenderer;
+  camera: THREE.PerspectiveCamera;
+  director: CameraDirector;
+  scene: THREE.Scene;
+  sunLight: THREE.DirectionalLight;
+  fillLight: THREE.DirectionalLight;
+  earthshine: THREE.DirectionalLight;
+  orbitGroup: THREE.Group;
+  bodies: ReturnType<typeof createBodies>;
+  groundSky: ReturnType<typeof createGroundSky>;
+  starbasePad: THREE.Group;
+  craftTrail: Line2;
+  moonRelOrbit: Line2;
+  orbitExtras: THREE.Object3D[];
+  craft: THREE.Group;
+  locator: THREE.Sprite;
+  cinema: ReturnType<typeof createCinemaComposer>;
+  cinemaState: MoonCinemaState;
+  vectorArrows: ReturnType<typeof createVectorArrows>;
+  stagingFx: StagingFx;
+  stageT: number | null;
+  landingFx: LandingFx;
+  clock: MissionClock;
+  physicsDurationS: number;
+  transportS: number;
+  craftPos: THREE.Vector3;
+  craftVel: THREE.Vector3;
+  earthPos: THREE.Vector3;
+  earthVel: THREE.Vector3;
+  padWorld: THREE.Vector3;
+  craftHeading: THREE.Vector3;
+  earthVelV: THREE.Vector3;
+  moonPosV: THREE.Vector3;
+  moonVelV: THREE.Vector3;
+  skyEarth: THREE.Vector3;
+  skySun: THREE.Vector3;
+  orient: MoonOrientScratch;
+  autoCam: MoonAutoCam;
+  landingBeat: LandingBeatState;
+  flags: MoonFlags;
+  notifyAutoCamera: (mode: CameraMode) => void;
+  hud: ReturnType<typeof bindHud>;
+  wall: THREE.Clock;
+};
+
+function requireCanvas(): HTMLCanvasElement {
+  const el = document.querySelector<HTMLCanvasElement>("#c");
+  if (!el) throw new Error("Canvas #c not found");
+  return el;
+}
+
+function prepareChrome(): void {
+  setTheaterVisible(true);
+  document.title = "tothemoon — Starbase → Moon";
+}
+
+function loadCache(): Trajectory {
+  const recompute =
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).has("recompute");
+  if (recompute) {
+    const phaseBoot = document.querySelector("#phase");
+    if (phaseBoot) phaseBoot.textContent = "Recomputing trajectory…";
+  }
+  return recompute ? computeLunarTrajectory() : loadPrecomputedTrajectory();
+}
+
+function logBoot(cache: Trajectory): void {
+  const epoch = cache.epoch;
+  const sun0 = epoch.sunPhase0;
+  console.info(
+    `[tothemoon] Launch ${formatMissionDateUtc(0, cache.horizonsLandingT, epoch.clockUtcMsAtT0)} · ` +
+      `Horizons τ=0 at 2027-07-20 12:00 UTC · ${daysPastFullAtLanding().toFixed(2)} d past full · ` +
+      (epoch.useHorizons && hasHorizonsEpoch()
+        ? `ephemeris=${horizonsSource()} · landT=${(cache.horizonsLandingT / 3600).toFixed(1)}h`
+        : `sunPhase0=${sun0.toFixed(4)} (analytic)`),
+  );
+}
+
+function styleRenderer(renderer: THREE.WebGLRenderer): void {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+}
+
+function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: "high-performance",
+    logarithmicDepthBuffer: true,
+  });
+  styleRenderer(renderer);
+  return renderer;
+}
+
+function mountBodiesSky(
+  scene: THREE.Scene,
+  sunLight: THREE.DirectionalLight,
+  renderer: THREE.WebGLRenderer,
+) {
+  enableSunShadows(renderer, sunLight);
+  const bodies = createBodies();
+  scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
+  const groundSky = createGroundSky();
+  scene.add(groundSky.mesh);
+  return { bodies, groundSky };
+}
+
+function makeDirector(canvas: HTMLCanvasElement, epoch: Trajectory["epoch"]) {
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
+  const director = new CameraDirector(camera, canvas);
+  director.setEpoch(epoch);
+  return { camera, director };
+}
+
+function mountCore(canvas: HTMLCanvasElement, epoch: Trajectory["epoch"]) {
+  const renderer = createRenderer(canvas);
+  const { camera, director } = makeDirector(canvas, epoch);
+  const sceneParts = createScene();
+  const { bodies, groundSky } = mountBodiesSky(
+    sceneParts.scene,
+    sceneParts.sunLight,
+    renderer,
+  );
+  return { renderer, camera, director, sceneParts, bodies, groundSky };
+}
+
+function mountPadTrail(
+  bodies: ReturnType<typeof createBodies>,
+  cache: Trajectory,
+  epoch: Trajectory["epoch"],
+  orbitGroup: THREE.Group,
+) {
+  const starbasePad = createStarbasePad();
+  bodies.earth.add(starbasePad);
+  markPadShadowMeshes(starbasePad);
+  const groundTrack = createAscentGroundTrack(cache.samples, epoch);
+  if (groundTrack) bodies.earth.add(groundTrack);
+  const craftTrail = createTrailFromPoints(trailPoints(cache, 1500)) as Line2;
+  orbitGroup.add(craftTrail);
+  return { starbasePad, craftTrail, groundTrack };
+}
+
+function mountCorridor(orbitGroup: THREE.Group, cache: Trajectory): void {
+  const coastCorridor = trajectoryCoastCorridor(cache);
+  if (!coastCorridor) return;
+  orbitGroup.add(createCoastCorridorOverlay(coastCorridor));
+  console.info(
+    `[tothemoon] Coast corridor: Kepler max|Δr|=${cache.keplerRefMaxDevKm.toFixed(0)} km ` +
+      `(t=${(coastCorridor.t0 / 3600).toFixed(1)}–${(coastCorridor.t1 / 3600).toFixed(1)} h)`,
+  );
+}
+
+function mountOrbits(
+  orbitGroup: THREE.Group,
+  bodies: ReturnType<typeof createBodies>,
+  cache: Trajectory,
+  epoch: Trajectory["epoch"],
+  groundTrack: THREE.Object3D | null,
+) {
+  orbitGroup.add(createMoonPathThroughSim(cache.durationS, 640, epoch));
+  const moonRelOrbit = createMoonRelativeOrbit(0, epoch);
+  bodies.earthGroup.add(moonRelOrbit);
+  const orbitExtras: THREE.Object3D[] = [moonRelOrbit];
+  if (groundTrack) orbitExtras.push(groundTrack);
+  return { moonRelOrbit, orbitExtras };
+}
+
+function mountCraft(scene: THREE.Scene, director: CameraDirector) {
+  const { group: craft, locator } = createCraft();
+  scene.add(craft);
+  director.setCraft(craft);
+  markShadowMeshes(craft, { cast: true, receive: true });
+  return { craft, locator };
+}
+
+function mountStagingFx(
+  scene: THREE.Scene,
+  craft: THREE.Group,
+  director: CameraDirector,
+  cache: Trajectory,
+) {
+  const boosterProto = craft.getObjectByName("booster");
+  const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
+  const stageEvent = findStageEvent(cache.samples);
+  stagingFx.setStageEvent(stageEvent);
+  scene.add(stagingFx.group);
+  director.setDetachedBooster(stagingFx.detachedBooster);
+  markShadowMeshes(stagingFx.group, { cast: true, receive: true });
+  return { stagingFx, stageT: stageEvent?.t ?? null };
+}
+
+function mountLandingFx(scene: THREE.Scene, cache: Trajectory, epoch: Trajectory["epoch"]) {
+  const landingFx = new LandingFx();
+  landingFx.setEpoch(epoch);
+  const last = cache.samples[cache.samples.length - 1]!;
+  landingFx.setLanding(last.pos, last.t);
+  scene.add(landingFx.group);
+  return landingFx;
+}
+
+function mountFx(
+  scene: THREE.Scene,
+  craft: THREE.Group,
+  director: CameraDirector,
+  cache: Trajectory,
+  epoch: Trajectory["epoch"],
+) {
+  const staging = mountStagingFx(scene, craft, director, cache);
+  return { ...staging, landingFx: mountLandingFx(scene, cache, epoch) };
+}
+
+function orientCore(craft: THREE.Object3D, craftPos: THREE.Vector3, omega: THREE.Vector3) {
+  return {
+    craftPos,
+    craft,
+    craftTan: new THREE.Vector3(),
+    localUp: new THREE.Vector3(),
+    omega,
+    ...orientVelScratch(),
+  };
+}
+
+function orientVelScratch() {
+  return {
+    spinVel: new THREE.Vector3(),
+    airVel: new THREE.Vector3(),
+    lookTarget: new THREE.Vector3(),
+  };
+}
+
+function orientMats(): Pick<
+  MoonOrientScratch,
+  "rollUp" | "look" | "quat" | "airVelAttitudeMin"
+> {
+  return {
+    rollUp: new THREE.Vector3(0, 1, 0),
+    look: new THREE.Matrix4(),
+    quat: new THREE.Quaternion(),
+    airVelAttitudeMin: 0.04,
+  };
+}
+
+function makeOrient(craft: THREE.Object3D, craftPos: THREE.Vector3): MoonOrientScratch {
+  const omega = new THREE.Vector3();
+  earthNorthPole(omega);
+  omega.multiplyScalar(EARTH_SPIN_RATE);
+  return { ...orientCore(craft, craftPos, omega), ...orientMats() };
+}
+
+function makeClock(cache: Trajectory) {
+  const physicsDurationS = cache.durationS;
+  const transportS = transportDurationS(physicsDurationS);
+  const timeline = timelineWithPrelaunch(
+    buildTimeline(cache.samples, physicsDurationS),
+    physicsDurationS,
+  );
+  const clock = new MissionClock();
+  clock.setSpeed(1);
+  return { clock, physicsDurationS, transportS, timeline };
+}
+
+type HudWire = {
+  clock: MissionClock;
+  director: CameraDirector;
+  autoCam: MoonAutoCam;
+  cache: Trajectory;
+  disableAutoCam: () => void;
+  toggleOrbits: () => void;
+};
+
+function onSpeedNudge(w: HudWire, dir: Parameters<HudHandlers["onSpeedNudge"]>[0]): number {
+  const next = nudgePlaybackSpeed(w.clock.speed, dir);
+  w.clock.setSpeed(next);
+  return next;
+}
+
+function transportH(w: HudWire): Pick<
+  HudHandlers,
+  "onPlayToggle" | "onSpeedMode" | "onSpeedNudge" | "onScrub"
+> {
+  return {
+    onPlayToggle: () => w.clock.toggle(),
+    onSpeedMode: (rate) => w.clock.setSpeed(rate),
+    onSpeedNudge: (dir) => onSpeedNudge(w, dir),
+    onScrub: (t) => w.clock.seek(t),
+  };
+}
+
+function onCamera(w: HudWire, mode: CameraMode): void {
+  w.disableAutoCam();
+  w.director.setMode(mode);
+}
+
+function onCameraFrame(w: HudWire, mode: CameraMode): void {
+  w.disableAutoCam();
+  w.director.frameMode(mode);
+}
+
+function onPanKey(w: HudWire, key: "w" | "a" | "s" | "d", down: boolean) {
+  const mode = w.director.setPanKey(key, down);
+  if (down) w.disableAutoCam();
+  return mode;
+}
+
+function cameraH(w: HudWire): Pick<
+  HudHandlers,
+  "onCamera" | "onCameraFrame" | "onOrbitKey" | "onPanKey" | "onZoomKey"
+> {
+  return {
+    onCamera: (mode) => onCamera(w, mode),
+    onCameraFrame: (mode) => onCameraFrame(w, mode),
+    onOrbitKey: (key, down) => w.director.setOrbitKey(key, down),
+    onPanKey: (key, down) => onPanKey(w, key, down),
+    onZoomKey: (key, down) => w.director.setZoomKey(key, down),
+  };
+}
+
+function onBookmark(w: HudWire, bm: CinematicBookmark): void {
+  w.clock.seek(bm.u);
+  const frame = sampleAtProgress(w.cache, bm.u);
+  w.autoCam.phase = frame.phase;
+  w.autoCam.staged = frame.staged;
+  w.director.easeToMode(bm.mode, { frame: bm.frame, frameScale: bm.frameScale });
+}
+
+function onAutoCamToggle(w: HudWire): boolean {
+  w.autoCam.enabled = !w.autoCam.enabled;
+  if (w.autoCam.enabled) w.autoCam.phase = null;
+  return w.autoCam.enabled;
+}
+
+function toggleH(w: HudWire): Pick<
+  HudHandlers,
+  "onToggleLabels" | "onToggleOrbits" | "onAutoCamToggle" | "onBookmark"
+> {
+  return {
+    onToggleLabels: () => toggleZoomLabels(),
+    onToggleOrbits: () => w.toggleOrbits(),
+    onAutoCamToggle: () => onAutoCamToggle(w),
+    onBookmark: (bm) => onBookmark(w, bm),
+  };
+}
+
+function makeHudHandlers(w: HudWire): HudHandlers {
+  return { ...transportH(w), ...cameraH(w), ...toggleH(w) };
+}
+
+function assemblePadOrbits(
+  core: ReturnType<typeof mountCore>,
+  cache: Trajectory,
+) {
+  const epoch = cache.epoch;
+  const pad = mountPadTrail(core.bodies, cache, epoch, core.sceneParts.orbitGroup);
+  mountCorridor(core.sceneParts.orbitGroup, cache);
+  const orbits = mountOrbits(
+    core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.groundTrack,
+  );
+  return { pad, orbits };
+}
+
+function assembleCraftCinema(
+  core: ReturnType<typeof mountCore>,
+  cache: Trajectory,
+  orbits: ReturnType<typeof assemblePadOrbits>["orbits"],
+) {
+  const { craft, locator } = mountCraft(core.sceneParts.scene, core.director);
+  const cinema = createCinemaComposer(core.renderer, core.sceneParts.scene, core.camera);
+  const vectorArrows = createVectorArrows();
+  core.sceneParts.scene.add(vectorArrows.group);
+  orbits.orbitExtras.push(vectorArrows.group);
+  const fx = mountFx(core.sceneParts.scene, craft, core.director, cache, cache.epoch);
+  return { craft, locator, cinema, vectorArrows, fx };
+}
+
+function assembleWorld(canvas: HTMLCanvasElement, cache: Trajectory) {
+  const core = mountCore(canvas, cache.epoch);
+  const { pad, orbits } = assemblePadOrbits(core, cache);
+  const craftPack = assembleCraftCinema(core, cache, orbits);
+  return { ...core, pad, orbits, ...craftPack };
+}
+
+function makeDisableAutoCam(autoCam: MoonAutoCam, getSetUi: () => (e: boolean) => void) {
+  return (): void => {
+    if (!autoCam.enabled) return;
+    autoCam.enabled = false;
+    getSetUi()(false);
+  };
+}
+
+function makeSetOrbitsVisible(
+  flags: MoonFlags,
+  orbitGroup: THREE.Group,
+  orbitExtras: THREE.Object3D[],
+) {
+  return (visible: boolean): void => {
+    flags.orbitsVisible = visible;
+    orbitGroup.visible = visible;
+    for (const obj of orbitExtras) obj.visible = visible;
+  };
+}
+
+function makeMoonHudWire(
+  clock: MissionClock,
+  director: CameraDirector,
+  autoCam: MoonAutoCam,
+  cache: Trajectory,
+  disableAutoCam: () => void,
+  toggleOrbits: () => void,
+): HudWire {
+  return { clock, director, autoCam, cache, disableAutoCam, toggleOrbits };
+}
+
+function bindHudPack(
+  world: ReturnType<typeof assembleWorld>,
+  clockPack: ReturnType<typeof makeClock>,
+  cache: Trajectory,
+  autoCam: MoonAutoCam,
+  flags: MoonFlags,
+) {
+  let setAutoCamUi: (e: boolean) => void = () => {};
+  const disableAutoCam = makeDisableAutoCam(autoCam, () => setAutoCamUi);
+  const setOrbits = makeSetOrbitsVisible(flags, world.sceneParts.orbitGroup, world.orbits.orbitExtras);
+  const wire = makeMoonHudWire(clockPack.clock, world.director, autoCam, cache, disableAutoCam, () => setOrbits(!flags.orbitsVisible));
+  const hud = bindHud(clockPack.clock, clockPack.timeline, makeHudHandlers(wire), cache.samples);
+  setAutoCamUi = hud.setAutoCamEnabled;
+  world.director.setOnUserControl(() => disableAutoCam());
+  return { hud, notifyAutoCamera: hud.notifyAutoCamera };
+}
+
+function fillVecsA(craftPos: THREE.Vector3) {
+  return {
+    craftPos,
+    craftVel: new THREE.Vector3(),
+    earthPos: new THREE.Vector3(),
+    earthVel: new THREE.Vector3(),
+    padWorld: new THREE.Vector3(),
+    craftHeading: new THREE.Vector3(0, 0, 1),
+  };
+}
+
+function fillVecsB(craft: THREE.Group, craftPos: THREE.Vector3) {
+  return {
+    earthVelV: new THREE.Vector3(),
+    moonPosV: new THREE.Vector3(),
+    moonVelV: new THREE.Vector3(),
+    skyEarth: new THREE.Vector3(),
+    skySun: new THREE.Vector3(),
+    orient: makeOrient(craft, craftPos),
+  };
+}
+
+function fillVecs(craft: THREE.Group, craftPos: THREE.Vector3) {
+  return { ...fillVecsA(craftPos), ...fillVecsB(craft, craftPos) };
+}
+
+function wirePointer(
+  canvas: HTMLCanvasElement,
+  camera: THREE.PerspectiveCamera,
+  arrows: ReturnType<typeof createVectorArrows>,
+): void {
+  canvas.addEventListener("pointermove", (e) => {
+    arrows.setPointer(e, camera, canvas);
+  });
+  canvas.addEventListener("pointerleave", () => {
+    arrows.setPointer(null, camera, canvas);
+  });
+}
+
+function worldFieldsA(world: ReturnType<typeof assembleWorld>) {
+  return {
+    renderer: world.renderer,
+    camera: world.camera,
+    director: world.director,
+    scene: world.sceneParts.scene,
+    sunLight: world.sceneParts.sunLight,
+  };
+}
+
+function worldFieldsB(world: ReturnType<typeof assembleWorld>) {
+  return {
+    fillLight: world.sceneParts.fillLight,
+    earthshine: world.sceneParts.earthshine,
+    orbitGroup: world.sceneParts.orbitGroup,
+    bodies: world.bodies,
+    groundSky: world.groundSky,
+  };
+}
+
+function craftFieldsA(world: ReturnType<typeof assembleWorld>) {
+  return {
+    starbasePad: world.pad.starbasePad,
+    craftTrail: world.pad.craftTrail,
+    moonRelOrbit: world.orbits.moonRelOrbit,
+    orbitExtras: world.orbits.orbitExtras,
+    craft: world.craft,
+    locator: world.locator,
+  };
+}
+
+function craftFieldsB(world: ReturnType<typeof assembleWorld>) {
+  return {
+    cinema: world.cinema,
+    cinemaState: { burning: false, phase: "launch" } satisfies MoonCinemaState,
+    vectorArrows: world.vectorArrows,
+    stagingFx: world.fx.stagingFx,
+    stageT: world.fx.stageT,
+    landingFx: world.fx.landingFx,
+  };
+}
+
+function runtimeFields(
+  clockPack: ReturnType<typeof makeClock>,
+  autoCam: MoonAutoCam,
+  flags: MoonFlags,
+  hudPack: ReturnType<typeof bindHudPack>,
+) {
+  return {
+    clock: clockPack.clock, physicsDurationS: clockPack.physicsDurationS,
+    transportS: clockPack.transportS, autoCam, landingBeat: createLandingBeatState(),
+    flags, notifyAutoCamera: hudPack.notifyAutoCamera, hud: hudPack.hud, wall: new THREE.Clock(),
+  };
+}
+
+function finishMoon(
+  canvas: HTMLCanvasElement,
+  cache: Trajectory,
+  world: ReturnType<typeof assembleWorld>,
+  clockPack: ReturnType<typeof makeClock>,
+  autoCam: MoonAutoCam,
+  flags: MoonFlags,
+  hudPack: ReturnType<typeof bindHudPack>,
+): MoonCtx {
+  return {
+    canvas, cache, epoch: cache.epoch, ...worldFieldsA(world), ...worldFieldsB(world),
+    ...craftFieldsA(world), ...craftFieldsB(world), ...fillVecs(world.craft, new THREE.Vector3()),
+    ...runtimeFields(clockPack, autoCam, flags, hudPack),
+  };
+}
+
+function runtimePack(world: ReturnType<typeof assembleWorld>, cache: Trajectory) {
+  const clockPack = makeClock(cache);
+  const autoCam: MoonAutoCam = { enabled: true, phase: null, staged: false };
+  const flags: MoonFlags = { orbitsVisible: true };
+  const hudPack = bindHudPack(world, clockPack, cache, autoCam, flags);
+  return { clockPack, autoCam, flags, hudPack };
+}
+
+/** Build full lunar theater context. */
+export function bootstrapToTheMoon(): MoonCtx {
+  prepareChrome();
+  const canvas = requireCanvas();
+  const cache = loadCache();
+  logBoot(cache);
+  const world = assembleWorld(canvas, cache);
+  const rt = runtimePack(world, cache);
+  wirePointer(canvas, world.camera, world.vectorArrows);
+  return finishMoon(canvas, cache, world, rt.clockPack, rt.autoCam, rt.flags, rt.hudPack);
+}

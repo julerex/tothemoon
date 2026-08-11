@@ -57,21 +57,25 @@ export function physicsTToSampleU(
  * Remap timeline scrub fractions so marks line up with a transport clock that
  * includes pre-liftoff. Event/segment **times** stay physics-relative (liftoff = 0).
  */
+function remapSegmentU(seg: MissionTimeline["segments"][number], physicsDurationS: number) {
+  return {
+    ...seg,
+    u0: physicsTToTransportU(seg.t0, physicsDurationS),
+    u1: physicsTToTransportU(seg.t1, physicsDurationS),
+  };
+}
+
+function remapEventU(ev: MissionTimeline["events"][number], physicsDurationS: number) {
+  return { ...ev, u: physicsTToTransportU(ev.t, physicsDurationS) };
+}
+
 export function timelineWithPrelaunch(
   timeline: MissionTimeline,
   physicsDurationS: number,
 ): MissionTimeline {
-  const total = transportDurationS(physicsDurationS);
   return {
-    durationS: total,
-    segments: timeline.segments.map((seg) => ({
-      ...seg,
-      u0: physicsTToTransportU(seg.t0, physicsDurationS),
-      u1: physicsTToTransportU(seg.t1, physicsDurationS),
-    })),
-    events: timeline.events.map((ev) => ({
-      ...ev,
-      u: physicsTToTransportU(ev.t, physicsDurationS),
-    })),
+    durationS: transportDurationS(physicsDurationS),
+    segments: timeline.segments.map((seg) => remapSegmentU(seg, physicsDurationS)),
+    events: timeline.events.map((ev) => remapEventU(ev, physicsDurationS)),
   };
 }

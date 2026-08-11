@@ -58,9 +58,7 @@ const _moonVel = v3();
 
 /** Solve Kepler’s equation M = E − e sin E (elliptical). */
 function eccentricAnomaly(M: number, e: number): number {
-  // Normalize M to (−π, π] for faster convergence
-  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
-  let E = e < 0.8 ? m : Math.PI;
+  const m = ((M + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; let E = e < 0.8 ? m : Math.PI;
   for (let i = 0; i < 12; i++) {
     const f = E - e * Math.sin(E) - m;
     const fp = 1 - e * Math.cos(E);
@@ -69,6 +67,70 @@ function eccentricAnomaly(M: number, e: number): number {
     if (Math.abs(d) < 1e-12) break;
   }
   return E;
+}
+
+type MoonRel = { pos: V3; vel: V3; r: number; nu: number; E: number };
+
+function moonRelFromScratch(): MoonRel {
+  const r = len(_moon);
+  const nu = Math.atan2(_moon.y, _moon.x);
+  return {
+    pos: { x: _moon.x, y: _moon.y, z: _moon.z },
+    vel: { x: _moonVel.x, y: _moonVel.y, z: _moonVel.z },
+    r, nu, E: nu,
+  };
+}
+
+/** Horizons path when M0 matches live epoch phase. */
+function tryMoonRelHorizons(
+  t: number,
+  epoch: EphemerisEpoch,
+  M0: number,
+): MoonRel | null {
+  if (!epochUsesHorizons(epoch) || Math.abs(M0 - epoch.moonPhase0) >= 1e-12) return null;
+  if (!interpolateHorizons(t, epoch.horizonsLandingT, _earth, _earthVel, _moon, _moonVel)) {
+    return null;
+  }
+  return moonRelFromScratch();
+}
+
+/** Perifocal (xp, yp) and velocity from true anomaly. */
+function perifocalRv(
+  r: number, nu: number, a: number, e: number,
+): { xp: number; yp: number; vxp: number; vyp: number } {
+  const cosNu_ = Math.cos(nu);
+  const sinNu_ = Math.sin(nu);
+  const sp = Math.sqrt(MU_EM_ORB / (a * (1 - e * e)));
+  return { xp: r * cosNu_, yp: r * sinNu_, vxp: -sp * sinNu_, vyp: sp * (e + cosNu_) };
+}
+
+/** Rotate perifocal XY → ecliptic via R_z(Ω) R_x(i) R_z(ω). */
+function rotatePerifocalToEcliptic(xp: number, yp: number): { x: number; y: number; z: number } {
+  const cosΩ = Math.cos(MOON_NODE); const sinΩ = Math.sin(MOON_NODE);
+  const cosi = Math.cos(MOON_INCLINATION); const sini = Math.sin(MOON_INCLINATION);
+  const cosω = Math.cos(MOON_ARG_PERI); const sinω = Math.sin(MOON_ARG_PERI);
+  const x1 = cosω * xp - sinω * yp;
+  const y1 = sinω * xp + cosω * yp;
+  return { x: cosΩ * x1 - sinΩ * y1 * cosi, y: sinΩ * x1 + cosΩ * y1 * cosi, z: y1 * sini };
+}
+
+function trueAnomalyFromE(E: number, e: number): number {
+  const cosE = Math.cos(E); const sinE = Math.sin(E);
+  const sinNu = (Math.sqrt(1 - e * e) * sinE) / (1 - e * cosE);
+  const cosNu = (cosE - e) / (1 - e * cosE);
+  return Math.atan2(sinNu, cosNu);
+}
+
+/** Analytic Keplerian Moon relative to Earth. */
+function moonRelAnalytic(t: number, M0: number): MoonRel {
+  const a = A_EM; const e = MOON_ECC;
+  const E = eccentricAnomaly(M0 + N_MOON * t, e);
+  const r = a * (1 - e * Math.cos(E));
+  const nu = trueAnomalyFromE(E, e);
+  const pf = perifocalRv(r, nu, a, e);
+  const pos = rotatePerifocalToEcliptic(pf.xp, pf.yp);
+  const vel = rotatePerifocalToEcliptic(pf.vxp, pf.vyp);
+  return { pos, vel, r, nu, E };
 }
 
 /**
@@ -81,101 +143,7 @@ export function moonRelativeToEarth(
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   M0: number = epoch.moonPhase0,
 ): { pos: V3; vel: V3; r: number; nu: number; E: number } {
-  // Horizons path only when using the live epoch phase (not probe offsets)
-  if (
-    epochUsesHorizons(epoch) &&
-    Math.abs(M0 - epoch.moonPhase0) < 1e-12
-  ) {
-    if (
-      interpolateHorizons(
-        t,
-        epoch.horizonsLandingT,
-        _earth,
-        _earthVel,
-        _moon,
-        _moonVel,
-      )
-    ) {
-      // _moon/_moonVel temporarily hold moonRel from the table
-      const r = len(_moon);
-      const nu = Math.atan2(_moon.y, _moon.x);
-      return {
-        pos: { x: _moon.x, y: _moon.y, z: _moon.z },
-        vel: { x: _moonVel.x, y: _moonVel.y, z: _moonVel.z },
-        r,
-        nu,
-        E: nu, // true anomaly stand-in for diagnostics
-      };
-    }
-  }
-
-  const a = A_EM;
-  const e = MOON_ECC;
-  const i = MOON_INCLINATION;
-  const Ω = MOON_NODE;
-  const ω = MOON_ARG_PERI;
-  const M = M0 + N_MOON * t;
-  const E = eccentricAnomaly(M, e);
-
-  const cosE = Math.cos(E);
-  const sinE = Math.sin(E);
-  const r = a * (1 - e * cosE);
-
-  // True anomaly
-  const sinNu = (Math.sqrt(1 - e * e) * sinE) / (1 - e * cosE);
-  const cosNu = (cosE - e) / (1 - e * cosE);
-  const nu = Math.atan2(sinNu, cosNu);
-
-  // Perifocal position
-  const cosNu_ = Math.cos(nu);
-  const sinNu_ = Math.sin(nu);
-  const xp = r * cosNu_;
-  const yp = r * sinNu_;
-
-  // Perifocal velocity (μ = MU_EM_ORB, p = a(1−e²))
-  const p = a * (1 - e * e);
-  const sp = Math.sqrt(MU_EM_ORB / p);
-  const vxp = -sp * sinNu_;
-  const vyp = sp * (e + cosNu_);
-
-  // Rotate perifocal → ecliptic: R_z(Ω) R_x(i) R_z(ω)
-  const cosΩ = Math.cos(Ω);
-  const sinΩ = Math.sin(Ω);
-  const cosi = Math.cos(i);
-  const sini = Math.sin(i);
-  const cosω = Math.cos(ω);
-  const sinω = Math.sin(ω);
-
-  // R = R_z(Ω) · R_x(i) · R_z(ω) applied to (xp, yp, 0)
-  // First R_z(ω)
-  const x1 = cosω * xp - sinω * yp;
-  const y1 = sinω * xp + cosω * yp;
-  // R_x(i): (x1, y1 cos i, y1 sin i)
-  const x2 = x1;
-  const y2 = y1 * cosi;
-  const z2 = y1 * sini;
-  // R_z(Ω)
-  const x = cosΩ * x2 - sinΩ * y2;
-  const y = sinΩ * x2 + cosΩ * y2;
-  const z = z2;
-
-  // Same rotation for velocity
-  const vx1 = cosω * vxp - sinω * vyp;
-  const vy1 = sinω * vxp + cosω * vyp;
-  const vx2 = vx1;
-  const vy2 = vy1 * cosi;
-  const vz2 = vy1 * sini;
-  const vx = cosΩ * vx2 - sinΩ * vy2;
-  const vy = sinΩ * vx2 + cosΩ * vy2;
-  const vz = vz2;
-
-  return {
-    pos: { x, y, z },
-    vel: { x: vx, y: vy, z: vz },
-    r,
-    nu,
-    E,
-  };
+  return tryMoonRelHorizons(t, epoch, M0) ?? moonRelAnalytic(t, M0);
 }
 
 /** Ecliptic longitude of Earth→Moon (atan2 of XY), for phase / Sun geometry. */
@@ -188,93 +156,68 @@ export function moonEclipticLongitude(
   return Math.atan2(rel.pos.y, rel.pos.x);
 }
 
+function addEarthToMoonScratch(): void {
+  _moon.x += _earth.x; _moon.y += _earth.y; _moon.z += _earth.z;
+  _moonVel.x += _earthVel.x; _moonVel.y += _earthVel.y; _moonVel.z += _earthVel.z;
+}
+
+/** Fill scratch Earth/Moon from Horizons (heliocentric Moon). */
+function fillBodiesFromHorizons(t: number, epoch: EphemerisEpoch): boolean {
+  if (!epochUsesHorizons(epoch)) return false;
+  if (!interpolateHorizons(t, epoch.horizonsLandingT, _earth, _earthVel, _moon, _moonVel)) {
+    return false;
+  }
+  addEarthToMoonScratch();
+  return true;
+}
+
+function barycentricEarthMoon(
+  bx: number, by: number, bvx: number, bvy: number,
+  kE: number, kM: number, rel: MoonRel,
+): void {
+  set(_earth, bx - kE * rel.pos.x, by - kE * rel.pos.y, -kE * rel.pos.z);
+  set(_moon, bx + kM * rel.pos.x, by + kM * rel.pos.y, kM * rel.pos.z);
+  set(_earthVel, bvx - kE * rel.vel.x, bvy - kE * rel.vel.y, -kE * rel.vel.z);
+  set(_moonVel, bvx + kM * rel.vel.x, bvy + kM * rel.vel.y, kM * rel.vel.z);
+}
+
+/** Analytic circular Earth + Keplerian Moon into scratch. */
+function fillBodiesAnalytic(t: number, epoch: EphemerisEpoch): void {
+  const rel = moonRelativeToEarth(t, epoch);
+  const kM = 1 / (1 + MASS_RATIO_ME);
+  const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME);
+  const θ = epoch.sunPhase0 + N_EARTH_SUN * t;
+  const cosθ = Math.cos(θ); const sinθ = Math.sin(θ);
+  const r = AU; const vOrb = N_EARTH_SUN * r;
+  barycentricEarthMoon(r * cosθ, r * sinθ, -vOrb * sinθ, vOrb * cosθ, kE, kM, rel);
+}
+
+function copyScratchInto(out: BodyState): BodyState {
+  set(out.sun, _sun.x, _sun.y, _sun.z);
+  set(out.earth, _earth.x, _earth.y, _earth.z);
+  set(out.moon, _moon.x, _moon.y, _moon.z);
+  set(out.earthVel, _earthVel.x, _earthVel.y, _earthVel.z);
+  set(out.moonVel, _moonVel.x, _moonVel.y, _moonVel.z);
+  return out;
+}
+
+/** Copy scratch bodies into caller buffer or fresh object. */
+function copyBodyState(out?: BodyState): BodyState {
+  if (out) return copyScratchInto(out);
+  return {
+    sun: { ..._sun }, earth: { ..._earth }, moon: { ..._moon },
+    earthVel: { ..._earthVel }, moonVel: { ..._moonVel },
+  };
+}
+
 export function bodyPositions(
   t: number,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   out?: BodyState,
 ): BodyState {
-  // Sun fixed at origin (heliocentric theater)
   set(_sun, 0, 0, 0);
-
-  // Prefer JPL Horizons samples for the July 2027 window
-  if (
-    epochUsesHorizons(epoch) &&
-    interpolateHorizons(
-      t,
-      epoch.horizonsLandingT,
-      _earth,
-      _earthVel,
-      _moon,
-      _moonVel,
-    )
-  ) {
-    // _moon/_moonVel hold geocentric Moon; convert to heliocentric
-    _moon.x += _earth.x;
-    _moon.y += _earth.y;
-    _moon.z += _earth.z;
-    _moonVel.x += _earthVel.x;
-    _moonVel.y += _earthVel.y;
-    _moonVel.z += _earthVel.z;
-  } else {
-    // Analytic fallback: circular Earth + Keplerian Moon
-    const rel = moonRelativeToEarth(t, epoch);
-    const kM = 1 / (1 + MASS_RATIO_ME);
-    const kE = MASS_RATIO_ME / (1 + MASS_RATIO_ME);
-
-    const θ = epoch.sunPhase0 + N_EARTH_SUN * t;
-    const cosθ = Math.cos(θ);
-    const sinθ = Math.sin(θ);
-    const r = AU;
-    const vOrb = N_EARTH_SUN * r;
-    const bx = r * cosθ;
-    const by = r * sinθ;
-    const bz = 0;
-    const bvx = -vOrb * sinθ;
-    const bvy = vOrb * cosθ;
-    const bvz = 0;
-
-    set(
-      _earth,
-      bx - kE * rel.pos.x,
-      by - kE * rel.pos.y,
-      bz - kE * rel.pos.z,
-    );
-    set(
-      _moon,
-      bx + kM * rel.pos.x,
-      by + kM * rel.pos.y,
-      bz + kM * rel.pos.z,
-    );
-    set(
-      _earthVel,
-      bvx - kE * rel.vel.x,
-      bvy - kE * rel.vel.y,
-      bvz - kE * rel.vel.z,
-    );
-    set(
-      _moonVel,
-      bvx + kM * rel.vel.x,
-      bvy + kM * rel.vel.y,
-      bvz + kM * rel.vel.z,
-    );
-  }
-
-  if (out) {
-    set(out.sun, _sun.x, _sun.y, _sun.z);
-    set(out.earth, _earth.x, _earth.y, _earth.z);
-    set(out.moon, _moon.x, _moon.y, _moon.z);
-    set(out.earthVel, _earthVel.x, _earthVel.y, _earthVel.z);
-    set(out.moonVel, _moonVel.x, _moonVel.y, _moonVel.z);
-    return out;
-  }
-
-  return {
-    sun: { ..._sun },
-    earth: { ..._earth },
-    moon: { ..._moon },
-    earthVel: { ..._earthVel },
-    moonVel: { ..._moonVel },
-  };
+  if (!fillBodiesFromHorizons(t, epoch)) fillBodiesAnalytic(t, epoch);
+  return copyBodyState(out);
 }
 
 /** Unit vector Earth → Moon at time t. */
@@ -329,33 +272,28 @@ export function moonSouthPoleSurface(
  * aphelion). Falls back to the classic ~102.9° value.
  */
 function earthPerihelionLongitude(epoch: EphemerisEpoch): number {
-  const ep = v3();
-  const ev = v3();
-  const mp = v3();
-  const mv = v3();
+  const ep = v3(); const ev = v3(); const mp = v3(); const mv = v3();
   const tLand = epoch.horizonsLandingT;
-  if (
-    epochUsesHorizons(epoch) &&
-    interpolateHorizons(tLand, tLand, ep, ev, mp, mv)
-  ) {
-    const a = AU;
-    const e = EARTH_ORB_E;
-    const p = a * (1 - e * e);
-    const r = Math.hypot(ep.x, ep.y, ep.z);
-    let cosNu = (p / r - 1) / e;
-    cosNu = Math.max(-1, Math.min(1, cosNu));
-    const nu = Math.acos(cosNu); // magnitude; July is near aphelion (ν≈π)
-    const lon = Math.atan2(ep.y, ep.x);
-    // Choose sign of ν that places perihelion near the classical ~103°
-    const ϖPlus = lon - nu;
-    const ϖMinus = lon + nu;
-    const classic = (102.9 * Math.PI) / 180;
-    const wrap = (a: number) =>
-      ((((a - classic) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI)) -
-      Math.PI;
-    return Math.abs(wrap(ϖMinus)) < Math.abs(wrap(ϖPlus)) ? ϖMinus : ϖPlus;
+  if (!epochUsesHorizons(epoch) || !interpolateHorizons(tLand, tLand, ep, ev, mp, mv)) {
+    return (102.9 * Math.PI) / 180;
   }
-  return (102.9 * Math.PI) / 180;
+  return fitPerihelionFromEarthPos(ep);
+}
+
+function wrapAboutClassic(ang: number, classic: number): number {
+  return ((((ang - classic) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+}
+
+/** Fit ϖ from heliocentric Earth position near aphelion. */
+function fitPerihelionFromEarthPos(ep: V3): number {
+  const e = EARTH_ORB_E;
+  const r = Math.hypot(ep.x, ep.y, ep.z);
+  const cosNu = Math.max(-1, Math.min(1, (AU * (1 - e * e) / r - 1) / e));
+  const nu = Math.acos(cosNu);
+  const lon = Math.atan2(ep.y, ep.x);
+  const classic = (102.9 * Math.PI) / 180;
+  const plus = lon - nu; const minus = lon + nu;
+  return Math.abs(wrapAboutClassic(minus, classic)) < Math.abs(wrapAboutClassic(plus, classic)) ? minus : plus;
 }
 
 /**
@@ -399,72 +337,105 @@ export function osculatingMoonOrbitPoints(
 ): V3[] {
   const rel = moonRelativeToEarth(t, epoch);
   const n = Math.max(8, samples);
+  if (!(len(rel.pos) > 1e-6) || !(len(rel.vel) > 1e-12)) {
+    return circleThroughMoon(rel.pos, rel.vel, n);
+  }
+  return osculatingEllipseOrCircle(rel, t, n);
+}
+
+function boundKeplerPeriod(orb: ReturnType<typeof rvToKepler>): number | null {
+  if (!(orb.a > 0) || !(orb.e < 1) || !Number.isFinite(orb.a)) return null;
+  const period = 2 * Math.PI * Math.sqrt((orb.a * orb.a * orb.a) / MU_EM_REL);
+  if (!(period > 0) || !Number.isFinite(period)) return null;
+  return period;
+}
+
+/** Bound Kepler ring or circle fallback through Moon. */
+function osculatingEllipseOrCircle(
+  rel: { pos: V3; vel: V3 },
+  t: number,
+  n: number,
+): V3[] {
   const R = len(rel.pos);
-  const V = len(rel.vel);
-  if (!(R > 1e-6) || !(V > 1e-12)) {
-    return circleThroughMoon(rel.pos, rel.vel, n);
-  }
-
-  const energy = 0.5 * V * V - MU_EM_REL / R;
-  // Bound ellipse only
-  if (energy >= 0) {
-    return circleThroughMoon(rel.pos, rel.vel, n);
-  }
-
+  const energy = 0.5 * len(rel.vel) ** 2 - MU_EM_REL / R;
+  if (energy >= 0) return circleThroughMoon(rel.pos, rel.vel, n);
   const orb = rvToKepler(rel.pos, rel.vel, MU_EM_REL, t);
-  if (!(orb.a > 0) || !(orb.e < 1) || !Number.isFinite(orb.a)) {
-    return circleThroughMoon(rel.pos, rel.vel, n);
-  }
+  const period = boundKeplerPeriod(orb);
+  if (period == null) return circleThroughMoon(rel.pos, rel.vel, n);
+  return sampleKeplerPeriod(orb, t, period, n);
+}
 
-  const period = (2 * Math.PI) * Math.sqrt((orb.a * orb.a * orb.a) / MU_EM_REL);
-  if (!(period > 0) || !Number.isFinite(period)) {
-    return circleThroughMoon(rel.pos, rel.vel, n);
-  }
-
+/** Sample one orbital period of a Kepler orbit. */
+function sampleKeplerPeriod(
+  orb: ReturnType<typeof rvToKepler>,
+  t: number,
+  period: number,
+  n: number,
+): V3[] {
   const pts: V3[] = [];
   for (let k = 0; k <= n; k++) {
-    const tk = t + (k / n) * period;
-    keplerRvAt(orb, tk, _oscR, _oscV);
+    keplerRvAt(orb, t + (k / n) * period, _oscR, _oscV);
     pts.push({ x: _oscR.x, y: _oscR.y, z: _oscR.z });
   }
   return pts;
 }
 
-/** Circle of radius |r| in the plane of r×v, starting at the Moon. */
-function circleThroughMoon(pos: V3, vel: V3, samples: number): V3[] {
-  const r = len(pos);
-  const pts: V3[] = [];
-  if (!(r > 1e-6)) {
-    for (let k = 0; k <= samples; k++) pts.push({ x: 0, y: 0, z: 0 });
-    return pts;
-  }
-
-  set(_circE1, pos.x / r, pos.y / r, pos.z / r);
-  cross(_circH, pos, vel);
-  const hLen = len(_circH);
-  if (hLen < 1e-12) {
-    // Degenerate velocity — pick any perpendicular
+/** Build orthonormal e1,e2 in the r×v plane. */
+function planeBasisFromRv(pos: V3, vel: V3, r: number): void {
+  set(_circE1, pos.x / r, pos.y / r, pos.z / r); cross(_circH, pos, vel);
+  if (len(_circH) < 1e-12) {
     if (Math.abs(_circE1.z) < 0.9) set(_circH, 0, 0, 1);
     else set(_circH, 1, 0, 0);
   }
-  // e2 = ĥ × e1 — completes RH basis in orbital plane
   cross(_circE2, _circH, _circE1);
   const e2Len = len(_circE2);
-  if (e2Len < 1e-12) {
-    set(_circE2, -_circE1.y, _circE1.x, 0);
-  } else {
-    set(_circE2, _circE2.x / e2Len, _circE2.y / e2Len, _circE2.z / e2Len);
-  }
+  if (e2Len < 1e-12) set(_circE2, -_circE1.y, _circE1.x, 0);
+  else set(_circE2, _circE2.x / e2Len, _circE2.y / e2Len, _circE2.z / e2Len);
+}
 
-  for (let k = 0; k <= samples; k++) {
-    const θ = (k / samples) * 2 * Math.PI;
-    const c = Math.cos(θ);
-    const s = Math.sin(θ);
-    pts.push({
-      x: r * (_circE1.x * c + _circE2.x * s),
-      y: r * (_circE1.y * c + _circE2.y * s),
-      z: r * (_circE1.z * c + _circE2.z * s),
-    });
+function zeroRing(samples: number): V3[] {
+  const pts: V3[] = [];
+  for (let k = 0; k <= samples; k++) pts.push({ x: 0, y: 0, z: 0 });
+  return pts;
+}
+
+function circlePoint(r: number, θ: number): V3 {
+  const c = Math.cos(θ); const s = Math.sin(θ);
+  return { x: r * (_circE1.x * c + _circE2.x * s), y: r * (_circE1.y * c + _circE2.y * s), z: r * (_circE1.z * c + _circE2.z * s) };
+}
+
+/** Circle of radius |r| in the plane of r×v, starting at the Moon. */
+function circleThroughMoon(pos: V3, vel: V3, samples: number): V3[] {
+  const r = len(pos);
+  if (!(r > 1e-6)) return zeroRing(samples);
+  planeBasisFromRv(pos, vel, r);
+  const pts: V3[] = [];
+  for (let k = 0; k <= samples; k++) pts.push(circlePoint(r, (k / samples) * 2 * Math.PI));
+  return pts;
+}
+
+function ellipsePoint(p: number, e: number, ϖ: number, ν: number): V3 {
+  const r = p / (1 + e * Math.cos(ν));
+  const lon = ϖ + ν;
+  return { x: r * Math.cos(lon), y: r * Math.sin(lon), z: 0 };
+}
+
+/** Eccentric Earth orbit ring (Horizons-fitted ϖ). */
+function earthOrbitEllipsePoints(epoch: EphemerisEpoch, samples: number): V3[] {
+  const pts: V3[] = [];
+  const e = EARTH_ORB_E;
+  const p = AU * (1 - e * e);
+  const ϖ = earthPerihelionLongitude(epoch);
+  for (let i = 0; i <= samples; i++) pts.push(ellipsePoint(p, e, ϖ, (i / samples) * 2 * Math.PI));
+  return pts;
+}
+
+/** Circular 1 AU Earth orbit (analytic fallback). */
+function earthOrbitCirclePoints(samples: number): V3[] {
+  const pts: V3[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const θ = (i / samples) * 2 * Math.PI;
+    pts.push({ x: AU * Math.cos(θ), y: AU * Math.sin(θ), z: 0 });
   }
   return pts;
 }
@@ -480,31 +451,6 @@ export function earthOrbitPathPoints(
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   samples = 256,
 ): V3[] {
-  const pts: V3[] = [];
-  if (epochUsesHorizons(epoch)) {
-    const a = AU;
-    const e = EARTH_ORB_E;
-    const p = a * (1 - e * e);
-    const ϖ = earthPerihelionLongitude(epoch);
-    for (let i = 0; i <= samples; i++) {
-      const ν = (i / samples) * 2 * Math.PI;
-      const r = p / (1 + e * Math.cos(ν));
-      const lon = ϖ + ν;
-      pts.push({
-        x: r * Math.cos(lon),
-        y: r * Math.sin(lon),
-        z: 0,
-      });
-    }
-    return pts;
-  }
-  for (let i = 0; i <= samples; i++) {
-    const θ = (i / samples) * 2 * Math.PI;
-    pts.push({
-      x: AU * Math.cos(θ),
-      y: AU * Math.sin(θ),
-      z: 0,
-    });
-  }
-  return pts;
+  if (epochUsesHorizons(epoch)) return earthOrbitEllipsePoints(epoch, samples);
+  return earthOrbitCirclePoints(samples);
 }

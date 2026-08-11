@@ -80,26 +80,31 @@ export function createMoonPathThroughSim(
 
 const MOON_REL_ORBIT_SAMPLES = 256;
 
+function ptsToVecs(pts: { x: number; y: number; z: number }[]): THREE.Vector3[] {
+  return pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+}
+
 /**
  * Osculating lunar orbit (Earth-relative dashed ring). Parent under the Earth
  * group; call {@link updateMoonRelativeOrbit} each frame so it stays through
  * the Moon as r,v change.
  */
+const MOON_REL_ORBIT_OPTS = {
+  color: 0x4aa3ff,
+  opacity: 0.55,
+  linewidth: 2.25,
+  dashed: true,
+  // Path length ~ 2π·a ≈ 2.4e6 km — dash/gap in km along the path
+  dashSize: 12_000,
+  gapSize: 10_000,
+} as const;
+
 export function createMoonRelativeOrbit(
   t0 = 0,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): Line2 {
   const pts = osculatingMoonOrbitPoints(t0, epoch, MOON_REL_ORBIT_SAMPLES);
-  const vecs = pts.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-  // Path length ~ 2π·a ≈ 2.4e6 km — dash/gap in km along the path
-  const line = createFatLine(vecs, {
-    color: 0x4aa3ff,
-    opacity: 0.55,
-    linewidth: 2.25,
-    dashed: true,
-    dashSize: 12_000,
-    gapSize: 10_000,
-  });
+  const line = createFatLine(ptsToVecs(pts), { ...MOON_REL_ORBIT_OPTS });
   line.name = "moon-relative-orbit";
   return line;
 }
@@ -173,14 +178,10 @@ function orientStarDomeToEcliptic(stars: THREE.Mesh): void {
   stars.quaternion.setFromRotationMatrix(m);
 }
 
-/**
- * Inward-facing sky dome. Prefer NASA Deep Star Maps 2020 (public textures);
- * fall back to a procedural canvas map if the asset is missing.
- */
-function createStarDome(): THREE.Mesh {
-  // Dim the sky map so bodies, trails, and sphere of influence shells read clearly.
+function makeStarDomeMaterial(): THREE.MeshBasicMaterial {
+  // Dim the sky map so bodies, trails, and SOI shells read clearly.
   // transparent: V5 cinema fades opacity near pad / during entry brownout.
-  const mat = new THREE.MeshBasicMaterial({
+  return new THREE.MeshBasicMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     transparent: true,
@@ -188,79 +189,98 @@ function createStarDome(): THREE.Mesh {
     color: 0x555566,
     toneMapped: false,
   });
-  // Large enough that solar-camera (near 1 AU) still sits inside the sky dome
-  const stars = new THREE.Mesh(
-    new THREE.SphereGeometry(AU * 2.2, 64, 48),
-    mat,
+}
+
+function applyStarMapToMat(mat: THREE.MeshBasicMaterial, tex: THREE.Texture): void {
+  applySkyMap(tex);
+  mat.map = tex;
+  mat.needsUpdate = true;
+}
+
+function applyProceduralStarMap(mat: THREE.MeshBasicMaterial): void {
+  const starMap = new THREE.CanvasTexture(makeStarTexture(1024));
+  starMap.colorSpace = THREE.SRGBColorSpace;
+  mat.map = starMap;
+  mat.needsUpdate = true;
+}
+
+function onStarMapMissing(mat: THREE.MeshBasicMaterial): void {
+  console.warn("[tothemoon] NASA star map missing; using procedural fallback");
+  applyProceduralStarMap(mat);
+}
+
+function loadStarDomeTexture(mat: THREE.MeshBasicMaterial): void {
+  const url = `${import.meta.env.BASE_URL}textures/starmap_nasa_svs_2020_4k.jpg`;
+  new THREE.TextureLoader().load(
+    url, (tex) => applyStarMapToMat(mat, tex), undefined, () => onStarMapMissing(mat),
   );
+}
+
+/**
+ * Inward-facing sky dome. Prefer NASA Deep Star Maps 2020 (public textures);
+ * fall back to a procedural canvas map if the asset is missing.
+ */
+function createStarDome(): THREE.Mesh {
+  const mat = makeStarDomeMaterial();
+  // Large enough that solar-camera (near 1 AU) still sits inside the sky dome
+  const stars = new THREE.Mesh(new THREE.SphereGeometry(AU * 2.2, 64, 48), mat);
   stars.name = "star-dome";
   orientStarDomeToEcliptic(stars);
-
-  const fallback = () => {
-    const starMap = new THREE.CanvasTexture(makeStarTexture(1024));
-    starMap.colorSpace = THREE.SRGBColorSpace;
-    mat.map = starMap;
-    mat.needsUpdate = true;
-  };
-
-  new THREE.TextureLoader().load(
-    `${import.meta.env.BASE_URL}textures/starmap_nasa_svs_2020_4k.jpg`,
-    (tex) => {
-      applySkyMap(tex);
-      mat.map = tex;
-      mat.needsUpdate = true;
-    },
-    undefined,
-    () => {
-      console.warn(
-        "[tothemoon] NASA star map missing; using procedural fallback",
-      );
-      fallback();
-    },
-  );
-
+  loadStarDomeTexture(mat);
   return stars;
 }
 
-export function createScene(): SceneBundle {
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x010208);
-  scene.add(createStarDome());
-
-  // Orbit overlays (ecliptic grids + Earth path) — O toggles visibility.
+function createOrbitOverlayGroup(): THREE.Group {
   // Moon path + Earth-relative ring are added in main (need duration / Earth).
   const orbitGroup = new THREE.Group();
   orbitGroup.name = "orbit-overlays";
   orbitGroup.add(createEclipticGridTowardSun());
   orbitGroup.add(createEclipticGridNear());
   orbitGroup.add(createEarthOrbitPath());
-  scene.add(orbitGroup);
+  return orbitGroup;
+}
 
-  // Soft ambient so night-side silhouettes stay readable (space theater);
-  // still low enough that sun + pad floods dominate daytime pad shots.
+function makeNamedDirLight(
+  name: string,
+  color: number,
+  intensity: number,
+  pos: [number, number, number],
+): THREE.DirectionalLight {
+  const light = new THREE.DirectionalLight(color, intensity);
+  light.name = name;
+  light.position.set(pos[0], pos[1], pos[2]);
+  return light;
+}
+
+function addDirLight(scene: THREE.Scene, light: THREE.DirectionalLight): void {
+  scene.add(light);
+  scene.add(light.target);
+}
+
+function addSceneAmbient(scene: THREE.Scene): void {
+  // Soft ambient so night-side silhouettes stay readable (space theater)
   scene.add(new THREE.AmbientLight(0x4a5a78, 0.36));
   scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x121018, 0.4));
+}
 
-  // Sun light — direction updated each frame via applySunLight (unit offset)
-  const sunLight = new THREE.DirectionalLight(0xfff2dd, 3.4);
-  sunLight.name = "sun-light";
-  sunLight.position.set(-1, 0.2, 0.3);
-  scene.add(sunLight);
-  scene.add(sunLight.target);
+function createSceneLights(scene: THREE.Scene) {
+  const sunLight = makeNamedDirLight("sun-light", 0xfff2dd, 3.4, [-1, 0.2, 0.3]);
+  const fillLight = makeNamedDirLight("fill-light", 0x6a7a9a, 0.32, [1, 0, 0]);
+  const earthshine = makeNamedDirLight("earthshine", 0x88aacc, 0.16, [0, 0, 1]);
+  addDirLight(scene, sunLight);
+  addDirLight(scene, fillLight);
+  addDirLight(scene, earthshine);
+  return { sunLight, fillLight, earthshine };
+}
 
-  // Soft anti-sun fill (replaces fixed rim) — applyFillLight each frame
-  const fillLight = new THREE.DirectionalLight(0x6a7a9a, 0.32);
-  fillLight.name = "fill-light";
-  fillLight.position.set(1, 0, 0);
-  scene.add(fillLight);
-  scene.add(fillLight.target);
-
-  // Dim bluish Earthshine on the Moon — applyEarthshine each frame
-  const earthshine = new THREE.DirectionalLight(0x88aacc, 0.16);
-  earthshine.name = "earthshine";
-  earthshine.position.set(0, 0, 1);
-  scene.add(earthshine);
-  scene.add(earthshine.target);
-
-  return { scene, sunLight, fillLight, earthshine, orbitGroup };
+export function createScene(): SceneBundle {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x010208);
+  scene.add(createStarDome());
+  // Orbit overlays (ecliptic grids + Earth path) — O toggles visibility.
+  const orbitGroup = createOrbitOverlayGroup();
+  scene.add(orbitGroup);
+  addSceneAmbient(scene);
+  const lights = createSceneLights(scene);
+  return { scene, ...lights, orbitGroup };
 }

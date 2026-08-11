@@ -79,57 +79,63 @@ const _ray = new THREE.Raycaster();
 const _seg = new THREE.Vector3();
 const _closest = new THREE.Vector3();
 
+function makeLabelMap(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = LABEL_W;
+  canvas.height = LABEL_H;
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.minFilter = THREE.LinearFilter;
+  return map;
+}
+
 function makeLabelSprite(colorCss: string): {
   sprite: THREE.Sprite;
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   map: THREE.CanvasTexture;
 } {
-  const canvas = document.createElement("canvas");
-  canvas.width = LABEL_W;
-  canvas.height = LABEL_H;
-  const ctx = canvas.getContext("2d")!;
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.minFilter = THREE.LinearFilter;
-  const mat = new THREE.SpriteMaterial({
-    map,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-    sizeAttenuation: true,
-  });
-  const sprite = new THREE.Sprite(mat);
+  const map = makeLabelMap();
+  const canvas = map.image as HTMLCanvasElement;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: true,
+  }));
   sprite.renderOrder = 25;
   sprite.visible = false;
   sprite.userData.labelColor = colorCss;
-  return { sprite, canvas, ctx, map };
+  return { sprite, canvas, ctx: canvas.getContext("2d")!, map };
+}
+
+function drawLabelChrome(
+  ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, text: string, colorCss: string,
+): void {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "bold 28px ui-monospace, SF Mono, Menlo, monospace";
+  const bw = Math.min(canvas.width - 4, ctx.measureText(text).width + 20);
+  ctx.fillStyle = "rgba(4, 8, 18, 0.78)";
+  ctx.strokeStyle = colorCss;
+  ctx.lineWidth = 2;
+  roundRect(ctx, (canvas.width - bw) / 2, (canvas.height - 40) / 2, bw, 40, 8);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function fillLabelText(
+  ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, text: string, colorCss: string,
+): void {
+  ctx.fillStyle = colorCss;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
 }
 
 function paintLabel(la: LabeledArrow, text: string): void {
   if (text === la.lastText) return;
   la.lastText = text;
-  const { ctx, canvas, map } = la;
   const colorCss = (la.label.userData.labelColor as string) ?? "#fff";
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const padX = 10;
-  ctx.font = "bold 28px ui-monospace, SF Mono, Menlo, monospace";
-  const tw = ctx.measureText(text).width;
-  const bw = Math.min(canvas.width - 4, tw + padX * 2);
-  const bh = 40;
-  const x0 = (canvas.width - bw) / 2;
-  const y0 = (canvas.height - bh) / 2;
-  ctx.fillStyle = "rgba(4, 8, 18, 0.78)";
-  ctx.strokeStyle = colorCss;
-  ctx.lineWidth = 2;
-  roundRect(ctx, x0, y0, bw, bh, 8);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = colorCss;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
-  map.needsUpdate = true;
+  drawLabelChrome(la.ctx, la.canvas, text, colorCss);
+  fillLabelText(la.ctx, la.canvas, text, colorCss);
+  la.map.needsUpdate = true;
 }
 
 function roundRect(
@@ -149,47 +155,42 @@ function roundRect(
   ctx.closePath();
 }
 
-function createLabeledArrow(
-  color: number,
-  colorCss: string,
-  refMag: number,
-  kind: "v" | "a",
-  name: string,
-): LabeledArrow {
-  const group = new THREE.Group();
-  group.name = name;
+function makeArrowHelper(color: number): THREE.ArrowHelper {
   const helper = new THREE.ArrowHelper(
-    new THREE.Vector3(1, 0, 0),
-    new THREE.Vector3(0, 0, 0),
-    1,
-    color,
-    0.25,
-    0.12,
+    new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, color, 0.25, 0.12,
   );
   helper.line.renderOrder = 22;
   helper.cone.renderOrder = 22;
   (helper.line.material as THREE.Material).depthTest = false;
   (helper.cone.material as THREE.Material).depthTest = false;
+  return helper;
+}
 
-  const { sprite, canvas, ctx, map } = makeLabelSprite(colorCss);
-  group.add(helper);
-  group.add(sprite);
-
+function emptyLabeledArrow(
+  group: THREE.Group,
+  helper: THREE.ArrowHelper,
+  sprite: THREE.Sprite,
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  map: THREE.CanvasTexture,
+  refMag: number,
+  kind: "v" | "a",
+): LabeledArrow {
   return {
-    group,
-    helper,
-    label: sprite,
-    canvas,
-    ctx,
-    map,
-    lastText: "",
-    refMag,
-    kind,
-    origin: new THREE.Vector3(),
-    tip: new THREE.Vector3(),
-    mag: 0,
-    active: false,
+    group, helper, label: sprite, canvas, ctx, map, lastText: "",
+    refMag, kind, origin: new THREE.Vector3(), tip: new THREE.Vector3(), mag: 0, active: false,
   };
+}
+
+function createLabeledArrow(
+  color: number, colorCss: string, refMag: number, kind: "v" | "a", name: string,
+): LabeledArrow {
+  const group = new THREE.Group();
+  group.name = name;
+  const helper = makeArrowHelper(color);
+  const { sprite, canvas, ctx, map } = makeLabelSprite(colorCss);
+  group.add(helper, sprite);
+  return emptyLabeledArrow(group, helper, sprite, canvas, ctx, map, refMag, kind);
 }
 
 function formatVelocity(kmPerS: number): string {
@@ -247,96 +248,88 @@ function worldPerPixel(
 }
 
 /** Distance from ray to finite segment origin→tip. */
+function closestParamsOnRaySeg(
+  ray: THREE.Ray, origin: THREE.Vector3,
+): { s: number; t: number } {
+  const rd = ray.direction;
+  const w0 = _tmp.copy(ray.origin).sub(origin);
+  const a = rd.dot(rd), b = rd.dot(_seg), c = _seg.dot(_seg);
+  const d = rd.dot(w0), e = _seg.dot(w0), denom = a * c - b * b;
+  if (Math.abs(denom) < 1e-18) return { s: 0, t: e / c };
+  return { s: (b * e - c * d) / denom, t: (a * e - b * d) / denom };
+}
+
 function distRayToSegment(
-  ray: THREE.Ray,
-  origin: THREE.Vector3,
-  tip: THREE.Vector3,
+  ray: THREE.Ray, origin: THREE.Vector3, tip: THREE.Vector3,
 ): number {
   _seg.copy(tip).sub(origin);
-  const segLenSq = _seg.lengthSq();
-  if (segLenSq < 1e-18) return ray.distanceToPoint(origin);
-
-  // Closest points between ray and infinite line, then clamp to segment
-  const ro = ray.origin;
-  const rd = ray.direction;
-  const w0 = _tmp.copy(ro).sub(origin);
-  const a = rd.dot(rd);
-  const b = rd.dot(_seg);
-  const c = _seg.dot(_seg);
-  const d = rd.dot(w0);
-  const e = _seg.dot(w0);
-  const denom = a * c - b * b;
-  let s: number;
-  let t: number;
-  if (Math.abs(denom) < 1e-18) {
-    s = 0;
-    t = e / c;
-  } else {
-    s = (b * e - c * d) / denom;
-    t = (a * e - b * d) / denom;
-  }
+  if (_seg.lengthSq() < 1e-18) return ray.distanceToPoint(origin);
+  let { s, t } = closestParamsOnRaySeg(ray, origin);
   s = Math.max(0, s);
   t = Math.max(0, Math.min(1, t));
-  const pRay = _closest.copy(ro).addScaledVector(rd, s);
-  const pSeg = _tmp.copy(origin).addScaledVector(_seg, t);
-  return pRay.distanceTo(pSeg);
+  return _closest.copy(ray.origin).addScaledVector(ray.direction, s)
+    .distanceTo(_tmp.copy(origin).addScaledVector(_seg, t));
+}
+
+function applyArrowHelper(
+  la: LabeledArrow, origin: THREE.Vector3, len: number,
+): void {
+  const headLen = Math.min(len * 0.28, len * 0.45);
+  la.helper.position.copy(origin);
+  la.helper.setDirection(_dir);
+  la.helper.setLength(len, headLen, headLen * 0.45);
+  la.origin.copy(origin);
+  la.tip.copy(origin).addScaledVector(_dir, len);
+}
+
+function placeArrowGeometry(
+  la: LabeledArrow, origin: THREE.Vector3, vec: THREE.Vector3, camera: THREE.PerspectiveCamera,
+): number {
+  const mag = vec.length();
+  _dir.copy(vec).multiplyScalar(1 / mag);
+  const len = worldLengthFor(mag, la.refMag, camera.position.distanceTo(origin), camera);
+  applyArrowHelper(la, origin, len);
+  return len;
+}
+
+function labelWorldHeight(camera: THREE.PerspectiveCamera, at: THREE.Vector3): number {
+  const viewH = window.innerHeight || 800;
+  const fov = (camera.fov * Math.PI) / 180;
+  return 2 * Math.tan(fov / 2) * Math.max(1e-3, camera.position.distanceTo(at)) * (22 / viewH);
+}
+
+function placeArrowLabel(
+  la: LabeledArrow, camera: THREE.PerspectiveCamera, len: number, mag: number,
+): void {
+  _camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+  _camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+  _tmp.copy(la.tip).addScaledVector(_camUp, len * 0.14).addScaledVector(_camRight, len * 0.06);
+  la.label.position.copy(_tmp);
+  const worldH = labelWorldHeight(camera, _tmp);
+  la.label.scale.set(worldH * (LABEL_W / LABEL_H), worldH, 1);
+  paintLabel(la, la.kind === "v" ? formatVelocity(mag) : formatAccel(mag));
+  la.label.visible = true;
+}
+
+function deactivateArrow(la: LabeledArrow): void {
+  la.group.visible = false;
+  la.active = false;
+  la.label.visible = false;
 }
 
 function updateLabeledArrow(
-  la: LabeledArrow,
-  origin: THREE.Vector3,
-  vec: THREE.Vector3,
-  camera: THREE.PerspectiveCamera,
-  visible: boolean,
-  hovered: boolean,
+  la: LabeledArrow, origin: THREE.Vector3, vec: THREE.Vector3,
+  camera: THREE.PerspectiveCamera, visible: boolean, hovered: boolean,
 ): void {
   const mag = vec.length();
   const eps = la.kind === "v" ? EPS_V : EPS_A;
-  if (!visible || mag < eps) {
-    la.group.visible = false;
-    la.active = false;
-    la.label.visible = false;
-    return;
-  }
+  if (!visible || mag < eps) { deactivateArrow(la); return; }
   la.group.visible = true;
   la.active = true;
   la.mag = mag;
-
-  _dir.copy(vec).multiplyScalar(1 / mag);
-  const dist = camera.position.distanceTo(origin);
-  const len = worldLengthFor(mag, la.refMag, dist, camera);
-  const headLen = Math.min(len * 0.28, len * 0.45);
-  const headWidth = headLen * 0.45;
-
-  la.helper.position.copy(origin);
-  la.helper.setDirection(_dir);
-  la.helper.setLength(len, headLen, headWidth);
-
-  la.origin.copy(origin);
-  la.tip.copy(origin).addScaledVector(_dir, len);
-
-  // Label near tip — only when hovered
-  if (hovered) {
-    _camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
-    _camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-    _tmp.copy(la.tip).addScaledVector(_camUp, len * 0.14);
-    _tmp.addScaledVector(_camRight, len * 0.06);
-    la.label.position.copy(_tmp);
-
-    const viewH = window.innerHeight || 800;
-    const fov = (camera.fov * Math.PI) / 180;
-    const labelDist = Math.max(1e-3, camera.position.distanceTo(_tmp));
-    const worldH = 2 * Math.tan(fov / 2) * labelDist * (22 / viewH);
-    const aspect = LABEL_W / LABEL_H;
-    la.label.scale.set(worldH * aspect, worldH, 1);
-    paintLabel(
-      la,
-      la.kind === "v" ? formatVelocity(mag) : formatAccel(mag),
-    );
-    la.label.visible = true;
-  } else {
-    la.label.visible = false;
-  }
+  const len = placeArrowGeometry(la, origin, vec, camera);
+  if (hovered) placeArrowLabel(la, camera, len, mag);
+  else la.label.visible = false;
 }
 
 export type VectorArrows = {
@@ -358,193 +351,171 @@ export type VectorArrows = {
 /**
  * Build velocity + acceleration arrows for Starship, Earth, and Moon.
  */
-export function createVectorArrows(): VectorArrows {
+type ArrowRuntime = {
+  group: THREE.Group;
+  all: LabeledArrow[];
+  craftV: LabeledArrow;
+  craftA: LabeledArrow;
+  earthV: LabeledArrow;
+  earthA: LabeledArrow;
+  moonV: LabeledArrow;
+  moonA: LabeledArrow;
+  _v: THREE.Vector3;
+  _a: THREE.Vector3;
+  hover: LabeledArrow | null;
+  hasPointer: boolean;
+};
+
+function buildArrowSet(): LabeledArrow[] {
+  return [
+    createLabeledArrow(0x5ce1ff, "#7ef0ff", 8, "v", "craft-v"),
+    createLabeledArrow(0xff6b4a, "#ff9a7a", 0.01, "a", "craft-a"),
+    createLabeledArrow(0x4da3ff, "#8ec5ff", 1.0, "v", "earth-v"),
+    createLabeledArrow(0xffb347, "#ffd08a", 0.003, "a", "earth-a"),
+    createLabeledArrow(0xb8c0ff, "#d0d6ff", 1.0, "v", "moon-v"),
+    createLabeledArrow(0xff7eb6, "#ffb3d4", 0.003, "a", "moon-a"),
+  ];
+}
+
+function craftThrustAccel(craft: VectorArrowCraft): V3 | null {
+  if (!craft.burning || craft.thrustN <= 500) return null;
+  const m = wetMassKg(craft.staged, craft.fuelBooster, craft.fuelShip);
+  const aKmS2 = craft.thrustN / Math.max(m, 1) / 1000;
+  const h = craft.heading;
+  _thrust.x = h.x * aKmS2;
+  _thrust.y = h.y * aKmS2;
+  _thrust.z = h.z * aKmS2;
+  return _thrust;
+}
+
+function bodyMutualAccel(
+  self: THREE.Vector3, other: THREE.Vector3, mu: number, out: THREE.Vector3,
+): void {
+  out.copy(other).sub(self);
+  const r = out.length();
+  if (r > 1) out.multiplyScalar(mu / (r * r * r));
+  else out.set(0, 0, 0);
+}
+
+function makeArrowRuntime(): ArrowRuntime {
   const group = new THREE.Group();
   group.name = "vector-arrows";
-
-  const craftV = createLabeledArrow(0x5ce1ff, "#7ef0ff", 8, "v", "craft-v");
-  const craftA = createLabeledArrow(0xff6b4a, "#ff9a7a", 0.01, "a", "craft-a");
-  const earthV = createLabeledArrow(0x4da3ff, "#8ec5ff", 1.0, "v", "earth-v");
-  const earthA = createLabeledArrow(0xffb347, "#ffd08a", 0.003, "a", "earth-a");
-  const moonV = createLabeledArrow(0xb8c0ff, "#d0d6ff", 1.0, "v", "moon-v");
-  const moonA = createLabeledArrow(0xff7eb6, "#ffb3d4", 0.003, "a", "moon-a");
-
-  const all = [craftV, craftA, earthV, earthA, moonV, moonA];
+  const all = buildArrowSet();
   for (const la of all) group.add(la.group);
-
-  const _v = new THREE.Vector3();
-  const _a = new THREE.Vector3();
-  const _em = new THREE.Vector3();
-
-  let hover: LabeledArrow | null = null;
-  let hasPointer = false;
-
-  function pickHover(camera: THREE.PerspectiveCamera): LabeledArrow | null {
-    if (!group.visible || !hasPointer) return null;
-    let best: LabeledArrow | null = null;
-    let bestDist = Infinity;
-    for (const la of all) {
-      if (!la.active) continue;
-      const midDist = camera.position.distanceTo(la.origin);
-      const thresh = worldPerPixel(midDist, camera) * HOVER_PX;
-      const d = distRayToSegment(_ray.ray, la.origin, la.tip);
-      if (d < thresh && d < bestDist) {
-        bestDist = d;
-        best = la;
-      }
-    }
-    return best;
-  }
-
-  function update(
-    craft: VectorArrowCraft,
-    bodies: VectorArrowBodies,
-    camera: THREE.PerspectiveCamera,
-  ): void {
-    if (!group.visible) {
-      hover = null;
-      for (const la of all) {
-        la.active = false;
-        la.label.visible = false;
-      }
-      return;
-    }
-
-    // Re-pick against updated segments when the pointer is over the canvas
-    if (hasPointer) {
-      hover = pickHover(camera);
-    }
-
-    // --- Craft ---
-    _v.copy(craft.vel);
-    updateLabeledArrow(
-      craftV,
-      craft.pos,
-      _v,
-      camera,
-      true,
-      hover === craftV,
-    );
-
-    _posV3.x = craft.pos.x;
-    _posV3.y = craft.pos.y;
-    _posV3.z = craft.pos.z;
-    _velV3.x = craft.vel.x;
-    _velV3.y = craft.vel.y;
-    _velV3.z = craft.vel.z;
-
-    let thrust: V3 | null = null;
-    if (craft.burning && craft.thrustN > 500) {
-      const m = wetMassKg(craft.staged, craft.fuelBooster, craft.fuelShip);
-      const aKmS2 = craft.thrustN / Math.max(m, 1) / 1000;
-      const h = craft.heading;
-      _thrust.x = h.x * aKmS2;
-      _thrust.y = h.y * aKmS2;
-      _thrust.z = h.z * aKmS2;
-      thrust = _thrust;
-    }
-    acceleration(craft.t, _posV3, thrust, _aCraft, _velV3);
-    _a.set(_aCraft.x, _aCraft.y, _aCraft.z);
-    updateLabeledArrow(
-      craftA,
-      craft.pos,
-      _a,
-      camera,
-      true,
-      hover === craftA,
-    );
-
-    // --- Earth ---
-    updateLabeledArrow(
-      earthV,
-      bodies.earth,
-      bodies.earthVel,
-      camera,
-      true,
-      hover === earthV,
-    );
-    _em.copy(bodies.moon).sub(bodies.earth);
-    const rEm = _em.length();
-    if (rEm > 1) {
-      const aE = MU_MOON / (rEm * rEm);
-      _a.copy(_em).multiplyScalar(aE / rEm);
-    } else {
-      _a.set(0, 0, 0);
-    }
-    updateLabeledArrow(
-      earthA,
-      bodies.earth,
-      _a,
-      camera,
-      true,
-      hover === earthA,
-    );
-
-    // --- Moon ---
-    updateLabeledArrow(
-      moonV,
-      bodies.moon,
-      bodies.moonVel,
-      camera,
-      true,
-      hover === moonV,
-    );
-    if (rEm > 1) {
-      const aM = MU_EARTH / (rEm * rEm);
-      _a.copy(bodies.earth).sub(bodies.moon).multiplyScalar(aM / rEm);
-    } else {
-      _a.set(0, 0, 0);
-    }
-    updateLabeledArrow(
-      moonA,
-      bodies.moon,
-      _a,
-      camera,
-      true,
-      hover === moonA,
-    );
-  }
-
-  function setPointer(
-    event: PointerEvent | null,
-    camera: THREE.PerspectiveCamera,
-    canvas: HTMLElement,
-  ): void {
-    if (!event || !group.visible) {
-      hasPointer = false;
-      hover = null;
-      for (const la of all) la.label.visible = false;
-      return;
-    }
-    hasPointer = true;
-    const rect = canvas.getBoundingClientRect();
-    _ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    _ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    _ray.setFromCamera(_ndc, camera);
-    hover = pickHover(camera);
-    for (const la of all) {
-      if (hover === la && la.active) {
-        paintLabel(
-          la,
-          la.kind === "v" ? formatVelocity(la.mag) : formatAccel(la.mag),
-        );
-        la.label.visible = true;
-      } else {
-        la.label.visible = false;
-      }
-    }
-  }
-
-  function dispose(): void {
-    for (const la of all) {
-      la.map.dispose();
-      (la.label.material as THREE.SpriteMaterial).dispose();
-      (la.helper.line.material as THREE.Material).dispose();
-      (la.helper.cone.material as THREE.Material).dispose();
-      la.helper.line.geometry.dispose();
-      la.helper.cone.geometry.dispose();
-    }
-  }
-
-  return { group, update, setPointer, dispose };
+  return {
+    group, all, craftV: all[0]!, craftA: all[1]!, earthV: all[2]!,
+    earthA: all[3]!, moonV: all[4]!, moonA: all[5]!,
+    _v: new THREE.Vector3(), _a: new THREE.Vector3(), hover: null, hasPointer: false,
+  };
 }
+
+function considerHoverHit(
+  la: LabeledArrow, camera: THREE.PerspectiveCamera, bestDist: number,
+): number | null {
+  const thresh = worldPerPixel(camera.position.distanceTo(la.origin), camera) * HOVER_PX;
+  const d = distRayToSegment(_ray.ray, la.origin, la.tip);
+  return d < thresh && d < bestDist ? d : null;
+}
+
+function pickHoverArrow(rt: ArrowRuntime, camera: THREE.PerspectiveCamera): LabeledArrow | null {
+  if (!rt.group.visible || !rt.hasPointer) return null;
+  let best: LabeledArrow | null = null;
+  let bestDist = Infinity;
+  for (const la of rt.all) {
+    if (!la.active) continue;
+    const d = considerHoverHit(la, camera, bestDist);
+    if (d != null) { bestDist = d; best = la; }
+  }
+  return best;
+}
+
+function updateCraftArrows(rt: ArrowRuntime, craft: VectorArrowCraft, camera: THREE.PerspectiveCamera): void {
+  rt._v.copy(craft.vel);
+  updateLabeledArrow(rt.craftV, craft.pos, rt._v, camera, true, rt.hover === rt.craftV);
+  _posV3.x = craft.pos.x; _posV3.y = craft.pos.y; _posV3.z = craft.pos.z;
+  _velV3.x = craft.vel.x; _velV3.y = craft.vel.y; _velV3.z = craft.vel.z;
+  acceleration(craft.t, _posV3, craftThrustAccel(craft), _aCraft, _velV3);
+  rt._a.set(_aCraft.x, _aCraft.y, _aCraft.z);
+  updateLabeledArrow(rt.craftA, craft.pos, rt._a, camera, true, rt.hover === rt.craftA);
+}
+
+function updateBodyArrows(rt: ArrowRuntime, bodies: VectorArrowBodies, camera: THREE.PerspectiveCamera): void {
+  updateLabeledArrow(rt.earthV, bodies.earth, bodies.earthVel, camera, true, rt.hover === rt.earthV);
+  bodyMutualAccel(bodies.earth, bodies.moon, MU_MOON, rt._a);
+  updateLabeledArrow(rt.earthA, bodies.earth, rt._a, camera, true, rt.hover === rt.earthA);
+  updateLabeledArrow(rt.moonV, bodies.moon, bodies.moonVel, camera, true, rt.hover === rt.moonV);
+  bodyMutualAccel(bodies.moon, bodies.earth, MU_EARTH, rt._a);
+  updateLabeledArrow(rt.moonA, bodies.moon, rt._a, camera, true, rt.hover === rt.moonA);
+}
+
+function updateVectorArrows(
+  rt: ArrowRuntime, craft: VectorArrowCraft, bodies: VectorArrowBodies, camera: THREE.PerspectiveCamera,
+): void {
+  if (!rt.group.visible) {
+    rt.hover = null;
+    for (const la of rt.all) { la.active = false; la.label.visible = false; }
+    return;
+  }
+  if (rt.hasPointer) rt.hover = pickHoverArrow(rt, camera);
+  updateCraftArrows(rt, craft, camera);
+  updateBodyArrows(rt, bodies, camera);
+}
+
+function clearArrowPointer(rt: ArrowRuntime): void {
+  rt.hasPointer = false;
+  rt.hover = null;
+  for (const la of rt.all) la.label.visible = false;
+}
+
+function pointerToNdc(event: PointerEvent, canvas: HTMLElement): void {
+  const rect = canvas.getBoundingClientRect();
+  _ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  _ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function setArrowPointer(
+  rt: ArrowRuntime, event: PointerEvent | null, camera: THREE.PerspectiveCamera, canvas: HTMLElement,
+): void {
+  if (!event || !rt.group.visible) {
+    clearArrowPointer(rt);
+    return;
+  }
+  rt.hasPointer = true;
+  pointerToNdc(event, canvas);
+  _ray.setFromCamera(_ndc, camera);
+  rt.hover = pickHoverArrow(rt, camera);
+  showHoverLabels(rt);
+}
+
+function showHoverLabels(rt: ArrowRuntime): void {
+  for (const la of rt.all) {
+    const on = rt.hover === la && la.active;
+    if (on) paintLabel(la, la.kind === "v" ? formatVelocity(la.mag) : formatAccel(la.mag));
+    la.label.visible = on;
+  }
+}
+
+function disposeArrows(rt: ArrowRuntime): void {
+  for (const la of rt.all) {
+    la.map.dispose();
+    (la.label.material as THREE.SpriteMaterial).dispose();
+    (la.helper.line.material as THREE.Material).dispose();
+    (la.helper.cone.material as THREE.Material).dispose();
+    la.helper.line.geometry.dispose();
+    la.helper.cone.geometry.dispose();
+  }
+}
+
+/**
+ * Build velocity + acceleration arrows for Starship, Earth, and Moon.
+ */
+export function createVectorArrows(): VectorArrows {
+  const rt = makeArrowRuntime();
+  return {
+    group: rt.group,
+    update: (craft, bodies, camera) => updateVectorArrows(rt, craft, bodies, camera),
+    setPointer: (event, camera, canvas) => setArrowPointer(rt, event, camera, canvas),
+    dispose: () => disposeArrows(rt),
+  };
+}
+

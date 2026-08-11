@@ -28,6 +28,27 @@ export type AutoCamSuggestion = {
   frameScale?: number;
 };
 
+type PhaseTable = Partial<Record<PhaseId, AutoCamSuggestion>>;
+
+const CHASE: AutoCamSuggestion = { mode: "chase", frame: true };
+const MOON: AutoCamSuggestion = { mode: "moon", frame: true };
+
+/** Default framing for a mission phase (lunar / cislunar profile). */
+const LUNAR_PHASE: PhaseTable = {
+  launch: { mode: "starbase", frame: true },
+  ascent: CHASE,
+  lowEarthOrbit: CHASE,
+  translunarInjection: CHASE,
+  coast: { mode: "earth", frame: true, frameScale: 22 },
+  approach: MOON,
+  braking: MOON,
+  descent: CHASE,
+  landed: CHASE,
+  entry: CHASE,
+  splashdown: CHASE,
+  impact: MOON,
+};
+
 /**
  * Default framing for a mission phase (lunar / cislunar profile).
  *
@@ -41,28 +62,23 @@ export type AutoCamSuggestion = {
  * | Impact           | Moon                            |
  */
 export function autoCamForPhaseLunar(phase: PhaseId): AutoCamSuggestion {
-  switch (phase) {
-    case "launch":
-      return { mode: "starbase", frame: true };
-    case "ascent":
-    case "lowEarthOrbit":
-    case "translunarInjection":
-      return { mode: "chase", frame: true };
-    case "coast":
-      // Pull back past a full-Earth frame so the Moon path stays readable.
-      return { mode: "earth", frame: true, frameScale: 22 };
-    case "approach":
-    case "braking":
-      return { mode: "moon", frame: true };
-    case "descent":
-    case "landed":
-    case "entry":
-    case "splashdown":
-      return { mode: "chase", frame: true };
-    case "impact":
-      return { mode: "moon", frame: true };
-  }
+  return LUNAR_PHASE[phase] ?? CHASE;
 }
+
+const FLIGHT13_PHASE: PhaseTable = {
+  launch: { mode: "trench", frame: true },
+  ascent: CHASE,
+  lowEarthOrbit: CHASE,
+  translunarInjection: CHASE,
+  coast: { mode: "chase", frame: true, frameScale: 1.35 },
+  entry: CHASE,
+  descent: CHASE,
+  splashdown: CHASE,
+  landed: CHASE,
+  approach: CHASE,
+  braking: CHASE,
+  impact: CHASE,
+};
 
 /**
  * Flight 13 / suborbital flight-test Auto-cam table (webcast beats).
@@ -76,27 +92,7 @@ export function autoCamForPhaseLunar(phase: PhaseId): AutoCamSuggestion {
  * | Entry / descent / splash | Starship chase |
  */
 export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {
-  switch (phase) {
-    case "launch":
-      return { mode: "trench", frame: true };
-    case "ascent":
-    case "lowEarthOrbit":
-    case "translunarInjection":
-      return { mode: "chase", frame: true };
-    case "coast":
-      // Suborbital free-coast: keep ship framed (not a cislunar Earth pull-back).
-      return { mode: "chase", frame: true, frameScale: 1.35 };
-    case "entry":
-    case "descent":
-    case "splashdown":
-    case "landed":
-      return { mode: "chase", frame: true };
-    case "approach":
-    case "braking":
-    case "impact":
-      // Unused on Flight 13; sane fallbacks
-      return { mode: "chase", frame: true };
-  }
+  return FLIGHT13_PHASE[phase] ?? CHASE;
 }
 
 /** Default framing for a mission phase under the given profile. */
@@ -139,25 +135,20 @@ export function nextAutoCamCut(
   prev: { phase: PhaseId | null; staged: boolean },
   profile: AutoCamProfile = "lunar",
 ): { suggestion: AutoCamSuggestion | null; phase: PhaseId; staged: boolean } {
-  if (!enabled) {
-    return { suggestion: null, phase, staged };
-  }
+  if (!enabled) return { suggestion: null, phase, staged };
+  const suggestion = cutSuggestion(phase, staged, prev, profile);
+  return { suggestion, phase, staged };
+}
 
+function cutSuggestion(
+  phase: PhaseId,
+  staged: boolean,
+  prev: { phase: PhaseId | null; staged: boolean },
+  profile: AutoCamProfile,
+): AutoCamSuggestion | null {
   if (prev.phase === null || phase !== prev.phase) {
-    return {
-      suggestion: autoCamForPhase(phase, profile),
-      phase,
-      staged,
-    };
+    return autoCamForPhase(phase, profile);
   }
-
-  if (staged && !prev.staged) {
-    return {
-      suggestion: autoCamForStaging(profile),
-      phase,
-      staged,
-    };
-  }
-
-  return { suggestion: null, phase, staged };
+  if (staged && !prev.staged) return autoCamForStaging(profile);
+  return null;
 }

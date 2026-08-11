@@ -17,13 +17,7 @@ export type FatLineOpts = {
   gapSize?: number;
 };
 
-/**
- * Pixel-thick polyline (WebGL LineBasicMaterial linewidth is ignored on most GPUs).
- */
-export function createFatLine(
-  points: THREE.Vector3[],
-  opts: FatLineOpts,
-): Line2 {
+function packPositions(points: THREE.Vector3[]): Float32Array {
   const positions = new Float32Array(points.length * 3);
   for (let i = 0; i < points.length; i++) {
     const p = points[i]!;
@@ -31,28 +25,35 @@ export function createFatLine(
     positions[i * 3 + 1] = p.y;
     positions[i * 3 + 2] = p.z;
   }
-  const geom = new LineGeometry();
-  geom.setPositions(positions);
+  return positions;
+}
 
+function makeFatLineMaterial(opts: FatLineOpts): LineMaterial {
   const opacity = opts.opacity ?? 1;
   const dashed = opts.dashed ?? false;
-  const mat = new LineMaterial({
-    color: opts.color,
-    linewidth: opts.linewidth ?? 2.5,
-    transparent: opacity < 0.999 || dashed,
-    opacity,
-    depthWrite: false,
-    depthTest: opts.depthTest ?? true,
-    worldUnits: false,
-    dashed,
-    dashSize: opts.dashSize ?? 1,
-    gapSize: opts.gapSize ?? 1,
+  return new LineMaterial({
+    color: opts.color, linewidth: opts.linewidth ?? 2.5,
+    transparent: opacity < 0.999 || dashed, opacity,
+    depthWrite: false, depthTest: opts.depthTest ?? true, worldUnits: false,
+    dashed, dashSize: opts.dashSize ?? 1, gapSize: opts.gapSize ?? 1,
   });
-  mat.resolution.set(
-    Math.max(1, window.innerWidth || 1),
-    Math.max(1, window.innerHeight || 1),
-  );
+}
 
+function setLineMaterialResolution(mat: LineMaterial, w: number, h: number): void {
+  mat.resolution.set(Math.max(1, w), Math.max(1, h));
+}
+
+/**
+ * Pixel-thick polyline (WebGL LineBasicMaterial linewidth is ignored on most GPUs).
+ */
+export function createFatLine(
+  points: THREE.Vector3[],
+  opts: FatLineOpts,
+): Line2 {
+  const geom = new LineGeometry();
+  geom.setPositions(packPositions(points));
+  const mat = makeFatLineMaterial(opts);
+  setLineMaterialResolution(mat, window.innerWidth || 1, window.innerHeight || 1);
   const line = new Line2(geom, mat);
   line.computeLineDistances();
   line.frustumCulled = false;
@@ -64,16 +65,20 @@ export function updateFatLinePositions(
   line: Line2,
   points: THREE.Vector3[],
 ): void {
-  const positions = new Float32Array(points.length * 3);
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    positions[i * 3] = p.x;
-    positions[i * 3 + 1] = p.y;
-    positions[i * 3 + 2] = p.z;
-  }
-  const geom = line.geometry as LineGeometry;
-  geom.setPositions(positions);
+  (line.geometry as LineGeometry).setPositions(packPositions(points));
   line.computeLineDistances();
+}
+
+function setMatsResolution(
+  mat: LineMaterial | LineMaterial[],
+  w: number,
+  h: number,
+): void {
+  if (Array.isArray(mat)) {
+    for (const m of mat) m.resolution.set(w, h);
+  } else {
+    mat.resolution.set(w, h);
+  }
 }
 
 /** Keep LineMaterial resolution in sync with the canvas (required for correct width). */
@@ -85,12 +90,6 @@ export function updateFatLineResolutions(
   const w = Math.max(1, width);
   const h = Math.max(1, height);
   root.traverse((obj) => {
-    if (!(obj instanceof Line2)) return;
-    const mat = obj.material as LineMaterial | LineMaterial[];
-    if (Array.isArray(mat)) {
-      for (const m of mat) m.resolution.set(w, h);
-    } else {
-      mat.resolution.set(w, h);
-    }
+    if (obj instanceof Line2) setMatsResolution(obj.material as LineMaterial | LineMaterial[], w, h);
   });
 }

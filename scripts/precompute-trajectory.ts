@@ -57,50 +57,47 @@ export type PackedTrajectory = {
   samples: PackedSample[];
 };
 
-function pack(result: MissionResult): PackedTrajectory {
+function finiteOr<T>(v: T | null | undefined, fallback: T): T {
+  return v != null && Number.isFinite(v as number) ? (v as T) : fallback;
+}
+
+function packSample(s: Sample): PackedSample {
+  return {
+    t: round(s.t, 3),
+    p: [round(s.pos.x, 4), round(s.pos.y, 4), round(s.pos.z, 4)],
+    v: [round(s.vel.x, 6), round(s.vel.y, 6), round(s.vel.z, 6)],
+    phase: s.phase, burning: s.burning,
+    fb: round(s.fuelBooster, 4), fs: round(s.fuelShip, 4),
+    th: round(s.thrustN / 1000, 2), // store kN
+    st: s.staged,
+  };
+}
+
+function packMeta(result: MissionResult) {
   const meta = deriveTrajectoryMeta(result.samples);
   // Prefer integration minMoonAlt when finite (full-rate coast); fall back to scan
-  const minMoonAlt =
-    result.minMoonAlt != null && Number.isFinite(result.minMoonAlt)
-      ? result.minMoonAlt
-      : meta.minMoonAlt;
-  const peakSpeedKmS =
-    result.peakSpeedKmS != null && Number.isFinite(result.peakSpeedKmS)
-      ? result.peakSpeedKmS
-      : meta.peakSpeedKmS;
-  const stageT =
-    result.stageT !== undefined ? result.stageT : meta.stageT;
-  const keplerRefMaxDevKm =
-    result.keplerRefMaxDevKm != null && Number.isFinite(result.keplerRefMaxDevKm)
-      ? result.keplerRefMaxDevKm
-      : undefined;
-
+  const stageT = result.stageT !== undefined ? result.stageT : meta.stageT;
+  const kepler = finiteOr(result.keplerRefMaxDevKm, undefined as number | undefined);
   return {
-    version: TRAJECTORY_PACK_VERSION,
-    generatedAt: new Date().toISOString(),
-    moonPhase0: result.moonPhase0,
-    translunarInjectionDeltaV: result.translunarInjectionDeltaV,
-    durationS: result.durationS,
-    horizonsLandingT: result.horizonsLandingT,
-    ok: result.ok,
-    message: result.message,
-    minMoonAlt,
-    peakSpeedKmS: round(peakSpeedKmS, 6),
+    minMoonAlt: finiteOr(result.minMoonAlt, meta.minMoonAlt),
+    peakSpeedKmS: round(finiteOr(result.peakSpeedKmS, meta.peakSpeedKmS), 6),
     stageT: stageT == null ? null : round(stageT, 3),
-    keplerRefMaxDevKm:
-      keplerRefMaxDevKm != null ? round(keplerRefMaxDevKm, 1) : undefined,
-    samples: result.samples.map((s) => ({
-      t: round(s.t, 3),
-      p: [round(s.pos.x, 4), round(s.pos.y, 4), round(s.pos.z, 4)],
-      v: [round(s.vel.x, 6), round(s.vel.y, 6), round(s.vel.z, 6)],
-      phase: s.phase,
-      burning: s.burning,
-      fb: round(s.fuelBooster, 4),
-      fs: round(s.fuelShip, 4),
-      th: round(s.thrustN / 1000, 2), // store kN
-      st: s.staged,
-    })),
+    keplerRefMaxDevKm: kepler != null ? round(kepler, 1) : undefined,
   };
+}
+
+function packCore(result: MissionResult) {
+  return {
+    version: TRAJECTORY_PACK_VERSION, generatedAt: new Date().toISOString(),
+    moonPhase0: result.moonPhase0, translunarInjectionDeltaV: result.translunarInjectionDeltaV,
+    durationS: result.durationS, horizonsLandingT: result.horizonsLandingT,
+    ok: result.ok, message: result.message,
+  };
+}
+
+function pack(result: MissionResult): PackedTrajectory {
+  const m = packMeta(result);
+  return { ...packCore(result), ...m, samples: result.samples.map(packSample) };
 }
 
 function round(n: number, digits: number): number {

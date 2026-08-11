@@ -66,21 +66,16 @@ export function toggleEarthGcOverlay(): boolean {
   return next;
 }
 
-/**
- * Wire close button + Esc once. Safe to call from HUD and Flight 13.
- */
-export function ensureEarthGcOverlayBound(): void {
-  if (bound) return;
-  bound = true;
-  const { root, closeBtn } = els();
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => setEarthGcOverlayOpen(false));
-  }
+function bindEarthGcClose(root: HTMLElement | null, closeBtn: HTMLButtonElement | null): void {
+  if (closeBtn) closeBtn.addEventListener("click", () => setEarthGcOverlayOpen(false));
   if (root) {
     root.addEventListener("click", (ev) => {
       if (ev.target === root) setEarthGcOverlayOpen(false);
     });
   }
+}
+
+function bindEarthGcWindow(): void {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isEarthGcOverlayOpen()) {
       e.preventDefault();
@@ -90,4 +85,15 @@ export function ensureEarthGcOverlayBound(): void {
   window.addEventListener("resize", () => {
     if (isEarthGcOverlayOpen()) redrawEarthGcOverlay();
   });
+}
+
+/**
+ * Wire close button + Esc once. Safe to call from HUD and Flight 13.
+ */
+export function ensureEarthGcOverlayBound(): void {
+  if (bound) return;
+  bound = true;
+  const { root, closeBtn } = els();
+  bindEarthGcClose(root, closeBtn);
+  bindEarthGcWindow();
 }

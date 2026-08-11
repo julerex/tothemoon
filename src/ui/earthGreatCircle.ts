@@ -146,8 +146,25 @@ export function flight13GreatCirclePlane(): EarthGcPlane {
   const s = siteUnit(STARBASE_LAT, STARBASE_LON, v3());
   const g = siteUnit(GAUTENG_LAT, GAUTENG_LON, v3());
   const splash = siteUnit(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, v3());
+  let { u, v, n } = planeBasisFromSites(s, g, splash);
+  ({ u, v, n } = orientPlaneTowardGauteng(u, v, n, g));
+  const splashAngleRad = unwrapSplashAngle(splash, u, v, g);
+  return { u, v, n, splashAngleRad };
+}
 
-  // n ∝ S×G + G×L + L×S (best-fit plane through origin for three unit sites)
+function planeBasisFromSites(
+  s: V3,
+  g: V3,
+  splash: V3,
+): { u: V3; v: V3; n: V3 } {
+  const n = bestFitNormal(s, g, splash);
+  const u = projectStarbaseU(s, n);
+  cross(_tmp, n, u);
+  const v = normalize(v3(), _tmp);
+  return { u, v, n };
+}
+
+function bestFitNormal(s: V3, g: V3, splash: V3): V3 {
   cross(_tmp, s, g);
   cross(_tmp2, g, splash);
   cross(_tmp3, splash, s);
@@ -156,44 +173,56 @@ export function flight13GreatCirclePlane(): EarthGcPlane {
     _tmp.y + _tmp2.y + _tmp3.y,
     _tmp.z + _tmp2.z + _tmp3.z,
   );
-  let n = normalize(v3(), nRaw);
+  return normalize(v3(), nRaw);
+}
 
-  // Project Starbase into the plane → u
+function projectStarbaseU(s: V3, n: V3): V3 {
   const sn = dot(s, n);
   const uRaw = v3(s.x - n.x * sn, s.y - n.y * sn, s.z - n.z * sn);
-  const u = normalize(v3(), uRaw);
+  return normalize(v3(), uRaw);
+}
 
-  // v = n × u
-  cross(_tmp, n, u);
-  let v = normalize(v3(), _tmp);
-
-  // Orient so Gauteng is on the +v side of Starbase
+function orientPlaneTowardGauteng(
+  u: V3,
+  v: V3,
+  n: V3,
+  g: V3,
+): { u: V3; v: V3; n: V3 } {
+  if (Math.atan2(dot(g, v), dot(g, u)) < 0) v = flipV3(v);
+  ({ u, v, n } = reorthonormalizeUV(u, v));
   if (Math.atan2(dot(g, v), dot(g, u)) < 0) {
-    v = v3(-v.x, -v.y, -v.z);
+    v = flipV3(v);
+    n = flipV3(n);
   }
+  return { u, v, n };
+}
 
-  // Re-orthonormalize after possible flip
+function flipV3(v: V3): V3 {
+  return v3(-v.x, -v.y, -v.z);
+}
+
+function reorthonormalizeUV(u: V3, v: V3): { u: V3; v: V3; n: V3 } {
   cross(_tmp2, u, v);
-  n = normalize(v3(), _tmp2);
+  const n = normalize(v3(), _tmp2);
   cross(_tmp3, n, u);
   v = normalize(v3(), _tmp3);
-  let gAng = Math.atan2(dot(g, v), dot(g, u));
-  if (gAng < 0) {
-    v = v3(-v.x, -v.y, -v.z);
-    n = v3(-n.x, -n.y, -n.z);
-    gAng = -gAng;
-  }
+  return { u, v, n };
+}
 
-  // Unwrap splash past Gauteng along the same tour (may exceed π)
+function unwrapSplashAngle(
+  splash: V3,
+  u: V3,
+  v: V3,
+  g: V3,
+): number {
+  const gAng = Math.atan2(dot(g, v), dot(g, u));
   let splashAngleRad = Math.atan2(dot(splash, v), dot(splash, u));
   while (splashAngleRad < gAng) splashAngleRad += 2 * Math.PI;
-  // Prefer the shorter unwrap if we overshot by a full turn
   if (splashAngleRad - gAng > Math.PI && splashAngleRad - 2 * Math.PI > 0) {
     const alt = splashAngleRad - 2 * Math.PI;
     if (alt >= gAng * 0.5) splashAngleRad = alt;
   }
-
-  return { u, v, n, splashAngleRad };
+  return splashAngleRad;
 }
 
 /**
@@ -207,7 +236,6 @@ export function corridorAngleRad(
 ): number {
   const p = siteUnit(lat, lon, _tmp);
   let a = Math.atan2(dot(p, plane.v), dot(p, plane.u));
-  // Keep near the splash corridor (0 … splash+margin)
   const hi = plane.splashAngleRad + Math.PI / 2;
   while (a < -0.25) a += 2 * Math.PI;
   while (a > hi) a -= 2 * Math.PI;
@@ -224,16 +252,11 @@ export function projectSiteToPlane(
   rEarth = R_EARTH,
 ): { surface: PlanePoint; angleRad: number; offPlaneKm: number } {
   const p = siteUnit(lat, lon, _tmp);
-  const pn = dot(p, plane.n);
-  // Corridor angle may unwrap past π for the Flight 13 tour
   const angleRad = corridorAngleRad(lat, lon, plane);
   return {
-    surface: {
-      x: rEarth * Math.cos(angleRad),
-      y: rEarth * Math.sin(angleRad),
-    },
+    surface: { x: rEarth * Math.cos(angleRad), y: rEarth * Math.sin(angleRad) },
     angleRad,
-    offPlaneKm: Math.abs(pn) * rEarth,
+    offPlaneKm: Math.abs(dot(p, plane.n)) * rEarth,
   };
 }
 
@@ -243,39 +266,56 @@ export function projectSiteToPlane(
 export function buildFlight13EarthGcModel(): EarthGcModel {
   const plane = flight13GreatCirclePlane();
   const rEarth = R_EARTH;
-  const rAtm = R_EARTH + ATM_H_MAX_KM;
-  const labels: EarthGcLabel[] = FLIGHT13_SITES.map((s) => {
-    const pr = projectSiteToPlane(s.lat, s.lon, plane, rEarth);
-    return {
-      id: s.id,
-      label: s.label,
-      angleRad: pr.angleRad,
-      surface: pr.surface,
-      offPlaneKm: pr.offPlaneKm,
-    };
-  });
+  return earthGcModelShell(
+    plane,
+    FLIGHT13_SITES.map((s) => siteToLabel(s, plane, rEarth)),
+    rEarth,
+    R_EARTH + ATM_H_MAX_KM,
+    200,
+  );
+}
 
-  // Suborbital silhouette: peak ~200 km (theater Starship coast height)
-  const arcPeakAltKm = 200;
+function earthGcModelShell(
+  plane: EarthGcPlane,
+  labels: EarthGcLabel[],
+  rEarth: number,
+  rAtm: number,
+  arcPeakAltKm: number,
+): EarthGcModel {
+  return {
+    profileId: "flight-13",
+    title: "Earth great circle",
+    subtitle: GC_SUBTITLE,
+    plane, labels, rEarth, rAtm, arcPeakAltKm,
+    bounds: earthGcBounds(rAtm, arcPeakAltKm),
+  };
+}
+
+const GC_SUBTITLE =
+  "Flight 13 · Starbase → Gauteng → Indian Ocean · Australia · true scale";
+
+function siteToLabel(
+  s: EarthGcSite,
+  plane: EarthGcPlane,
+  rEarth: number,
+): EarthGcLabel {
+  const pr = projectSiteToPlane(s.lat, s.lon, plane, rEarth);
+  return {
+    id: s.id,
+    label: s.label,
+    angleRad: pr.angleRad,
+    surface: pr.surface,
+    offPlaneKm: pr.offPlaneKm,
+  };
+}
+
+function earthGcBounds(rAtm: number, arcPeakAltKm: number): EarthGcBounds {
   const margin = rAtm + arcPeakAltKm + 400;
-  const bounds: EarthGcBounds = {
+  return {
     xMin: -margin,
     xMax: margin,
     yMin: -margin,
     yMax: margin,
-  };
-
-  return {
-    profileId: "flight-13",
-    title: "Earth great circle",
-    subtitle:
-      "Flight 13 · Starbase → Gauteng → Indian Ocean · Australia · true scale",
-    plane,
-    labels,
-    rEarth,
-    rAtm,
-    arcPeakAltKm,
-    bounds,
   };
 }
 
@@ -292,11 +332,22 @@ export function fitEarthGcView(
   const bw = Math.max(bounds.xMax - bounds.xMin, 1e-3);
   const bh = Math.max(bounds.yMax - bounds.yMin, 1e-3);
   const scale = Math.min((w - 2 * padPx) / bw, (h - 2 * padPx) / bh);
-  const usedW = bw * scale;
-  const usedH = bh * scale;
-  const originX = (w - usedW) / 2 - bounds.xMin * scale;
-  const originY = (h - usedH) / 2 + bounds.yMax * scale;
-  return { scale, originX, originY, width: w, height: h, dpr };
+  return earthGcViewOrigin(bounds, w, h, scale, dpr);
+}
+
+function earthGcViewOrigin(
+  bounds: EarthGcBounds,
+  w: number,
+  h: number,
+  scale: number,
+  dpr: number,
+): ViewTransform {
+  const usedW = (bounds.xMax - bounds.xMin) * scale;
+  const usedH = (bounds.yMax - bounds.yMin) * scale;
+  return {
+    scale, originX: (w - usedW) / 2 - bounds.xMin * scale,
+    originY: (h - usedH) / 2 + bounds.yMax * scale, width: w, height: h, dpr,
+  };
 }
 
 export function worldToCanvas(
@@ -320,19 +371,54 @@ export function suborbitalArcPoints(
   const a1 = model.plane.splashAngleRad;
   const pts: PlanePoint[] = [];
   for (let i = 0; i <= steps; i++) {
-    const f = i / steps;
-    const ang = a1 * f;
-    const h = model.arcPeakAltKm * Math.sin(Math.PI * f);
-    const r = model.rEarth + h;
-    pts.push({ x: r * Math.cos(ang), y: r * Math.sin(ang) });
+    pts.push(suborbitalPoint(model, a1, i / steps));
   }
   return pts;
+}
+
+function suborbitalPoint(
+  model: EarthGcModel,
+  a1: number,
+  f: number,
+): PlanePoint {
+  const ang = a1 * f;
+  const h = model.arcPeakAltKm * Math.sin(Math.PI * f);
+  const r = model.rEarth + h;
+  return { x: r * Math.cos(ang), y: r * Math.sin(ang) };
 }
 
 /** Draw the whole-Earth great-circle cross-section (B&W). */
 export function drawEarthGreatCircle(
   ctx: CanvasRenderingContext2D,
   model: EarthGcModel,
+  cssW: number,
+  cssH: number,
+  dpr: number,
+): void {
+  prepareGcCanvas(ctx, cssW, cssH, dpr);
+  const view = fitEarthGcView(model.bounds, cssW, cssH, dpr);
+  paintEarthGc(ctx, model, view, cssW, cssH);
+}
+
+function paintEarthGc(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  view: ViewTransform,
+  cssW: number,
+  cssH: number,
+): void {
+  const c0 = worldToCanvas({ x: 0, y: 0 }, view);
+  drawEarthDisk(ctx, c0, model.rEarth, view);
+  drawAtmShell(ctx, c0, model.rAtm, view);
+  drawStarbaseDiameter(ctx, model, view);
+  drawSuborbitalArc(ctx, model, view);
+  drawAllSiteLabels(ctx, model, view);
+  drawEarthScaleBar(ctx, view, cssW, cssH);
+  drawGcReadout(ctx, model, cssW);
+}
+
+function prepareGcCanvas(
+  ctx: CanvasRenderingContext2D,
   cssW: number,
   cssH: number,
   dpr: number,
@@ -346,12 +432,14 @@ export function drawEarthGreatCircle(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, cssW, cssH);
+}
 
-  const view = fitEarthGcView(model.bounds, cssW, cssH, dpr);
-  const { rEarth, rAtm } = model;
-  const c0 = worldToCanvas({ x: 0, y: 0 }, view);
-
-  // Earth disk fill
+function drawEarthDisk(
+  ctx: CanvasRenderingContext2D,
+  c0: { x: number; y: number },
+  rEarth: number,
+  view: ViewTransform,
+): void {
   ctx.beginPath();
   ctx.arc(c0.x, c0.y, rEarth * view.scale, 0, Math.PI * 2);
   ctx.fillStyle = "#0a0a0a";
@@ -359,8 +447,14 @@ export function drawEarthGreatCircle(
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 1.75;
   ctx.stroke();
+}
 
-  // Atmosphere shell
+function drawAtmShell(
+  ctx: CanvasRenderingContext2D,
+  c0: { x: number; y: number },
+  rAtm: number,
+  view: ViewTransform,
+): void {
   ctx.beginPath();
   ctx.arc(c0.x, c0.y, rAtm * view.scale, 0, Math.PI * 2);
   ctx.strokeStyle = "#fff";
@@ -368,70 +462,126 @@ export function drawEarthGreatCircle(
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.globalAlpha = 1;
+}
 
-  // Great-circle diameter tick (Starbase ↔ antipode)
+function drawStarbaseDiameter(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  view: ViewTransform,
+): void {
   const sb = model.labels.find((l) => l.id === "starbase");
-  if (sb) {
-    const a = worldToCanvas(sb.surface, view);
-    const anti: PlanePoint = { x: -sb.surface.x, y: -sb.surface.y };
-    const b = worldToCanvas(anti, view);
-    ctx.strokeStyle = "#fff";
-    ctx.globalAlpha = 0.2;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-  }
+  if (!sb) return;
+  const a = worldToCanvas(sb.surface, view);
+  const b = worldToCanvas({ x: -sb.surface.x, y: -sb.surface.y }, view);
+  strokeDashedSegment(ctx, a, b);
+}
 
-  // Suborbital silhouette Starbase → splash
+function strokeDashedSegment(
+  ctx: CanvasRenderingContext2D,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): void {
+  ctx.strokeStyle = "#fff";
+  ctx.globalAlpha = 0.2;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  lineAB(ctx, a, b);
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+}
+
+function lineAB(
+  ctx: CanvasRenderingContext2D,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): void {
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+}
+
+function drawSuborbitalArc(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  view: ViewTransform,
+): void {
   const arc = suborbitalArcPoints(model);
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 1.4;
   ctx.globalAlpha = 0.85;
+  strokeWorldPolyline(ctx, view, arc);
+  ctx.globalAlpha = 1;
+}
+
+function strokeWorldPolyline(
+  ctx: CanvasRenderingContext2D,
+  view: ViewTransform,
+  pts: PlanePoint[],
+): void {
   ctx.beginPath();
-  for (let i = 0; i < arc.length; i++) {
-    const p = worldToCanvas(arc[i]!, view);
+  for (let i = 0; i < pts.length; i++) {
+    const p = worldToCanvas(pts[i]!, view);
     if (i === 0) ctx.moveTo(p.x, p.y);
     else ctx.lineTo(p.x, p.y);
   }
   ctx.stroke();
-  ctx.globalAlpha = 1;
+}
 
-  // Site markers + labels
+function drawAllSiteLabels(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  view: ViewTransform,
+): void {
   ctx.font = "12px Helvetica Neue, Helvetica, Arial, sans-serif";
   for (const lab of model.labels) {
-    drawSiteLabel(ctx, view, lab, rEarth);
+    drawSiteLabel(ctx, view, lab, model.rEarth);
   }
+}
 
-  // Scale bar (Earth radius)
-  drawEarthScaleBar(ctx, view, cssW, cssH);
+function drawGcReadout(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  cssW: number,
+): void {
+  setGcReadoutStyle(ctx);
+  ctx.globalAlpha = 0.9;
+  fillGcLeftReadout(ctx, model);
+  fillGcRightReadout(ctx, cssW);
+}
 
-  // Readout
+function setGcReadoutStyle(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = "#fff";
   ctx.font = "11px ui-monospace, SF Mono, Menlo, monospace";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  const splashDeg = (model.plane.splashAngleRad * 180) / Math.PI;
-  const arcKm = model.plane.splashAngleRad * rEarth;
-  ctx.globalAlpha = 0.9;
-  ctx.fillText("Flight 13 · Earth great-circle section", 12, 10);
-  ctx.fillText(
-    `Starbase → splash  ${splashDeg.toFixed(1)}°  ·  ${fmtArcKm(arcKm)} surface`,
-    12,
-    26,
-  );
-  ctx.fillText(`Atmosphere shell ${ATM_H_MAX_KM} km · arc peak ~${model.arcPeakAltKm} km`, 12, 42);
-  ctx.globalAlpha = 1;
+}
 
+function fillGcRightReadout(ctx: CanvasRenderingContext2D, cssW: number): void {
   ctx.textAlign = "right";
   ctx.globalAlpha = 0.75;
   ctx.fillText("true scale · full Earth · GC plane", cssW - 12, 10);
   ctx.fillText("dashed: Starbase diameter", cssW - 12, 26);
   ctx.globalAlpha = 1;
+}
+
+function fillGcLeftReadout(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+): void {
+  const splashDeg = (model.plane.splashAngleRad * 180) / Math.PI;
+  const arcKm = model.plane.splashAngleRad * model.rEarth;
+  ctx.fillText("Flight 13 · Earth great-circle section", 12, 10);
+  ctx.fillText(splashLine(splashDeg, arcKm), 12, 26);
+  ctx.fillText(atmPeakLine(model), 12, 42);
+}
+
+function splashLine(splashDeg: number, arcKm: number): string {
+  return `Starbase → splash  ${splashDeg.toFixed(1)}°  ·  ${fmtArcKm(arcKm)} surface`;
+}
+
+function atmPeakLine(model: EarthGcModel): string {
+  return `Atmosphere shell ${ATM_H_MAX_KM} km · arc peak ~${model.arcPeakAltKm} km`;
 }
 
 function drawSiteLabel(
@@ -441,45 +591,76 @@ function drawSiteLabel(
   rEarth: number,
 ): void {
   const surf = worldToCanvas(lab.surface, view);
-  // Tick outward along radial
-  const L = Math.hypot(lab.surface.x, lab.surface.y) || rEarth;
-  const ux = lab.surface.x / L;
-  const uy = lab.surface.y / L;
-  const tickOut: PlanePoint = {
-    x: lab.surface.x + ux * 280,
-    y: lab.surface.y + uy * 280,
-  };
-  const out = worldToCanvas(tickOut, view);
+  const { ux, uy } = radialUnit(lab.surface, rEarth);
+  const out = worldToCanvas(
+    { x: lab.surface.x + ux * 280, y: lab.surface.y + uy * 280 },
+    view,
+  );
+  paintSiteMarker(ctx, surf, out);
+  paintSiteText(ctx, view, lab, ux, uy, rEarth);
+}
 
+function radialUnit(
+  surface: PlanePoint,
+  rEarth: number,
+): { ux: number; uy: number } {
+  const L = Math.hypot(surface.x, surface.y) || rEarth;
+  return { ux: surface.x / L, uy: surface.y / L };
+}
+
+function paintSiteMarker(
+  ctx: CanvasRenderingContext2D,
+  surf: { x: number; y: number },
+  out: { x: number; y: number },
+): void {
   ctx.strokeStyle = "#fff";
   ctx.fillStyle = "#fff";
   ctx.lineWidth = 1.25;
+  fillSiteDot(ctx, surf);
+  strokeSiteLeader(ctx, surf, out);
+}
+
+function fillSiteDot(
+  ctx: CanvasRenderingContext2D,
+  surf: { x: number; y: number },
+): void {
   ctx.beginPath();
   ctx.arc(surf.x, surf.y, 3.5, 0, Math.PI * 2);
   ctx.fill();
+}
 
+function strokeSiteLeader(
+  ctx: CanvasRenderingContext2D,
+  surf: { x: number; y: number },
+  out: { x: number; y: number },
+): void {
   ctx.globalAlpha = 0.7;
   ctx.beginPath();
   ctx.moveTo(surf.x, surf.y);
   ctx.lineTo(out.x, out.y);
   ctx.stroke();
   ctx.globalAlpha = 1;
+}
 
-  // Prefer text outside the disk
-  const textR = rEarth + 520;
-  const textPt = worldToCanvas(
-    { x: ux * textR, y: uy * textR },
-    view,
-  );
-  // Nudge text by quadrant so it doesn't sit on the leader
+function paintSiteText(
+  ctx: CanvasRenderingContext2D,
+  view: ViewTransform,
+  lab: EarthGcLabel,
+  ux: number,
+  uy: number,
+  rEarth: number,
+): void {
+  const textPt = worldToCanvas({ x: ux * (rEarth + 520), y: uy * (rEarth + 520) }, view);
   const preferRight = ux >= 0;
+  setSiteTextStyle(ctx, preferRight);
+  ctx.fillText(lab.label, textPt.x + (preferRight ? 4 : -4), textPt.y);
+}
+
+function setSiteTextStyle(ctx: CanvasRenderingContext2D, preferRight: boolean): void {
   ctx.font = "12px Helvetica Neue, Helvetica, Arial, sans-serif";
   ctx.textAlign = preferRight ? "left" : "right";
   ctx.textBaseline = "middle";
-  const tx = textPt.x + (preferRight ? 4 : -4);
-  const ty = textPt.y;
   ctx.fillStyle = "#fff";
-  ctx.fillText(lab.label, tx, ty);
 }
 
 function drawEarthScaleBar(
@@ -488,33 +669,64 @@ function drawEarthScaleBar(
   cssW: number,
   cssH: number,
 ): void {
-  const candidates = [5000, 2000, 1000, 500];
-  let km = 2000;
-  for (const c of candidates) {
-    if (c * view.scale < cssW * 0.28) {
-      km = c;
-      break;
-    }
+  const km = pickEarthScaleKm(view, cssW);
+  const g = earthScaleGeom(view, cssW, cssH, km);
+  paintEarthScaleTicks(ctx, g);
+  const label = km >= 1000 ? `${km / 1000} Mm` : `${km} km`;
+  paintEarthScaleLabel(ctx, g, label);
+}
+
+function pickEarthScaleKm(view: ViewTransform, cssW: number): number {
+  for (const c of [5000, 2000, 1000, 500]) {
+    if (c * view.scale < cssW * 0.28) return c;
   }
+  return 2000;
+}
+
+function earthScaleGeom(
+  view: ViewTransform,
+  cssW: number,
+  cssH: number,
+  km: number,
+): { x0: number; x1: number; y: number } {
   const px = km * view.scale;
   const x1 = cssW - 16;
-  const x0 = x1 - px;
-  const y = cssH - 18;
+  return { x0: x1 - px, x1, y: cssH - 18 };
+}
+
+function paintEarthScaleTicks(
+  ctx: CanvasRenderingContext2D,
+  g: { x0: number; x1: number; y: number },
+): void {
   ctx.strokeStyle = "#fff";
   ctx.fillStyle = "#fff";
   ctx.lineWidth = 1.25;
   ctx.beginPath();
-  ctx.moveTo(x0, y);
-  ctx.lineTo(x1, y);
-  ctx.moveTo(x0, y - 4);
-  ctx.lineTo(x0, y + 4);
-  ctx.moveTo(x1, y - 4);
-  ctx.lineTo(x1, y + 4);
+  pathEarthScale(ctx, g);
   ctx.stroke();
+}
+
+function pathEarthScale(
+  ctx: CanvasRenderingContext2D,
+  g: { x0: number; x1: number; y: number },
+): void {
+  ctx.moveTo(g.x0, g.y);
+  ctx.lineTo(g.x1, g.y);
+  ctx.moveTo(g.x0, g.y - 4);
+  ctx.lineTo(g.x0, g.y + 4);
+  ctx.moveTo(g.x1, g.y - 4);
+  ctx.lineTo(g.x1, g.y + 4);
+}
+
+function paintEarthScaleLabel(
+  ctx: CanvasRenderingContext2D,
+  g: { x0: number; x1: number; y: number },
+  label: string,
+): void {
   ctx.font = "10px ui-monospace, SF Mono, Menlo, monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText(`${km >= 1000 ? `${km / 1000} Mm` : `${km} km`}`, (x0 + x1) / 2, y - 6);
+  ctx.fillText(label, (g.x0 + g.x1) / 2, g.y - 6);
 }
 
 function fmtArcKm(km: number): string {

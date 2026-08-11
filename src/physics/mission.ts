@@ -29,85 +29,108 @@ import type { MissionResult } from "./missionTypes";
 import { deriveTrajectoryMeta } from "./trajectoryMeta";
 import { designLunarTransfer } from "./translunarInjection";
 import { clone } from "./vec3";
+import type { AscentResult } from "./ascent";
+import type { EphemerisEpoch } from "./ephemerisEpoch";
 
 // Re-export public types / helpers so existing imports of ./mission keep working.
 export type { PhaseId, Sample, MissionResult } from "./missionTypes";
 export { phaseLabel } from "./missionTypes";
 
-/**
- * Starbase → low Earth orbit → translunar injection → capture → south-pole land.
- * Probe search aims for a close Moon pass so LOI can light.
- */
-export function runMission(): MissionResult {
-  const xfer = designLunarTransfer();
-  const baseDv = xfer.translunarInjectionDeltaV;
-  const T = xfer.tof;
-  const useHorizons = hasHorizonsTable();
+/** Failed ascent → MissionResult for the pack. */
+function cloneAscentSample(s: AscentResult["samples"][number]) {
+  return {
+    t: s.t, pos: clone(s.pos), vel: clone(s.vel), phase: s.phase, burning: s.burning,
+    fuelBooster: s.fuelBooster, fuelShip: s.fuelShip, thrustN: s.thrustN, staged: s.staged,
+  };
+}
 
-  // Map mission time → Horizons absolute epoch (landing = 2027-07-20 12:00)
-  let epoch = makeLunarEpoch(0, T, useHorizons);
+function ascentFailureResult(ascent0: AscentResult): MissionResult {
+  return {
+    samples: ascent0.samples.map(cloneAscentSample),
+    durationS: ascent0.state.t, moonPhase0: 0, translunarInjectionDeltaV: 0,
+    minMoonAlt: Infinity, ok: false, message: ascent0.message,
+  };
+}
+
+/** Design TOF and base TLI Δv from Hohmann transfer. */
+function designTransferParams(): { baseDv: number; T: number } {
+  const xfer = designLunarTransfer();
+  return { baseDv: xfer.translunarInjectionDeltaV, T: xfer.tof };
+}
+
+/** Initial epoch + optional Horizons log. */
+function initMissionEpoch(T: number, useHorizons: boolean): EphemerisEpoch {
+  const epoch = makeLunarEpoch(0, T, useHorizons);
   if (useHorizons) {
     console.info(
       `[tothemoon] Using ${horizonsSource()} for Earth/Moon (landing τ=0)`,
     );
   }
+  return epoch;
+}
 
-  resetAscentCache();
-  const ascent0 = ensureAscent(epoch);
-  if (!ascent0.ok) {
-    return {
-      samples: ascent0.samples.map((s) => ({
-        t: s.t,
-        pos: clone(s.pos),
-        vel: clone(s.vel),
-        phase: s.phase,
-        burning: s.burning,
-        fuelBooster: s.fuelBooster,
-        fuelShip: s.fuelShip,
-        thrustN: s.thrustN,
-        staged: s.staged,
-      })),
-      durationS: ascent0.state.t,
-      moonPhase0: 0,
-      translunarInjectionDeltaV: 0,
-      minMoonAlt: Infinity,
-      ok: false,
-      message: ascent0.message,
-    };
-  }
-  setLowEarthOrbitCoastS(LOW_EARTH_ORBIT_COAST_S);
-  const lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null } = {
-    current: computeLowEarthOrbitRelative(epoch),
-  };
-  const tTli0 = lowEarthOrbitRelative.current!.t;
-
-  const search = searchBallisticTransfer({
-    baseDv,
-    designTof: T,
-    tTli0,
-    lowEarthOrbitRelative,
-  });
-
-  const toa =
-    Number.isFinite(search.bestPeriluneT) && search.bestPeriluneT > 0
-      ? search.bestPeriluneT
-      : T;
-  // Keep best Horizons epoch; rebuild ascent under the chosen phase + landing map
-  epoch = makeLunarEpoch(search.bestPhase, search.bestLandingT, useHorizons);
+/** Rebuild LEO template under chosen search result. */
+function rebuildAfterSearch(
+  search: ReturnType<typeof searchBallisticTransfer>,
+  useHorizons: boolean,
+  lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null },
+): EphemerisEpoch {
+  const epoch = makeLunarEpoch(search.bestPhase, search.bestLandingT, useHorizons);
   resetAscentCache();
   ensureAscent(epoch);
   lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
+  return epoch;
+}
 
-  const flown = flyMission(epoch, search.bestDv, toa);
-
-  console.info(
-    `[tothemoon] ${flown.message} · duration=${(flown.durationS / 3600).toFixed(1)}h · samples=${flown.samples.length}`,
-  );
-  const out = downsampleTrajectory(flown);
-  out.horizonsLandingT = search.bestLandingT;
-  // Peak speed / stage epoch for pack v2 meta (minMoonAlt already from flyMission)
+/** Attach pack meta and log summary after fly + downsample. */
+function stampMeta(out: MissionResult, epoch: EphemerisEpoch, bestLandingT: number): MissionResult {
+  out.horizonsLandingT = bestLandingT;
   const meta = deriveTrajectoryMeta(out.samples, epoch);
   out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT;
   return out;
+}
+
+function finalizeMission(flown: MissionResult, epoch: EphemerisEpoch, bestLandingT: number): MissionResult {
+  console.info(
+    `[tothemoon] ${flown.message} · duration=${(flown.durationS / 3600).toFixed(1)}h · samples=${flown.samples.length}`,
+  );
+  return stampMeta(downsampleTrajectory(flown), epoch, bestLandingT);
+}
+
+/**
+ * Starbase → low Earth orbit → translunar injection → capture → south-pole land.
+ * Probe search aims for a close Moon pass so LOI can light.
+ */
+function pickToa(search: ReturnType<typeof searchBallisticTransfer>, T: number): number {
+  return Number.isFinite(search.bestPeriluneT) && search.bestPeriluneT > 0
+    ? search.bestPeriluneT
+    : T;
+}
+
+function runSearch(baseDv: number, T: number, epoch: EphemerisEpoch) {
+  setLowEarthOrbitCoastS(LOW_EARTH_ORBIT_COAST_S);
+  const lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null } = {
+    current: computeLowEarthOrbitRelative(epoch),
+  };
+  const search = searchBallisticTransfer({
+    baseDv, designTof: T, tTli0: lowEarthOrbitRelative.current!.t, lowEarthOrbitRelative,
+  });
+  return { search, lowEarthOrbitRelative };
+}
+
+function flyAfterSearch(search: ReturnType<typeof searchBallisticTransfer>, useHorizons: boolean, lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null }, T: number): MissionResult {
+  const epoch = rebuildAfterSearch(search, useHorizons, lowEarthOrbitRelative);
+  return finalizeMission(flyMission(epoch, search.bestDv, pickToa(search, T)), epoch, search.bestLandingT);
+}
+
+export function runMission(): MissionResult {
+  const { baseDv, T } = designTransferParams();
+  const useHorizons = hasHorizonsTable();
+  const epoch = initMissionEpoch(T, useHorizons);
+  resetAscentCache();
+  const ascent0 = ensureAscent(epoch);
+  if (!ascent0.ok) return ascentFailureResult(ascent0);
+  const { search, lowEarthOrbitRelative } = runSearch(baseDv, T, epoch);
+  return flyAfterSearch(search, useHorizons, lowEarthOrbitRelative, T);
 }

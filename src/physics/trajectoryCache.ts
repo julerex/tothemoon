@@ -107,6 +107,25 @@ export type PackedTrajectory = {
   }>;
 };
 
+function landTFromResult(result: {
+  horizonsLandingT?: number;
+  durationS: number;
+}): number {
+  return result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
+    ? result.horizonsLandingT
+    : result.durationS;
+}
+
+function isFlight13Result(result: { message?: string; durationS: number }): boolean {
+  return (
+    (result.message != null &&
+      (/Flight 13/i.test(result.message) ||
+        /suborbital/i.test(result.message) ||
+        /splashdown/i.test(result.message))) ||
+    result.durationS < 20_000
+  );
+}
+
 /** Ephemeris for a packed / computed mission result (lunar or Flight 13). */
 export function epochFromResult(result: {
   moonPhase0: number;
@@ -114,20 +133,8 @@ export function epochFromResult(result: {
   durationS: number;
   message?: string;
 }): EphemerisEpoch {
-  const landT =
-    result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
-      ? result.horizonsLandingT
-      : result.durationS;
-  // Flight 13: short suborbital duration + splash copy (not landT — lunar maps can be negative)
-  const isFlight13 =
-    (result.message != null &&
-      (/Flight 13/i.test(result.message) ||
-        /suborbital/i.test(result.message) ||
-        /splashdown/i.test(result.message))) ||
-    result.durationS < 20_000;
-  if (isFlight13) {
-    return makeFlight13Epoch(result.moonPhase0, landT);
-  }
+  const landT = landTFromResult(result);
+  if (isFlight13Result(result)) return makeFlight13Epoch(result.moonPhase0, landT);
   return makeLunarEpoch(result.moonPhase0, landT, hasHorizonsTable());
 }
 
@@ -138,107 +145,78 @@ export function normalizePhaseId(phase: string): PhaseId {
   return phase as PhaseId;
 }
 
-/** Unpack a JSON pack into a {@link MissionResult} (samples + meta). */
-export function unpackPackedTrajectory(
-  packed: PackedTrajectory,
-): MissionResult {
-  const samples = packed.samples.map((s) => ({
-    t: s.t,
-    pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
-    vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
-    phase: normalizePhaseId(s.phase),
-    burning: s.burning,
-    fuelBooster: s.fb ?? 0,
-    fuelShip: s.fs ?? 1,
-    thrustN: (s.th ?? 0) * 1000, // kN → N
-    // Infer staged if missing: booster empty and not still in pad/ascent
-    staged:
-      s.st ??
-      (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6),
-  }));
-  const provisional = {
-    moonPhase0: packed.moonPhase0,
-    horizonsLandingT: packed.horizonsLandingT,
-    durationS: packed.durationS,
-    message: packed.message,
-  };
-  const epoch = epochFromResult(provisional);
-  const meta = resolveTrajectoryMeta(
-    {
-      minMoonAlt: packed.minMoonAlt,
-      peakSpeedKmS: packed.peakSpeedKmS,
-      stageT: packed.stageT,
-    },
-    samples,
-    epoch,
-  );
-  const keplerRefMaxDevKm =
-    packed.keplerRefMaxDevKm != null && Number.isFinite(packed.keplerRefMaxDevKm)
-      ? packed.keplerRefMaxDevKm
-      : computeKeplerRefMaxDevKm(samples, epoch);
+function inferStaged(s: PackedTrajectory["samples"][number]): boolean {
+  return s.st ?? (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6);
+}
 
-  const translunarInjectionDeltaV =
-    packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0;
-
+function unpackSample(s: PackedTrajectory["samples"][number]): Sample {
   return {
-    moonPhase0: packed.moonPhase0,
-    translunarInjectionDeltaV,
-    durationS: packed.durationS,
-    horizonsLandingT: packed.horizonsLandingT,
-    ok: packed.ok,
-    message: packed.message,
-    minMoonAlt: meta.minMoonAlt,
-    peakSpeedKmS: meta.peakSpeedKmS,
-    stageT: meta.stageT,
-    keplerRefMaxDevKm,
-    samples,
+    t: s.t, pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! }, vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
+    phase: normalizePhaseId(s.phase), burning: s.burning, fuelBooster: s.fb ?? 0, fuelShip: s.fs ?? 1,
+    thrustN: (s.th ?? 0) * 1000, staged: inferStaged(s),
   };
+}
+
+function resolveKeplerDev(
+  packed: number | undefined,
+  samples: Sample[],
+  epoch: EphemerisEpoch,
+): number {
+  return packed != null && Number.isFinite(packed)
+    ? packed
+    : computeKeplerRefMaxDevKm(samples, epoch);
+}
+
+function packToMissionResult(
+  packed: PackedTrajectory, samples: Sample[],
+  meta: ReturnType<typeof resolveTrajectoryMeta>, keplerRefMaxDevKm: number,
+): MissionResult {
+  return {
+    moonPhase0: packed.moonPhase0, translunarInjectionDeltaV: packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0,
+    durationS: packed.durationS, horizonsLandingT: packed.horizonsLandingT, ok: packed.ok, message: packed.message,
+    minMoonAlt: meta.minMoonAlt, peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, keplerRefMaxDevKm, samples,
+  };
+}
+
+/** Unpack a JSON pack into a {@link MissionResult} (samples + meta). */
+function packedEpochArgs(packed: PackedTrajectory) {
+  return { moonPhase0: packed.moonPhase0, horizonsLandingT: packed.horizonsLandingT, durationS: packed.durationS, message: packed.message };
+}
+
+export function unpackPackedTrajectory(packed: PackedTrajectory): MissionResult {
+  const samples = packed.samples.map(unpackSample);
+  const epoch = epochFromResult(packedEpochArgs(packed));
+  const meta = resolveTrajectoryMeta(
+    { minMoonAlt: packed.minMoonAlt, peakSpeedKmS: packed.peakSpeedKmS, stageT: packed.stageT }, samples, epoch,
+  );
+  return packToMissionResult(packed, samples, meta, resolveKeplerDev(packed.keplerRefMaxDevKm, samples, epoch));
+}
+
+function freezeTrajectory(
+  result: MissionResult, durationS: number, horizonsLandingT: number, epoch: EphemerisEpoch,
+  meta: ReturnType<typeof resolveTrajectoryMeta>, keplerRefMaxDevKm: number,
+): Trajectory {
+  return Object.freeze({
+    samples: result.samples, durationS, ok: result.ok, message: result.message,
+    moonPhase0: result.moonPhase0, translunarInjectionDeltaV: result.translunarInjectionDeltaV,
+    horizonsLandingT, epoch, minMoonAlt: meta.minMoonAlt, peakSpeedKmS: meta.peakSpeedKmS,
+    stageT: meta.stageT, keplerRefMaxDevKm,
+  });
 }
 
 /**
  * Build an immutable {@link Trajectory} from a mission result (bake or recompute).
  */
+function trajectoryMetaArgs(result: MissionResult) {
+  return { minMoonAlt: result.minMoonAlt, peakSpeedKmS: result.peakSpeedKmS, stageT: result.stageT };
+}
+
 export function makeTrajectory(result: MissionResult): Trajectory {
   const durationS = Math.max(result.durationS, 1);
-  const horizonsLandingT =
-    result.horizonsLandingT != null && Number.isFinite(result.horizonsLandingT)
-      ? result.horizonsLandingT
-      : durationS;
-  const epoch = epochFromResult({
-    moonPhase0: result.moonPhase0,
-    horizonsLandingT,
-    durationS,
-    message: result.message,
-  });
-  const meta = resolveTrajectoryMeta(
-    {
-      minMoonAlt: result.minMoonAlt,
-      peakSpeedKmS: result.peakSpeedKmS,
-      stageT: result.stageT,
-    },
-    result.samples,
-    epoch,
-  );
-  const keplerRefMaxDevKm =
-    result.keplerRefMaxDevKm != null &&
-    Number.isFinite(result.keplerRefMaxDevKm)
-      ? result.keplerRefMaxDevKm
-      : computeKeplerRefMaxDevKm(result.samples, epoch);
-
-  return Object.freeze({
-    samples: result.samples,
-    durationS,
-    ok: result.ok,
-    message: result.message,
-    moonPhase0: result.moonPhase0,
-    translunarInjectionDeltaV: result.translunarInjectionDeltaV,
-    horizonsLandingT,
-    epoch,
-    minMoonAlt: meta.minMoonAlt,
-    peakSpeedKmS: meta.peakSpeedKmS,
-    stageT: meta.stageT,
-    keplerRefMaxDevKm,
-  });
+  const horizonsLandingT = landTFromResult({ ...result, durationS });
+  const epoch = epochFromResult({ moonPhase0: result.moonPhase0, horizonsLandingT, durationS, message: result.message });
+  const meta = resolveTrajectoryMeta(trajectoryMetaArgs(result), result.samples, epoch);
+  return freezeTrajectory(result, durationS, horizonsLandingT, epoch, meta, resolveKeplerDev(result.keplerRefMaxDevKm, result.samples, epoch));
 }
 
 /** Load baked lunar trajectory. Instant — no RK4 on the main thread. */
@@ -305,61 +283,41 @@ export function sampleAtProgress(traj: Trajectory, u: number): FrameState {
   return sampleAtTime(traj, t);
 }
 
+function findSampleBracket(s: Sample[], t: number): { a: Sample; b: Sample; f: number } {
+  let lo = 0, hi = s.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (s[mid]!.t <= t) lo = mid; else hi = mid;
+  }
+  const a = s[lo]!, b = s[hi]!;
+  return { a, b, f: (t - a.t) / (b.t - a.t || 1) };
+}
+
+function lerpV3(a: V3, b: V3, f: number): V3 {
+  return v3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, a.z + (b.z - a.z) * f);
+}
+
+function interpFrameFields(a: Sample, b: Sample, f: number) {
+  return {
+    phase: f < 0.5 ? a.phase : b.phase,
+    burning: a.burning || b.burning,
+    fuelBooster: a.fuelBooster + (b.fuelBooster - a.fuelBooster) * f,
+    fuelShip: a.fuelShip + (b.fuelShip - a.fuelShip) * f,
+    thrustN: a.thrustN + (b.thrustN - a.thrustN) * f,
+    staged: f < 0.5 ? a.staged : b.staged,
+  };
+}
+
 /** Mission time (s) → linearly interpolated frame + live body altitudes. */
 export function sampleAtTime(traj: Trajectory, t: number): FrameState {
   const s = traj.samples;
-  if (s.length === 0) {
-    return emptyFrame();
-  }
-
+  if (s.length === 0) return emptyFrame();
   if (t <= s[0]!.t) return frameFromSample(s[0]!, traj.epoch);
-  if (t >= s[s.length - 1]!.t) {
-    return frameFromSample(s[s.length - 1]!, traj.epoch);
-  }
-
-  let lo = 0;
-  let hi = s.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (s[mid]!.t <= t) lo = mid;
-    else hi = mid;
-  }
-
-  const a = s[lo]!;
-  const b = s[hi]!;
-  const span = b.t - a.t || 1;
-  const f = (t - a.t) / span;
-
-  const pos = v3(
-    a.pos.x + (b.pos.x - a.pos.x) * f,
-    a.pos.y + (b.pos.y - a.pos.y) * f,
-    a.pos.z + (b.pos.z - a.pos.z) * f,
-  );
-  const vel = v3(
-    a.vel.x + (b.vel.x - a.vel.x) * f,
-    a.vel.y + (b.vel.y - a.vel.y) * f,
-    a.vel.z + (b.vel.z - a.vel.z) * f,
-  );
-
-  const phase = f < 0.5 ? a.phase : b.phase;
-  const burning = a.burning || b.burning;
-  const fuelBooster = a.fuelBooster + (b.fuelBooster - a.fuelBooster) * f;
-  const fuelShip = a.fuelShip + (b.fuelShip - a.fuelShip) * f;
-  const thrustN = a.thrustN + (b.thrustN - a.thrustN) * f;
-  // Switch at mid-span so scrubbing across stage-out is stable
-  const staged = f < 0.5 ? a.staged : b.staged;
-  return makeFrame(
-    t,
-    pos,
-    vel,
-    phase,
-    burning,
-    fuelBooster,
-    fuelShip,
-    thrustN,
-    staged,
-    traj.epoch,
-  );
+  if (t >= s[s.length - 1]!.t) return frameFromSample(s[s.length - 1]!, traj.epoch);
+  const { a, b, f } = findSampleBracket(s, t);
+  const fields = interpFrameFields(a, b, f);
+  return makeFrame(t, lerpV3(a.pos, b.pos, f), lerpV3(a.vel, b.vel, f), fields.phase,
+    fields.burning, fields.fuelBooster, fields.fuelShip, fields.thrustN, fields.staged, traj.epoch);
 }
 
 /** Positions for trail rendering (optionally decimated). */
@@ -376,75 +334,42 @@ export function trailPoints(traj: Trajectory, max = 1200): V3[] {
 
 function emptyFrame(): FrameState {
   return {
-    t: 0,
-    pos: v3(),
-    vel: v3(),
-    phase: "lowEarthOrbit",
-    phaseLabel: phaseLabel("lowEarthOrbit"),
-    burning: false,
-    speed: 0,
-    altMoon: 0,
-    altEarth: 0,
-    distMoon: 0,
-    fuelBooster: 0,
-    fuelShip: 1,
-    thrustN: 0,
-    staged: true,
+    t: 0, pos: v3(), vel: v3(), phase: "lowEarthOrbit",
+    phaseLabel: phaseLabel("lowEarthOrbit"), burning: false, speed: 0,
+    altMoon: 0, altEarth: 0, distMoon: 0, fuelBooster: 0, fuelShip: 1, thrustN: 0, staged: true,
   };
 }
 
 function frameFromSample(s: Sample, epoch: EphemerisEpoch): FrameState {
-  return makeFrame(
-    s.t,
-    s.pos,
-    s.vel,
-    s.phase,
-    s.burning,
-    s.fuelBooster,
-    s.fuelShip,
-    s.thrustN,
-    s.staged,
-    epoch,
-  );
+  return makeFrame(s.t, s.pos, s.vel, s.phase, s.burning, s.fuelBooster, s.fuelShip, s.thrustN, s.staged, epoch);
+}
+
+function frameAlts(t: number, pos: V3, epoch: EphemerisEpoch) {
+  const b = bodyPositions(t, epoch);
+  const distMoon = Math.hypot(pos.x - b.moon.x, pos.y - b.moon.y, pos.z - b.moon.z);
+  const distEarth = Math.hypot(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z);
+  return { distMoon, altMoon: distMoon - R_MOON, altEarth: distEarth - R_EARTH };
+}
+
+function frameCore(
+  t: number, pos: V3, vel: V3, phase: PhaseId, burning: boolean,
+  fuelBooster: number, fuelShip: number, thrustN: number, staged: boolean,
+  alts: { distMoon: number; altMoon: number; altEarth: number },
+): FrameState {
+  return {
+    t, pos: { x: pos.x, y: pos.y, z: pos.z }, vel: { x: vel.x, y: vel.y, z: vel.z },
+    phase, phaseLabel: phaseLabel(phase), burning, speed: len(vel),
+    altMoon: alts.altMoon, altEarth: alts.altEarth, distMoon: alts.distMoon,
+    fuelBooster, fuelShip, thrustN, staged,
+  };
 }
 
 function makeFrame(
-  t: number,
-  pos: V3,
-  vel: V3,
-  phase: PhaseId,
-  burning: boolean,
-  fuelBooster: number,
-  fuelShip: number,
-  thrustN: number,
-  staged: boolean,
+  t: number, pos: V3, vel: V3, phase: PhaseId, burning: boolean,
+  fuelBooster: number, fuelShip: number, thrustN: number, staged: boolean,
   epoch: EphemerisEpoch,
 ): FrameState {
-  const b = bodyPositions(t, epoch);
-  const dxM = pos.x - b.moon.x;
-  const dyM = pos.y - b.moon.y;
-  const dzM = pos.z - b.moon.z;
-  const distMoon = Math.hypot(dxM, dyM, dzM);
-  const dxE = pos.x - b.earth.x;
-  const dyE = pos.y - b.earth.y;
-  const dzE = pos.z - b.earth.z;
-  const distEarth = Math.hypot(dxE, dyE, dzE);
-  return {
-    t,
-    pos: { x: pos.x, y: pos.y, z: pos.z },
-    vel: { x: vel.x, y: vel.y, z: vel.z },
-    phase,
-    phaseLabel: phaseLabel(phase),
-    burning,
-    speed: len(vel),
-    altMoon: distMoon - R_MOON,
-    altEarth: distEarth - R_EARTH,
-    distMoon,
-    fuelBooster,
-    fuelShip,
-    thrustN,
-    staged,
-  };
+  return frameCore(t, pos, vel, phase, burning, fuelBooster, fuelShip, thrustN, staged, frameAlts(t, pos, epoch));
 }
 
 function isTrajectory(value: MissionResult | Trajectory): value is Trajectory {
@@ -457,41 +382,60 @@ function isTrajectory(value: MissionResult | Trajectory): value is Trajectory {
   );
 }
 
+type CacheFields = {
+  samples: Sample[]; durationS: number; ok: boolean; message: string;
+  moonPhase0: number; translunarInjectionDeltaV: number; minMoonAlt: number;
+  peakSpeedKmS: number; stageT: number | null; keplerRefMaxDevKm: number;
+  horizonsLandingT: number; epoch: EphemerisEpoch;
+};
+
+function copyCoreFields(target: CacheFields, t: Trajectory): void {
+  target.samples = t.samples;
+  target.durationS = t.durationS;
+  target.ok = t.ok;
+  target.message = t.message;
+  target.moonPhase0 = t.moonPhase0;
+  target.translunarInjectionDeltaV = t.translunarInjectionDeltaV;
+}
+
+function copyMetaFields(target: CacheFields, t: Trajectory): void {
+  target.minMoonAlt = t.minMoonAlt;
+  target.peakSpeedKmS = t.peakSpeedKmS;
+  target.stageT = t.stageT;
+  target.keplerRefMaxDevKm = t.keplerRefMaxDevKm;
+  target.horizonsLandingT = t.horizonsLandingT;
+  target.epoch = t.epoch;
+}
+
+function copyTrajectoryFields(target: CacheFields, t: Trajectory): void {
+  copyCoreFields(target, t);
+  copyMetaFields(target, t);
+}
+
 /**
  * Thin object facade over pure trajectory helpers (same call shape as the old class).
  * Prefer free functions + {@link Trajectory} for new code.
  */
 export class TrajectoryCache {
-  readonly samples: Sample[];
-  readonly durationS: number;
-  readonly ok: boolean;
-  readonly message: string;
-  readonly moonPhase0: number;
-  readonly translunarInjectionDeltaV: number;
-  readonly minMoonAlt: number;
-  readonly peakSpeedKmS: number;
-  readonly stageT: number | null;
-  readonly keplerRefMaxDevKm: number;
-  readonly horizonsLandingT: number;
-  readonly epoch: EphemerisEpoch;
+  readonly samples!: Sample[];
+  readonly durationS!: number;
+  readonly ok!: boolean;
+  readonly message!: string;
+  readonly moonPhase0!: number;
+  readonly translunarInjectionDeltaV!: number;
+  readonly minMoonAlt!: number;
+  readonly peakSpeedKmS!: number;
+  readonly stageT!: number | null;
+  readonly keplerRefMaxDevKm!: number;
+  readonly horizonsLandingT!: number;
+  readonly epoch!: EphemerisEpoch;
   private readonly traj: Trajectory;
   private _corridor: CoastCorridor | null | undefined;
 
   constructor(result: MissionResult | Trajectory) {
     const t = isTrajectory(result) ? result : makeTrajectory(result);
     this.traj = t;
-    this.samples = t.samples;
-    this.durationS = t.durationS;
-    this.ok = t.ok;
-    this.message = t.message;
-    this.moonPhase0 = t.moonPhase0;
-    this.translunarInjectionDeltaV = t.translunarInjectionDeltaV;
-    this.minMoonAlt = t.minMoonAlt;
-    this.peakSpeedKmS = t.peakSpeedKmS;
-    this.stageT = t.stageT;
-    this.keplerRefMaxDevKm = t.keplerRefMaxDevKm;
-    this.horizonsLandingT = t.horizonsLandingT;
-    this.epoch = t.epoch;
+    copyTrajectoryFields(this, t);
   }
 
   /** Underlying pure trajectory data. */

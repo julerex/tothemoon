@@ -43,14 +43,79 @@ export function softTerminatorNl(
  */
 export function applySoftTerminator(material: THREE.MeshStandardMaterial): void {
   material.customProgramCacheKey = () => "earth-soft-terminator-v2";
-  material.onBeforeCompile = (shader) => {
-    // Only RE_Direct_Physical's irradiance gate — leave BRDF specular N·L alone.
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );",
-      // Soft scatter wraps slightly past the geometric night side (theater).
-      "float dotNL = smoothstep( -0.18, 0.42, dot( geometryNormal, directLight.direction ) );",
-    );
-  };
+  material.onBeforeCompile = injectSoftTerminator;
+}
+
+/** onBeforeCompile hook: soft N·L for direct light irradiance. */
+function injectSoftTerminator(shader: THREE.WebGLProgramParametersWithUniforms): void {
+  shader.fragmentShader = shader.fragmentShader.replace(
+    "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );",
+    "float dotNL = smoothstep( -0.18, 0.42, dot( geometryNormal, directLight.direction ) );",
+  );
+}
+
+type AtmoShellOpts = {
+  radius: number;
+  segments: number;
+  /** Fresnel power — higher = tighter limb. */
+  power: number;
+  /** Overall density scale. */
+  density: number;
+  dayColor: THREE.Color;
+  nightColor: THREE.Color;
+  dayAlpha: number;
+  nightAlpha: number;
+  additive: boolean;
+};
+
+/** Dense inner band — thick blue near horizon / LEO limb drama. */
+const INNER_ATMO: AtmoShellOpts = {
+  radius: R_EARTH * 1.018,
+  segments: 64,
+  power: 3.2,
+  density: 0.72,
+  dayColor: new THREE.Color(0xa8d8ff),
+  nightColor: new THREE.Color(0x1a3a6a),
+  dayAlpha: 0.55,
+  nightAlpha: 0.1,
+  additive: true,
+};
+
+/** Mid Rayleigh shell — softer blue wrap. */
+const MID_ATMO: AtmoShellOpts = {
+  radius: R_EARTH * 1.035,
+  segments: 56,
+  power: 2.4,
+  density: 0.55,
+  dayColor: new THREE.Color(0x5aa0e8),
+  nightColor: new THREE.Color(0x0c2040),
+  dayAlpha: 0.38,
+  nightAlpha: 0.08,
+  additive: false,
+};
+
+/** Outer faint halo — extended scatter. */
+const OUTER_ATMO: AtmoShellOpts = {
+  radius: R_EARTH * 1.065,
+  segments: 48,
+  power: 1.8,
+  density: 0.4,
+  dayColor: new THREE.Color(0x3a78c8),
+  nightColor: new THREE.Color(0x081828),
+  dayAlpha: 0.18,
+  nightAlpha: 0.04,
+  additive: false,
+};
+
+/** Add one atmosphere shell mesh + material to the group. */
+function addAtmoShell(
+  group: THREE.Group,
+  materials: THREE.ShaderMaterial[],
+  opts: AtmoShellOpts,
+): void {
+  const shell = makeAtmoShell(opts);
+  group.add(shell.mesh);
+  materials.push(shell.material);
 }
 
 /**
@@ -60,54 +125,10 @@ export function applySoftTerminator(material: THREE.MeshStandardMaterial): void 
 export function createEarthAtmosphere(): EarthAtmosphere {
   const group = new THREE.Group();
   group.name = "earth-atmosphere";
-
   const materials: THREE.ShaderMaterial[] = [];
-
-  // Dense inner band — thick blue near horizon / LEO limb drama
-  const inner = makeAtmoShell({
-    radius: R_EARTH * 1.018,
-    segments: 64,
-    power: 3.2,
-    density: 0.72,
-    dayColor: new THREE.Color(0xa8d8ff),
-    nightColor: new THREE.Color(0x1a3a6a),
-    dayAlpha: 0.55,
-    nightAlpha: 0.1,
-    additive: true,
-  });
-  group.add(inner.mesh);
-  materials.push(inner.material);
-
-  // Mid Rayleigh shell — softer blue wrap
-  const mid = makeAtmoShell({
-    radius: R_EARTH * 1.035,
-    segments: 56,
-    power: 2.4,
-    density: 0.55,
-    dayColor: new THREE.Color(0x5aa0e8),
-    nightColor: new THREE.Color(0x0c2040),
-    dayAlpha: 0.38,
-    nightAlpha: 0.08,
-    additive: false,
-  });
-  group.add(mid.mesh);
-  materials.push(mid.material);
-
-  // Outer faint halo — extended scatter
-  const outer = makeAtmoShell({
-    radius: R_EARTH * 1.065,
-    segments: 48,
-    power: 1.8,
-    density: 0.4,
-    dayColor: new THREE.Color(0x3a78c8),
-    nightColor: new THREE.Color(0x081828),
-    dayAlpha: 0.18,
-    nightAlpha: 0.04,
-    additive: false,
-  });
-  group.add(outer.mesh);
-  materials.push(outer.material);
-
+  addAtmoShell(group, materials, INNER_ATMO);
+  addAtmoShell(group, materials, MID_ATMO);
+  addAtmoShell(group, materials, OUTER_ATMO);
   return { group, materials };
 }
 
@@ -125,100 +146,116 @@ export function updateEarthAtmosphere(
   }
 }
 
-type AtmoShellOpts = {
-  radius: number;
-  segments: number;
-  /** Fresnel power — higher = tighter limb. */
-  power: number;
-  /** Overall density scale. */
-  density: number;
-  dayColor: THREE.Color;
-  nightColor: THREE.Color;
-  dayAlpha: number;
-  nightAlpha: number;
-  additive: boolean;
-};
+const ATMO_VERTEX = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+  void main() {
+    // Object-space normal → world (sphere centered on Earth group)
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPos = wp.xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #include <logdepthbuf_vertex>
+  }
+`;
 
+const ATMO_FRAGMENT = /* glsl */ `
+  #include <common>
+  #include <logdepthbuf_pars_fragment>
+  uniform vec3 uSunDir;
+  uniform float uPower;
+  uniform float uDensity;
+  uniform vec3 uDayColor;
+  uniform vec3 uNightColor;
+  uniform float uDayAlpha;
+  uniform float uNightAlpha;
+  varying vec3 vWorldNormal;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vec3 n = normalize(vWorldNormal);
+    vec3 viewDir = normalize(cameraPosition - vWorldPos);
+    // Grazing angle → bright limb (works with BackSide shell)
+    float ndv = abs(dot(n, viewDir));
+    float fresnel = pow(clamp(1.0 - ndv, 0.0, 1.0), uPower);
+
+    // Soft day weighting: limb brighter on sunlit edge, faint night airglow
+    float sun = dot(n, normalize(uSunDir));
+    float day = smoothstep(-0.25, 0.45, sun);
+
+    vec3 col = mix(uNightColor, uDayColor, day);
+    // Slight horizon thickening: more alpha where fresnel is high
+    float alpha = fresnel * uDensity * mix(uNightAlpha, uDayAlpha, day);
+    // Soft terminator scatter band (blue airlight wraps the edge)
+    float termBand = 1.0 - abs(smoothstep(-0.2, 0.35, sun) * 2.0 - 1.0);
+    alpha += fresnel * termBand * 0.12 * uDensity;
+    col = mix(col, uDayColor * 1.15, termBand * 0.25 * day);
+
+    if (alpha < 0.002) discard;
+    gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.95));
+    #include <logdepthbuf_fragment>
+  }
+`;
+
+/** Uniforms for one Fresnel atmosphere shell. */
+function makeAtmoUniforms(opts: AtmoShellOpts) {
+  return {
+    uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+    uPower: { value: opts.power },
+    uDensity: { value: opts.density },
+    uDayColor: { value: opts.dayColor },
+    uNightColor: { value: opts.nightColor },
+    uDayAlpha: { value: opts.dayAlpha },
+    uNightAlpha: { value: opts.nightAlpha },
+  };
+}
+
+/** Configure BackSide transparent shell draw flags. */
+function configureAtmoMesh(mesh: THREE.Mesh): void {
+  mesh.name = "earth-atmo-shell";
+  mesh.renderOrder = 2;
+  mesh.frustumCulled = true;
+}
+
+/** Sphere geometry for one atmosphere shell. */
+function makeAtmoGeometry(opts: AtmoShellOpts): THREE.SphereGeometry {
+  const segs = opts.segments;
+  return new THREE.SphereGeometry(
+    opts.radius,
+    segs,
+    Math.max(24, (segs * 3) / 4),
+  );
+}
+
+/** Build sphere mesh + shader for one atmosphere shell. */
 function makeAtmoShell(opts: AtmoShellOpts): {
   mesh: THREE.Mesh;
   material: THREE.ShaderMaterial;
 } {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uSunDir: { value: new THREE.Vector3(1, 0, 0) },
-      uPower: { value: opts.power },
-      uDensity: { value: opts.density },
-      uDayColor: { value: opts.dayColor },
-      uNightColor: { value: opts.nightColor },
-      uDayAlpha: { value: opts.dayAlpha },
-      uNightAlpha: { value: opts.nightAlpha },
-    },
-    vertexShader: /* glsl */ `
-      #include <common>
-      #include <logdepthbuf_pars_vertex>
-      varying vec3 vWorldNormal;
-      varying vec3 vWorldPos;
-      void main() {
-        // Object-space normal → world (sphere centered on Earth group)
-        vec4 wp = modelMatrix * vec4(position, 1.0);
-        vWorldPos = wp.xyz;
-        vWorldNormal = normalize(mat3(modelMatrix) * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        #include <logdepthbuf_vertex>
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      #include <common>
-      #include <logdepthbuf_pars_fragment>
-      uniform vec3 uSunDir;
-      uniform float uPower;
-      uniform float uDensity;
-      uniform vec3 uDayColor;
-      uniform vec3 uNightColor;
-      uniform float uDayAlpha;
-      uniform float uNightAlpha;
-      varying vec3 vWorldNormal;
-      varying vec3 vWorldPos;
-
-      void main() {
-        vec3 n = normalize(vWorldNormal);
-        vec3 viewDir = normalize(cameraPosition - vWorldPos);
-        // Grazing angle → bright limb (works with BackSide shell)
-        float ndv = abs(dot(n, viewDir));
-        float fresnel = pow(clamp(1.0 - ndv, 0.0, 1.0), uPower);
-
-        // Soft day weighting: limb brighter on sunlit edge, faint night airglow
-        float sun = dot(n, normalize(uSunDir));
-        float day = smoothstep(-0.25, 0.45, sun);
-
-        vec3 col = mix(uNightColor, uDayColor, day);
-        // Slight horizon thickening: more alpha where fresnel is high
-        float alpha = fresnel * uDensity * mix(uNightAlpha, uDayAlpha, day);
-        // Soft terminator scatter band (blue airlight wraps the edge)
-        float termBand = 1.0 - abs(smoothstep(-0.2, 0.35, sun) * 2.0 - 1.0);
-        alpha += fresnel * termBand * 0.12 * uDensity;
-        col = mix(col, uDayColor * 1.15, termBand * 0.25 * day);
-
-        if (alpha < 0.002) discard;
-        gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.95));
-        #include <logdepthbuf_fragment>
-      }
-    `,
-    side: THREE.BackSide,
-    transparent: true,
-    depthWrite: false,
-    depthTest: true,
-    blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
-    toneMapped: true,
-  });
-
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(opts.radius, opts.segments, Math.max(24, (opts.segments * 3) / 4)),
-    material,
-  );
-  mesh.name = "earth-atmo-shell";
-  mesh.renderOrder = 2;
-  mesh.frustumCulled = true;
-
+  const material = makeAtmoMaterial(opts);
+  const mesh = new THREE.Mesh(makeAtmoGeometry(opts), material);
+  configureAtmoMesh(mesh);
   return { mesh, material };
+}
+
+/** Shared transparent shell flags (no depth write). */
+const SHELL_MAT = {
+  transparent: true,
+  depthWrite: false,
+  depthTest: true,
+  toneMapped: true,
+} as const;
+
+/** ShaderMaterial for one Fresnel atmosphere shell. */
+function makeAtmoMaterial(opts: AtmoShellOpts): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: makeAtmoUniforms(opts),
+    vertexShader: ATMO_VERTEX,
+    fragmentShader: ATMO_FRAGMENT,
+    side: THREE.BackSide,
+    blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    ...SHELL_MAT,
+  });
 }

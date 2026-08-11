@@ -86,6 +86,35 @@ const ATMO_ALT_KM = 80;
  * @param kind - Booster vs ship palette / rules
  * @param opts - Hot-stage ramp, staged flag, altitude, recovery phase
  */
+function recoveryRegime(recovery: string | undefined): PlumeRegimeId | null {
+  if (recovery === "landing" || recovery === "caught") return "landing";
+  if (recovery === "boostback") return "boostback";
+  return null;
+}
+
+const LANDING_PHASES = new Set(["descent", "braking", "landed", "splashdown"]);
+const VACUUM_PHASES = new Set([
+  "translunarInjection",
+  "lowEarthOrbit",
+  "coast",
+  "entry",
+]);
+
+function phaseMappedRegime(phase: string | undefined): PlumeRegimeId | null {
+  if (phase === "launch" || phase === "ascent") return "atmosphere";
+  if (phase === "approach") return "loi";
+  if (phase && LANDING_PHASES.has(phase)) return "landing";
+  if (phase && VACUUM_PHASES.has(phase)) return "vacuum";
+  return null;
+}
+
+function altFallbackRegime(kind: PlumeKind, alt: number | undefined): PlumeRegimeId {
+  // Booster defaults atmosphere; ship uses altitude when known
+  if (kind === "booster") return "atmosphere";
+  if (alt != null && Number.isFinite(alt) && alt < ATMO_ALT_KM) return "atmosphere";
+  return "vacuum";
+}
+
 export function plumeRegimeFor(
   phase: string | undefined,
   kind: PlumeKind,
@@ -93,49 +122,14 @@ export function plumeRegimeFor(
 ): PlumeRegimeId {
   const hotPre = opts.hotPre ?? 0;
   const staged = opts.staged ?? false;
-  const alt = opts.altEarthKm;
-  const recovery = opts.recoveryPhase;
-
   // Detached Super Heavy recovery path
-  if (kind === "booster" && recovery) {
-    if (recovery === "landing" || recovery === "caught") return "landing";
-    if (recovery === "boostback") return "boostback";
+  if (kind === "booster" && opts.recoveryPhase) {
+    const r = recoveryRegime(opts.recoveryPhase);
+    if (r) return r;
   }
-
   // Ship lights during hot-stage pre-sep
   if (kind === "ship" && !staged && hotPre > 0.02) return "hotStage";
-
-  if (phase === "launch" || phase === "ascent") return "atmosphere";
-  if (phase === "approach") return "loi";
-  if (
-    phase === "descent" ||
-    phase === "braking" ||
-    phase === "landed" ||
-    phase === "splashdown"
-  ) {
-    return "landing";
-  }
-  if (
-    phase === "translunarInjection" ||
-    phase === "lowEarthOrbit" ||
-    phase === "coast" ||
-    phase === "entry"
-  ) {
-    return "vacuum";
-  }
-
-  // Altitude fallback (prelaunch / unknown phase)
-  if (kind === "booster") {
-    if (alt != null && Number.isFinite(alt) && alt < ATMO_ALT_KM) {
-      return "atmosphere";
-    }
-    return "atmosphere";
-  }
-
-  if (alt != null && Number.isFinite(alt) && alt < ATMO_ALT_KM) {
-    return "atmosphere";
-  }
-  return "vacuum";
+  return phaseMappedRegime(phase) ?? altFallbackRegime(kind, opts.altEarthKm);
 }
 
 const BOOSTER_ATMO: PlumeLook = {
@@ -246,42 +240,27 @@ const SHIP_HOT: PlumeLook = {
  * @param kind - Selects booster vs ship constant tables
  * @returns Multipliers + RGB triples applied on top of thrust-normalized bases
  */
-export function plumeLook(regime: PlumeRegimeId, kind: PlumeKind): PlumeLook {
-  if (kind === "booster") {
-    switch (regime) {
-      case "atmosphere":
-        return BOOSTER_ATMO;
-      case "vacuum":
-        return BOOSTER_VACUUM;
-      case "boostback":
-        return BOOSTER_BOOSTBACK;
-      case "landing":
-        return BOOSTER_LANDING;
-      case "loi":
-      case "hotStage":
-        // Booster rarely in these; fall back sensibly
-        return regime === "loi" ? BOOSTER_VACUUM : BOOSTER_ATMO;
-      default:
-        return BOOSTER_ATMO;
-    }
-  }
+const BOOSTER_LOOK: Record<PlumeRegimeId, PlumeLook> = {
+  atmosphere: BOOSTER_ATMO,
+  vacuum: BOOSTER_VACUUM,
+  boostback: BOOSTER_BOOSTBACK,
+  landing: BOOSTER_LANDING,
+  // Booster rarely in these; fall back sensibly
+  loi: BOOSTER_VACUUM,
+  hotStage: BOOSTER_ATMO,
+};
 
-  switch (regime) {
-    case "atmosphere":
-      return SHIP_ATMO;
-    case "vacuum":
-      return SHIP_VACUUM;
-    case "loi":
-      return SHIP_LOI;
-    case "landing":
-      return SHIP_LANDING;
-    case "hotStage":
-      return SHIP_HOT;
-    case "boostback":
-      return SHIP_VACUUM;
-    default:
-      return SHIP_VACUUM;
-  }
+const SHIP_LOOK: Record<PlumeRegimeId, PlumeLook> = {
+  atmosphere: SHIP_ATMO,
+  vacuum: SHIP_VACUUM,
+  loi: SHIP_LOI,
+  landing: SHIP_LANDING,
+  hotStage: SHIP_HOT,
+  boostback: SHIP_VACUUM,
+};
+
+export function plumeLook(regime: PlumeRegimeId, kind: PlumeKind): PlumeLook {
+  return kind === "booster" ? BOOSTER_LOOK[regime] : SHIP_LOOK[regime];
 }
 
 /**
@@ -316,14 +295,8 @@ export function plumeGimbalOffset(
   missionT: number,
   layer = 0,
 ): { x: number; y: number } {
-  const t = missionT;
   const amp = 0.004 + layer * 0.0025;
-  return {
-    x:
-      amp *
-      (Math.sin(t * 2.7 + layer * 0.9) + 0.35 * Math.sin(t * 5.1 + 1.2)),
-    y:
-      amp *
-      (Math.cos(t * 2.1 + layer * 1.1) + 0.3 * Math.sin(t * 4.3 + 0.4)),
-  };
+  const x = amp * (Math.sin(missionT * 2.7 + layer * 0.9) + 0.35 * Math.sin(missionT * 5.1 + 1.2));
+  const y = amp * (Math.cos(missionT * 2.1 + layer * 1.1) + 0.3 * Math.sin(missionT * 4.3 + 0.4));
+  return { x, y };
 }

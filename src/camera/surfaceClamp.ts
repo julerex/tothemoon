@@ -19,6 +19,51 @@ export type BodySphere = {
 
 export type Vec3Like = { x: number; y: number; z: number };
 
+/** Push (x,y,z) onto sphere surface if inside; returns new coords + whether moved. */
+function pushOneSphere(
+  x: number,
+  y: number,
+  z: number,
+  b: BodySphere,
+): { x: number; y: number; z: number; moved: boolean } {
+  const dx = x - b.x;
+  const dy = y - b.y;
+  const dz = z - b.z;
+  const d2 = dx * dx + dy * dy + dz * dz;
+  const minR = b.r;
+  if (!(minR > 0) || d2 >= minR * minR) return { x, y, z, moved: false };
+  return projectOntoSphere(b, dx, dy, dz, d2, minR);
+}
+
+function projectOntoSphere(
+  b: BodySphere,
+  dx: number,
+  dy: number,
+  dz: number,
+  d2: number,
+  minR: number,
+): { x: number; y: number; z: number; moved: boolean } {
+  const d = Math.sqrt(d2);
+  if (d < 1e-12) {
+    // Exactly at the center — pick +X in body frame
+    return { x: b.x + minR, y: b.y, z: b.z, moved: true };
+  }
+  const s = minR / d;
+  return { x: b.x + dx * s, y: b.y + dy * s, z: b.z + dz * s, moved: true };
+}
+
+function applyPushLoop(
+  x: number, y: number, z: number, bodies: readonly BodySphere[],
+): { x: number; y: number; z: number; moved: boolean } {
+  let moved = false;
+  for (const b of bodies) {
+    const r = pushOneSphere(x, y, z, b);
+    x = r.x; y = r.y; z = r.z;
+    if (r.moved) moved = true;
+  }
+  return { x, y, z, moved };
+}
+
 /**
  * If `pos` is inside any sphere, push it radially onto that sphere's surface.
  * Processes bodies in order; returns true when the position was changed.
@@ -28,38 +73,9 @@ export function pushOutsideSpheres(
   bodies: readonly BodySphere[],
   out: Vec3Like = pos,
 ): boolean {
-  let x = pos.x;
-  let y = pos.y;
-  let z = pos.z;
-  let moved = false;
-
-  for (const b of bodies) {
-    const dx = x - b.x;
-    const dy = y - b.y;
-    const dz = z - b.z;
-    const d2 = dx * dx + dy * dy + dz * dz;
-    const minR = b.r;
-    if (!(minR > 0) || d2 >= minR * minR) continue;
-
-    const d = Math.sqrt(d2);
-    if (d < 1e-12) {
-      // Exactly at the center — pick +X in body frame
-      x = b.x + minR;
-      y = b.y;
-      z = b.z;
-    } else {
-      const s = minR / d;
-      x = b.x + dx * s;
-      y = b.y + dy * s;
-      z = b.z + dz * s;
-    }
-    moved = true;
-  }
-
-  out.x = x;
-  out.y = y;
-  out.z = z;
-  return moved;
+  const r = applyPushLoop(pos.x, pos.y, pos.z, bodies);
+  out.x = r.x; out.y = r.y; out.z = r.z;
+  return r.moved;
 }
 
 /**

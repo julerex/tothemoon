@@ -87,11 +87,8 @@ export function lowLunarOrbitPeriodS(rKm: number): number {
  * craft radial (so powered descent initiation can reach the south pole without a huge plane change).
  */
 function polarOrbitNormal(relP: V3, relV: V3, out: V3): V3 {
-  moonSouthUnit(_south);
-  // h = r × south → plane of r and south (polar). Prefer same sense as flyby.
-  cross(out, relP, _south);
+  moonSouthUnit(_south); cross(out, relP, _south);
   if (len(out) < 1e-8) {
-    // Over a pole: fall back to flyby plane or ecliptic north cross south
     cross(out, relP, relV);
     if (len(out) < 1e-8) set(out, 0, 1, 0);
   }
@@ -101,92 +98,193 @@ function polarOrbitNormal(relP: V3, relV: V3, out: V3): V3 {
   return out;
 }
 
-/** True when lunar orbit insertion has achieved near-circular polar-ish low lunar orbit. */
-export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): boolean {
-  const b = getBodies(t, epoch);
-  sub(_relP, pos, b.moon);
-  sub(_relV, vel, b.moonVel);
-  const r = len(_relP);
-  const alt = r - R_MOON;
-  // Accept capture once lowered into useful low lunar orbit band (not multi-Mm flyby)
-  if (alt < 50 || alt > 2_500) return false;
-  normalize(_radial, _relP);
-  const vRad = Math.abs(dot(_relV, _radial));
-  const v = len(_relV);
-  const vCirc = Math.sqrt(MU_MOON / r);
-  const vEsc = Math.sqrt((2 * MU_MOON) / r);
-  const bound = v < vEsc * 0.97;
-  const nearCirc = Math.abs(v - vCirc) < LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK * 2;
-  // Prefer polar: |h · south| small means poles lie in the orbital plane
+/** Polar alignment of h with lunar south (true if near-polar). */
+function polarOkH(): boolean {
   moonSouthUnit(_south);
   cross(_h, _relP, _relV);
   const hLen = len(_h);
-  const polarOk =
-    hLen < 1e-8 || Math.abs(dot(_h, _south) / hLen) < 0.7; // ≲45° from polar
-  return bound && vRad < LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK * 2 && nearCirc && polarOk;
+  return hLen < 1e-8 || Math.abs(dot(_h, _south) / hLen) < 0.7;
+}
+
+function fillMoonRel(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): number {
+  const b = getBodies(t, epoch);
+  sub(_relP, pos, b.moon);
+  sub(_relV, vel, b.moonVel);
+  return len(_relP);
+}
+
+function loiNearCircular(r: number, v: number, vRad: number): boolean {
+  const vCirc = Math.sqrt(MU_MOON / r);
+  const vEsc = Math.sqrt((2 * MU_MOON) / r);
+  return (
+    v < vEsc * 0.97 &&
+    Math.abs(v - vCirc) < LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK * 2 &&
+    vRad < LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK * 2 &&
+    polarOkH()
+  );
+}
+
+/** True when lunar orbit insertion has achieved near-circular polar-ish low lunar orbit. */
+export function lunarOrbitInsertionComplete(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): boolean {
+  const r = fillMoonRel(t, pos, vel, epoch);
+  const alt = r - R_MOON;
+  if (alt < 50 || alt > 2_500) return false;
+  normalize(_radial, _relP);
+  return loiNearCircular(r, len(_relV), Math.abs(dot(_relV, _radial)));
+}
+
+/** LOI velocity targets from altitude band. */
+function loiVelocityTargets(
+  alt: number, r: number, vRad: number, rLlo: number,
+): { vTgt: number; tgtVRad: number } {
+  if (alt > 2_500) {
+    const sink = Math.min(0.25, 0.04 + (alt - LOW_LUNAR_ORBIT_ALTITUDE_KM) * 2e-5);
+    return { vTgt: Math.sqrt(MU_MOON / Math.max(rLlo, r * 0.75)), tgtVRad: Math.min(vRad, 0) * 0.2 - sink };
+  }
+  if (alt > LOW_LUNAR_ORBIT_ALTITUDE_KM * 1.8) {
+    return { vTgt: Math.sqrt(MU_MOON / Math.max(r * 0.9, rLlo)), tgtVRad: -vRad * 0.45 - 0.03 };
+  }
+  return { vTgt: Math.sqrt(MU_MOON / Math.max(r, rLlo * 0.95)), tgtVRad: -vRad * 0.7 };
+}
+
+/** Cap LOI thrust vector to LUNAR_ORBIT_INSERTION_ACCEL. */
+function clampLoiThrust(): V3 | null {
+  const mag = len(_thrust);
+  if (!Number.isFinite(mag) || mag < 1e-6) return null;
+  if (mag > LUNAR_ORBIT_INSERTION_ACCEL) {
+    scale(_thrust, _thrust, LUNAR_ORBIT_INSERTION_ACCEL / mag);
+  }
+  return _thrust;
+}
+
+/** Pure retrograde LOI when hyperbolic. */
+function loiHyperbolicRetro(): V3 {
+  normalize(_tmp, _relV);
+  set(
+    _thrust,
+    -_tmp.x * LUNAR_ORBIT_INSERTION_ACCEL,
+    -_tmp.y * LUNAR_ORBIT_INSERTION_ACCEL,
+    -_tmp.z * LUNAR_ORBIT_INSERTION_ACCEL,
+  );
+  return _thrust;
+}
+
+/** Bound LOI: chase polar circular target velocity. */
+function loiBoundThrust(alt: number, r: number, vRad: number): V3 | null {
+  const rLlo = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
+  const { vTgt, tgtVRad } = loiVelocityTargets(alt, r, vRad, rLlo);
+  set(
+    _thrust,
+    (_pro.x * vTgt + _radial.x * tgtVRad - _relV.x) * 1.25,
+    (_pro.y * vTgt + _radial.y * tgtVRad - _relV.y) * 1.25,
+    (_pro.z * vTgt + _radial.z * tgtVRad - _relV.z) * 1.25,
+  ); return clampLoiThrust();
 }
 
 /**
  * Lunar orbit insertion burn (phase `approach`): kill hyperbolic excess, change into a **polar**
  * low lunar orbit, and lower toward ~LOW_LUNAR_ORBIT_ALTITUDE. Lights when alt &lt; LUNAR_ORBIT_INSERTION_ALTITUDE_START.
  */
-export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
-  const b = getBodies(t, epoch);
-  sub(_relP, pos, b.moon);
-  sub(_relV, vel, b.moonVel);
-  const r = len(_relP);
-  const alt = r - R_MOON;
-  if (alt < -1 || !Number.isFinite(alt)) return null;
-  if (alt > LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM) return null;
-
+function fillLoiFrame(_r: number): boolean {
   normalize(_radial, _relP);
   polarOrbitNormal(_relP, _relV, _h);
   cross(_pro, _h, _radial);
-  if (len(_pro) < 1e-8) return null;
+  if (len(_pro) < 1e-8) return false;
   normalize(_pro, _pro);
+  return true;
+}
 
-  const v = len(_relV);
+export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
+  const r = fillMoonRel(t, pos, vel, epoch);
+  const alt = r - R_MOON;
+  if (alt < -1 || !Number.isFinite(alt) || alt > LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM) return null;
+  if (!fillLoiFrame(r)) return null;
   const vEsc = Math.sqrt((2 * MU_MOON) / r);
-  const vRad = dot(_relV, _radial);
-  const rLlo = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
+  if (len(_relV) > vEsc * 0.92) return loiHyperbolicRetro();
+  return loiBoundThrust(alt, r, dot(_relV, _radial));
+}
 
-  // Hyperbolic: pure retrograde first (capture)
-  if (v > vEsc * 0.92) {
-    normalize(_tmp, _relV);
-    set(_thrust, -_tmp.x * LUNAR_ORBIT_INSERTION_ACCEL, -_tmp.y * LUNAR_ORBIT_INSERTION_ACCEL, -_tmp.z * LUNAR_ORBIT_INSERTION_ACCEL);
-    return _thrust;
+/** Nudge radial toward south if over northern hemisphere. */
+function snapNudgeSouth(): void {
+  set(_radial, _from.x, _from.y, _from.z);
+  if (dot(_radial, _south) >= -0.1) return;
+  _radial.x += _south.x * 0.4;
+  _radial.y += _south.y * 0.4;
+  _radial.z += _south.z * 0.4;
+  normalize(_radial, _radial);
+}
+
+/** Polar circular velocity at rFinal on Moon. */
+function ensurePrograde(): void {
+  polarOrbitNormal(_relP, _relV, _h);
+  cross(_pro, _h, _radial);
+  if (len(_pro) < 1e-8) {
+    set(_tmp, 0, 1, 0);
+    cross(_pro, _radial, _tmp);
   }
+  normalize(_pro, _pro);
+}
 
-  // High alt: brake hard + sink so we lower toward low lunar orbit (not park at flyby)
-  let vTgt: number;
-  let tgtVRad: number;
-  if (alt > 2_500) {
-    // Strongly subcircular → fall in; sink scales with altitude
-    const sink = Math.min(0.25, 0.04 + (alt - LOW_LUNAR_ORBIT_ALTITUDE_KM) * 2e-5);
-    vTgt = Math.sqrt(MU_MOON / Math.max(rLlo, r * 0.75));
-    tgtVRad = Math.min(vRad, 0) * 0.2 - sink;
-  } else if (alt > LOW_LUNAR_ORBIT_ALTITUDE_KM * 1.8) {
-    vTgt = Math.sqrt(MU_MOON / Math.max(r * 0.9, rLlo));
-    tgtVRad = -vRad * 0.45 - 0.03;
-  } else {
-    // Near target low lunar orbit: circularize in polar plane
-    vTgt = Math.sqrt(MU_MOON / Math.max(r, rLlo * 0.95));
-    tgtVRad = -vRad * 0.7;
+function snapEndState(
+  b0: ReturnType<typeof getBodies>,
+  rFinal: number,
+): { endPos: V3; endVx: number; endVy: number; endVz: number; vCirc: number } {
+  const endPos = v3(b0.moon.x + _radial.x * rFinal, b0.moon.y + _radial.y * rFinal, b0.moon.z + _radial.z * rFinal);
+  sub(_relP, endPos, b0.moon);
+  normalize(_radial, _relP);
+  ensurePrograde();
+  const vCirc = Math.sqrt(MU_MOON / rFinal);
+  return { endPos, endVx: b0.moonVel.x + _pro.x * vCirc, endVy: b0.moonVel.y + _pro.y * vCirc, endVz: b0.moonVel.z + _pro.z * vCirc, vCirc };
+}
+
+/** Soft bridge samples from current state toward polar LLO. */
+function lerpUnit(_fromU: V3, to: V3, u: number, out: V3): void {
+  out.x = _fromU.x + u * (to.x - _fromU.x);
+  out.y = _fromU.y + u * (to.y - _fromU.y);
+  out.z = _fromU.z + u * (to.z - _fromU.z);
+  normalize(out, out);
+}
+
+function setCircVel(state: CraftState, bi: ReturnType<typeof bodyPositions>, vCirc: number): void {
+  state.vel.x = bi.moonVel.x + _pro.x * vCirc;
+  state.vel.y = bi.moonVel.y + _pro.y * vCirc;
+  state.vel.z = bi.moonVel.z + _pro.z * vCirc;
+}
+
+function snapBridgeStep(
+  state: CraftState, samples: Sample[], lastT: { t: number }, prop: PropState | null,
+  epoch: EphemerisEpoch, u: number, bridgeS: number, t0: number,
+  rIn: number, rFinal: number, vCirc: number,
+): void {
+  const bi = bodyPositions(t0 + bridgeS * u, epoch);
+  lerpUnit(_from, _radial, u, _tmp);
+  state.t = t0 + bridgeS * u;
+  placeAtMoonRadius(state, bi, _tmp, rIn + u * (rFinal - rIn));
+  setCircVel(state, bi, vCirc);
+  pushSample(samples, state, "approach", true, true, 0, lastT, prop, LUNAR_ORBIT_INSERTION_ACCEL * 0.8, "ship", false);
+}
+
+function snapBridgeSamples(
+  state: CraftState, samples: Sample[], lastT: { t: number }, prop: PropState | null,
+  epoch: EphemerisEpoch, rIn: number, rFinal: number, vCirc: number, dr: number,
+): void {
+  const bridgeS = Math.min(2_500, Math.max(40, dr / 6));
+  const steps = Math.max(20, Math.ceil(bridgeS / 2));
+  const t0 = state.t;
+  for (let i = 1; i <= steps; i++) {
+    snapBridgeStep(state, samples, lastT, prop, epoch, i / steps, bridgeS, t0, rIn, rFinal, vCirc);
   }
+}
 
-  const desVx = _pro.x * vTgt + _radial.x * tgtVRad;
-  const desVy = _pro.y * vTgt + _radial.y * tgtVRad;
-  const desVz = _pro.z * vTgt + _radial.z * tgtVRad;
-
-  const ax = (desVx - _relV.x) * 1.25;
-  const ay = (desVy - _relV.y) * 1.25;
-  const az = (desVz - _relV.z) * 1.25;
-
-  set(_thrust, ax, ay, az);
-  const mag = len(_thrust);
-  if (!Number.isFinite(mag) || mag < 1e-6) return null;
-  if (mag > LUNAR_ORBIT_INSERTION_ACCEL) scale(_thrust, _thrust, LUNAR_ORBIT_INSERTION_ACCEL / mag);
-  return _thrust;
+/** Final exact polar circular state at current t. */
+function snapFinalState(state: CraftState, rFinal: number, vCirc: number, epoch: EphemerisEpoch): void {
+  const bi = getBodies(state.t, epoch);
+  state.pos.x = bi.moon.x + _radial.x * rFinal;
+  state.pos.y = bi.moon.y + _radial.y * rFinal;
+  state.pos.z = bi.moon.z + _radial.z * rFinal;
+  state.vel.x = bi.moonVel.x + _pro.x * vCirc;
+  state.vel.y = bi.moonVel.y + _pro.y * vCirc;
+  state.vel.z = bi.moonVel.z + _pro.z * vCirc;
 }
 
 /**
@@ -194,6 +292,19 @@ export function lunarOrbitInsertionThrust(t: number, pos: V3, vel: V3, epoch: Ep
  * Bridges the trail with short samples so invariants don't see a teleport.
  * Used when lunar orbit insertion is "close enough" so the Low lunar orbit coast stays bound and polar.
  */
+function applySnapEnd(state: CraftState, end: ReturnType<typeof snapEndState>): void {
+  state.pos.x = end.endPos.x; state.pos.y = end.endPos.y; state.pos.z = end.endPos.z;
+  state.vel.x = end.endVx; state.vel.y = end.endVy; state.vel.z = end.endVz;
+}
+
+function initSnapFromState(state: CraftState, b0: ReturnType<typeof getBodies>): void {
+  sub(_relP, state.pos, b0.moon);
+  if (len(_relP) < 1e-6) set(_relP, 0, 0, -1);
+  normalize(_from, _relP);
+  moonSouthUnit(_south);
+  snapNudgeSouth();
+}
+
 export function snapPolarLowLunarOrbit(
   t: number,
   state: CraftState,
@@ -202,190 +313,141 @@ export function snapPolarLowLunarOrbit(
   prop: PropState | null = null,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
-  const b0 = getBodies(t, epoch);
-  sub(_relP, state.pos, b0.moon);
-  if (len(_relP) < 1e-6) set(_relP, 0, 0, -1);
-  normalize(_from, _relP);
-  moonSouthUnit(_south);
-  // If over northern hemisphere, nudge radial toward south for powered descent initiation geometry
-  set(_radial, _from.x, _from.y, _from.z);
-  if (dot(_radial, _south) < -0.1) {
-    _radial.x += _south.x * 0.4;
-    _radial.y += _south.y * 0.4;
-    _radial.z += _south.z * 0.4;
-    normalize(_radial, _radial);
-  }
+  const b0 = getBodies(t, epoch); initSnapFromState(state, b0);
   const rIn = Math.max(len(_relP), R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM);
-  // Park near target low lunar orbit so powered descent initiation / finishLanding don't start from multi-Mm alt
   const rFinal = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
+  const end = snapEndState(b0, rFinal);
+  const dr = Math.hypot(end.endPos.x - state.pos.x, end.endPos.y - state.pos.y, end.endPos.z - state.pos.z);
+  if (samples && lastT && dr > 50) snapBridgeSamples(state, samples, lastT, prop, epoch, rIn, rFinal, end.vCirc, dr);
+  else applySnapEnd(state, end);
+  snapFinalState(state, rFinal, end.vCirc, epoch);
+}
 
-  // End state on polar circular low lunar orbit
-  const endPos = v3(
-    b0.moon.x + _radial.x * rFinal,
-    b0.moon.y + _radial.y * rFinal,
-    b0.moon.z + _radial.z * rFinal,
-  );
-  sub(_relP, endPos, b0.moon);
-  normalize(_radial, _relP);
-  polarOrbitNormal(_relP, _relV, _h);
-  cross(_pro, _h, _radial);
-  if (len(_pro) < 1e-8) {
-    set(_tmp, 0, 1, 0);
-    cross(_pro, _radial, _tmp);
-  }
-  normalize(_pro, _pro);
-  const vCirc = Math.sqrt(MU_MOON / rFinal);
-  const endVx = b0.moonVel.x + _pro.x * vCirc;
-  const endVy = b0.moonVel.y + _pro.y * vCirc;
-  const endVz = b0.moonVel.z + _pro.z * vCirc;
+/** Horizontal velocity residual (perp to radial). */
+function fillHorizVel(): void {
+  const vRad = dot(_relV, _radial);
+  _tmp.x = _relV.x - _radial.x * vRad;
+  _tmp.y = _relV.y - _radial.y * vRad;
+  _tmp.z = _relV.z - _radial.z * vRad;
+}
 
-  const dr = Math.hypot(
-    endPos.x - state.pos.x,
-    endPos.y - state.pos.y,
-    endPos.z - state.pos.z,
-  );
+/** Base PD gains: vertical + horizontal kill. */
+function pdiBaseAccel(
+  targetVRad: number,
+  gain: number,
+  hGain: number,
+): { ax: number; ay: number; az: number } {
+  return { ax: (_radial.x * targetVRad - _relV.x) * gain - _tmp.x * hGain, ay: (_radial.y * targetVRad - _relV.y) * gain - _tmp.y * hGain, az: (_radial.z * targetVRad - _relV.z) * gain - _tmp.z * hGain };
+}
 
-  // Soft bridge when the snap would jump the trail (invariant cap ~8 Mm)
-  if (samples && lastT && dr > 50) {
-    const vBridge = 6; // km/s apparent
-    const bridgeS = Math.min(2_500, Math.max(40, dr / vBridge));
-    const steps = Math.max(20, Math.ceil(bridgeS / 2));
-    const t0 = state.t;
-    for (let i = 1; i <= steps; i++) {
-      const u = i / steps;
-      const ti = t0 + bridgeS * u;
-      const bi = bodyPositions(ti, epoch);
-      // Interpolate moon-relative direction & radius, then place on Moon
-      const ru = rIn + u * (rFinal - rIn);
-      _tmp.x = _from.x + u * (_radial.x - _from.x);
-      _tmp.y = _from.y + u * (_radial.y - _from.y);
-      _tmp.z = _from.z + u * (_radial.z - _from.z);
-      normalize(_tmp, _tmp);
-      state.t = ti;
-      state.pos.x = bi.moon.x + _tmp.x * ru;
-      state.pos.y = bi.moon.y + _tmp.y * ru;
-      state.pos.z = bi.moon.z + _tmp.z * ru;
-      state.vel.x = bi.moonVel.x + _pro.x * vCirc;
-      state.vel.y = bi.moonVel.y + _pro.y * vCirc;
-      state.vel.z = bi.moonVel.z + _pro.z * vCirc;
-      pushSample(
-        samples,
-        state,
-        "approach",
-        true,
-        true,
-        0,
-        lastT,
-        prop,
-        LUNAR_ORBIT_INSERTION_ACCEL * 0.8,
-        "ship",
-        false,
-      );
-    }
-  } else {
-    state.pos.x = endPos.x;
-    state.pos.y = endPos.y;
-    state.pos.z = endPos.z;
-    state.vel.x = endVx;
-    state.vel.y = endVy;
-    state.vel.z = endVz;
-  }
+function siteApproachSpeed(alt: number): number {
+  return Math.min(0.22, Math.max(0.002, Math.sqrt(2 * LANDING_ACCEL * 0.45 * alt)));
+}
 
-  // Final exact polar circular state at current t
-  {
-    const bi = getBodies(state.t, epoch);
-    state.pos.x = bi.moon.x + _radial.x * rFinal;
-    state.pos.y = bi.moon.y + _radial.y * rFinal;
-    state.pos.z = bi.moon.z + _radial.z * rFinal;
-    state.vel.x = bi.moonVel.x + _pro.x * vCirc;
-    state.vel.y = bi.moonVel.y + _pro.y * vCirc;
-    state.vel.z = bi.moonVel.z + _pro.z * vCirc;
-  }
+function setHoverAim(b: ReturnType<typeof getBodies>, hoverAlt: number): void {
+  set(_aim, b.moon.x + _south.x * (R_MOON + hoverAlt), b.moon.y + _south.y * (R_MOON + hoverAlt), b.moon.z + _south.z * (R_MOON + hoverAlt));
+}
+
+function siteAimComponents(vel: V3, moonVel: V3, distAim: number, sp: number, w: number): {
+  ax: number; ay: number; az: number;
+} {
+  return { ax: ((_toAim.x / distAim) * sp - (vel.x - moonVel.x)) * w, ay: ((_toAim.y / distAim) * sp - (vel.y - moonVel.y)) * w, az: ((_toAim.z / distAim) * sp - (vel.z - moonVel.z)) * w };
+}
+
+/** Site-aim accel toward south-pole hover point. */
+function pdiSiteAimAccel(
+  pos: V3, vel: V3, b: ReturnType<typeof getBodies>, alt: number, poleW: number,
+): { ax: number; ay: number; az: number } {
+  setHoverAim(b, Math.max(alt * 0.25, 0.3));
+  sub(_toAim, _aim, pos);
+  return siteAimComponents(vel, b.moonVel, len(_toAim) || 1, siteApproachSpeed(alt), poleW * 0.9);
+}
+
+/** Lateral accel toward lunar south. */
+function pdiLateralAccel(
+  poleAlign: number, maxA: number, poleW: number,
+): { ax: number; ay: number; az: number } {
+  set(_lat, _south.x - _radial.x * poleAlign, _south.y - _radial.y * poleAlign, _south.z - _radial.z * poleAlign);
+  const latLen = len(_lat);
+  if (latLen <= 1e-8) return { ax: 0, ay: 0, az: 0 };
+  scale(_lat, _lat, 1 / latLen);
+  cross(_tmp, _south, _radial);
+  const latA = maxA * poleW * (0.4 + 0.6 * Math.min(1, len(_tmp)));
+  return { ax: _lat.x * latA, ay: _lat.y * latA, az: _lat.z * latA };
+}
+
+/** Near-surface hover against lunar gravity. */
+function pdiHoverAccel(
+  alt: number,
+  r: number,
+  poleAlign: number,
+): { ax: number; ay: number; az: number } {
+  if (alt >= 40) return { ax: 0, ay: 0, az: 0 };
+  const gMoon = MU_MOON / (r * r);
+  const up = poleAlign > 0.7 ? _south : _radial;
+  const hover = alt < 5 ? 1.06 : 0.92;
+  return { ax: up.x * gMoon * hover, ay: up.y * gMoon * hover, az: up.z * gMoon * hover };
+}
+
+/** Cap powered-descent thrust to maxA. */
+function clampPdiThrust(maxA: number): V3 | null {
+  const mag = len(_thrust);
+  if (!Number.isFinite(mag) || mag < 1e-18) return null;
+  if (mag > maxA) scale(_thrust, _thrust, maxA / mag);
+  return _thrust;
 }
 
 /**
  * powered descent initiation / powered descent (phase `descent`) toward the lunar south pole.
  */
-export function poweredDescentThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
-  const b = getBodies(t, epoch);
-  sub(_relP, pos, b.moon);
-  sub(_relV, vel, b.moonVel);
-  const r = len(_relP);
+function sumPdiAccel(
+  base: { ax: number; ay: number; az: number },
+  site: { ax: number; ay: number; az: number },
+  lat: { ax: number; ay: number; az: number },
+  hover: { ax: number; ay: number; az: number },
+): void {
+  set(
+    _thrust,
+    base.ax + site.ax + lat.ax + hover.ax,
+    base.ay + site.ay + lat.ay + hover.ay,
+    base.az + site.az + lat.az + hover.az,
+  );
+}
+
+function pdiTargetVRad(alt: number): number {
+  const safe = Math.sqrt(Math.max(0, 2 * LANDING_ACCEL * 0.35 * Math.max(alt, 0.05)));
+  return -Math.min(0.15, Math.max(0.0012, safe));
+}
+
+function prepPdiFrame(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): { r: number; alt: number } | null {
+  const r = fillMoonRel(t, pos, vel, epoch);
   const alt = r - R_MOON;
   if (alt < -1 || !Number.isFinite(alt)) return null;
-
   normalize(_radial, _relP);
   moonSouthUnit(_south);
   moonSouthPoleSurface(t, epoch, _site);
+  fillHorizVel();
+  return { r, alt };
+}
+
+function applyPdiComponents(
+  pos: V3, vel: V3, b: ReturnType<typeof getBodies>, geo: { r: number; alt: number }, maxA: number,
+): void {
   const poleAlign = dot(_radial, _south);
-
-  const vRad = dot(_relV, _radial);
-  _tmp.x = _relV.x - _radial.x * vRad;
-  _tmp.y = _relV.y - _radial.y * vRad;
-  _tmp.z = _relV.z - _radial.z * vRad;
-
-  const safe = Math.sqrt(
-    Math.max(0, 2 * LANDING_ACCEL * 0.35 * Math.max(alt, 0.05)),
+  sumPdiAccel(
+    pdiBaseAccel(pdiTargetVRad(geo.alt), 1.05, 1.35),
+    pdiSiteAimAccel(pos, vel, b, geo.alt, 0.95),
+    pdiLateralAccel(poleAlign, maxA, 0.95),
+    pdiHoverAccel(geo.alt, geo.r, poleAlign),
   );
-  const targetVRad = -Math.min(0.15, Math.max(0.0012, safe));
-  const gain = 1.05;
-  const hGain = 1.35;
-  const maxA = LANDING_ACCEL * 1.55;
-  const poleW = 0.95;
+}
 
-  let ax = (_radial.x * targetVRad - _relV.x) * gain;
-  let ay = (_radial.y * targetVRad - _relV.y) * gain;
-  let az = (_radial.z * targetVRad - _relV.z) * gain;
-  ax += -_tmp.x * hGain;
-  ay += -_tmp.y * hGain;
-  az += -_tmp.z * hGain;
-
-  const hoverAlt = Math.max(alt * 0.25, 0.3);
-  set(
-    _aim,
-    b.moon.x + _south.x * (R_MOON + hoverAlt),
-    b.moon.y + _south.y * (R_MOON + hoverAlt),
-    b.moon.z + _south.z * (R_MOON + hoverAlt),
-  );
-  sub(_toAim, _aim, pos);
-  const distAim = len(_toAim) || 1;
-  const approachSpeed = Math.min(
-    0.22,
-    Math.max(0.002, Math.sqrt(2 * LANDING_ACCEL * 0.45 * alt)),
-  );
-  const wSite = poleW * 0.9;
-  ax += ((_toAim.x / distAim) * approachSpeed - (vel.x - b.moonVel.x)) * wSite;
-  ay += ((_toAim.y / distAim) * approachSpeed - (vel.y - b.moonVel.y)) * wSite;
-  az += ((_toAim.z / distAim) * approachSpeed - (vel.z - b.moonVel.z)) * wSite;
-
-  _lat.x = _south.x - _radial.x * poleAlign;
-  _lat.y = _south.y - _radial.y * poleAlign;
-  _lat.z = _south.z - _radial.z * poleAlign;
-  const latLen = len(_lat);
-  if (latLen > 1e-8) {
-    scale(_lat, _lat, 1 / latLen);
-    cross(_tmp, _south, _radial);
-    const angErr = Math.min(1, len(_tmp));
-    const latA = maxA * poleW * (0.4 + 0.6 * angErr);
-    ax += _lat.x * latA;
-    ay += _lat.y * latA;
-    az += _lat.z * latA;
-  }
-
-  if (alt < 40) {
-    const gMoon = MU_MOON / (r * r);
-    const up = poleAlign > 0.7 ? _south : _radial;
-    const hover = alt < 5 ? 1.06 : 0.92;
-    ax += up.x * gMoon * hover;
-    ay += up.y * gMoon * hover;
-    az += up.z * gMoon * hover;
-  }
-
-  set(_thrust, ax, ay, az);
-  const mag = len(_thrust);
-  if (!Number.isFinite(mag) || mag < 1e-18) return null;
-  if (mag > maxA) scale(_thrust, _thrust, maxA / mag);
-  return _thrust;
+export function poweredDescentThrust(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 | null {
+  const b = getBodies(t, epoch);
+  const geo = prepPdiFrame(t, pos, vel, epoch);
+  if (!geo) return null;
+  applyPdiComponents(pos, vel, b, geo, LANDING_ACCEL * 1.55);
+  return clampPdiThrust(LANDING_ACCEL * 1.55);
 }
 
 /**
@@ -400,7 +462,6 @@ export function landingThrust(
 ): V3 | null {
   if (phase === "approach") return lunarOrbitInsertionThrust(t, pos, vel, epoch);
   if (phase === "descent") return poweredDescentThrust(t, pos, vel, epoch);
-  // braking = Low lunar orbit coast — no continuous thrust
   return null;
 }
 
@@ -409,32 +470,37 @@ export function landingThrust(
  */
 function slerpUnit(a: V3, b: V3, u: number, out: V3): V3 {
   const cosom = clamp1(dot(a, b));
-  if (cosom > 0.9995) {
-    out.x = a.x + u * (b.x - a.x);
-    out.y = a.y + u * (b.y - a.y);
-    out.z = a.z + u * (b.z - a.z);
-    return normalize(out, out);
+  if (cosom > 0.9995) return slerpNear(a, b, u, out);
+  if (cosom < -0.9995) return slerpOpposite(a, b, u, out);
+  return slerpGeneral(a, b, u, cosom, out);
+}
+
+function slerpNear(a: V3, b: V3, u: number, out: V3): V3 {
+  out.x = a.x + u * (b.x - a.x);
+  out.y = a.y + u * (b.y - a.y);
+  out.z = a.z + u * (b.z - a.z);
+  return normalize(out, out);
+}
+
+function slerpHalf(a: V3, mid: V3, b: V3, u: number, out: V3): void {
+  if (u < 0.5) {
+    const v = u * 2;
+    set(out, a.x + v * (mid.x - a.x), a.y + v * (mid.y - a.y), a.z + v * (mid.z - a.z));
+  } else {
+    const v = (u - 0.5) * 2;
+    set(out, mid.x + v * (b.x - mid.x), mid.y + v * (b.y - mid.y), mid.z + v * (b.z - mid.z));
   }
-  if (cosom < -0.9995) {
-    cross(_tmp, a, { x: 1, y: 0, z: 0 });
-    if (len(_tmp) < 1e-6) cross(_tmp, a, { x: 0, y: 1, z: 0 });
-    normalize(_tmp, _tmp);
-    const midX = _tmp.x;
-    const midY = _tmp.y;
-    const midZ = _tmp.z;
-    if (u < 0.5) {
-      const v = u * 2;
-      out.x = a.x + v * (midX - a.x);
-      out.y = a.y + v * (midY - a.y);
-      out.z = a.z + v * (midZ - a.z);
-    } else {
-      const v = (u - 0.5) * 2;
-      out.x = midX + v * (b.x - midX);
-      out.y = midY + v * (b.y - midY);
-      out.z = midZ + v * (b.z - midZ);
-    }
-    return normalize(out, out);
-  }
+}
+
+function slerpOpposite(a: V3, b: V3, u: number, out: V3): V3 {
+  cross(_tmp, a, { x: 1, y: 0, z: 0 });
+  if (len(_tmp) < 1e-6) cross(_tmp, a, { x: 0, y: 1, z: 0 });
+  normalize(_tmp, _tmp);
+  slerpHalf(a, _tmp, b, u, out);
+  return normalize(out, out);
+}
+
+function slerpGeneral(a: V3, b: V3, u: number, cosom: number, out: V3): V3 {
   const omega = Math.acos(cosom);
   const sinom = Math.sin(omega);
   const s0 = Math.sin((1 - u) * omega) / sinom;
@@ -445,10 +511,144 @@ function slerpUnit(a: V3, b: V3, u: number, out: V3): V3 {
   return normalize(out, out);
 }
 
+/** Bridge altitude down to the lunar surface. */
+function placeAtMoonRadius(
+  state: CraftState, bi: ReturnType<typeof bodyPositions>, dir: V3, r: number,
+): void {
+  state.pos.x = bi.moon.x + dir.x * r;
+  state.pos.y = bi.moon.y + dir.y * r;
+  state.pos.z = bi.moon.z + dir.z * r;
+  state.vel.x = bi.moonVel.x;
+  state.vel.y = bi.moonVel.y;
+  state.vel.z = bi.moonVel.z;
+}
+
+function altitudeBridgeStep(
+  state: CraftState, samples: Sample[], lastT: { t: number }, prop: PropState | null,
+  epoch: EphemerisEpoch, tStart: number, downS: number, r0: number, u: number,
+): void {
+  state.t = tStart + downS * u;
+  placeAtMoonRadius(state, bodyPositions(state.t, epoch), _from, r0 + u * (R_MOON - r0));
+  pushSample(samples, state, "descent", true, true, 0, lastT, prop, LANDING_ACCEL, "ship", false);
+}
+
+function finishAltitudeBridge(
+  state: CraftState, samples: Sample[], lastT: { t: number },
+  prop: PropState | null, epoch: EphemerisEpoch, r0: number,
+): void {
+  const alt0 = r0 - R_MOON;
+  if (alt0 <= 2) { placeOnMoonSurface(state, lastT, epoch); return; }
+  const downS = Math.min(1_800, Math.max(30, alt0 / 8));
+  const steps = Math.max(16, Math.ceil(downS / 2));
+  const tStart = Math.max(state.t, lastT.t + 0.05);
+  for (let i = 1; i <= steps; i++) altitudeBridgeStep(state, samples, lastT, prop, epoch, tStart, downS, r0, i / steps);
+}
+
+/** Snap to surface along current radial when already low. */
+function placeOnMoonSurface(
+  state: CraftState,
+  lastT: { t: number },
+  epoch: EphemerisEpoch,
+): void {
+  const b = getBodies(state.t, epoch);
+  state.pos.x = b.moon.x + _from.x * R_MOON;
+  state.pos.y = b.moon.y + _from.y * R_MOON;
+  state.pos.z = b.moon.z + _from.z * R_MOON;
+  state.vel.x = b.moonVel.x;
+  state.vel.y = b.moonVel.y;
+  state.vel.z = b.moonVel.z;
+  if (state.t <= lastT.t) state.t = lastT.t + 0.05;
+}
+
+/** Short hop: already near south pole. */
+function finishNoTaxi(
+  state: CraftState,
+  samples: Sample[],
+  lastT: { t: number },
+  prop: PropState | null,
+  epoch: EphemerisEpoch,
+): void {
+  if (state.t <= lastT.t) state.t = lastT.t + 0.05;
+  set(_landDir, _south.x, _south.y, _south.z);
+  placeAtMoonRadius(state, bodyPositions(state.t, epoch), _landDir, R_MOON);
+  pushSample(samples, state, "landed", false, true, 0, lastT, prop, 0, "ship");
+}
+
+/** Great-circle taxi samples to south pole. */
+function polarTaxiStep(
+  state: CraftState, samples: Sample[], lastT: { t: number }, prop: PropState | null,
+  epoch: EphemerisEpoch, u: number, t0: number, taxiS: number, last: boolean,
+): void {
+  slerpUnit(_from, _south, u, _landDir);
+  state.t = t0 + taxiS * u;
+  placeAtMoonRadius(state, bodyPositions(state.t, epoch), _landDir, R_MOON);
+  pushSample(
+    samples, state, last ? "landed" : "descent", !last, true, 0, lastT, prop, last ? 0 : 2e5, "ship", false,
+  );
+}
+
+function finishPolarTaxi(
+  state: CraftState, samples: Sample[], lastT: { t: number },
+  prop: PropState | null, epoch: EphemerisEpoch, arcKm: number,
+): void {
+  const taxiS = Math.min(900, Math.max(40, arcKm / 6));
+  const steps = Math.max(12, Math.ceil(taxiS / 5));
+  const t0 = Math.max(state.t, lastT.t + 0.05);
+  for (let i = 1; i <= steps; i++) {
+    polarTaxiStep(state, samples, lastT, prop, epoch, i / steps, t0, taxiS, i === steps);
+  }
+}
+
+function surfaceHoldSample(
+  t: number, bi: ReturnType<typeof bodyPositions>, fb: number, fs: number, st: boolean,
+): Sample {
+  return { t, pos: v3(bi.moon.x + _landDir.x * R_MOON, bi.moon.y + _landDir.y * R_MOON, bi.moon.z + _landDir.z * R_MOON), vel: clone(bi.moonVel), phase: "landed", burning: false, fuelBooster: fb, fuelShip: fs, thrustN: 0, staged: st };
+}
+
+/** Hold on surface co-moving with Moon. */
+function finishSurfaceHold(
+  state: CraftState, samples: Sample[], prop: PropState | null, epoch: EphemerisEpoch,
+): void {
+  const landT0 = state.t;
+  const fb = prop ? fuelBoosterFrac(prop) : 0;
+  const fs = prop ? fuelShipFrac(prop) : 0;
+  const st = prop?.staged ?? true;
+  moonSouthUnit(_landDir);
+  for (let i = 1; i <= 30; i++) {
+    const t = landT0 + i * 60;
+    samples.push(surfaceHoldSample(t, bodyPositions(t, epoch), fb, fs, st));
+  }
+}
+
+function packLandedResult(
+  samples: Sample[], moonPhase0: number, translunarInjectionDeltaV: number, minMoonAlt: number,
+): MissionResult {
+  return { samples, durationS: samples[samples.length - 1]!.t, moonPhase0, translunarInjectionDeltaV, minMoonAlt: Math.min(minMoonAlt, 0), ok: true, message: "Landed · lunar south pole" };
+}
+
 /**
  * Soft touchdown: radial project (bridged), then great-circle taxi to south pole.
  * Always advances time on large position moves so trail invariants stay clean.
  */
+function prepLandingRadial(state: CraftState, epoch: EphemerisEpoch): number {
+  const b = getBodies(state.t, epoch);
+  sub(_relP, state.pos, b.moon);
+  const r0 = Math.max(len(_relP), 1);
+  if (r0 < 1) set(_relP, 0, 0, -1);
+  normalize(_from, _relP);
+  moonSouthUnit(_south);
+  return r0;
+}
+
+function finishTaxiOrHop(
+  state: CraftState, samples: Sample[], lastT: { t: number },
+  prop: PropState | null, epoch: EphemerisEpoch,
+): void {
+  const arcKm = Math.acos(clamp1(dot(_from, _south))) * R_MOON;
+  if (arcKm > 30) finishPolarTaxi(state, samples, lastT, prop, epoch, arcKm);
+  else finishNoTaxi(state, samples, lastT, prop, epoch);
+}
+
 export function finishLanding(
   state: CraftState,
   samples: Sample[],
@@ -458,144 +658,10 @@ export function finishLanding(
   prop: PropState | null = null,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): MissionResult {
-  const b = getBodies(state.t, epoch);
-  sub(_relP, state.pos, b.moon);
-  const r0 = Math.max(len(_relP), 1);
-  if (r0 < 1) set(_relP, 0, 0, -1);
-  normalize(_from, _relP);
-  moonSouthUnit(_south);
-
-  const lastT = {
-    t: samples.length > 0 ? samples[samples.length - 1]!.t : state.t - 1,
-  };
-
-  // Bridge altitude down to the surface (no same-t teleport from high low lunar orbit)
-  const alt0 = r0 - R_MOON;
-  if (alt0 > 2) {
-    const vDown = 8;
-    const downS = Math.min(1_800, Math.max(30, alt0 / vDown));
-    const steps = Math.max(16, Math.ceil(downS / 2));
-    const t0 = state.t;
-    // Start just after last sample time
-    const tStart = Math.max(t0, lastT.t + 0.05);
-    for (let i = 1; i <= steps; i++) {
-      const u = i / steps;
-      const t = tStart + downS * u;
-      const bi = bodyPositions(t, epoch);
-      const ru = r0 + u * (R_MOON - r0);
-      state.t = t;
-      state.pos.x = bi.moon.x + _from.x * ru;
-      state.pos.y = bi.moon.y + _from.y * ru;
-      state.pos.z = bi.moon.z + _from.z * ru;
-      state.vel.x = bi.moonVel.x;
-      state.vel.y = bi.moonVel.y;
-      state.vel.z = bi.moonVel.z;
-      pushSample(
-        samples,
-        state,
-        "descent",
-        true,
-        true,
-        0,
-        lastT,
-        prop,
-        LANDING_ACCEL,
-        "ship",
-        false,
-      );
-    }
-  } else {
-    state.pos.x = b.moon.x + _from.x * R_MOON;
-    state.pos.y = b.moon.y + _from.y * R_MOON;
-    state.pos.z = b.moon.z + _from.z * R_MOON;
-    state.vel.x = b.moonVel.x;
-    state.vel.y = b.moonVel.y;
-    state.vel.z = b.moonVel.z;
-    if (state.t <= lastT.t) state.t = lastT.t + 0.05;
-  }
-
-  const ang = Math.acos(clamp1(dot(_from, _south)));
-  const arcKm = ang * R_MOON;
-  const needTaxi = arcKm > 30;
-
-  if (!needTaxi) {
-    if (state.t <= lastT.t) state.t = lastT.t + 0.05;
-    const bi = bodyPositions(state.t, epoch);
-    set(_landDir, _south.x, _south.y, _south.z);
-    state.pos.x = bi.moon.x + _landDir.x * R_MOON;
-    state.pos.y = bi.moon.y + _landDir.y * R_MOON;
-    state.pos.z = bi.moon.z + _landDir.z * R_MOON;
-    state.vel.x = bi.moonVel.x;
-    state.vel.y = bi.moonVel.y;
-    state.vel.z = bi.moonVel.z;
-    pushSample(samples, state, "landed", false, true, 0, lastT, prop, 0, "ship");
-  } else {
-    const vTaxi = 6;
-    const taxiS = Math.min(900, Math.max(40, arcKm / vTaxi));
-    const steps = Math.max(12, Math.ceil(taxiS / 5));
-    const t0 = Math.max(state.t, lastT.t + 0.05);
-    for (let i = 1; i <= steps; i++) {
-      const u = i / steps;
-      slerpUnit(_from, _south, u, _landDir);
-      const t = t0 + taxiS * u;
-      const bi = bodyPositions(t, epoch);
-      state.t = t;
-      state.pos.x = bi.moon.x + _landDir.x * R_MOON;
-      state.pos.y = bi.moon.y + _landDir.y * R_MOON;
-      state.pos.z = bi.moon.z + _landDir.z * R_MOON;
-      state.vel.x = bi.moonVel.x;
-      state.vel.y = bi.moonVel.y;
-      state.vel.z = bi.moonVel.z;
-      const phase: PhaseId = i < steps ? "descent" : "landed";
-      pushSample(
-        samples,
-        state,
-        phase,
-        i < steps,
-        true,
-        0,
-        lastT,
-        prop,
-        i < steps ? 2e5 : 0,
-        "ship",
-        false,
-      );
-    }
-  }
-
-  const landT0 = state.t;
-  const fb = prop ? fuelBoosterFrac(prop) : 0;
-  const fs = prop ? fuelShipFrac(prop) : 0;
-  const st = prop?.staged ?? true;
-  moonSouthUnit(_landDir);
-
-  for (let i = 1; i <= 30; i++) {
-    const t = landT0 + i * 60;
-    const bi = bodyPositions(t, epoch);
-    samples.push({
-      t,
-      pos: v3(
-        bi.moon.x + _landDir.x * R_MOON,
-        bi.moon.y + _landDir.y * R_MOON,
-        bi.moon.z + _landDir.z * R_MOON,
-      ),
-      vel: clone(bi.moonVel),
-      phase: "landed",
-      burning: false,
-      fuelBooster: fb,
-      fuelShip: fs,
-      thrustN: 0,
-      staged: st,
-    });
-  }
-
-  return {
-    samples,
-    durationS: samples[samples.length - 1]!.t,
-    moonPhase0,
-    translunarInjectionDeltaV,
-    minMoonAlt: Math.min(minMoonAlt, 0),
-    ok: true,
-    message: "Landed · lunar south pole",
-  };
+  const r0 = prepLandingRadial(state, epoch);
+  const lastT = { t: samples.length > 0 ? samples[samples.length - 1]!.t : state.t - 1 };
+  finishAltitudeBridge(state, samples, lastT, prop, epoch, r0);
+  finishTaxiOrHop(state, samples, lastT, prop, epoch);
+  finishSurfaceHold(state, samples, prop, epoch);
+  return packLandedResult(samples, moonPhase0, translunarInjectionDeltaV, minMoonAlt);
 }

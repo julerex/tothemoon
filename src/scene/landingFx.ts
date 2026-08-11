@@ -15,6 +15,90 @@ import { createNameLabel } from "./zoomLabels";
  *
  * Site plate uses the theater selenographic name (Malapert Massif / south pole).
  */
+
+function makeBasicMat(color: number, opacity: number, doubleSide = false): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity, depthWrite: false,
+    ...(doubleSide ? { side: THREE.DoubleSide } : {}),
+  });
+}
+
+function makeRingMesh(): THREE.Mesh {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 2.4, 48), makeBasicMat(0x7ec8ff, 0.55, true));
+  ring.rotation.x = -Math.PI / 2;
+  return ring;
+}
+
+function makeBeaconMesh(): THREE.Mesh {
+  const beacon = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.35, 8, 10),
+    makeBasicMat(0xff8866, 0.75),
+  );
+  beacon.position.y = 4;
+  return beacon;
+}
+
+function makeDiscMesh(): THREE.Mesh {
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.0, 32), makeBasicMat(0xffaa77, 0.35, true));
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = 0.05;
+  return disc;
+}
+
+function makeSiteLabel(): THREE.Object3D {
+  const siteLabel = createNameLabel(LANDING_SITE_LABEL, "#ffaa77", {
+    targetPx: 15, aspect: 256 / 64, minH: 0.6,
+  });
+  siteLabel.name = "landing-site-label";
+  siteLabel.position.set(0, 10, 0);
+  siteLabel.userData.detail = LANDING_SITE_DETAIL;
+  return siteLabel;
+}
+
+function makeDust(mat: THREE.MeshBasicMaterial): THREE.Mesh {
+  const dust = new THREE.Mesh(new THREE.CircleGeometry(1, 48), mat);
+  dust.rotation.x = -Math.PI / 2;
+  dust.visible = false;
+  return dust;
+}
+
+function descentDust(altMoon: number): { expand: number; opacity: number } {
+  return {
+    expand: THREE.MathUtils.clamp(8 + (25 - altMoon) * 0.8, 4, 35),
+    opacity: THREE.MathUtils.clamp(0.15 + (20 - altMoon) * 0.02, 0.1, 0.55),
+  };
+}
+
+function landedDust(missionT: number, landT: number): { expand: number; opacity: number } {
+  const age = Math.max(0, missionT - landT);
+  const u = Math.min(1, age / 120);
+  return { expand: 18 + u * 40, opacity: 0.5 * Math.exp(-age / 200) };
+}
+
+function dustExpandOpacity(
+  missionT: number,
+  landT: number,
+  phase: string,
+  burning: boolean,
+  altMoon: number,
+): { expand: number; opacity: number } {
+  if (phase === "descent" && burning) return descentDust(altMoon);
+  if (phase === "landed") return landedDust(missionT, landT);
+  return { expand: 6, opacity: 0.12 };
+}
+
+function nearMoonPhase(phase: string, missionT: number, landT: number): boolean {
+  return (
+    phase === "approach" || phase === "braking" || phase === "descent" ||
+    phase === "landed" || missionT >= landT - 3600
+  );
+}
+
+function dustActive(phase: string, altMoon: number): boolean {
+  const low = (phase === "descent" || phase === "landed") && altMoon < 40;
+  return low || phase === "landed";
+}
+
 export class LandingFx {
   readonly group = new THREE.Group();
   private readonly site = new THREE.Group();
@@ -30,72 +114,13 @@ export class LandingFx {
   private epoch: EphemerisEpoch = DEFAULT_EPHEMERIS;
 
   constructor() {
-    // Surface ring (km-scale so it reads from ship/moon cams)
-    const ringGeom = new THREE.RingGeometry(1.2, 2.4, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x7ec8ff,
-      transparent: true,
-      opacity: 0.55,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    this.ring = new THREE.Mesh(ringGeom, ringMat);
-    this.ring.rotation.x = -Math.PI / 2;
-    this.site.add(this.ring);
-
-    // Vertical beacon
-    this.beacon = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.35, 8, 10),
-      new THREE.MeshBasicMaterial({
-        color: 0xff8866,
-        transparent: true,
-        opacity: 0.75,
-        depthWrite: false,
-      }),
-    );
-    this.beacon.position.y = 4;
-    this.site.add(this.beacon);
-
-    // Soft marker disc
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(1.0, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0xffaa77,
-        transparent: true,
-        opacity: 0.35,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      }),
-    );
-    disc.rotation.x = -Math.PI / 2;
-    disc.position.y = 0.05;
-    this.site.add(disc);
-
-    // Theater site name (L-toggle zoom labels; south-pole / Malapert)
-    const siteLabel = createNameLabel(LANDING_SITE_LABEL, "#ffaa77", {
-      targetPx: 15,
-      aspect: 256 / 64,
-      minH: 0.6,
-    });
-    siteLabel.name = "landing-site-label";
-    siteLabel.position.set(0, 10, 0); // local +Y = surface radial after orient
-    siteLabel.userData.detail = LANDING_SITE_DETAIL;
-    this.site.add(siteLabel);
-
+    this.ring = makeRingMesh();
+    this.beacon = makeBeaconMesh();
+    this.site.add(this.ring, this.beacon, makeDiscMesh(), makeSiteLabel());
     this.group.add(this.site);
-
-    this.dustMat = new THREE.MeshBasicMaterial({
-      color: 0xc8b89a,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    this.dust = new THREE.Mesh(new THREE.CircleGeometry(1, 48), this.dustMat);
-    this.dust.rotation.x = -Math.PI / 2;
-    this.dust.visible = false;
+    this.dustMat = makeBasicMat(0xc8b89a, 0, true);
+    this.dust = makeDust(this.dustMat);
     this.group.add(this.dust);
-
     this.site.visible = false;
   }
 
@@ -110,6 +135,51 @@ export class LandingFx {
     this.hasLand = true;
   }
 
+  private placeSiteOnMoon(): THREE.Vector3 {
+    const bl = bodyPositions(this.landT, this.epoch);
+    this.moonPos.set(bl.moon.x, bl.moon.y, bl.moon.z);
+    this.radial.copy(this.landPos).sub(this.moonPos);
+    const rLen = this.radial.length() || 1;
+    this.radial.multiplyScalar(1 / rLen);
+    const surface = this.moonPos.clone().addScaledVector(this.radial, R_MOON + 0.3);
+    this.site.position.copy(surface);
+    this.site.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.radial);
+    return surface;
+  }
+
+  private applyDustLook(
+    missionT: number,
+    surface: THREE.Vector3,
+    opts: { phase: string; burning: boolean; altMoon: number },
+  ): void {
+    this.dust.visible = true;
+    this.dust.position.copy(surface);
+    this.dust.quaternion.copy(this.site.quaternion);
+    const { expand, opacity } = dustExpandOpacity(
+      missionT, this.landT, opts.phase, opts.burning, opts.altMoon,
+    );
+    this.dust.scale.setScalar(expand);
+    this.dustMat.opacity = opacity;
+  }
+
+  private updateDust(
+    missionT: number,
+    surface: THREE.Vector3,
+    opts: { phase: string; burning: boolean; altMoon: number },
+  ): void {
+    if (!dustActive(opts.phase, opts.altMoon)) {
+      this.dust.visible = false;
+      return;
+    }
+    this.applyDustLook(missionT, surface, opts);
+  }
+
+  private pulseBeacon(craftPos: THREE.Vector3, surface: THREE.Vector3): void {
+    const dist = craftPos.distanceTo(surface);
+    const pulse = 0.55 + 0.35 * Math.sin(performance.now() * 0.004);
+    (this.beacon.material as THREE.MeshBasicMaterial).opacity = dist < 500 ? pulse : 0.45;
+  }
+
   update(
     missionT: number,
     craftPos: THREE.Vector3,
@@ -120,72 +190,9 @@ export class LandingFx {
       this.dust.visible = false;
       return;
     }
-
-    const b = bodyPositions(Math.min(missionT, this.landT), this.epoch);
-    this.moonPos.set(b.moon.x, b.moon.y, b.moon.z);
-
-    // Project landing point onto lunar surface along Earth-Moon geometry at land epoch
-    const bl = bodyPositions(this.landT, this.epoch);
-    this.moonPos.set(bl.moon.x, bl.moon.y, bl.moon.z);
-    this.radial.copy(this.landPos).sub(this.moonPos);
-    const rLen = this.radial.length() || 1;
-    this.radial.multiplyScalar(1 / rLen);
-
-    // Site sits on surface, slightly above to avoid z-fight
-    const surface = this.moonPos
-      .clone()
-      .addScaledVector(this.radial, R_MOON + 0.3);
-    this.site.position.copy(surface);
-    // Orient local +Y along radial (out of surface)
-    this.site.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      this.radial,
-    );
-
-    // Show site once near Moon (approach onward) or always after land epoch
-    const nearMoon =
-      opts.phase === "approach" ||
-      opts.phase === "braking" ||
-      opts.phase === "descent" ||
-      opts.phase === "landed" ||
-      missionT >= this.landT - 3600;
-    this.site.visible = nearMoon;
-
-    // Dust puff: expands during late descent / touchdown
-    const low =
-      (opts.phase === "descent" || opts.phase === "landed") &&
-      opts.altMoon < 40;
-    if (low || opts.phase === "landed") {
-      this.dust.visible = true;
-      this.dust.position.copy(surface);
-      this.dust.quaternion.copy(this.site.quaternion);
-
-      let expand: number;
-      let opacity: number;
-      if (opts.phase === "descent" && opts.burning) {
-        // Grow as we get closer
-        expand = THREE.MathUtils.clamp(8 + (25 - opts.altMoon) * 0.8, 4, 35);
-        opacity = THREE.MathUtils.clamp(0.15 + (20 - opts.altMoon) * 0.02, 0.1, 0.55);
-      } else if (opts.phase === "landed") {
-        const age = Math.max(0, missionT - this.landT);
-        // Peak at touchdown then settle
-        const u = Math.min(1, age / 120);
-        expand = 18 + u * 40;
-        opacity = 0.5 * Math.exp(-age / 200);
-      } else {
-        expand = 6;
-        opacity = 0.12;
-      }
-      this.dust.scale.setScalar(expand);
-      this.dustMat.opacity = opacity;
-    } else {
-      this.dust.visible = false;
-    }
-
-    // Soft blink on beacon near craft
-    const dist = craftPos.distanceTo(surface);
-    const pulse = 0.55 + 0.35 * Math.sin(performance.now() * 0.004);
-    (this.beacon.material as THREE.MeshBasicMaterial).opacity =
-      dist < 500 ? pulse : 0.45;
+    const surface = this.placeSiteOnMoon();
+    this.site.visible = nearMoonPhase(opts.phase, missionT, this.landT);
+    this.updateDust(missionT, surface, opts);
+    this.pulseBeacon(craftPos, surface);
   }
 }
