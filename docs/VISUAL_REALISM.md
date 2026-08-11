@@ -35,6 +35,8 @@ Related:
 
 **Shipped (V1):** regime-specific multi-layer plumes (atmosphere denser/tighter, vacuum wider/sparser, LOI + landing ship looks), dual hot-stage lights, scrub-safe thrust lag + gimbal wobble.
 
+**Shipped (V3):** pad close-up — scorch/water stains, multi-tier deluge + sheets, chopsticks/QD silhouette, trench heat haze.
+
 Key modules: `src/scene/{bodies,craft,earthTheater,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
 ---
@@ -122,16 +124,16 @@ Also shipped:
 
 ---
 
-## V3 — Starbase pad close-up
+## V3 — Starbase pad close-up — **done 2026-08-11**
 
 Pad massing reads from altitude; trench + pad cams need density up close.
 
-- Scorch / water stains on OLM and apron
-- Deluge sheets more volumetric (still scrub-driven)
-- Chopsticks / QD arm silhouette during prelaunch
-- Heat haze over trench at ignition
+- ~~Scorch / water stains on OLM and apron~~ **done** (procedural scorch map, water decals, runoff trails, darkened OLM top)
+- ~~Deluge sheets more volumetric (still scrub-driven)~~ **done** (3-tier steam ring + sheet curtains along trench)
+- ~~Chopsticks / QD arm silhouette during prelaunch~~ **done** (thicker arms, carriage cheeks, QD bellows/face)
+- ~~Heat haze over trench at ignition~~ **done** (additive shimmer sprites, peak early burn, scrub-safe)
 
-**Likely files:** `earthTheater.ts`, launch FX update path.
+**Files:** `earthTheater.ts` (`createStarbasePad`, `createPadSurroundings`, `createMechazillaTower`, `updateStarbaseLaunchFx`).
 
 ---
 
@@ -165,7 +167,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
-3. **V3** — pad close-up (trench cam payoff)  
+3. ~~**V3** — pad close-up (trench cam payoff)~~ **done**  
 4. **V2** — terminator / Moon low-sun polish  
 5. **V4** — craft materials as needed for fin/gridfin  
 6. **V5** — shadows / post only when the above is stable  
@@ -188,3 +190,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 | 2026-08-11 | Initial visual realism backlog for agents (from product discussion after LOI + watchability pass) |
 | 2026-08-11 | V0.1 + V0.2 shipped: anti-sun fill, limbs, night pad floods, Earthshine, Earth night lights |
 | 2026-08-11 | V1 shipped: regime multi-layer plumes, dual hot-stage lights, lag/gimbal, LOI trail beat |
+| 2026-08-11 | V3 shipped: pad scorch/stains, volumetric deluge, chopsticks/QD silhouette, trench heat haze |
