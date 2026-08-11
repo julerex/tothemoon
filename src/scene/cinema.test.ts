@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as THREE from "three";
 import {
   altitudeFade,
   atmosphereBrownout,
@@ -13,6 +14,7 @@ import {
   EXPOSURE_LEO,
   EXPOSURE_PAD,
   EXPOSURE_SPACE,
+  markPadShadowMeshes,
   shadowHalfExtentKm,
   shadowsActive,
   SHADOW_FADE_ALT_KM,
@@ -114,5 +116,46 @@ describe("cameraAltitudeEarthKm", () => {
     const earth = { x: 0, y: 0, z: 0 };
     const cam = { x: R_EARTH + 10, y: 0, z: 0 };
     assert.ok(Math.abs(cameraAltitudeEarthKm(cam, earth) - 10) < 1e-9);
+  });
+});
+
+describe("markPadShadowMeshes", () => {
+  it("receives on ground discs but does not cast from them", () => {
+    const pad = new THREE.Group();
+    pad.name = "starbase-pad";
+
+    const scrub = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 8),
+      new THREE.MeshStandardMaterial(),
+    );
+    scrub.name = "pad-landmark-scrub";
+    pad.add(scrub);
+
+    const tower = new THREE.Group();
+    tower.name = "mechazilla";
+    const shaft = new THREE.Mesh(
+      new THREE.BoxGeometry(0.02, 0.2, 0.02),
+      new THREE.MeshStandardMaterial(),
+    );
+    tower.add(shaft);
+    pad.add(tower);
+
+    const surroundings = new THREE.Group();
+    surroundings.name = "pad-surroundings";
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.002, 0.2),
+      new THREE.MeshStandardMaterial(),
+    );
+    surroundings.add(slab);
+    pad.add(surroundings);
+
+    markPadShadowMeshes(pad);
+
+    assert.equal(scrub.receiveShadow, true);
+    assert.equal(scrub.castShadow, false);
+    assert.equal(slab.receiveShadow, true);
+    assert.equal(slab.castShadow, false);
+    assert.equal(shaft.castShadow, true);
+    assert.equal(shaft.receiveShadow, true);
   });
 });

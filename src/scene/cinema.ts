@@ -143,6 +143,9 @@ export function shadowsActive(camAltKm: number): boolean {
 /**
  * Enable soft shadow maps on the renderer and configure the sun light.
  * Call once after creating the renderer + sun light.
+ *
+ * Bias notes (scene unit = 1 km): flat pad slabs must **not** cast (see
+ * {@link markPadShadowMeshes}) or they self-acne into TV-snow noise.
  */
 export function enableSunShadows(
   renderer: THREE.WebGLRenderer,
@@ -150,12 +153,13 @@ export function enableSunShadows(
 ): void {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  // Avoid peter-panning on pad concrete; normalBias helps thin craft meshes
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
-  sunLight.shadow.bias = -0.00015;
-  sunLight.shadow.normalBias = 0.015;
-  sunLight.shadow.radius = 2.5;
+  // Conservative bias: enough to hide residual acne on craft/OLM without
+  // large peter-panning (values in world km / shadow depth).
+  sunLight.shadow.bias = -0.0004;
+  sunLight.shadow.normalBias = 0.004;
+  sunLight.shadow.radius = 3;
   const cam = sunLight.shadow.camera;
   cam.near = 0.05;
   cam.far = 8;
@@ -204,6 +208,83 @@ export function markShadowMeshes(
     mesh.castShadow = cast;
     mesh.receiveShadow = receive;
   });
+}
+
+/**
+ * Pad shadow policy: **receive** craft/tower shadows on all pad surfaces, but
+ * only **cast** from vertical structures (tower, tanks, OLM, chopsticks).
+ *
+ * Flat hardstand / scrub / landmark rings must not cast — coplanar cast+receive
+ * produces noisy self-acne (“TV snow”) on the launch apron.
+ */
+export function markPadShadowMeshes(pad: THREE.Object3D): void {
+  // Ground / apron / FX: receive only
+  markShadowMeshes(pad, { cast: false, receive: true });
+
+  // Named vertical massing that should throw a real shadow on the concrete
+  const castRoots = [
+    "mechazilla",
+    "pad-tank-farm",
+    "pad-warehouse",
+    "pad-olm",
+    "pad-chopstick-carriage",
+    "pad-chopstick-L",
+    "pad-chopstick-R",
+    "pad-qd-arm",
+    "pad-flood-fixture-0",
+    "pad-flood-fixture-1",
+    "pad-flood-fixture-2",
+    "pad-flood-fixture-3",
+  ] as const;
+
+  for (const name of castRoots) {
+    const node = pad.getObjectByName(name);
+    if (node) markShadowMeshes(node, { cast: true, receive: true });
+  }
+
+  // Explicitly silence large flat landmark discs (receive only, never cast)
+  for (const name of [
+    "pad-landmark-scrub",
+    "pad-landmark-ring",
+    "pad-scorch",
+    "pad-surroundings",
+  ] as const) {
+    const node = pad.getObjectByName(name);
+    if (!node) continue;
+    if (name === "pad-surroundings") {
+      // Surroundings: keep receive; only re-enable cast on nested farm/warehouse
+      // (already handled via getObjectByName above if parented under pad).
+      // Force flat discs under surroundings not to cast.
+      node.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const geom = mesh.geometry;
+        if (
+          geom instanceof THREE.CircleGeometry ||
+          geom instanceof THREE.RingGeometry ||
+          geom instanceof THREE.PlaneGeometry
+        ) {
+          mesh.castShadow = false;
+          mesh.receiveShadow = true;
+        } else if (geom instanceof THREE.BoxGeometry) {
+          // Thin horizontal slabs (hardstand): do not cast
+          const p = geom.parameters as {
+            width: number;
+            height: number;
+            depth: number;
+          };
+          const minDim = Math.min(p.width, p.height, p.depth);
+          const maxDim = Math.max(p.width, p.height, p.depth);
+          if (minDim < maxDim * 0.08) {
+            mesh.castShadow = false;
+            mesh.receiveShadow = true;
+          }
+        }
+      });
+    } else {
+      markShadowMeshes(node, { cast: false, receive: true });
+    }
+  }
 }
 
 /**

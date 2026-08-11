@@ -58,6 +58,7 @@ import {
   cameraAltitudeEarthKm,
   createCinemaComposer,
   enableSunShadows,
+  markPadShadowMeshes,
   markShadowMeshes,
   renderCinema,
   resizeCinema,
@@ -160,8 +161,8 @@ const _skySun = new THREE.Vector3();
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
 bodies.earth.add(starbasePad);
-// Pad receives/casts; Earth globe itself stays out of the shadow map
-markShadowMeshes(starbasePad, { cast: true, receive: true });
+// Pad receives craft/tower shadows; flat ground does not cast (avoids TV-snow acne)
+markPadShadowMeshes(starbasePad);
 const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
