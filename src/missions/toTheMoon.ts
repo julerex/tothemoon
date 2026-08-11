@@ -26,7 +26,11 @@ import {
   createScene,
   updateMoonRelativeOrbit,
 } from "../scene/createScene";
-import { applySunLight } from "../scene/sunLight";
+import {
+  applyEarthshine,
+  applyFillLight,
+  applySunLight,
+} from "../scene/sunLight";
 import { createBodies, spinBodies, updateBodies } from "../scene/bodies";
 import {
   CRAFT_MESH_SCALE,
@@ -124,7 +128,7 @@ renderer.toneMappingExposure = 1.05;
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
 
-const { scene, sunLight, orbitGroup } = createScene();
+const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
@@ -515,8 +519,10 @@ function applyMissionState(u: number): void {
   // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT);
 
-  // Unit-scale sun light aimed at Earth
-  applySunLight(sunLight, b.sun, b.earth, _skySun);
+  // Unit-scale sun + soft anti-sun fill + Earthshine on the Moon
+  const sunUnit = applySunLight(sunLight, b.sun, b.earth, _skySun);
+  applyFillLight(fillLight, sunUnit, b.earth);
+  applyEarthshine(earthshine, b.earth, b.moon);
   // Cache for ground-sky update after the camera moves this frame
   _skyEarth.copy(_earthPos);
 

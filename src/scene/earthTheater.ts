@@ -860,12 +860,13 @@ export function updateStarbaseLaunchFx(
     });
   }
 
-  // Floodlights: strong at night on pad, dim day fill; drop once stack is gone
+  // Floodlights: strong at night; very restrained daytime (sun + pad geometry).
+  // Drop once stack is gone. V0.1 — floods mainly for night ops.
   const padOps =
     nearPad ||
     state.missionT < 0 ||
     (state.phase === "launch" && state.missionT < 120);
-  const floodBase = padOps ? 0.15 * day + 1.15 * night : 0;
+  const floodBase = padOps ? 0.04 * day + 1.2 * night : 0;
   for (let i = 0; i < 3; i++) {
     const spot = pad.getObjectByName(`pad-flood-${i}`) as
       | THREE.SpotLight
@@ -877,10 +878,12 @@ export function updateStarbaseLaunchFx(
     spot.distance = 0.28 + 0.1 * night;
   }
 
-  // Cool ambient fill around the complex
+  // Cool ambient fill around the complex (night-led; tiny day residual)
   const fill = pad.getObjectByName("pad-fill") as THREE.PointLight | undefined;
   if (fill) {
-    fill.intensity = padOps ? 0.08 * day + 0.55 * night * (1 - 0.4 * strength) : 0;
+    fill.intensity = padOps
+      ? 0.03 * day + 0.55 * night * (1 - 0.4 * strength)
+      : 0;
     fill.color.setHex(strength > 0.1 ? 0xffe0c8 : 0xdde6f4);
     fill.distance = 0.22 + 0.08 * night;
   }

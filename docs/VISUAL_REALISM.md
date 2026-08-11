@@ -29,7 +29,9 @@ Related:
 | **Cameras** | Trench, pad, chase (look-ahead/bank), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
 | **Overlays** | Trails, orbit grids, Kepler corridor, locators |
 
-**Not yet:** soft shadows, post/bloom stack, night city lights, strong regime-specific plumes, dense pad close-up wear, Earthshine.
+**Shipped (V0):** soft anti-sun fill, stronger Earth/Moon limb, night-led pad floods, Earthshine on Moon, procedural Earth night lights.
+
+**Not yet:** soft shadows, post/bloom stack, strong regime-specific plumes, dense pad close-up wear.
 
 Key modules: `src/scene/{bodies,craft,earthTheater,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
@@ -59,24 +61,22 @@ Key modules: `src/scene/{bodies,craft,earthTheater,textures,sunLight,groundSky,s
 
 ---
 
-## V0 — Lighting and Earth night (recommended first)
+## V0 — Lighting and Earth night — **done 2026-08-11**
 
-### V0.1 Phase-aware lighting / fill / limb
+### V0.1 Phase-aware lighting / fill / limb — **done**
 
-- Soft **fill** so night sides are not pure black (space theater still needs readable silhouette).
-- Stronger **Earth/Moon limb** (thin atmo already exists — push readability at LEO and lunar approach).
-- Pad: **floods only at night**, restrained daytime fill (Flight 13 day launch already partly tuned).
-- Optional cheap **Earthshine** on the Moon (second dim light aimed Moon←Earth).
+- Soft **anti-sun fill** (`applyFillLight`) so night sides keep a readable silhouette.
+- Stronger **Earth limb** shells + subtle **Moon limb** edge.
+- Pad: **floods night-led**, restrained daytime fill (`earthTheater` floodBase).
+- Cheap **Earthshine** on the Moon (`applyEarthshine`, dim bluish directional).
 
-**Likely files:** `sunLight.ts`, `bodies.ts`, mission theaters (`applySunLight` call sites), pad flood path in `earthTheater.ts`.
+**Files:** `sunLight.ts`, `createScene.ts`, `bodies.ts`, mission theaters, `earthTheater.ts`.
 
-### V0.2 Earth night lights / city glints
+### V0.2 Earth night lights / city glints — **done**
 
-Procedural city lights on the night side (canvas or emissive map driven by N·L). High ROI for LEO and night pad.
+Procedural equirectangular city lights as `emissiveMap` (`makeEarthNightLightsTexture`). Metro clusters + corridor scatter; day side washed by sun.
 
-Already noted as optional leftover in `NEXT.md` §10.
-
-**Likely files:** `textures.ts`, `bodies.ts`.
+**Files:** `textures.ts`, `bodies.ts`.
 
 ---
 
@@ -159,7 +159,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 
 ## Suggested sequencing (concrete)
 
-1. **V0.1 + V0.2** — lighting fill/limb + Earth night lights (one or two small PRs)  
+1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. **V1** — plume atmosphere vs vacuum + LOI/landing variants  
 3. **V3** — pad close-up (trench cam payoff)  
 4. **V2** — terminator / Moon low-sun polish  
@@ -182,3 +182,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 | Date | Note |
 |------|------|
 | 2026-08-11 | Initial visual realism backlog for agents (from product discussion after LOI + watchability pass) |
+| 2026-08-11 | V0.1 + V0.2 shipped: anti-sun fill, limbs, night pad floods, Earthshine, Earth night lights |

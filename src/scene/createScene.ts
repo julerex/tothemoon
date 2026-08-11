@@ -12,6 +12,10 @@ import type { Line2 } from "three/addons/lines/Line2.js";
 export type SceneBundle = {
   scene: THREE.Scene;
   sunLight: THREE.DirectionalLight;
+  /** Soft anti-sun fill so night silhouettes stay readable (updated each frame). */
+  fillLight: THREE.DirectionalLight;
+  /** Dim Earth-reflected light on the Moon (updated each frame). */
+  earthshine: THREE.DirectionalLight;
   /** Ecliptic grids + Earth path (+ Moon trail added in main) — toggle with O */
   orbitGroup: THREE.Group;
 };
@@ -217,19 +221,31 @@ export function createScene(): SceneBundle {
   orbitGroup.add(createEarthOrbitPath());
   scene.add(orbitGroup);
 
-  // Day-readable pad / stack: ambient was too low for stainless metalness
-  scene.add(new THREE.AmbientLight(0x556688, 0.42));
-  scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x1a1520, 0.45));
+  // Soft ambient so night-side silhouettes stay readable (space theater);
+  // still low enough that sun + pad floods dominate daytime pad shots.
+  scene.add(new THREE.AmbientLight(0x4a5a78, 0.36));
+  scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x121018, 0.4));
 
   // Sun light — direction updated each frame via applySunLight (unit offset)
   const sunLight = new THREE.DirectionalLight(0xfff2dd, 3.4);
+  sunLight.name = "sun-light";
   sunLight.position.set(-1, 0.2, 0.3);
   scene.add(sunLight);
   scene.add(sunLight.target);
 
-  const rim = new THREE.DirectionalLight(0x6688cc, 0.2);
-  rim.position.set(A_EM, -A_EM * 0.3, -A_EM * 0.5);
-  scene.add(rim);
+  // Soft anti-sun fill (replaces fixed rim) — applyFillLight each frame
+  const fillLight = new THREE.DirectionalLight(0x6a7a9a, 0.32);
+  fillLight.name = "fill-light";
+  fillLight.position.set(1, 0, 0);
+  scene.add(fillLight);
+  scene.add(fillLight.target);
 
-  return { scene, sunLight, orbitGroup };
+  // Dim bluish Earthshine on the Moon — applyEarthshine each frame
+  const earthshine = new THREE.DirectionalLight(0x88aacc, 0.16);
+  earthshine.name = "earthshine";
+  earthshine.position.set(0, 0, 1);
+  scene.add(earthshine);
+  scene.add(earthshine.target);
+
+  return { scene, sunLight, fillLight, earthshine, orbitGroup };
 }

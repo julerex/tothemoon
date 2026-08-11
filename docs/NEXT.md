@@ -119,10 +119,10 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
 
-### 10. Epoch & lighting polish — **partial**
+### 10. Epoch & lighting polish — **done**
 
 - ~~Landing illumination already targets July 2027 waning gibbous — expose “Sun / Earth / Moon phase” one-liner~~ **done** (`skyPhase.ts`: telemetry **Sky**, Metrics Epoch, complete-card Sky row).
-- Soft Earth night lights or city glints only if they stay cheap (canvas texture already exists for Earth).
+- ~~Soft Earth night lights / city glints~~ **done** (V0 in [VISUAL_REALISM.md](./VISUAL_REALISM.md): emissive night map + anti-sun fill + Earthshine).
 
 ### 11. Packed trajectory metadata — **done**
 
@@ -262,3 +262,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Cameras reordered 1–8; flame-trench under-pad cam; prelaunch pad-cam epoch fix |
 | 2026-08-11 | Watchability: Flight 13 Auto-cam profile + chase look-ahead / bank / speed widen |
 | 2026-08-11 | Lunar LOI restored: n-body coast → capture burn → polar LLO → powered descent → south-pole land |
+| 2026-08-11 | Visual V0: anti-sun fill, Earth/Moon limbs, night pad floods, Earthshine, Earth night lights |

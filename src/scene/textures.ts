@@ -642,6 +642,168 @@ export function makeStarTexture(size = 1024): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * Equirectangular Earth night lights (emissive map).
+ * Warm city glints over major metro clusters + sparse scatter on land bands.
+ * Theater-grade — not census or VIIRS; black where empty so day side stays dark.
+ */
+export function makeEarthNightLightsTexture(size = 1024): HTMLCanvasElement {
+  const w = size;
+  const h = Math.round(size / 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, w, h);
+
+  // Major metro / corridor anchors: [lon, lat, intensity 0–1]
+  const cities: readonly (readonly [number, number, number])[] = [
+    // Americas
+    [-74.0, 40.7, 1.0], // NYC
+    [-87.6, 41.9, 0.85], // Chicago
+    [-118.2, 34.0, 0.95], // LA
+    [-122.4, 37.8, 0.7], // SF Bay
+    [-95.4, 29.8, 0.75], // Houston / Gulf
+    [-80.2, 25.8, 0.7], // Miami
+    [-97.7, 30.3, 0.55], // Austin / Texas corridor
+    [-99.1, 19.4, 0.9], // Mexico City
+    [-46.6, -23.5, 0.9], // São Paulo
+    [-43.2, -22.9, 0.75], // Rio
+    [-70.6, -33.4, 0.55], // Santiago
+    [-58.4, -34.6, 0.7], // Buenos Aires
+    // Europe
+    [-0.1, 51.5, 0.95], // London
+    [2.3, 48.9, 0.9], // Paris
+    [13.4, 52.5, 0.85], // Berlin
+    [12.5, 41.9, 0.7], // Rome
+    [4.9, 52.4, 0.65], // Amsterdam
+    [-3.7, 40.4, 0.7], // Madrid
+    [37.6, 55.8, 0.9], // Moscow
+    [28.9, 41.0, 0.75], // Istanbul
+    // Africa / Middle East
+    [31.2, 30.0, 0.8], // Cairo
+    [3.1, 36.8, 0.5], // Algiers
+    [18.4, -33.9, 0.55], // Cape Town
+    [28.0, -26.2, 0.65], // Johannesburg
+    [55.3, 25.2, 0.7], // Dubai
+    [46.7, 24.7, 0.55], // Riyadh
+    // Asia
+    [77.2, 28.6, 0.95], // Delhi
+    [72.9, 19.1, 0.95], // Mumbai
+    [88.4, 22.6, 0.75], // Kolkata
+    [80.3, 13.1, 0.7], // Chennai
+    [100.5, 13.8, 0.75], // Bangkok
+    [106.8, -6.2, 0.9], // Jakarta
+    [103.8, 1.3, 0.7], // Singapore
+    [121.5, 31.2, 1.0], // Shanghai
+    [116.4, 39.9, 0.95], // Beijing
+    [113.3, 23.1, 0.85], // Guangzhou
+    [114.2, 22.3, 0.85], // Hong Kong
+    [139.7, 35.7, 1.0], // Tokyo
+    [135.5, 34.7, 0.8], // Osaka
+    [126.9, 37.6, 0.85], // Seoul
+    [121.0, 14.6, 0.7], // Manila
+    // Oceania
+    [151.2, -33.9, 0.75], // Sydney
+    [144.9, -37.8, 0.7], // Melbourne
+  ];
+
+  for (const [lon, lat, intensity] of cities) {
+    // Core warm glow
+    softBlob(
+      ctx,
+      w,
+      h,
+      lon,
+      lat,
+      4 + intensity * 6,
+      2.5 + intensity * 3.5,
+      `rgba(255, 210, 140, ${0.55 + intensity * 0.4})`,
+    );
+    // Wider dim halo
+    softBlob(
+      ctx,
+      w,
+      h,
+      lon,
+      lat,
+      10 + intensity * 12,
+      6 + intensity * 8,
+      `rgba(255, 160, 80, ${0.12 + intensity * 0.18})`,
+    );
+    // Hot white core
+    softBlob(
+      ctx,
+      w,
+      h,
+      lon,
+      lat,
+      1.2 + intensity * 1.5,
+      0.8 + intensity,
+      `rgba(255, 245, 220, ${0.7 + intensity * 0.25})`,
+    );
+  }
+
+  // US East Coast / Midwest corridor scatter
+  for (let i = 0; i < 28; i++) {
+    softBlob(
+      ctx,
+      w,
+      h,
+      -90 + Math.random() * 22,
+      30 + Math.random() * 15,
+      2 + Math.random() * 4,
+      1.2 + Math.random() * 2.5,
+      `rgba(255, 190, 110, ${0.12 + Math.random() * 0.2})`,
+    );
+  }
+  // Western Europe band
+  for (let i = 0; i < 22; i++) {
+    softBlob(
+      ctx,
+      w,
+      h,
+      -5 + Math.random() * 25,
+      42 + Math.random() * 12,
+      2 + Math.random() * 3.5,
+      1.2 + Math.random() * 2,
+      `rgba(255, 200, 130, ${0.1 + Math.random() * 0.18})`,
+    );
+  }
+  // India / Indo-Gangetic
+  for (let i = 0; i < 18; i++) {
+    softBlob(
+      ctx,
+      w,
+      h,
+      72 + Math.random() * 18,
+      18 + Math.random() * 14,
+      2 + Math.random() * 4,
+      1.5 + Math.random() * 2.5,
+      `rgba(255, 180, 100, ${0.12 + Math.random() * 0.2})`,
+    );
+  }
+  // East Asia coastal
+  for (let i = 0; i < 24; i++) {
+    softBlob(
+      ctx,
+      w,
+      h,
+      110 + Math.random() * 30,
+      22 + Math.random() * 20,
+      2 + Math.random() * 4,
+      1.5 + Math.random() * 2.5,
+      `rgba(255, 195, 120, ${0.12 + Math.random() * 0.22})`,
+    );
+  }
+
+  // Sparse fine glints (ships / towns) — keep rare so oceans stay black
+  sprinkle(ctx, w, h, Math.floor(w * h * 0.0008), "rgba(255,200,120,0.35)");
+
+  return canvas;
+}
+
 function sprinkle(
   ctx: CanvasRenderingContext2D,
   w: number,

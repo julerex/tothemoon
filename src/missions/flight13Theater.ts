@@ -23,7 +23,11 @@ import {
   createScene,
   updateMoonRelativeOrbit,
 } from "../scene/createScene";
-import { applySunLight } from "../scene/sunLight";
+import {
+  applyEarthshine,
+  applyFillLight,
+  applySunLight,
+} from "../scene/sunLight";
 // Flight 13 reuses Moon path for scale context; no coast corridor overlay.
 import { createBodies, spinBodies, updateBodies } from "../scene/bodies";
 import {
@@ -157,7 +161,7 @@ renderer.toneMappingExposure = 1.2;
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
 const director = new CameraDirector(camera, canvas);
 
-const { scene, sunLight, orbitGroup } = createScene();
+const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
@@ -662,8 +666,10 @@ function applyMissionState(u: number): void {
   // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT);
 
-  // Unit-scale sun light aimed at Earth (AU-scale light.pos left pad unlit-looking)
-  applySunLight(sunLight, b.sun, b.earth, _skySun);
+  // Unit-scale sun + soft anti-sun fill + Earthshine (pad stays sunlit by day)
+  const sunUnit = applySunLight(sunLight, b.sun, b.earth, _skySun);
+  applyFillLight(fillLight, sunUnit, b.earth);
+  applyEarthshine(earthshine, b.earth, b.moon);
   // Cache for ground-sky update after the camera moves this frame
   _skyEarth.copy(_earthPos);
 
