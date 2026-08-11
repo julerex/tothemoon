@@ -13,7 +13,9 @@ import { MU_MOON, R_EARTH } from "./constants.ts";
 import { len, sub, v3 } from "./vec3.ts";
 import {
   compareFlight13ForceModels,
+  compareFlight13ToEarthOnly,
   FLIGHT13_FORCE_AGREE,
+  formatForceCompareLine,
   sampleAtTime,
 } from "./flight13ForceCompare.ts";
 import { runFlight13Mission } from "./flight13Mission.ts";
@@ -147,5 +149,26 @@ describe("compareFlight13ForceModels", () => {
     assert.equal(earth.ok, true);
     assert.equal(earth.samples[earth.samples.length - 1]!.phase, "splashdown");
     assert.ok(earth.durationS > 35 * 60);
+  });
+
+  it("formatForceCompareLine mentions coast and full max |Δr|", () => {
+    const line = formatForceCompareLine(cmp);
+    assert.match(line, /coast max/i);
+    assert.match(line, /full max/i);
+    assert.match(line, /km/);
+  });
+
+  it("compareFlight13ToEarthOnly agrees with dual-run compare on coast |Δr|", () => {
+    // Re-use n-body samples from a fresh n-body run (same seed profile)
+    const nbody = runFlight13Mission({ gravity: "nbody" });
+    const vsPack = compareFlight13ToEarthOnly(nbody.samples, {
+      durationS: nbody.durationS,
+      stageT: nbody.stageT,
+    });
+    // Coast window is pure physics — dual-run and pack-compare should match closely
+    assert.ok(
+      Math.abs(vsPack.coastMaxPosDevKm - cmp.coastMaxPosDevKm) < 5,
+      `coast max |Δr| pack ${vsPack.coastMaxPosDevKm} vs dual ${cmp.coastMaxPosDevKm}`,
+    );
   });
 });

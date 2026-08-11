@@ -23,6 +23,7 @@ import type {
 } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
 import type { Sample } from "../physics/missionTypes";
+import { formatSkyPhaseLine } from "../physics/skyPhase";
 import {
   BOOSTER_DRY_KG,
   BOOSTER_PROP_KG,
@@ -137,6 +138,11 @@ export type Telemetry = {
   speedMoon: number;
   staged: boolean;
   burning: boolean;
+  /**
+   * Optional Flight 13 force-model check (n-body vs Earth-only).
+   * When set, Metrics shows a "Force check" row.
+   */
+  forceCompareLine?: string | null;
 };
 
 const CALLOUT_MS = 4200;
@@ -198,6 +204,7 @@ export function bindHud(
   const boosterEl = el<HTMLElement>("#tel-booster");
   const shipEl = el<HTMLElement>("#tel-ship");
   const thrustEl = el<HTMLElement>("#tel-thrust");
+  const skyEl = document.querySelector<HTMLElement>("#tel-sky");
   const barBooster = document.querySelector<HTMLElement>("#bar-booster");
   const barShip = document.querySelector<HTMLElement>("#bar-ship");
   const callout = document.querySelector<HTMLElement>("#callout");
@@ -217,6 +224,7 @@ export function bindHud(
   const mcFuel = document.querySelector<HTMLElement>("#mc-fuel");
   const mcPeakSpeed = document.querySelector<HTMLElement>("#mc-peak-speed");
   const mcStageT = document.querySelector<HTMLElement>("#mc-stage-t");
+  const mcSky = document.querySelector<HTMLElement>("#mc-sky");
   const mcReplay = document.querySelector<HTMLButtonElement>("#mc-replay");
   const hudRoot = document.querySelector<HTMLElement>("#hud");
   const keymapEl = document.querySelector<HTMLElement>("#keymap");
@@ -279,6 +287,9 @@ export function bindHud(
     peakSpeed: document.querySelector<HTMLElement>("#mx-peak-speed"),
     stageT: document.querySelector<HTMLElement>("#mx-stage-t"),
     keplerDev: document.querySelector<HTMLElement>("#mx-kepler-dev"),
+    sky: document.querySelector<HTMLElement>("#mx-sky"),
+    forceRow: document.querySelector<HTMLElement>("#mx-force-row"),
+    forceCheck: document.querySelector<HTMLElement>("#mx-force-check"),
   };
 
   let scrubbing = false;
@@ -1114,6 +1125,14 @@ export function bindHud(
     boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
     shipEl.textContent = formatFuel(tel.fuelShip, "ship");
     thrustEl.textContent = formatThrust(tel.thrustN);
+    // Sky phase (Sun / Moon) — live at scrubber time
+    if (skyEl) {
+      try {
+        skyEl.textContent = formatSkyPhaseLine(Math.max(0, tel.t));
+      } catch {
+        skyEl.textContent = "—";
+      }
+    }
     if (barBooster) {
       barBooster.style.width = `${Math.round(clamp01(tel.fuelBooster) * 100)}%`;
     }
@@ -1159,6 +1178,16 @@ export function bindHud(
               tel.stageT != null && Number.isFinite(tel.stageT)
                 ? formatMissionTime(tel.stageT)
                 : "—";
+          }
+          if (mcSky) {
+            try {
+              // Phase at terminal mission time (landing / splash)
+              mcSky.textContent = formatSkyPhaseLine(
+                Math.max(0, tel.durationS > 0 ? tel.durationS : tel.t),
+              );
+            } catch {
+              mcSky.textContent = "—";
+            }
           }
         }
         completeEl.hidden = false;
@@ -1216,6 +1245,11 @@ export function bindHud(
     setText(mx.phase, tel.phase);
     setText(mx.time, formatMissionTimeDetailed(tel.t));
     setText(mx.date, tel.dateUtc);
+    try {
+      setText(mx.sky, formatSkyPhaseLine(Math.max(0, tel.t)));
+    } catch {
+      setText(mx.sky, "—");
+    }
     setText(
       mx.progress,
       `${(Math.min(1, Math.max(0, u)) * 100).toFixed(2)}% · ${formatMissionTimeDetailed(Math.max(0, tel.durationS - tel.t))} left`,
@@ -1285,6 +1319,17 @@ export function bindHud(
         ? formatDistancePrecise(tel.keplerRefMaxDevKm)
         : "—",
     );
+    // Flight 13: n-body vs Earth-only force check (optional)
+    if (mx.forceRow && mx.forceCheck) {
+      const line = tel.forceCompareLine?.trim();
+      if (line) {
+        mx.forceRow.hidden = false;
+        mx.forceCheck.textContent = line;
+      } else {
+        mx.forceRow.hidden = true;
+        mx.forceCheck.textContent = "—";
+      }
+    }
   }
 
   return { update, setAutoCamEnabled, notifyAutoCamera };

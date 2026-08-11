@@ -32,7 +32,7 @@ Use this order unless a bug or production issue supersedes it.
 | **P2** | Physics / fidelity (theater-grade) | Deepens credibility without ops-grade claims |
 | **P3** | Architecture & scale | Keeps `mission.ts` and scene code maintainable |
 | **P4** | Stretch / optional | Nice if motivated; easy to defer |
-| **P1+** | Multi-mission shell | **Started** — main menu → Mission Menu; Flight 13 briefing |
+| **P1+** | Multi-mission shell | **Done** — main menu → Mission Menu; lunar + Flight 13 full theaters |
 
 ---
 
@@ -116,9 +116,9 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
 
-### 10. Epoch & lighting polish
+### 10. Epoch & lighting polish — **partial**
 
-- Landing illumination already targets July 2027 waning gibbous — expose “Sun / Earth / Moon phase” one-liner in telemetry or complete card.
+- ~~Landing illumination already targets July 2027 waning gibbous — expose “Sun / Earth / Moon phase” one-liner~~ **done** (`skyPhase.ts`: telemetry **Sky**, Metrics Epoch, complete-card Sky row).
 - Soft Earth night lights or city glints only if they stay cheap (canvas texture already exists for Earth).
 
 ### 11. Packed trajectory metadata — **done**
@@ -174,7 +174,7 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 | Idea | Notes |
 |------|--------|
 | **Return to Earth** | Full second half of a free-return or reentry theater — large scope; design mission phases first |
-| **Multi-mission select** | **Shell done** (main → Mission Menu, hash routes). Next: Flight 13 kinematic / baked theater from `docs/STARSHIP_13.md` timeline; more packs as needed |
+| **Multi-mission select** | **Done** (main → Mission Menu, hash routes; lunar + Flight 13 full theaters). More packs as needed |
 | **Audio** | Ambient pad rumble / callout stingers; keep mute default |
 | **Mobile layout** | Telemetry + transport already constrained; test pad label / complete card on narrow viewports |
 | **WebGPU / post** | Only if WebGL path stays first-class |
@@ -194,10 +194,16 @@ A practical order for the next few sessions:
 6. ~~**Persist mission stats in precompute pack** (P2.11)~~ **done**  
 7. ~~**Split mission physics modules** (P3.12)~~ **done**  
 8. ~~**Lunar orbit insertion / coast visual corridor** (P2.8)~~ **done** (Kepler corridor)  
+9. ~~**Flight 13 full theater**~~ **done** (baked pack, staging, coast, entry, splash, trench cam, Earth-only force check)  
+10. ~~**Sky phase one-liner** (P2.10 partial)~~ **done** (telemetry + Metrics + complete card)  
 
-Core arc is modular and watchable. **Multi-mission shell** is in: main menu → Mission Menu → `to-the-moon` | `flight-13` (briefing).  
-**Next for Flight 13:** bake a ~65 min trajectory pack + theater reuse (ascent / staging / booster recovery / ship entry) against `docs/STARSHIP_13.md`.  
-Optional parallel: chase-camera polish (P1.6) or epoch lighting (P2.10).
+Core arc is modular and watchable. **Both missions** ship full theaters (`to-the-moon` | `flight-13`).
+
+**Good next slices:**
+1. **Flight 13 Auto-cam story** — trench/pad at countdown → ship on ascent → booster at sep → entry chase  
+2. **Chase camera quality** (P1.6) — bank, look-ahead, high-speed framing  
+3. **Lunar LOI / soft landing pack** (if a capture ending is wanted again)  
+4. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
 
@@ -248,3 +254,6 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-10 | Flight 13 entry/landing realism: lofted ballistic arc, belly-flop aero, plasma, ocean splash, 3→2→1, attitude flip |
 | 2026-08-10 | Flight 13 physics honesty: remove approach glide, SECO circularize, relight deorbit, entry bank, natural early splash |
 | 2026-08-10 | Mission-time LIVE news ticker (scrub-safe beats from timeline; lunar + Flight 13 copy) |
+| 2026-08-11 | Flight 13 Earth-only force model + coast agreement tests vs restricted n-body |
+| 2026-08-11 | Sky phase one-liner (Moon % lit + Sun λ) on telemetry / Metrics / complete card; Flight 13 Metrics force-check row |
+| 2026-08-11 | Cameras reordered 1–8; flame-trench under-pad cam; prelaunch pad-cam epoch fix |

@@ -36,7 +36,8 @@ The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters)
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
 - Cameras: **Auto-cam** by phase (toggle **G**) · Free orbit · **1** Sun · **2** Moon · **3** Earth · **4** Starbase · **5** Launchpad (trench) · **6** Booster (grid fin) · **7** Starship · **8** Ship fin · **C**/**V** roll
-- HUD: phase, mission time, distance, altitude, speed, fuel bars + thrust
+- HUD: phase, mission time, **Sky** (Moon phase % lit + Sun λ), distance, altitude, speed, fuel bars + thrust
+- Metrics (**M**): full telemetry; Flight 13 also shows **Force check** (n-body vs Earth-only coast |Δr|)
 - Logarithmic depth buffer for near craft + far Moon
 
 ## Develop

@@ -207,6 +207,9 @@
           </div>
           <div><span class="label">Thrust</span> <span id="tel-thrust">—</span></div>
           <div><span class="label">Progress</span> <span id="progress">0%</span></div>
+          <div class="tel-sky">
+            <span class="label">Sky</span> <span id="tel-sky">—</span>
+          </div>
         </section>
 
         <div
@@ -242,6 +245,10 @@
             <div>
               <dt>Stage-out</dt>
               <dd id="mc-stage-t">—</dd>
+            </div>
+            <div class="mc-sky-row">
+              <dt>Sky</dt>
+              <dd id="mc-sky">—</dd>
             </div>
           </dl>
           <button type="button" id="mc-replay" class="mc-replay">
@@ -310,6 +317,7 @@
                   <div><dt>Phase</dt><dd id="mx-phase">—</dd></div>
                   <div><dt>Mission t</dt><dd id="mx-time">—</dd></div>
                   <div><dt>UTC</dt><dd id="mx-date">—</dd></div>
+                  <div><dt>Sky</dt><dd id="mx-sky">—</dd></div>
                   <div><dt>Progress</dt><dd id="mx-progress">—</dd></div>
                   <div><dt>Playback</dt><dd id="mx-playback">—</dd></div>
                 </dl>
@@ -354,6 +362,10 @@
                   <div><dt>Peak |v|</dt><dd id="mx-peak-speed">—</dd></div>
                   <div><dt>Stage-out</dt><dd id="mx-stage-t">—</dd></div>
                   <div><dt>Kepler max |Δr|</dt><dd id="mx-kepler-dev">—</dd></div>
+                  <div id="mx-force-row" hidden>
+                    <dt>Force check</dt>
+                    <dd id="mx-force-check">—</dd>
+                  </div>
                 </dl>
               </section>
             </div>

@@ -964,6 +964,23 @@ body.menus-active {
   color: var(--text);
 }
 
+/* Sky phase spans two columns so the long line stays readable */
+.mc-stats .mc-sky-row {
+  grid-column: 1 / -1;
+}
+
+.mc-stats .mc-sky-row dd {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.telemetry .tel-sky > span:not(.label) {
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
 .mc-replay {
   width: 100%;
 }

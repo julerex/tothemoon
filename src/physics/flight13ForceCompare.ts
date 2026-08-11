@@ -97,27 +97,41 @@ function peakAltKm(samples: Sample[]): number {
 }
 
 /**
- * Run Flight 13 under both force models and report path agreement.
- *
- * Samples the n-body timeline and interpolates the Earth-only trail at the
- * same times (and vice-versa endpoints via the shorter span).
+ * Compare two sample trails (typically n-body vs Earth-only) at matched times.
  */
-export function compareFlight13ForceModels(
-  nbodyOpts?: Flight13MissionOptions,
+export function summarizeForceDeviation(
+  nbodySamples: Sample[],
+  earthSamples: Sample[],
+  meta?: {
+    durationNbodyS?: number;
+    durationEarthS?: number;
+    stageTNbody?: number | null;
+    stageTEarth?: number | null;
+  },
 ): Flight13ForceCompare {
-  const nbody = runFlight13Mission({
-    ...nbodyOpts,
-    gravity: "nbody",
-  });
-  const earth = runFlight13Mission({
-    ...nbodyOpts,
-    gravity: "earth",
-  });
+  if (nbodySamples.length < 2 || earthSamples.length < 2) {
+    return {
+      maxPosDevKm: 0,
+      maxVelDevKmS: 0,
+      maxAltDevKm: 0,
+      rmsPosDevKm: 0,
+      nPairs: 0,
+      coastMaxPosDevKm: 0,
+      coastMaxVelDevKmS: 0,
+      coastRmsPosDevKm: 0,
+      coastNPairs: 0,
+      peakAltNbodyKm: peakAltKm(nbodySamples),
+      peakAltEarthKm: peakAltKm(earthSamples),
+      durationNbodyS: meta?.durationNbodyS ?? 0,
+      durationEarthS: meta?.durationEarthS ?? 0,
+      stageTNbody: meta?.stageTNbody ?? null,
+      stageTEarth: meta?.stageTEarth ?? null,
+    };
+  }
 
-  // Match on the denser / primary (n-body) timeline within the shared span
   const tEnd = Math.min(
-    nbody.samples[nbody.samples.length - 1]!.t,
-    earth.samples[earth.samples.length - 1]!.t,
+    nbodySamples[nbodySamples.length - 1]!.t,
+    earthSamples[earthSamples.length - 1]!.t,
   );
 
   let maxPos = 0;
@@ -134,9 +148,9 @@ export function compareFlight13ForceModels(
   let coastSumSq = 0;
   let coastN = 0;
 
-  for (const s of nbody.samples) {
+  for (const s of nbodySamples) {
     if (s.t > tEnd + 1e-9) break;
-    const e = sampleAtTime(earth.samples, s.t);
+    const e = sampleAtTime(earthSamples, s.t);
     sub(_d, s.pos, e.pos);
     const dPos = len(_d);
     sub(_d, s.vel, e.vel);
@@ -168,13 +182,70 @@ export function compareFlight13ForceModels(
     coastMaxVelDevKmS: coastMaxVel,
     coastRmsPosDevKm: coastN > 0 ? Math.sqrt(coastSumSq / coastN) : 0,
     coastNPairs: coastN,
-    peakAltNbodyKm: peakAltKm(nbody.samples),
-    peakAltEarthKm: peakAltKm(earth.samples),
+    peakAltNbodyKm: peakAltKm(nbodySamples),
+    peakAltEarthKm: peakAltKm(earthSamples),
+    durationNbodyS:
+      meta?.durationNbodyS ?? nbodySamples[nbodySamples.length - 1]!.t,
+    durationEarthS:
+      meta?.durationEarthS ?? earthSamples[earthSamples.length - 1]!.t,
+    stageTNbody: meta?.stageTNbody ?? null,
+    stageTEarth: meta?.stageTEarth ?? null,
+  };
+}
+
+/**
+ * Run Earth-only Flight 13 and compare against an existing n-body sample trail
+ * (e.g. the baked pack). Prefer this in the theater so we do not re-integrate
+ * the n-body profile at metrics open.
+ */
+export function compareFlight13ToEarthOnly(
+  nbodySamples: Sample[],
+  meta?: {
+    durationS?: number;
+    stageT?: number | null;
+  },
+  earthOpts?: Flight13MissionOptions,
+): Flight13ForceCompare {
+  const earth = runFlight13Mission({
+    ...earthOpts,
+    gravity: "earth",
+  });
+  return summarizeForceDeviation(nbodySamples, earth.samples, {
+    durationNbodyS: meta?.durationS,
+    durationEarthS: earth.durationS,
+    stageTNbody: meta?.stageT ?? null,
+    stageTEarth: earth.stageT ?? null,
+  });
+}
+
+/**
+ * Run Flight 13 under both force models and report path agreement.
+ */
+export function compareFlight13ForceModels(
+  nbodyOpts?: Flight13MissionOptions,
+): Flight13ForceCompare {
+  const nbody = runFlight13Mission({
+    ...nbodyOpts,
+    gravity: "nbody",
+  });
+  const earth = runFlight13Mission({
+    ...nbodyOpts,
+    gravity: "earth",
+  });
+  return summarizeForceDeviation(nbody.samples, earth.samples, {
     durationNbodyS: nbody.durationS,
     durationEarthS: earth.durationS,
     stageTNbody: nbody.stageT ?? null,
     stageTEarth: earth.stageT ?? null,
-  };
+  });
+}
+
+/** Compact Metrics / HUD line for a force-model check. */
+export function formatForceCompareLine(c: Flight13ForceCompare): string {
+  return (
+    `n-body vs Earth-only · coast max |Δr| ${c.coastMaxPosDevKm.toFixed(1)} km · ` +
+    `full max |Δr| ${c.maxPosDevKm.toFixed(0)} km`
+  );
 }
 
 /**

@@ -12,6 +12,10 @@ import {
 } from "../physics/earthFrame";
 import { formatMissionDateUtc } from "../physics/epoch";
 import { applyFlight13Epoch } from "../physics/flight13Epoch";
+import {
+  compareFlight13ToEarthOnly,
+  formatForceCompareLine,
+} from "../physics/flight13ForceCompare";
 import { hasHorizonsEpoch, horizonsSource } from "../physics/horizonsEpoch";
 import {
   createMoonPathThroughSim,
@@ -123,6 +127,19 @@ console.info(
     `stageT=${cache.stageT?.toFixed(0) ?? "—"}s · peak |v|=${cache.peakSpeedKmS.toFixed(2)} km/s · ` +
     `daytime pad sin(el)=${padSunElev.toFixed(3)} · sunPhase0=${sun0.toFixed(4)}` +
     (hasHorizonsEpoch() ? ` · ephemeris=${horizonsSource()}` : " · analytic Earth/Sun"),
+);
+
+// Earth-only re-integration vs baked n-body pack (Metrics force-check row).
+// One extra Flight 13 integrate at open — keeps the HUD honest without a bake field.
+const forceCompare = compareFlight13ToEarthOnly(cache.samples, {
+  durationS: cache.durationS,
+  stageT: cache.stageT,
+});
+const forceCompareLine = formatForceCompareLine(forceCompare);
+console.info(
+  `[flight13] Force check · coast max |Δr|=${forceCompare.coastMaxPosDevKm.toFixed(2)} km · ` +
+    `full max |Δr|=${forceCompare.maxPosDevKm.toFixed(1)} km · ` +
+    `max |Δv|=${forceCompare.maxVelDevKmS.toFixed(3)} km/s`,
 );
 
 const renderer = new THREE.WebGLRenderer({
@@ -816,6 +833,7 @@ function applyMissionState(u: number): void {
     speedMoon,
     staged: prelaunch ? false : frame.staged,
     burning: showBurning,
+    forceCompareLine,
   });
 
   // Auto-pause at end after the landing-beat hold (card may then steal focus)
