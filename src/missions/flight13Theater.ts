@@ -38,6 +38,7 @@ import {
   updateLocatorVisibility,
 } from "../scene/craft";
 import { updateFatLineResolutions } from "../scene/fatLines";
+import { meshLocalTrailFromSamples } from "../physics/earthTrail";
 import { createTrailFromPoints } from "../scene/trail";
 import { StagingFx, findStageEvent } from "../scene/stagingFx";
 import { EntryFx } from "../scene/entryFx";
@@ -177,10 +178,11 @@ bodies.earth.add(starbasePad);
 const groundTrack = createAscentGroundTrack(cache.samples);
 if (groundTrack) bodies.earth.add(groundTrack);
 
-const trailPts = cache.trailPoints(1500);
+// Earth-centric craft trail: mesh-local under the spinning globe so it
+// co-rotates with the surface and revolves with Earth (not heliocentric).
+const trailPts = meshLocalTrailFromSamples(cache.samples, 1500);
 const craftTrail = createTrailFromPoints(trailPts);
-// Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
-orbitGroup.add(craftTrail);
+bodies.earth.add(craftTrail);
 
 // Moon path still visible for context (no Kepler corridor on suborbital flight)
 const moonPathSim = createMoonPathThroughSim(cache.durationS);
@@ -188,8 +190,8 @@ orbitGroup.add(moonPathSim);
 const moonRelOrbit = createMoonRelativeOrbit(0);
 bodies.earthGroup.add(moonRelOrbit);
 
-/** Extra orbit overlays not parented under orbitGroup (Earth-fixed track, v/a, Moon ring). */
-const orbitExtras: THREE.Object3D[] = [moonRelOrbit];
+/** Extra orbit overlays not parented under orbitGroup (Earth-fixed trail/track, v/a, Moon ring). */
+const orbitExtras: THREE.Object3D[] = [moonRelOrbit, craftTrail];
 if (groundTrack) orbitExtras.push(groundTrack);
 
 const { group: craft, locator } = createCraft();

@@ -5,7 +5,7 @@ Interactive **Three.js** mission theaters. Open the site to a **main menu**, the
 | Mission | Status |
 |---------|--------|
 | **Starbase → Moon** | Full theater (ascent → low Earth orbit → translunar coast → lunar arrival) |
-| **Starship Flight 13** | Full theater (staged ascent → suborbital coast → entry → Indian Ocean splashdown) |
+| **Starship Flight 13** | Full theater (staged ascent → suborbital coast → entry → Indian Ocean splashdown); craft trail is **Earth-fixed** (co-rotates / revolves with the globe) |
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
 
