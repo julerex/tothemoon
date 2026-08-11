@@ -1,6 +1,11 @@
 import * as THREE from "three";
 import { MissionClock } from "../mission/clock";
-import { TrajectoryCache } from "../physics/trajectoryCache";
+import {
+  computeFlight13Trajectory,
+  loadFlight13Trajectory,
+  sampleAtProgress,
+  type Trajectory,
+} from "../physics/trajectoryCache";
 import { bodyPositions } from "../physics/bodies";
 import { R_EARTH, R_MOON } from "../physics/constants";
 import {
@@ -122,9 +127,9 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing Flight 13…";
 }
-const cache = recompute
-  ? TrajectoryCache.computeFlight13()
-  : TrajectoryCache.loadFlight13();
+const cache: Trajectory = recompute
+  ? computeFlight13Trajectory()
+  : loadFlight13Trajectory();
 // Explicit Flight 13 epoch (liftoff UTC + analytic Earth/Sun)
 const { epoch, sunPhase0: sun0, padSunElev } = applyFlight13Epoch(
   cache.moonPhase0,
@@ -368,7 +373,7 @@ const hud = bindHud(
      */
     onBookmark: (bm: CinematicBookmark) => {
       clock.seek(bm.u);
-      const frame = cache.sampleAtProgress(bm.u);
+      const frame = sampleAtProgress(cache, bm.u);
       autoCam.phase = frame.phase;
       autoCam.staged = frame.staged;
       director.easeToMode(bm.mode, {
@@ -532,7 +537,8 @@ function applyMissionState(u: number): void {
   // Transport u includes T−2:00 pre-liftoff; physics t=0 is liftoff
   const physicsT = transportUToPhysicsT(u, physicsDurationS);
   const prelaunch = physicsT < 0;
-  const frame = cache.sampleAtProgress(
+  const frame = sampleAtProgress(
+    cache,
     physicsTToSampleU(physicsT, physicsDurationS),
   );
   if (prelaunch) {

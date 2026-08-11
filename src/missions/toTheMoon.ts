@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { MissionClock } from "../mission/clock";
-import { TrajectoryCache } from "../physics/trajectoryCache";
+import {
+  computeLunarTrajectory,
+  loadPrecomputedTrajectory,
+  sampleAtProgress,
+  trailPoints,
+  trajectoryCoastCorridor,
+  type Trajectory,
+} from "../physics/trajectoryCache";
 import { bodyPositions } from "../physics/bodies";
 import { R_EARTH, R_MOON } from "../physics/constants";
 import {
@@ -99,9 +106,9 @@ if (recompute) {
   const phaseBoot = document.querySelector("#phase");
   if (phaseBoot) phaseBoot.textContent = "Recomputing trajectory…";
 }
-const cache = recompute
-  ? TrajectoryCache.compute()
-  : TrajectoryCache.loadPrecomputed();
+const cache: Trajectory = recompute
+  ? computeLunarTrajectory()
+  : loadPrecomputedTrajectory();
 // Explicit ephemeris matching the bake (Horizons map + moon phase)
 const epoch = cache.epoch;
 const sun0 = epoch.sunPhase0;
@@ -144,13 +151,13 @@ bodies.earth.add(starbasePad);
 const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
-const trailPts = cache.trailPoints(1500);
+const trailPts = trailPoints(cache, 1500);
 const craftTrail = createTrailFromPoints(trailPts);
 // Mission trail is an orbit overlay (toggled with O alongside grids / Moon path)
 orbitGroup.add(craftTrail);
 
 // Kepler 2-body reference vs n-body coast (amber dashed + sparse whiskers)
-const coastCorridor = cache.getCoastCorridor();
+const coastCorridor = trajectoryCoastCorridor(cache);
 if (coastCorridor) {
   const corridorFx = createCoastCorridorOverlay(coastCorridor);
   orbitGroup.add(corridorFx);
@@ -325,7 +332,7 @@ const hud = bindHud(clock, timeline, {
    */
   onBookmark: (bm: CinematicBookmark) => {
     clock.seek(bm.u);
-    const frame = cache.sampleAtProgress(bm.u);
+    const frame = sampleAtProgress(cache, bm.u);
     autoCam.phase = frame.phase;
     autoCam.staged = frame.staged;
     director.easeToMode(bm.mode, {
@@ -410,7 +417,8 @@ function orientCraft(
 function applyMissionState(u: number): void {
   const physicsT = transportUToPhysicsT(u, physicsDurationS);
   const prelaunch = physicsT < 0;
-  const frame = cache.sampleAtProgress(
+  const frame = sampleAtProgress(
+    cache,
     physicsTToSampleU(physicsT, physicsDurationS),
   );
   if (prelaunch) {

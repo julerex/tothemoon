@@ -41,7 +41,7 @@ export function physicsTToTransportU(
 }
 
 /**
- * Physics sample progress u for {@link TrajectoryCache.sampleAtProgress}.
+ * Physics sample progress u for {@link sampleAtProgress} on a {@link Trajectory}.
  * Pre-liftoff clamps to the pad (first sample).
  */
 export function physicsTToSampleU(
