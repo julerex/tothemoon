@@ -1,10 +1,27 @@
 /**
  * Restricted n-body craft integrator (RK4) and force model.
  *
- * Accelerations: Earth + Moon point-mass gravity, solar tide about Earth,
- * Earth J₂, and simple exponential atmosphere + quadratic drag below ~120 km.
+ * Accelerations (default **nbody**): Earth + Moon point-mass gravity, solar
+ * tide about Earth, Earth J₂, and simple exponential atmosphere + quadratic
+ * drag below ~120 km.
+ *
+ * **earth** model: Earth point-mass + J₂ + atmosphere only (no Moon, no Sun
+ * tide). Useful as an independent check that short suborbital flights are not
+ * dominated by third-body terms.
+ *
  * Units: km, s, km/s, km/s².
  */
+
+/** Which gravitational terms to include (atmosphere/drag always on when vel given). */
+export type GravityModel = "nbody" | "earth";
+
+export type AccelOptions = {
+  /**
+   * Force model. Default `"nbody"`.
+   * `"earth"` = Earth μ + J₂ + drag only (ignore Moon / solar tide).
+   */
+  gravity?: GravityModel;
+};
 
 import {
   ATM_H_MAX_KM,
@@ -180,8 +197,9 @@ export function addEarthDrag(
 /**
  * Gravitational acceleration on craft at time t (optional thrust + Earth J2/drag).
  *
- * Restricted n-body: Earth + Moon point-mass, Sun as **tidal** residual about
- * Earth (ephemeris-fixed primaries), plus J₂ / drag / thrust.
+ * Default restricted n-body: Earth + Moon point-mass, Sun as **tidal** residual
+ * about Earth (ephemeris-fixed primaries), plus J₂ / drag / thrust.
+ * With `{ gravity: "earth" }`: Earth μ + J₂ + drag only.
  * Pass `vel` to include atmospheric drag; omit for pure gravity+J2.
  */
 export function acceleration(
@@ -190,16 +208,20 @@ export function acceleration(
   thrust: V3 | null,
   out: V3 = _a,
   vel: V3 | null = null,
+  opts?: AccelOptions,
 ): V3 {
+  const gravity: GravityModel = opts?.gravity ?? "nbody";
   bodyPositions(t, _bodies);
   set(out, 0, 0, 0);
-  // Earth dominant + J2
+  // Earth dominant + J2 (always)
   addGravity(out, pos, _bodies.earth, MU_EARTH);
   addEarthJ2(out, pos, _bodies.earth);
-  // Moon: full point-mass (nearby; EM barycenter ephemeris is self-consistent)
-  addGravity(out, pos, _bodies.moon, MU_MOON);
-  // Sun: tidal only — full point-mass would strip Earth-relative orbits
-  addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
+  if (gravity === "nbody") {
+    // Moon: full point-mass (nearby; EM barycenter ephemeris is self-consistent)
+    addGravity(out, pos, _bodies.moon, MU_MOON);
+    // Sun: tidal only — full point-mass would strip Earth-relative orbits
+    addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
+  }
   if (vel) {
     addEarthDrag(out, pos, _bodies.earth, vel, _bodies.earthVel);
   }
@@ -229,31 +251,37 @@ export type ThrustFn = (t: number, pos: V3, vel: V3) => V3 | null;
  * Classic RK4 step. Mutates state in place.
  * thrustFn returns inertial acceleration (km/s²) or null.
  * Includes Earth J2 + atmospheric drag (when in atmosphere).
+ * Pass `{ gravity: "earth" }` to drop Moon / solar-tide terms.
  */
-export function rk4Step(state: CraftState, dt: number, thrustFn?: ThrustFn): void {
+export function rk4Step(
+  state: CraftState,
+  dt: number,
+  thrustFn?: ThrustFn,
+  opts?: AccelOptions,
+): void {
   const { t, pos, vel } = state;
 
   const th0 = thrustFn?.(t, pos, vel) ?? null;
   if (th0) copy(thr, th0);
-  acceleration(t, pos, th0, k1v, vel);
+  acceleration(t, pos, th0, k1v, vel, opts);
   copy(k1r, vel);
 
   madd(rp, pos, k1r, dt * 0.5);
   madd(vp, vel, k1v, dt * 0.5);
   const th1 = thrustFn?.(t + dt * 0.5, rp, vp) ?? null;
-  acceleration(t + dt * 0.5, rp, th1, k2v, vp);
+  acceleration(t + dt * 0.5, rp, th1, k2v, vp, opts);
   copy(k2r, vp);
 
   madd(rp, pos, k2r, dt * 0.5);
   madd(vp, vel, k2v, dt * 0.5);
   const th2 = thrustFn?.(t + dt * 0.5, rp, vp) ?? null;
-  acceleration(t + dt * 0.5, rp, th2, k3v, vp);
+  acceleration(t + dt * 0.5, rp, th2, k3v, vp, opts);
   copy(k3r, vp);
 
   madd(rp, pos, k3r, dt);
   madd(vp, vel, k3v, dt);
   const th3 = thrustFn?.(t + dt, rp, vp) ?? null;
-  acceleration(t + dt, rp, th3, k4v, vp);
+  acceleration(t + dt, rp, th3, k4v, vp, opts);
   copy(k4r, vp);
 
   pos.x += (dt / 6) * (k1r.x + 2 * k2r.x + 2 * k3r.x + k4r.x);

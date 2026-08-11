@@ -2,9 +2,14 @@
  * Starship Flight 13 theater mission (suborbital flight test).
  *
  * Timeline anchors match docs/STARSHIP_13.md (SpaceX public profile, approx).
- * Dynamics: restricted RK4 under Earth gravity + J₂ + atmosphere/drag with
- * mass-coupled thrust. Steering aims along the Starbase → Indian Ocean
- * great-circle corridor (same plane as the Earth GC view).
+ * Dynamics: restricted RK4 with mass-coupled thrust + atmosphere. Default
+ * force model is full restricted n-body (Earth + Moon + solar tide + J₂ +
+ * drag). Pass `{ gravity: "earth" }` for Earth-only mechanics (μ + J₂ + drag,
+ * no Moon/Sun) — used to cross-check that third-body terms stay small on a
+ * ~1 h suborbital arc.
+ *
+ * Steering aims along the Starbase → Indian Ocean great-circle corridor
+ * (same plane as the Earth GC view).
  *
  * Profile (theater-grade, not ops — but intentionally more ballistic):
  * - Gravity-turn ascent + hot-stage along the corridor
@@ -36,7 +41,9 @@ import {
   atmDensity,
   getBodies,
   rk4Step,
+  type AccelOptions,
   type CraftState,
+  type GravityModel,
   type ThrustFn,
 } from "./integrator";
 import { downsampleTrajectory } from "./missionDownsample";
@@ -412,10 +419,22 @@ function tankFor(mode: BurnMode, staged: boolean): Tank {
   return "ship";
 }
 
+/** Options for {@link runFlight13Mission}. */
+export type Flight13MissionOptions = {
+  /**
+   * Force model. Default `"nbody"` (Earth + Moon + solar tide + J₂ + drag).
+   * `"earth"` drops Moon / Sun for an independent Earth-mechanics check.
+   */
+  gravity?: GravityModel;
+};
+
 /**
  * Integrate Flight 13 from liftoff through Indian Ocean splashdown.
  */
-export function runFlight13Mission(): MissionResult {
+export function runFlight13Mission(
+  opts?: Flight13MissionOptions,
+): MissionResult {
+  const accelOpts: AccelOptions = { gravity: opts?.gravity ?? "nbody" };
   const samples: Sample[] = [];
   const prop = createPropState(0);
   const pad = starbasePadState(0);
@@ -682,7 +701,7 @@ export function runFlight13Mission(): MissionResult {
     dt = Math.min(dt, maxT - state.t);
     if (dt < 1e-4) break;
 
-    rk4Step(state, dt, thrustFn);
+    rk4Step(state, dt, thrustFn, accelOpts);
 
     // Surface clamp only: never tunnel underground (no altitude-hold floor)
     {
@@ -806,8 +825,9 @@ export function runFlight13Mission(): MissionResult {
   out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT ?? F13.HOT_STAGE;
   out.minMoonAlt = Infinity;
+  const gLabel = accelOpts.gravity === "earth" ? "earth-only" : "n-body";
   console.info(
-    `[flight13] ${out.message} · duration=${(out.durationS / 60).toFixed(1)} min · samples=${out.samples.length} · stageT=${out.stageT?.toFixed(0)}s`,
+    `[flight13] ${out.message} · ${gLabel} · duration=${(out.durationS / 60).toFixed(1)} min · samples=${out.samples.length} · stageT=${out.stageT?.toFixed(0)}s`,
   );
   return out;
 }
