@@ -29,7 +29,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "5", action: "Pad" },
     { label: "6", action: "Fin cam" },
     { label: "7", action: "Grid fin" },
-    { label: "8" },
+    { label: "8", action: "Trench" },
     { label: "9" },
     { label: "0" },
     { label: "-" },

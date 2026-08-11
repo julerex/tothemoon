@@ -15,6 +15,7 @@ import {
  * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
  * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
  * `"gridfin"` is a locked mount on a Super Heavy top grid fin (aft-looking).
+ * `"trench"` is a locked under-pad / flame-trench angle on the booster engines.
  */
 export type CameraMode =
   | "free"
@@ -24,7 +25,19 @@ export type CameraMode =
   | "moon"
   | "starbase"
   | "fin"
-  | "gridfin";
+  | "gridfin"
+  | "trench";
+
+/**
+ * Flame-trench cam (km, pad ENU): stand north of the OLM, slightly below the
+ * deck, a little west so the engine bells read as a side cluster rather than
+ * head-on under the stack.
+ */
+const TRENCH_NORTH_KM = 0.032;
+const TRENCH_EAST_KM = -0.016;
+const TRENCH_UP_KM = -0.011;
+/** Look a few meters above the engine plane so Raptors fill the frame. */
+const TRENCH_LOOK_UP_KM = 0.006;
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
@@ -257,7 +270,13 @@ export class CameraDirector {
     const frame = opts?.frame ?? true;
     const frameScale = opts?.frameScale ?? 1;
 
-    if (mode === "fin" || mode === "gridfin" || mode === "free" || !frame) {
+    if (
+      mode === "fin" ||
+      mode === "gridfin" ||
+      mode === "trench" ||
+      mode === "free" ||
+      !frame
+    ) {
       this.cancelDistanceEase();
       this.applyFocus(mode, frame, frameScale);
       return;
@@ -311,6 +330,14 @@ export class CameraDirector {
       this.controls.enabled = false;
       this.applyClipPlanes();
       this.applyGridFinCam();
+      return;
+    }
+
+    if (mode === "trench") {
+      this.focus = "trench";
+      this.controls.enabled = false;
+      this.applyClipPlanes();
+      this.applyTrenchCam();
       return;
     }
 
@@ -387,6 +414,9 @@ export class CameraDirector {
       case "starbase":
         // Tower ~146 m + stack — frame the pad complex, not the whole Earth
         return this.distanceForRadius(0.12, 0.5);
+      case "trench":
+        // ~40 m standoff under the OLM
+        return this.distanceForRadius(0.02, 0.55);
       case "fin":
       case "gridfin":
       case "free":
@@ -454,7 +484,8 @@ export class CameraDirector {
       this.focus === "chase" ||
       this.focus === "starbase" ||
       this.focus === "fin" ||
-      this.focus === "gridfin"
+      this.focus === "gridfin" ||
+      this.focus === "trench"
         ? 0.0002
         : 0.1;
     this.camera.far = FAR_SOLAR;
@@ -570,6 +601,43 @@ export class CameraDirector {
   }
 
   /**
+   * Flame-trench angle: under the OLM deck, offset to the side, looking at
+   * the Super Heavy engine bells. Pad-fixed mount so the stack rises out of
+   * frame on liftoff (classic webcast under-pad shot).
+   */
+  private applyTrenchCam(): void {
+    const pad = starbasePadState(this.simTime);
+    this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
+    this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
+    // Geographic north = up × east (right-handed ENU)
+    this.tmp.crossVectors(this.padUp, this.padEast);
+    if (this.tmp.lengthSq() < 1e-12) {
+      this.tmp.set(0, 1, 0).addScaledVector(this.padUp, -this.padUp.y);
+      if (this.tmp.lengthSq() < 1e-12) this.tmp.set(1, 0, 0);
+    }
+    this.tmp.normalize();
+
+    // Mount under the deck, north + slightly west of the stack centerline
+    this.finPos
+      .set(pad.pos.x, pad.pos.y, pad.pos.z)
+      .addScaledVector(this.tmp, TRENCH_NORTH_KM)
+      .addScaledVector(this.padEast, TRENCH_EAST_KM)
+      .addScaledVector(this.padUp, TRENCH_UP_KM);
+
+    // Look at engine plane (craft origin) a little above the bells
+    this.finLook.copy(this.craftPos).addScaledVector(this.padUp, TRENCH_LOOK_UP_KM);
+
+    // Prefer pad-up so the deck reads level; fall back if degenerate
+    this.finUp.copy(this.padUp);
+    // If looking nearly along up (stack high above), keep a stable roll from north
+    this.camera.position.copy(this.finPos);
+    this.camera.up.copy(this.finUp);
+    this.camera.lookAt(this.finLook);
+    this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
+  }
+
+  /**
    * Pick the active Super Heavy mesh for the grid-fin mount:
    * visible free-flyer → stack booster if visible → free-flyer → stack.
    */
@@ -586,7 +654,12 @@ export class CameraDirector {
 
   /** Keep target on the focused body; slide the camera with it. */
   private trackFocus(): void {
-    if (this.focus === "free" || this.focus === "fin" || this.focus === "gridfin")
+    if (
+      this.focus === "free" ||
+      this.focus === "fin" ||
+      this.focus === "gridfin" ||
+      this.focus === "trench"
+    )
       return;
 
     this.prevTarget.copy(this.controls.target);
@@ -737,13 +810,17 @@ export class CameraDirector {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
 
-    // Fin mounts are fully locked; skip free orbit / pan / zoom.
+    // Locked mounts: skip free orbit / pan / zoom / surface clamp.
     if (this.focus === "fin") {
       this.applyFinCam();
       return;
     }
     if (this.focus === "gridfin") {
       this.applyGridFinCam();
+      return;
+    }
+    if (this.focus === "trench") {
+      this.applyTrenchCam();
       return;
     }
 

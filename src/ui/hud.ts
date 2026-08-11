@@ -704,7 +704,7 @@ export function bindHud(
       e.preventDefault();
       handlers.onPlayToggle();
     } else if (e.code === "Backquote" || e.key === "`" || e.key === "~") {
-      // ` cycle cameras (Shift+` still cycles — same order as 1–7)
+      // ` cycle cameras (Shift+` still cycles — same order as 1–8)
       e.preventDefault();
       cycleCamera();
     } else if (e.shiftKey && e.code.startsWith("Digit")) {
@@ -729,6 +729,8 @@ export function bindHud(
       handleCameraKey("fin", "6");
     } else if (e.key === "7") {
       handleCameraKey("gridfin", "7");
+    } else if (e.key === "8") {
+      handleCameraKey("trench", "8");
     } else if (e.key === "q" || e.key === "Q") {
       handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
@@ -907,6 +909,10 @@ export function bindHud(
       title: "Booster grid fin",
       detail: "Aft engines · key 7",
     },
+    trench: {
+      title: "Flame trench",
+      detail: "Under-pad · engines side · key 8",
+    },
   };
 
   /** Double-tap window for number-key frame zoom (ms). */
@@ -984,7 +990,7 @@ export function bindHud(
     }, CAM_TOAST_MS);
   }
 
-  /** Focus modes cycled by ` (backtick) — same order as number keys 1–7. */
+  /** Focus modes cycled by ` (backtick) — same order as number keys 1–8. */
   const CAMERA_CYCLE: readonly CameraMode[] = [
     "sun",
     "earth",
@@ -993,6 +999,7 @@ export function bindHud(
     "starbase",
     "fin",
     "gridfin",
+    "trench",
   ];
 
   /** Advance focus to the next preset (skip free / unlisted). */

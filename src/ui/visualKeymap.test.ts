@@ -19,6 +19,9 @@ describe("visualKeymap layout", () => {
       }
     }
     assert.equal(actions.get("`"), "Cycle cameras");
+    assert.equal(actions.get("6"), "Fin cam");
+    assert.equal(actions.get("7"), "Grid fin");
+    assert.equal(actions.get("8"), "Trench");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
     assert.equal(actions.get("C"), "Roll ←");
