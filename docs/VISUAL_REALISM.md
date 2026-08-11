@@ -31,13 +31,15 @@ Related:
 
 **Shipped (V0):** soft anti-sun fill, stronger Earth/Moon limb, night-led pad floods, Earthshine on Moon, procedural Earth night lights.
 
-**Not yet:** soft shadows, post/bloom stack, dense pad close-up wear.
-
 **Shipped (V1):** regime-specific multi-layer plumes (atmosphere denser/tighter, vacuum wider/sparser, LOI + landing ship looks), dual hot-stage lights, scrub-safe thrust lag + gimbal wobble.
+
+**Shipped (V2):** Fresnel Rayleigh-ish multi-shell Earth limb, soft surface terminator, higher-contrast cloud deck, Moon mare/highland + crater-rim contrast for low sun, continuous lunar roughness.
 
 **Shipped (V3):** pad close-up — scorch/water stains, multi-tier deluge + sheets, chopsticks/QD silhouette, trench heat haze.
 
-Key modules: `src/scene/{bodies,craft,earthTheater,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
+**Not yet:** soft shadows, post/bloom stack (V5); craft material polish (V4).
+
+Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
 ---
 
@@ -106,21 +108,21 @@ Also shipped:
 
 ---
 
-## V2 — Body atmosphere and surface
+## V2 — Body atmosphere and surface — **done 2026-08-11**
 
-### Earth
+### Earth — **done**
 
-- Soft **Rayleigh-ish limb** + thicker blue band near horizon
-- Softer day/night **terminator** (scatter, not a hard cut)
-- Cloud deck: increase contrast only where it helps LEO
+- Soft **Rayleigh-ish limb** + thicker blue band near horizon — multi-shell Fresnel (`earthAtmosphere.ts`), day-weighted sun dir each frame
+- Softer day/night **terminator** — `smoothstep` N·L in `MeshStandardMaterial` via `applySoftTerminator`
+- Cloud deck: higher core/edge contrast + opacity for LEO
 
-### Moon
+### Moon — **done**
 
-- Stronger **crater / highland contrast** at low sun (landing is waning gibbous)
-- Slight roughness variation (maps already present)
-- Landing: dust exists — pair later with craft shadow if shadows land
+- Stronger **crater / highland / mare contrast** at low sun (deeper floors, rim + ejecta strokes, south-polar cues)
+- Continuous **roughness** gradient (maria smoother → highlands rougher)
+- Landing dust already present — pair later with craft shadow when V5 shadows land
 
-**Likely files:** `textures.ts`, `bodies.ts`, `landingFx.ts`.
+**Files:** `earthAtmosphere.ts` (+ tests), `bodies.ts`, `textures.ts`.
 
 ---
 
@@ -168,7 +170,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
 3. ~~**V3** — pad close-up (trench cam payoff)~~ **done**  
-4. **V2** — terminator / Moon low-sun polish  
+4. ~~**V2** — terminator / Moon low-sun polish~~ **done**  
 5. **V4** — craft materials as needed for fin/gridfin  
 6. **V5** — shadows / post only when the above is stable  
 
@@ -191,3 +193,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 | 2026-08-11 | V0.1 + V0.2 shipped: anti-sun fill, limbs, night pad floods, Earthshine, Earth night lights |
 | 2026-08-11 | V1 shipped: regime multi-layer plumes, dual hot-stage lights, lag/gimbal, LOI trail beat |
 | 2026-08-11 | V3 shipped: pad scorch/stains, volumetric deluge, chopsticks/QD silhouette, trench heat haze |
+| 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |

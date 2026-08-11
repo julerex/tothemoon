@@ -123,6 +123,7 @@ Kinematic return to launch site path after stage-out: flip → boostback plume �
 
 - ~~Landing illumination already targets July 2027 waning gibbous — expose “Sun / Earth / Moon phase” one-liner~~ **done** (`skyPhase.ts`: telemetry **Sky**, Metrics Epoch, complete-card Sky row).
 - ~~Soft Earth night lights / city glints~~ **done** (V0 in [VISUAL_REALISM.md](./VISUAL_REALISM.md): emissive night map + anti-sun fill + Earthshine).
+- ~~Earth limb / terminator + Moon low-sun surface~~ **done** (V2: Fresnel multi-shell atmo, soft terminator, cloud contrast, mare/crater albedo).
 
 ### 11. Packed trajectory metadata — **done**
 
@@ -263,3 +264,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Watchability: Flight 13 Auto-cam profile + chase look-ahead / bank / speed widen |
 | 2026-08-11 | Lunar LOI restored: n-body coast → capture burn → polar LLO → powered descent → south-pole land |
 | 2026-08-11 | Visual V0: anti-sun fill, Earth/Moon limbs, night pad floods, Earthshine, Earth night lights |
+| 2026-08-11 | Visual V2: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun surface |

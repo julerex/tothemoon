@@ -382,7 +382,10 @@ export function makeEarthRoughnessMap(albedo: HTMLCanvasElement): HTMLCanvasElem
   return canvas;
 }
 
-/** Thin white cloud layer (transparent background). */
+/**
+ * White cloud deck (transparent background).
+ * Higher core/edge contrast for LEO limb readability (visual V2).
+ */
 export function makeEarthCloudTexture(size = 1024): HTMLCanvasElement {
   const w = size;
   const h = Math.round(size / 2);
@@ -392,16 +395,18 @@ export function makeEarthCloudTexture(size = 1024): HTMLCanvasElement {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, w, h);
 
-  for (let i = 0; i < 90; i++) {
+  // Soft cyclonic / cellular decks — denser cores, sharp fade (LEO contrast)
+  for (let i = 0; i < 110; i++) {
     const lon = -180 + Math.random() * 360;
     const lat = -55 + Math.random() * 110;
     const [x, y] = lonLatToXy(lon, lat, w, h);
-    const rx = (0.04 + Math.random() * 0.12) * w;
-    const ry = (0.015 + Math.random() * 0.05) * h;
+    const rx = (0.035 + Math.random() * 0.13) * w;
+    const ry = (0.012 + Math.random() * 0.055) * h;
     const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
-    const a = 0.12 + Math.random() * 0.35;
+    const a = 0.22 + Math.random() * 0.55;
     g.addColorStop(0, `rgba(255,255,255,${a})`);
-    g.addColorStop(0.55, `rgba(255,255,255,${a * 0.45})`);
+    g.addColorStop(0.35, `rgba(248,250,255,${a * 0.7})`);
+    g.addColorStop(0.7, `rgba(255,255,255,${a * 0.28})`);
     g.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -409,15 +414,31 @@ export function makeEarthCloudTexture(size = 1024): HTMLCanvasElement {
     ctx.fill();
   }
 
-  // ITCZ / band hints
-  for (let i = 0; i < 8; i++) {
+  // Brighter cloud tops (sun-catching highlights for LEO)
+  for (let i = 0; i < 35; i++) {
+    const lon = -180 + Math.random() * 360;
+    const lat = -40 + Math.random() * 80;
+    softBlob(
+      ctx,
+      w,
+      h,
+      lon,
+      lat,
+      3 + Math.random() * 10,
+      1.5 + Math.random() * 5,
+      `rgba(255,255,255,${0.15 + Math.random() * 0.25})`,
+    );
+  }
+
+  // ITCZ / band hints — slightly stronger so equatorial LEO reads structure
+  for (let i = 0; i < 10; i++) {
     const y = h * (0.42 + Math.random() * 0.16);
-    const g = ctx.createLinearGradient(0, y - 8, 0, y + 8);
+    const g = ctx.createLinearGradient(0, y - 10, 0, y + 10);
     g.addColorStop(0, "rgba(255,255,255,0)");
-    g.addColorStop(0.5, `rgba(255,255,255,${0.08 + Math.random() * 0.1})`);
+    g.addColorStop(0.5, `rgba(255,255,255,${0.12 + Math.random() * 0.14})`);
     g.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = g;
-    ctx.fillRect(0, y - 10, w, 20);
+    ctx.fillRect(0, y - 12, w, 24);
   }
 
   return canvas;
@@ -427,6 +448,9 @@ export function makeEarthCloudTexture(size = 1024): HTMLCanvasElement {
  * Equirectangular Moon albedo (simplified but recognizable).
  * Longitude 0° = center of the near side (tidally locked toward Earth).
  * Major maria placed at approximate selenographic coordinates.
+ *
+ * V2: stronger mare/highland and crater-rim contrast so low-sun landing
+ * (waning gibbous) reads relief without a normal map.
  */
 export function makeMoonTexture(size = 1024): HTMLCanvasElement {
   const w = size;
@@ -436,27 +460,27 @@ export function makeMoonTexture(size = 1024): HTMLCanvasElement {
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  // Highland base — far side slightly brighter
+  // Highland base — far side slightly brighter; overall lift for low-sun read
   const base = ctx.createLinearGradient(0, 0, w, 0);
-  base.addColorStop(0, "#b8b2a6"); // far side edge
-  base.addColorStop(0.25, "#c4beb2");
-  base.addColorStop(0.5, "#b5afa3"); // near-side center
-  base.addColorStop(0.75, "#c4beb2");
-  base.addColorStop(1, "#b8b2a6");
+  base.addColorStop(0, "#c2bbb0"); // far side edge
+  base.addColorStop(0.25, "#d0c9bc");
+  base.addColorStop(0.5, "#c4bdb0"); // near-side center
+  base.addColorStop(0.75, "#d0c9bc");
+  base.addColorStop(1, "#c2bbb0");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
 
   // Latitude shading (poles a bit brighter / frost-hint)
   const poles = ctx.createLinearGradient(0, 0, 0, h);
-  poles.addColorStop(0, "rgba(230, 228, 220, 0.22)");
+  poles.addColorStop(0, "rgba(238, 234, 225, 0.28)");
   poles.addColorStop(0.12, "rgba(230, 228, 220, 0)");
   poles.addColorStop(0.88, "rgba(230, 228, 220, 0)");
-  poles.addColorStop(1, "rgba(230, 228, 220, 0.22)");
+  poles.addColorStop(1, "rgba(238, 234, 225, 0.28)");
   ctx.fillStyle = poles;
   ctx.fillRect(0, 0, w, h);
 
-  // Far-side highland mottling (fewer maria)
-  for (let i = 0; i < 50; i++) {
+  // Far-side highland mottling (fewer maria) — brighter for contrast
+  for (let i = 0; i < 55; i++) {
     const lon = Math.random() < 0.5 ? -180 + Math.random() * 70 : 110 + Math.random() * 70;
     softBlob(
       ctx,
@@ -466,38 +490,53 @@ export function makeMoonTexture(size = 1024): HTMLCanvasElement {
       -50 + Math.random() * 100,
       8 + Math.random() * 22,
       6 + Math.random() * 16,
-      `rgba(${180 + Math.random() * 40}, ${175 + Math.random() * 35}, ${165 + Math.random() * 30}, 0.25)`,
+      `rgba(${195 + Math.random() * 40}, ${190 + Math.random() * 35}, ${178 + Math.random() * 30}, 0.32)`,
     );
   }
 
-  const mare = (lon: number, lat: number, rLon: number, rLat: number, alpha = 0.72) => {
-    softBlob(ctx, w, h, lon, lat, rLon, rLat, `rgba(72, 68, 62, ${alpha})`);
-    softBlob(ctx, w, h, lon, lat, rLon * 0.65, rLat * 0.65, `rgba(58, 55, 50, ${alpha * 0.55})`);
+  const mare = (lon: number, lat: number, rLon: number, rLat: number, alpha = 0.78) => {
+    // Deeper floors so maria punch under low sun
+    softBlob(ctx, w, h, lon, lat, rLon, rLat, `rgba(52, 48, 44, ${alpha})`);
+    softBlob(ctx, w, h, lon, lat, rLon * 0.7, rLat * 0.7, `rgba(38, 36, 32, ${alpha * 0.6})`);
+    // Soft rim brightening (scarp / highland contact)
+    softBlob(
+      ctx,
+      w,
+      h,
+      lon,
+      lat + rLat * 0.15,
+      rLon * 1.05,
+      rLat * 0.35,
+      "rgba(210, 205, 195, 0.08)",
+    );
   };
 
-  // --- Near-side maria (approx lon/lat) ---
-  mare(-40, 18, 42, 28, 0.78); // Oceanus Procellarum
-  mare(-16, 33, 22, 16, 0.8); // Mare Imbrium
-  mare(18, 28, 14, 12, 0.75); // Mare Serenitatis
-  mare(20, 8, 16, 12, 0.72); // Mare Tranquillitatis
-  mare(50, -4, 14, 12, 0.7); // Mare Fecunditatis
-  mare(35, -15, 10, 9, 0.68); // Mare Nectaris
-  mare(59, 17, 11, 9, 0.74); // Mare Crisium
-  mare(-15, -20, 14, 11, 0.7); // Mare Nubium
-  mare(-38, -24, 11, 9, 0.68); // Mare Humorum
-  mare(0, 56, 50, 8, 0.55); // Mare Frigoris (band)
-  mare(-5, 15, 8, 6, 0.5); // Sinus Aestuum / Medii area
-  mare(5, -5, 7, 5, 0.45); // Mare Vaporum-ish
+  // --- Near-side maria (approx lon/lat) — deeper alpha for low-sun ---
+  mare(-40, 18, 42, 28, 0.85); // Oceanus Procellarum
+  mare(-16, 33, 22, 16, 0.88); // Mare Imbrium
+  mare(18, 28, 14, 12, 0.82); // Mare Serenitatis
+  mare(20, 8, 16, 12, 0.8); // Mare Tranquillitatis
+  mare(50, -4, 14, 12, 0.78); // Mare Fecunditatis
+  mare(35, -15, 10, 9, 0.76); // Mare Nectaris
+  mare(59, 17, 11, 9, 0.82); // Mare Crisium
+  mare(-15, -20, 14, 11, 0.78); // Mare Nubium
+  mare(-38, -24, 11, 9, 0.76); // Mare Humorum
+  mare(0, 56, 50, 8, 0.62); // Mare Frigoris (band)
+  mare(-5, 15, 8, 6, 0.58); // Sinus Aestuum / Medii area
+  mare(5, -5, 7, 5, 0.52); // Mare Vaporum-ish
 
   // Far-side spots
-  mare(148, 27, 9, 7, 0.55); // Mare Moscoviense-ish
-  mare(100, -20, 8, 6, 0.4);
+  mare(148, 27, 9, 7, 0.62); // Mare Moscoviense-ish
+  mare(100, -20, 8, 6, 0.48);
 
   // Highlands brightening around Imbrium rim / south pole Aitken hint
-  softBlob(ctx, w, h, -16, 20, 30, 22, "rgba(200, 195, 185, 0.12)");
-  softBlob(ctx, w, h, 180, -50, 40, 25, "rgba(90, 85, 78, 0.2)"); // SPA basin darkening
+  softBlob(ctx, w, h, -16, 20, 30, 22, "rgba(220, 215, 200, 0.2)");
+  softBlob(ctx, w, h, 180, -50, 40, 25, "rgba(70, 65, 58, 0.28)"); // SPA basin darkening
+  // South polar highland / Malapert approach contrast
+  softBlob(ctx, w, h, 0, -82, 35, 10, "rgba(225, 220, 210, 0.18)");
+  softBlob(ctx, w, h, 20, -78, 12, 6, "rgba(90, 85, 78, 0.15)");
 
-  // Named-ish craters (rim + floor)
+  // Named-ish craters (rim + floor) — stronger rims for low-sun relief
   const crater = (
     lon: number,
     lat: number,
@@ -510,37 +549,51 @@ export function makeMoonTexture(size = 1024): HTMLCanvasElement {
     // Floor
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(40, 38, 35, ${deep})`;
+    ctx.fillStyle = `rgba(32, 30, 28, ${deep})`;
     ctx.fill();
-    // Rim highlight
+    // Shadow crescent (baked low-sun cue — sun from +X in texture space-ish)
     ctx.beginPath();
-    ctx.ellipse(x - rx * 0.15, y - ry * 0.15, rx * 0.92, ry * 0.92, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(230, 225, 215, ${0.25 + deep * 0.4})`;
-    ctx.lineWidth = Math.max(1, rx * 0.12);
+    ctx.ellipse(x + rx * 0.2, y + ry * 0.1, rx * 0.7, ry * 0.75, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(18, 16, 14, ${deep * 0.45})`;
+    ctx.fill();
+    // Rim highlight (sunward)
+    ctx.beginPath();
+    ctx.ellipse(x - rx * 0.2, y - ry * 0.18, rx * 0.95, ry * 0.95, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(240, 235, 220, ${0.35 + deep * 0.45})`;
+    ctx.lineWidth = Math.max(1.2, rx * 0.16);
+    ctx.stroke();
+    // Outer ejecta brightening
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * 1.35, ry * 1.35, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(225, 218, 205, ${0.08 + deep * 0.12})`;
+    ctx.lineWidth = Math.max(1, rx * 0.08);
     ctx.stroke();
   };
 
-  crater(-20, 10, 4.5, 0.4); // Copernicus
-  crater(-11, -43, 5.5, 0.45); // Tycho
-  crater(-3, 34, 4, 0.35); // Aristillus area
-  crater(22, -11, 3.5, 0.35); // Theophilus
-  crater(-9, 13, 3.2, 0.3); // Eratosthenes
-  crater(32, 2, 3, 0.28); // Plinius area
-  crater(-60, -15, 3.5, 0.3);
-  crater(100, 20, 4, 0.32); // far side
-  crater(-140, -30, 5, 0.35);
-  crater(160, 40, 3.5, 0.3);
+  crater(-20, 10, 4.5, 0.48); // Copernicus
+  crater(-11, -43, 5.5, 0.52); // Tycho
+  crater(-3, 34, 4, 0.42); // Aristillus area
+  crater(22, -11, 3.5, 0.42); // Theophilus
+  crater(-9, 13, 3.2, 0.38); // Eratosthenes
+  crater(32, 2, 3, 0.35); // Plinius area
+  crater(-60, -15, 3.5, 0.36);
+  crater(100, 20, 4, 0.38); // far side
+  crater(-140, -30, 5, 0.42);
+  crater(160, 40, 3.5, 0.36);
+  // Near-south landmarks for landing theater
+  crater(0, -70, 3.2, 0.4);
+  crater(15, -75, 2.5, 0.35);
 
-  // Tycho ray system (simplified)
+  // Tycho ray system (simplified) — slightly stronger for low-sun
   {
     const [cx, cy] = lonLatToXy(-11, -43, w, h);
     ctx.save();
-    ctx.globalAlpha = 0.14;
-    ctx.strokeStyle = "#e8e4dc";
-    ctx.lineWidth = Math.max(1, w * 0.002);
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + 0.2;
-      const len = (0.08 + (i % 3) * 0.04) * w;
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = "#efe9df";
+    ctx.lineWidth = Math.max(1, w * 0.0022);
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + 0.2;
+      const len = (0.09 + (i % 3) * 0.045) * w;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len * 0.55);
@@ -550,20 +603,23 @@ export function makeMoonTexture(size = 1024): HTMLCanvasElement {
   }
 
   // Random smaller craters
-  for (let i = 0; i < 220; i++) {
+  for (let i = 0; i < 260; i++) {
     const lon = -180 + Math.random() * 360;
     const lat = -80 + Math.random() * 160;
-    crater(lon, lat, 0.6 + Math.random() * 2.2, 0.12 + Math.random() * 0.25);
+    crater(lon, lat, 0.55 + Math.random() * 2.4, 0.14 + Math.random() * 0.3);
   }
 
-  // Fine grain
-  sprinkle(ctx, w, h, Math.floor(w * h * 0.02), "rgba(0,0,0,0.05)");
-  sprinkle(ctx, w, h, Math.floor(w * h * 0.012), "rgba(255,255,255,0.04)");
+  // Fine grain (micro-relief)
+  sprinkle(ctx, w, h, Math.floor(w * h * 0.025), "rgba(0,0,0,0.06)");
+  sprinkle(ctx, w, h, Math.floor(w * h * 0.015), "rgba(255,255,255,0.05)");
 
   return canvas;
 }
 
-/** Roughness from moon albedo: maria slightly smoother, highlands rougher. */
+/**
+ * Roughness from moon albedo: continuous mare→highland gradient (V2).
+ * Maria slightly smoother; bright highlands + rims rougher for low-sun glints.
+ */
 export function makeMoonRoughnessMap(albedo: HTMLCanvasElement): HTMLCanvasElement {
   const w = albedo.width;
   const h = albedo.height;
@@ -576,8 +632,9 @@ export function makeMoonRoughnessMap(albedo: HTMLCanvasElement): HTMLCanvasEleme
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     const lum = (d[i]! + d[i + 1]! + d[i + 2]!) / 3;
-    // Darker maria → slightly lower roughness; highlands high
-    const rough = lum < 100 ? 150 : 210;
+    // Continuous: dark maria ~130, mid ~180, bright highlands/rims ~230
+    const t = Math.max(0, Math.min(1, (lum - 40) / 180));
+    const rough = Math.round(130 + t * 100);
     d[i] = rough;
     d[i + 1] = rough;
     d[i + 2] = rough;

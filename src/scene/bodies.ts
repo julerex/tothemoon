@@ -19,6 +19,12 @@ import {
   makeMoonTexture,
   makeSunGlowTexture,
 } from "./textures";
+import {
+  applySoftTerminator,
+  createEarthAtmosphere,
+  updateEarthAtmosphere,
+  type EarthAtmosphere,
+} from "./earthAtmosphere";
 import { createLocatorSprite } from "./craft";
 import { createNameLabel, markZoomLabel } from "./zoomLabels";
 
@@ -32,6 +38,8 @@ export type Bodies = {
   earthGroup: THREE.Group;
   moonGroup: THREE.Group;
   sunGroup: THREE.Group;
+  /** Rayleigh-ish multi-shell limb (sun dir updated each frame). */
+  earthAtmo: EarthAtmosphere;
   /** Far-range green locator (same on-screen size as craft red dot). */
   earthLocator: THREE.Sprite;
   /** Far-range light-blue locator. */
@@ -206,21 +214,25 @@ export function createBodies(): Bodies {
   nightMap.colorSpace = THREE.SRGBColorSpace;
   nightMap.anisotropy = 4;
 
+  const earthMat = new THREE.MeshStandardMaterial({
+    map: earthMap,
+    roughnessMap: roughMap,
+    roughness: 0.9,
+    metalness: 0.02,
+    emissiveMap: nightMap,
+    emissive: new THREE.Color(0xffb878),
+    emissiveIntensity: 1.05,
+  });
+  // Soft day/night terminator (scatter wraps past geometric night — V2)
+  applySoftTerminator(earthMat);
+
   const earth = new THREE.Mesh(
     new THREE.SphereGeometry(R_EARTH, 96, 64),
-    new THREE.MeshStandardMaterial({
-      map: earthMap,
-      roughnessMap: roughMap,
-      roughness: 0.9,
-      metalness: 0.02,
-      emissiveMap: nightMap,
-      emissive: new THREE.Color(0xffb878),
-      emissiveIntensity: 1.05,
-    }),
+    earthMat,
   );
   earthAxis.add(earth);
 
-  // Thin cloud deck — spins slightly faster for visual life
+  // Cloud deck — higher contrast for LEO readability (V2); spins slightly faster
   const cloudMap = new THREE.CanvasTexture(makeEarthCloudTexture(texSize));
   cloudMap.colorSpace = THREE.SRGBColorSpace;
   cloudMap.anisotropy = 4;
@@ -229,53 +241,17 @@ export function createBodies(): Bodies {
     new THREE.MeshStandardMaterial({
       map: cloudMap,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.72,
       depthWrite: false,
-      roughness: 1,
+      roughness: 0.92,
       metalness: 0,
     }),
   );
   earthAxis.add(earthClouds);
 
-  // Soft atmospheric limb (stronger for LEO / approach limb views — V0.1)
-  const atmo = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.03, 64, 48),
-    new THREE.MeshBasicMaterial({
-      color: 0x6eb6ff,
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.BackSide,
-      depthWrite: false,
-    }),
-  );
-  earthAxis.add(atmo);
-
-  // Faint outer Rayleigh-ish halo
-  const atmoOuter = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.06, 48, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x4a90d9,
-      transparent: true,
-      opacity: 0.12,
-      side: THREE.BackSide,
-      depthWrite: false,
-    }),
-  );
-  earthAxis.add(atmoOuter);
-
-  // Thin bright limb edge for pad / low Earth orbit drama
-  const atmoLimb = new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.014, 64, 48),
-    new THREE.MeshBasicMaterial({
-      color: 0xb8e0ff,
-      transparent: true,
-      opacity: 0.14,
-      side: THREE.BackSide,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }),
-  );
-  earthAxis.add(atmoLimb);
+  // Fresnel Rayleigh-ish multi-shell limb (V2; sun dir each frame)
+  const earthAtmo = createEarthAtmosphere();
+  earthAxis.add(earthAtmo.group);
 
   // Spin axis (fixed under earthAxis — does not rotate with surface texture)
   earthAxis.add(createEarthAxisVisual());
@@ -292,12 +268,13 @@ export function createBodies(): Bodies {
   const moonRough = new THREE.CanvasTexture(makeMoonRoughnessMap(moonCanvas));
   moonRough.anisotropy = 4;
 
+  // Low-sun landing (waning gibbous): higher albedo contrast + roughness (V2)
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(R_MOON, 80, 56),
     new THREE.MeshStandardMaterial({
       map: moonMap,
       roughnessMap: moonRough,
-      roughness: 0.96,
+      roughness: 0.94,
       metalness: 0.0,
     }),
   );
@@ -305,11 +282,11 @@ export function createBodies(): Bodies {
 
   // Subtle additive limb so the lunar disc reads at low sun / approach
   const moonLimb = new THREE.Mesh(
-    new THREE.SphereGeometry(R_MOON * 1.01, 48, 32),
+    new THREE.SphereGeometry(R_MOON * 1.012, 48, 32),
     new THREE.MeshBasicMaterial({
-      color: 0xc8c4b8,
+      color: 0xd0c8b8,
       transparent: true,
-      opacity: 0.07,
+      opacity: 0.09,
       side: THREE.BackSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -360,6 +337,7 @@ export function createBodies(): Bodies {
     moon,
     moonAxis,
     sun,
+    earthAtmo,
     earthLocator,
     moonLocator,
   });
@@ -373,6 +351,7 @@ export function createBodies(): Bodies {
     earthGroup,
     moonGroup,
     sunGroup,
+    earthAtmo,
     earthLocator,
     moonLocator,
   };
@@ -490,6 +469,17 @@ export function updateBodies(
 
   // Axial tilt + 1:1 tidal lock (near side always toward Earth)
   orientMoonAxis(bodies.moonAxis, b.moon, b.earth);
+
+  // Atmosphere day weighting (unit Earth→Sun in world space)
+  const sx = b.sun.x - b.earth.x;
+  const sy = b.sun.y - b.earth.y;
+  const sz = b.sun.z - b.earth.z;
+  const slen = Math.hypot(sx, sy, sz) || 1;
+  updateEarthAtmosphere(bodies.earthAtmo, {
+    x: sx / slen,
+    y: sy / slen,
+    z: sz / slen,
+  });
 }
 
 /** Visual spin for the Sun only (Earth/Moon driven by mission time). */
