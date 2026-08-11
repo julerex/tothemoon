@@ -42,6 +42,8 @@ import {
 import { updateFatLineResolutions } from "../scene/fatLines";
 import { createCoastCorridorOverlay } from "../scene/coastCorridor";
 import { createTrailFromPoints } from "../scene/trail";
+import type { Line2 } from "three/addons/lines/Line2.js";
+import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { StagingFx, findStageEvent } from "../scene/stagingFx";
 import { LandingFx } from "../scene/landingFx";
 import {
@@ -489,6 +491,14 @@ function applyMissionState(u: number): void {
     altEarth: prelaunch ? 0.01 : frame.altEarth,
     phase: prelaunch ? "launch" : frame.phase,
   });
+  // LOI visual beat: brighten trail while approach burn is live (scrub-safe)
+  {
+    const trailMat = (craftTrail as Line2).material as LineMaterial;
+    const loiBeat =
+      !prelaunch && frame.phase === "approach" && frame.burning;
+    trailMat.linewidth = loiBeat ? 5.0 : 3.25;
+    trailMat.opacity = loiBeat ? 0.92 : 0.72;
+  }
   // Sun elevation at Starbase (for night floodlights / day fill)
   starbasePad.getWorldPosition(_padWorld);
   const sunDx = b.sun.x - b.earth.x;

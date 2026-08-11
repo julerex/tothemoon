@@ -113,7 +113,7 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 - **Coast corridor** (toggle **O** with orbits): dashed amber Kepler inject ellipse vs n-body trail, sparse |Δr| whiskers.
 - Pure helpers: `coastCorridor.ts` (+ tests); bake tracks `keplerRefMaxDevKm` during coast; metrics **Kepler max |Δr|**.
-- lunar orbit insertion plume/HUD distinctness remains deferred until a capture pack returns (phases/helpers already in `capture.ts`).
+- lunar orbit insertion plume distinctness shipped with visual V1 (`plumeRegime` + trail beat during `approach`); HUD callouts already cover LOI.
 
 ### 9. Booster recovery silhouette — done (theater)
 

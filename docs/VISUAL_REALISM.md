@@ -31,7 +31,9 @@ Related:
 
 **Shipped (V0):** soft anti-sun fill, stronger Earth/Moon limb, night-led pad floods, Earthshine on Moon, procedural Earth night lights.
 
-**Not yet:** soft shadows, post/bloom stack, strong regime-specific plumes, dense pad close-up wear.
+**Not yet:** soft shadows, post/bloom stack, dense pad close-up wear.
+
+**Shipped (V1):** regime-specific multi-layer plumes (atmosphere denser/tighter, vacuum wider/sparser, LOI + landing ship looks), dual hot-stage lights, scrub-safe thrust lag + gimbal wobble.
 
 Key modules: `src/scene/{bodies,craft,earthTheater,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
@@ -80,23 +82,25 @@ Procedural equirectangular city lights as `emissiveMap` (`makeEarthNightLightsTe
 
 ---
 
-## V1 — Plume and engine realism by phase
+## V1 — Plume and engine realism by phase — **done 2026-08-11**
 
-Raise credibility of burns without claiming CFD.
+Raise credibility of burns without claiming CFD. Soft multi-layer **sprites**
+(not geometric cones — those washed out pad/ship cams).
 
 | Regime | Look |
 |--------|------|
 | Atmosphere ascent | Tighter, denser plume; max-Q condensation already exists |
 | Vacuum / coast relight | Wider, sparser, more translucent |
-| Hot-stage | Dual plumes more distinct (booster residual + ship) |
-| LOI / landing | Different color/opacity/scale than ascent; optional engine light |
+| Hot-stage | Dual plumes more distinct (booster orange + ship blue lights) |
+| LOI / landing | Stronger LOI scale/light; tighter cooler landing ship look |
 
-Also:
+Also shipped:
 
-- Brief **gimbal** or slight plume lag so burns feel mechanical
-- Stronger **LOI visual beat** now that capture is in the pack (plume + trail emphasis during `approach`)
+- Brief **gimbal** wobble + scrub-safe **thrust lag** (`plumeThrustLag`)
+- **LOI visual beat**: ship LOI regime + trail linewidth/opacity during `approach` burn
+- Detached-booster boostback vs landing regimes in `StagingFx`
 
-**Likely files:** `craft.ts` (`updateCraftVisuals`), `stagingFx.ts`, mission phase flags from HUD/sample.
+**Files:** `plumeRegime.ts` (+ tests), `craft.ts`, `stagingFx.ts`, `toTheMoon.ts`.
 
 ---
 
@@ -160,7 +164,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 ## Suggested sequencing (concrete)
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
-2. **V1** — plume atmosphere vs vacuum + LOI/landing variants  
+2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
 3. **V3** — pad close-up (trench cam payoff)  
 4. **V2** — terminator / Moon low-sun polish  
 5. **V4** — craft materials as needed for fin/gridfin  
@@ -183,3 +187,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 |------|------|
 | 2026-08-11 | Initial visual realism backlog for agents (from product discussion after LOI + watchability pass) |
 | 2026-08-11 | V0.1 + V0.2 shipped: anti-sun fill, limbs, night pad floods, Earthshine, Earth night lights |
+| 2026-08-11 | V1 shipped: regime multi-layer plumes, dual hot-stage lights, lag/gimbal, LOI trail beat |
