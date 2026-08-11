@@ -46,14 +46,18 @@ const ORBIT_Y_UP = new THREE.Vector3(0, 1, 0);
 
 /** Q/E orbit and R/F pitch rates around the focus (rad/s). */
 const ORBIT_RAD_PER_S = 1.15;
-/** WASD pan rate as a fraction of focus distance per second. */
-const PAN_DIST_PER_S = 0.9;
+/**
+ * WASD pan rate as a fraction of focus distance per second.
+ * Kept modest so pad / craft framing (~0.5 km) does not fly off in one key hold.
+ */
+const PAN_DIST_PER_S = 0.28;
 /**
  * Floor so pan still moves when nearly on top of the target (km/s).
- * Kept small so speed stays proportional to zoom at craft / pad scale;
- * the old Earth-radius floor made pan feel constant until ~thousands of km.
+ * ~8 m/s — enough to crawl around the OLM without skipping the pad.
  */
-const PAN_MIN_SPEED = 0.05;
+const PAN_MIN_SPEED = 0.008;
+/** Cap so deep-space pan does not become unusable after the rate cut. */
+const PAN_MAX_SPEED = 80_000;
 /** Z/X zoom rate (exponential distance scale per second). */
 const ZOOM_RATE = 1.4;
 /** Wall-clock seconds for Auto-cam / guided distance ease. */
@@ -158,8 +162,15 @@ export class CameraDirector {
     this.camera.up.copy(ECLIPTIC_NORTH);
     this.syncOrbitControlsUp();
 
+    // Slightly calmer mouse pan at all ranges (still scales with distance).
+    this.controls.panSpeed = 0.55;
+    this.controls.screenSpacePanning = true;
+
     this.controls.addEventListener("start", () => {
       this.cancelDistanceEase();
+      // Drop body tracking so mouse pan/orbit is not fought by trackFocus
+      // (which snaps the target back to Starbase / Earth / craft every frame).
+      this.releaseTrackingForUser();
       this.onUserControl?.();
     });
 
@@ -480,17 +491,31 @@ export class CameraDirector {
     return this.focus;
   }
 
+  /**
+   * Drop body / pad tracking so free orbit and pan stick. Locked mounts
+   * (fin / gridfin / trench) stay locked.
+   */
+  private releaseTrackingForUser(): void {
+    if (
+      this.focus === "free" ||
+      this.focus === "fin" ||
+      this.focus === "gridfin" ||
+      this.focus === "trench"
+    ) {
+      return;
+    }
+    this.focus = "free";
+    this.controls.enabled = true;
+    this.applyClipPlanes();
+  }
+
   /** WASD pan; drops body tracking so the slide sticks. */
   setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
     if (key === "w") this.panW = down;
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
     else this.panD = down;
-    if (down && this.focus !== "free") {
-      this.focus = "free";
-      this.controls.enabled = true;
-      this.applyClipPlanes();
-    }
+    if (down) this.releaseTrackingForUser();
     return this.focus;
   }
 
@@ -855,31 +880,45 @@ export class CameraDirector {
   }
 
   /**
-   * Slide camera + target in the ecliptic / orbital plane (XY, ⊥ +Z).
-   * W/S along look projected onto that plane; A/D along in-plane right.
+   * Slide camera + target in the camera's view plane (screen-space style).
+   * W/S along look projected ⟂ camera.up; A/D along camera-right.
+   * Matches what you see at Starbase (pad-up) rather than the ecliptic plane.
    */
   private applyPan(dt: number): void {
     const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
-    const right = (this.panA ? 1 : 0) - (this.panD ? 1 : 0);
+    // D = screen-right, A = screen-left (standard)
+    const right = (this.panD ? 1 : 0) - (this.panA ? 1 : 0);
     if ((fwd === 0 && right === 0) || dt <= 0) return;
     this.cancelDistanceEase();
 
     const dist = this.camera.position.distanceTo(this.controls.target);
-    const speed = Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED);
+    const speed = Math.min(
+      Math.max(dist * PAN_DIST_PER_S, PAN_MIN_SPEED),
+      PAN_MAX_SPEED,
+    );
 
-    // Look direction projected onto the ecliptic (drop the +Z component)
+    // Forward = look direction flattened onto the camera's horizon (⟂ up)
     this.tmp.copy(this.controls.target).sub(this.camera.position);
     this.tmp.addScaledVector(
-      ECLIPTIC_NORTH,
-      -this.tmp.dot(ECLIPTIC_NORTH),
+      this.camera.up,
+      -this.tmp.dot(this.camera.up),
     );
     if (this.tmp.lengthSq() < 1e-12) {
-      // Looking along the pole — use world +X in-plane as forward
+      // Looking along up — use world axis least aligned with up
       this.tmp.set(1, 0, 0);
+      this.tmp.addScaledVector(
+        this.camera.up,
+        -this.tmp.dot(this.camera.up),
+      );
+      if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
     }
     this.tmp.normalize();
-    // In-plane right = ecliptic north × forward
-    this.panRight.crossVectors(ECLIPTIC_NORTH, this.tmp).normalize();
+    // Screen-right = up × forward (RH, matches camera.matrixWorld column 0 sense)
+    this.panRight.crossVectors(this.camera.up, this.tmp);
+    if (this.panRight.lengthSq() < 1e-12) {
+      this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+    }
+    this.panRight.normalize();
 
     this.panOffset.set(0, 0, 0);
     this.panOffset.addScaledVector(this.tmp, fwd * speed * dt);
