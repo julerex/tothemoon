@@ -13,6 +13,35 @@ import { bodyPositions } from "../physics/bodies";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
 import { createFatLine } from "./fatLines";
+import {
+  bloomVisual,
+  DELUGE_SHEETS,
+  derivePadFx,
+  expandSteamSprites,
+  flameVisual,
+  floodFixtureEmissive,
+  floodSpotDistance,
+  floodSpotIntensity,
+  hazeBaseZs,
+  hazeSpritePose,
+  olmLampColorHex,
+  padBeaconOpacity,
+  padFillColorHex,
+  padFillDistance,
+  padFillIntensity,
+  plumeLightDistance,
+  plumeLightIntensity,
+  plumeLightRgb,
+  sheetSpritePose,
+  steamSpritePose,
+  tongueVisual,
+  VENT_ANCHORS,
+  ventSpritePose,
+  type LaunchPadFxState,
+} from "./padLaunchFx";
+
+/** Re-export pure pad FX state type for mission theaters. */
+export type { LaunchPadFxState } from "./padLaunchFx";
 
 /**
  * Starbase pad (Earth-fixed mesh-local) + ascent ground-track on the globe.
@@ -26,6 +55,9 @@ import { createFatLine } from "./fatLines";
  *
  * V3 close-up (trench / pad cam): scorch + water stains, multi-tier deluge sheets,
  * thicker chopsticks/QD silhouette, scrub-driven heat haze over the trench.
+ *
+ * FX strengths / sprite poses live in pure `padLaunchFx.ts` (data → transform →
+ * thin THREE apply in `updateStarbaseLaunchFx`).
  *
  * Pad origin matches craft engines at t≈0 (R_EARTH + pad altitude). Local +Y = up.
  * Liftoff FX update from mission time so scrubbing stays deterministic.
@@ -168,58 +200,38 @@ export function createStarbasePad(): THREE.Group {
 
   const steamTex = makeSteamTexture();
 
-  // Deluge steam around OLM (liftoff) — multi-tier volume (V3)
+  // Deluge steam around OLM — layout from pure specs (`padLaunchFx`)
   const steamGroup = new THREE.Group();
   steamGroup.name = "pad-steam";
   steamGroup.visible = false;
-  // Tier 0: tight ring at OLM lip; tier 1: mid plume; tier 2: lofted cloud
-  const steamTiers: { n: number; r0: number; y0: number; scale: number; color: number }[] = [
-    { n: 10, r0: 0.028, y0: 0.012, scale: 0.07, color: 0xe0e6ec },
-    { n: 8, r0: 0.045, y0: 0.028, scale: 0.11, color: 0xd0d6de },
-    { n: 6, r0: 0.062, y0: 0.05, scale: 0.15, color: 0xc4cad2 },
-  ];
-  let steamIdx = 0;
-  for (let ti = 0; ti < steamTiers.length; ti++) {
-    const tier = steamTiers[ti]!;
-    for (let i = 0; i < tier.n; i++) {
-      const ang = (i / tier.n) * Math.PI * 2 + steamIdx * 0.17;
-      const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: steamTex,
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-          blending: THREE.NormalBlending,
-          color: tier.color,
-        }),
-      );
-      sprite.position.set(Math.cos(ang) * tier.r0, tier.y0, Math.sin(ang) * tier.r0);
-      sprite.scale.setScalar(tier.scale);
-      sprite.userData.baseAng = ang;
-      sprite.userData.baseR = tier.r0;
-      sprite.userData.baseY = tier.y0;
-      sprite.userData.baseScale = tier.scale;
-      sprite.userData.phase = steamIdx * 0.85;
-      sprite.userData.tier = ti;
-      steamGroup.add(sprite);
-      steamIdx++;
-    }
+  for (const s of expandSteamSprites()) {
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: steamTex,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+        color: s.color,
+      }),
+    );
+    sprite.position.set(Math.cos(s.ang) * s.r0, s.y0, Math.sin(s.ang) * s.r0);
+    sprite.scale.setScalar(s.scale);
+    sprite.userData.baseAng = s.ang;
+    sprite.userData.baseR = s.r0;
+    sprite.userData.baseY = s.y0;
+    sprite.userData.baseScale = s.scale;
+    sprite.userData.phase = s.phase;
+    sprite.userData.tier = s.tier;
+    steamGroup.add(sprite);
   }
   pad.add(steamGroup);
 
-  // Sheet-like deluge curtains along trench long axis (V3 volumetric read)
+  // Sheet-like deluge curtains (data-driven)
   const delugeSheets = new THREE.Group();
   delugeSheets.name = "pad-deluge-sheets";
   delugeSheets.visible = false;
-  const sheetAnchors: { pos: [number, number, number]; sx: number; sy: number; phase: number }[] = [
-    { pos: [0.012, 0.018, 0], sx: 0.055, sy: 0.04, phase: 0.2 },
-    { pos: [-0.012, 0.016, 0], sx: 0.05, sy: 0.038, phase: 1.1 },
-    { pos: [0, 0.022, 0.022], sx: 0.04, sy: 0.045, phase: 2.0 },
-    { pos: [0, 0.02, -0.022], sx: 0.042, sy: 0.042, phase: 2.8 },
-    { pos: [0.008, 0.03, 0.01], sx: 0.06, sy: 0.05, phase: 3.5 },
-    { pos: [-0.006, 0.032, -0.008], sx: 0.058, sy: 0.048, phase: 4.2 },
-  ];
-  for (const a of sheetAnchors) {
+  for (const a of DELUGE_SHEETS) {
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: steamTex,
@@ -230,7 +242,7 @@ export function createStarbasePad(): THREE.Group {
         color: 0xd8e0e8,
       }),
     );
-    sprite.position.set(...a.pos);
+    sprite.position.set(a.pos[0], a.pos[1], a.pos[2]);
     sprite.scale.set(a.sx, a.sy, 1);
     sprite.userData.baseX = a.pos[0];
     sprite.userData.baseY = a.pos[1];
@@ -242,12 +254,14 @@ export function createStarbasePad(): THREE.Group {
   }
   pad.add(delugeSheets);
 
-  // Heat haze above trench at ignition (scrub-driven shimmer sprites, V3)
+  // Heat haze above trench (scrub-driven; bases from pure helper)
   const hazeTex = makeHeatHazeTexture();
   const heatHaze = new THREE.Group();
   heatHaze.name = "pad-heat-haze";
   heatHaze.visible = false;
-  for (let i = 0; i < 5; i++) {
+  const hazeZs = hazeBaseZs();
+  for (let i = 0; i < hazeZs.length; i++) {
+    const z = hazeZs[i]!;
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: hazeTex,
@@ -259,7 +273,6 @@ export function createStarbasePad(): THREE.Group {
         color: 0xffc8a0,
       }),
     );
-    const z = -0.018 + i * 0.009;
     sprite.position.set(0, 0.014, z);
     sprite.scale.set(0.028, 0.022, 1);
     sprite.userData.baseZ = z;
@@ -268,24 +281,12 @@ export function createStarbasePad(): THREE.Group {
   }
   pad.add(heatHaze);
 
-  // Tank-farm vent steam (prelaunch hold) — over the white tank rows (+X / +Z)
+  // Tank-farm vent steam (prelaunch hold) — anchors from pure data
   const ventSteam = new THREE.Group();
   ventSteam.name = "pad-vent-steam";
   ventSteam.visible = false;
-  const ventAnchors: [number, number, number][] = [
-    [0.095, 0.014, 0.035],
-    [0.11, 0.016, 0.05],
-    [0.085, 0.013, 0.055],
-    [0.12, 0.018, 0.04],
-    [0.1, 0.015, 0.07],
-    [0.13, 0.017, 0.055],
-    [0.075, 0.012, 0.04],
-    [0.115, 0.02, 0.065],
-    [0.14, 0.015, 0.08],
-    [0.09, 0.014, 0.085],
-  ];
-  for (let i = 0; i < ventAnchors.length; i++) {
-    const [x, y, z] = ventAnchors[i]!;
+  for (let i = 0; i < VENT_ANCHORS.length; i++) {
+    const [x, y, z] = VENT_ANCHORS[i]!;
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: steamTex,
@@ -898,26 +899,10 @@ function createPadLights(): THREE.Group {
   return g;
 }
 
-export type LaunchPadFxState = {
-  /**
-   * Mission time in seconds. Liftoff = 0; negative = pre-liftoff countdown
-   * (tank-farm vent steam / pad-ops lights).
-   */
-  missionT: number;
-  phase: string;
-  burning: boolean;
-  /** Altitude above Earth surface (km) */
-  altEarth: number;
-  /**
-   * Sun elevation factor at Starbase: 1 = high day, 0 = civil twilight,
-   * negative ≈ night. From sun·localUp.
-   */
-  sunElev?: number;
-};
-
 /**
  * Drive flame trench, deluge steam / sheets, heat haze, vent plumes, and pad
- * lighting from mission state. Day/night flood balance uses `sunElev`; scrub-safe.
+ * lighting from mission state. Scrub-safe: all scalars/poses come from pure
+ * `derivePadFx` + sprite pose helpers (`padLaunchFx.ts`); this only mutates THREE.
  *
  * `missionT` may be negative (pre-liftoff countdown) so tank-farm vent steam
  * reads during the T− hold like the webcast.
@@ -926,223 +911,165 @@ export function updateStarbaseLaunchFx(
   pad: THREE.Object3D,
   state: LaunchPadFxState,
 ): void {
-  const onPadPhase =
-    state.phase === "launch" ||
-    (state.phase === "ascent" && state.altEarth < 25);
-  const nearPad =
-    state.phase === "launch" ||
-    (state.phase === "ascent" && state.altEarth < 8) ||
-    state.missionT < 30;
-  const active = state.burning && onPadPhase && state.missionT >= 0;
+  const fx = derivePadFx(state);
+  const { animT, day, night, flame, steamStr, hazePeak, ventStr, padOps, floodBase } =
+    fx;
+  const { strength, flicker } = flame;
 
-  // Intensity falls with altitude and fades after leaving thick atmosphere theater
-  const altFade = THREE.MathUtils.clamp(1 - state.altEarth / 18, 0, 1);
-  const t = state.missionT;
-  // Animation clock: keep prelaunch steam drifting (t is negative on hold)
-  const animT = t;
-  const flicker =
-    0.9 +
-    0.06 * Math.sin(Math.max(0, t) * 41.2) +
-    0.04 * Math.sin(Math.max(0, t) * 77.5 + 0.7);
-  const strength = active ? altFade * flicker : 0;
+  const applySpritePose = (
+    obj: THREE.Sprite,
+    pose: { opacity: number; position: { x: number; y: number; z: number }; scale: { x: number; y: number } },
+  ): void => {
+    const mat = obj.material as THREE.SpriteMaterial;
+    mat.opacity = pose.opacity;
+    obj.position.set(pose.position.x, pose.position.y, pose.position.z);
+    obj.scale.set(pose.scale.x, pose.scale.y, 1);
+  };
 
-  // Day factor: 1 midday, 0 deep night (soft twilight band)
-  const elev = state.sunElev ?? 0.4;
-  const day = THREE.MathUtils.smoothstep(elev, -0.08, 0.22);
-  const night = 1 - day;
-
-  const flame = pad.getObjectByName("pad-flame") as THREE.Mesh | undefined;
-  if (flame) {
-    const mat = (flame.userData.mat as THREE.MeshBasicMaterial) ??
-      (flame.material as THREE.MeshBasicMaterial);
-    flame.visible = strength > 0.02;
-    mat.opacity = 0.4 * strength;
-    flame.scale.set(1, 0.7 + 0.5 * strength, 1);
+  const flameMesh = pad.getObjectByName("pad-flame") as THREE.Mesh | undefined;
+  if (flameMesh) {
+    const fv = flameVisual(strength);
+    const mat =
+      (flameMesh.userData.mat as THREE.MeshBasicMaterial) ??
+      (flameMesh.material as THREE.MeshBasicMaterial);
+    flameMesh.visible = fv.visible;
+    mat.opacity = fv.opacity;
+    flameMesh.scale.set(1, fv.scaleY, 1);
   }
 
   const tongues = pad.getObjectByName("pad-flame-tongues");
   if (tongues) {
-    tongues.visible = strength > 0.05;
+    const tv = tongueVisual(strength);
+    tongues.visible = tv.visible;
     const mat = tongues.userData.mat as THREE.MeshBasicMaterial | undefined;
-    if (mat) mat.opacity = 0.28 * strength;
-    tongues.scale.set(1, 0.6 + 0.7 * strength, 1);
+    if (mat) mat.opacity = tv.opacity;
+    tongues.scale.set(1, tv.scaleY, 1);
   }
-
-  // Deluge steam strength (hangs longer than hard flame; true-scale around OLM)
-  const steamStr =
-    state.burning && state.altEarth < 35 && state.missionT < 180
-      ? THREE.MathUtils.clamp(1 - state.altEarth / 30, 0, 1) *
-        (state.phase === "launch" || state.phase === "ascent" ? 1 : 0)
-      : 0;
 
   const steam = pad.getObjectByName("pad-steam");
   if (steam) {
     steam.visible = steamStr > 0.03;
     steam.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
-      const mat = obj.material as THREE.SpriteMaterial;
-      const phase = (obj.userData.phase as number) ?? 0;
-      const baseR = (obj.userData.baseR as number) ?? 0.04;
-      const baseY = (obj.userData.baseY as number) ?? 0.02;
-      const baseScale = (obj.userData.baseScale as number) ?? 0.1;
-      const tier = (obj.userData.tier as number) ?? 0;
-      // Outer tiers are thinner / loft more
-      const tierOp = 1 - tier * 0.18;
-      const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + phase);
-      // Slightly brighter steam at night (backlit by floods / plume)
-      mat.opacity = (0.26 + 0.14 * night) * steamStr * wobble * tierOp;
-      const grow =
-        baseScale * (0.85 + steamStr * 0.9) +
-        0.015 * Math.sin(animT * 2.2 + phase);
-      obj.scale.setScalar(grow);
-      const ang = (obj.userData.baseAng as number) ?? 0;
-      const r =
-        baseR +
-        steamStr * (0.04 + tier * 0.02) +
-        0.008 * Math.sin(animT * 1.7 + phase);
-      obj.position.set(
-        Math.cos(ang + animT * 0.05) * r,
-        baseY + steamStr * (0.04 + tier * 0.025) + 0.01 * Math.sin(animT * 2.5 + phase),
-        Math.sin(ang + animT * 0.05) * r,
+      applySpritePose(
+        obj,
+        steamSpritePose(
+          {
+            baseAng: (obj.userData.baseAng as number) ?? 0,
+            baseR: (obj.userData.baseR as number) ?? 0.04,
+            baseY: (obj.userData.baseY as number) ?? 0.02,
+            baseScale: (obj.userData.baseScale as number) ?? 0.1,
+            phase: (obj.userData.phase as number) ?? 0,
+            tier: (obj.userData.tier as number) ?? 0,
+          },
+          steamStr,
+          night,
+          animT,
+        ),
       );
     });
   }
 
-  // Sheet curtains along trench (V3 volumetric deluge)
   const sheets = pad.getObjectByName("pad-deluge-sheets");
   if (sheets) {
     sheets.visible = steamStr > 0.04;
     sheets.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
-      const mat = obj.material as THREE.SpriteMaterial;
-      const phase = (obj.userData.phase as number) ?? 0;
-      const bx = (obj.userData.baseX as number) ?? 0;
-      const by = (obj.userData.baseY as number) ?? 0;
-      const bz = (obj.userData.baseZ as number) ?? 0;
-      const bsx = (obj.userData.baseSx as number) ?? 0.05;
-      const bsy = (obj.userData.baseSy as number) ?? 0.04;
-      const wobble = 0.8 + 0.2 * Math.sin(animT * 4.2 + phase);
-      mat.opacity = (0.32 + 0.12 * night) * steamStr * wobble;
-      const sx = bsx * (0.9 + steamStr * 0.55);
-      const sy = bsy * (0.85 + steamStr * 0.7 + 0.08 * Math.sin(animT * 3.3 + phase));
-      obj.scale.set(sx, sy, 1);
-      obj.position.set(
-        bx + 0.004 * Math.sin(animT * 2.1 + phase),
-        by + steamStr * 0.025 + 0.006 * Math.sin(animT * 2.8 + phase),
-        bz + 0.003 * Math.cos(animT * 1.9 + phase),
+      applySpritePose(
+        obj,
+        sheetSpritePose(
+          {
+            baseX: (obj.userData.baseX as number) ?? 0,
+            baseY: (obj.userData.baseY as number) ?? 0,
+            baseZ: (obj.userData.baseZ as number) ?? 0,
+            baseSx: (obj.userData.baseSx as number) ?? 0.05,
+            baseSy: (obj.userData.baseSy as number) ?? 0.04,
+            phase: (obj.userData.phase as number) ?? 0,
+          },
+          steamStr,
+          night,
+          animT,
+        ),
       );
     });
   }
 
-  // Heat haze over trench — strongest at ignition, scrub-safe (V3)
   const haze = pad.getObjectByName("pad-heat-haze");
   if (haze) {
-    // Peak in first ~8 s after light, then fade with altitude / steam
-    const hazePeak =
-      strength *
-      THREE.MathUtils.clamp(1 - Math.max(0, t) / 25, 0.15, 1) *
-      THREE.MathUtils.clamp(1 - state.altEarth / 4, 0, 1);
     haze.visible = hazePeak > 0.04;
     haze.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
-      const mat = obj.material as THREE.SpriteMaterial;
-      const phase = (obj.userData.phase as number) ?? 0;
-      const baseZ = (obj.userData.baseZ as number) ?? 0;
-      const shimmer = 0.75 + 0.25 * Math.sin(animT * 18.5 + phase);
-      mat.opacity = 0.22 * hazePeak * shimmer;
-      const sx = 0.024 + 0.02 * hazePeak + 0.006 * Math.sin(animT * 11 + phase);
-      const sy = 0.018 + 0.028 * hazePeak + 0.008 * Math.sin(animT * 14.2 + phase * 1.3);
-      obj.scale.set(sx, sy, 1);
-      obj.position.set(
-        0.003 * Math.sin(animT * 9.1 + phase),
-        0.012 + hazePeak * 0.018 + 0.004 * Math.sin(animT * 12.5 + phase),
-        baseZ + 0.002 * Math.cos(animT * 8.3 + phase),
+      applySpritePose(
+        obj,
+        hazeSpritePose(
+          {
+            baseZ: (obj.userData.baseZ as number) ?? 0,
+            phase: (obj.userData.phase as number) ?? 0,
+          },
+          hazePeak,
+          animT,
+        ),
       );
     });
   }
 
-  // Tank-farm vent steam: strong on countdown hold, eases after liftoff
   const vent = pad.getObjectByName("pad-vent-steam");
   if (vent) {
-    let ventStr = 0;
-    if (state.missionT < 0) {
-      // Full hold plume (SpaceX webcast look)
-      ventStr = 0.85 + 0.15 * Math.sin(animT * 0.7);
-    } else if (state.missionT < 90 && state.altEarth < 12) {
-      ventStr = THREE.MathUtils.clamp(1 - state.missionT / 90, 0, 1) * 0.75;
-    }
-    // Dim slightly once engines light (deluge takes visual priority)
-    if (strength > 0.2) ventStr *= 0.55;
     vent.visible = ventStr > 0.04;
     vent.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
-      const mat = obj.material as THREE.SpriteMaterial;
-      const phase = (obj.userData.phase as number) ?? 0;
-      const wobble = 0.8 + 0.2 * Math.sin(animT * 1.8 + phase);
-      mat.opacity = (0.35 + 0.2 * night) * ventStr * wobble;
-      const grow =
-        0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + phase);
-      obj.scale.set(grow * 1.15, grow * 1.4, 1);
-      const bx = (obj.userData.baseX as number) ?? 0;
-      const by = (obj.userData.baseY as number) ?? 0;
-      const bz = (obj.userData.baseZ as number) ?? 0;
-      obj.position.set(
-        bx + 0.012 * Math.sin(animT * 0.4 + phase),
-        by + ventStr * 0.08 + 0.02 * Math.sin(animT * 1.1 + phase),
-        bz + 0.01 * Math.cos(animT * 0.35 + phase),
+      applySpritePose(
+        obj,
+        ventSpritePose(
+          {
+            baseX: (obj.userData.baseX as number) ?? 0,
+            baseY: (obj.userData.baseY as number) ?? 0,
+            baseZ: (obj.userData.baseZ as number) ?? 0,
+            phase: (obj.userData.phase as number) ?? 0,
+          },
+          ventStr,
+          night,
+          animT,
+        ),
       );
     });
   }
 
-  // Floodlights: strong at night; very restrained daytime (sun + pad geometry).
-  // Drop once stack is gone. V0.1 — floods mainly for night ops.
-  const padOps =
-    nearPad ||
-    state.missionT < 0 ||
-    (state.phase === "launch" && state.missionT < 120);
-  const floodBase = padOps ? 0.04 * day + 1.2 * night : 0;
   for (let i = 0; i < 3; i++) {
     const spot = pad.getObjectByName(`pad-flood-${i}`) as
       | THREE.SpotLight
       | undefined;
     if (!spot) continue;
-    // Dim slightly while plume is roaring (avoid double-wash)
-    const plumeDim = 1 - 0.35 * strength;
-    spot.intensity = floodBase * plumeDim * (0.85 + 0.15 * (i === 0 ? 1 : 0.75));
-    spot.distance = 0.28 + 0.1 * night;
+    spot.intensity = floodSpotIntensity(floodBase, strength, i);
+    spot.distance = floodSpotDistance(night);
   }
 
-  // Cool ambient fill around the complex (night-led; tiny day residual)
   const fill = pad.getObjectByName("pad-fill") as THREE.PointLight | undefined;
   if (fill) {
-    fill.intensity = padOps
-      ? 0.03 * day + 0.55 * night * (1 - 0.4 * strength)
-      : 0;
-    fill.color.setHex(strength > 0.1 ? 0xffe0c8 : 0xdde6f4);
-    fill.distance = 0.22 + 0.08 * night;
+    fill.intensity = padFillIntensity(padOps, day, night, strength);
+    fill.color.setHex(padFillColorHex(strength));
+    fill.distance = padFillDistance(night);
   }
 
-  // Warm plume light — tight under engines only while burning
   const plume = pad.getObjectByName("pad-plume-light") as
     | THREE.PointLight
     | undefined;
   if (plume) {
-    plume.intensity = 2.2 * strength;
-    plume.distance = 0.14 + 0.1 * strength;
-    plume.color.setRGB(1, 0.55 + 0.1 * flicker, 0.28);
+    plume.intensity = plumeLightIntensity(strength);
+    plume.distance = plumeLightDistance(strength);
+    const [r, g, b] = plumeLightRgb(flicker);
+    plume.color.setRGB(r, g, b);
   }
 
-  // Fixture emissives track flood intensity
   for (let i = 0; i < 3; i++) {
     const fixture = pad.getObjectByName(`pad-flood-fixture-${i}`) as
       | THREE.Mesh
       | undefined;
     if (!fixture) continue;
     const mat = fixture.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = 0.15 + floodBase * 1.4;
+    mat.emissiveIntensity = floodFixtureEmissive(floodBase);
   }
 
-  // OLM lamps: on for pad ops, brighter at night
   for (let i = 0; i < 8; i++) {
     const lamp = pad.getObjectByName(`pad-olm-lamp-${i}`) as
       | THREE.Mesh
@@ -1151,21 +1078,19 @@ export function updateStarbaseLaunchFx(
     lamp.visible = padOps;
     const mat = lamp.material as THREE.MeshBasicMaterial;
     mat.opacity = 1;
-    mat.color.setHex(padOps ? (night > 0.5 ? 0xf4f8ff : 0xc8d0dc) : 0x444444);
+    mat.color.setHex(olmLampColorHex(padOps, night));
   }
 
-  // Tight ground bloom only under plume (no multi-km yellow disc)
   const bloom = pad.getObjectByName("pad-ground-bloom") as
     | THREE.Sprite
     | undefined;
   if (bloom) {
-    const show = strength > 0.04;
-    bloom.visible = show;
-    if (show) {
+    const bv = bloomVisual(strength, flicker);
+    bloom.visible = bv.visible;
+    if (bv.visible) {
       const mat = bloom.material as THREE.SpriteMaterial;
-      mat.opacity = 0.35 * strength * flicker;
-      const s = 0.08 + 0.1 * strength;
-      bloom.scale.set(s, s, 1);
+      mat.opacity = bv.opacity;
+      bloom.scale.set(bv.scale, bv.scale, 1);
     }
   }
 }
@@ -1682,10 +1607,10 @@ function makeHeatHazeTexture(): THREE.CanvasTexture {
   return map;
 }
 
-/** Pulse pad beacon (wall-clock). */
+/** Pulse pad beacon (wall-clock UI only; opacity from pure helper). */
 export function pulsePadBeacon(pad: THREE.Object3D, wallT: number): void {
   const beacon = pad.getObjectByName("pad-beacon") as THREE.Mesh | undefined;
   if (!beacon) return;
   const mat = beacon.material as THREE.MeshBasicMaterial;
-  mat.opacity = 0.55 + 0.4 * Math.sin(wallT * 4);
+  mat.opacity = padBeaconOpacity(wallT);
 }
