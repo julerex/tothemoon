@@ -2,8 +2,8 @@
  * Guided phase cameras (Auto-cam): map mission phase → default focus framing.
  *
  * Applied only on phase (or staging) transitions while Auto-cam is enabled.
- * Manual camera picks, WASD pan, and mouse orbit disable Auto-cam so Free
- * orbit is never fought mid-drag.
+ * Manual camera picks, WASD pan, and mouse orbit disable Auto-cam so guided
+ * cuts do not fight user framing mid-drag (tracking of the current focus stays).
  *
  * Profiles:
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)

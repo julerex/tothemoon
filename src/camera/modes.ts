@@ -14,7 +14,9 @@ import {
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
- * `"free"` is internal (WASD pan drops tracking); not shown in the UI.
+ * `"free"` is internal (no subject co-motion); not shown in the UI.
+ * Pan / orbit / zoom keep the current focus and ride along with it, preserving
+ * any look-target offset from the subject center.
  * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
  * `"gridfin"` is a locked mount on a Super Heavy top grid fin (aft-looking).
  * `"trench"` is a locked under-pad / flame-trench angle on the booster engines.
@@ -103,7 +105,12 @@ export class CameraDirector {
   /** What we track; OrbitControls stay enabled in every focus. */
   private focus: CameraMode = "starbase";
   private readonly desiredTarget = new THREE.Vector3();
-  private readonly prevTarget = new THREE.Vector3();
+  /**
+   * World position of the tracked subject last frame. Used so pan/orbit offsets
+   * stick while the camera still co-moves with Earth / craft / Moon / pad.
+   */
+  private readonly trackAnchor = new THREE.Vector3();
+  private trackAnchorValid = false;
   private readonly tmp = new THREE.Vector3();
   private readonly orbitOffset = new THREE.Vector3();
   private readonly panRight = new THREE.Vector3();
@@ -171,9 +178,8 @@ export class CameraDirector {
 
     this.controls.addEventListener("start", () => {
       this.cancelDistanceEase();
-      // Drop body tracking so mouse pan/orbit is not fought by trackFocus
-      // (which snaps the target back to Starbase / Earth / craft every frame).
-      this.releaseTrackingForUser();
+      // Keep subject tracking (co-motion with offset). Only cancel guided
+      // distance ease so mouse pan/orbit is not fought by a radius lerp.
       this.onUserControl?.();
     });
 
@@ -185,7 +191,7 @@ export class CameraDirector {
 
   /**
    * Register a callback for intentional mouse control (orbit / pan / zoom).
-   * Used to turn Auto-cam off so guided cuts do not fight Free orbit.
+   * Used to turn Auto-cam off so guided cuts do not fight user framing.
    */
   setOnUserControl(cb: (() => void) | null): void {
     this.onUserControl = cb;
@@ -270,6 +276,8 @@ export class CameraDirector {
       .copy(this.desiredTarget)
       .addScaledVector(this.tmp, dist);
     this.controls.target.copy(this.desiredTarget);
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
     // Upright vs local ground (not ecliptic north)
     this.camera.up.copy(this.padUp);
     this.syncOrbitControlsUp();
@@ -357,6 +365,7 @@ export class CameraDirector {
   ): void {
     if (mode === "free") {
       this.focus = "free";
+      this.trackAnchorValid = false;
       this.controls.enabled = true;
       this.applyClipPlanes();
       return;
@@ -364,6 +373,7 @@ export class CameraDirector {
 
     if (mode === "fin") {
       this.focus = "fin";
+      this.trackAnchorValid = false;
       this.controls.enabled = false;
       this.applyClipPlanes();
       this.applyFinCam();
@@ -372,6 +382,7 @@ export class CameraDirector {
 
     if (mode === "gridfin") {
       this.focus = "gridfin";
+      this.trackAnchorValid = false;
       this.controls.enabled = false;
       this.applyClipPlanes();
       this.applyGridFinCam();
@@ -380,6 +391,7 @@ export class CameraDirector {
 
     if (mode === "trench") {
       this.focus = "trench";
+      this.trackAnchorValid = false;
       this.controls.enabled = false;
       this.applyClipPlanes();
       this.applyTrenchCam();
@@ -407,6 +419,8 @@ export class CameraDirector {
     this.applyClipPlanes();
     this.computeTarget(mode, this.desiredTarget);
     this.controls.target.copy(this.desiredTarget);
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
 
     let dist: number;
     if (frame) {
@@ -500,30 +514,14 @@ export class CameraDirector {
   }
 
   /**
-   * Drop body / pad tracking so free orbit and pan stick. Locked mounts
-   * (fin / gridfin / trench) stay locked.
+   * WASD pan in the view plane. Keeps the current focus so the camera still
+   * co-moves with Earth / craft / Moon / pad; the pan is a sticky offset.
    */
-  private releaseTrackingForUser(): void {
-    if (
-      this.focus === "free" ||
-      this.focus === "fin" ||
-      this.focus === "gridfin" ||
-      this.focus === "trench"
-    ) {
-      return;
-    }
-    this.focus = "free";
-    this.controls.enabled = true;
-    this.applyClipPlanes();
-  }
-
-  /** WASD pan; drops body tracking so the slide sticks. */
   setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
     if (key === "w") this.panW = down;
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
     else this.panD = down;
-    if (down) this.releaseTrackingForUser();
     return this.focus;
   }
 
@@ -791,7 +789,11 @@ export class CameraDirector {
     return stackBooster ?? this.craft;
   }
 
-  /** Keep target on the focused body; slide the camera with it. */
+  /**
+   * Co-move camera + OrbitControls target with the focused subject.
+   * Applies only the subject’s motion delta so a pan/orbit offset from the
+   * subject center is preserved (no snap back to body/craft origin).
+   */
   private trackFocus(): void {
     if (
       this.focus === "free" ||
@@ -801,11 +803,17 @@ export class CameraDirector {
     )
       return;
 
-    this.prevTarget.copy(this.controls.target);
     this.computeTarget(this.focus, this.desiredTarget);
-    this.tmp.copy(this.desiredTarget).sub(this.prevTarget);
-    this.controls.target.copy(this.desiredTarget);
-    this.camera.position.add(this.tmp);
+    if (this.trackAnchorValid) {
+      this.tmp.copy(this.desiredTarget).sub(this.trackAnchor);
+      this.controls.target.add(this.tmp);
+      this.camera.position.add(this.tmp);
+    } else {
+      // First track after a non-tracked mode: seat look target on the subject.
+      this.controls.target.copy(this.desiredTarget);
+    }
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
   }
 
   private applyOrbit(dt: number): void {
