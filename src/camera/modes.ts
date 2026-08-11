@@ -35,8 +35,12 @@ const ORBIT_Y_UP = new THREE.Vector3(0, 1, 0);
 const ORBIT_RAD_PER_S = 1.15;
 /** WASD pan rate as a fraction of focus distance per second. */
 const PAN_DIST_PER_S = 0.9;
-/** Floor so pan still moves when nearly on top of the target (km/s). */
-const PAN_MIN_SPEED = R_EARTH * 0.4;
+/**
+ * Floor so pan still moves when nearly on top of the target (km/s).
+ * Kept small so speed stays proportional to zoom at craft / pad scale;
+ * the old Earth-radius floor made pan feel constant until ~thousands of km.
+ */
+const PAN_MIN_SPEED = 0.05;
 /** Z/X zoom rate (exponential distance scale per second). */
 const ZOOM_RATE = 1.4;
 /** Wall-clock seconds for Auto-cam / guided distance ease. */

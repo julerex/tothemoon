@@ -16,6 +16,8 @@
   --radius: 2px;
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  /* Mission details rail width (left); clock + title clear this */
+  --telemetry-width: 12.25rem;
 }
 
 *,
@@ -487,11 +489,11 @@ body.menus-active {
   pointer-events: none;
 }
 
-/* SpaceX-style mission clock (top-left) */
+/* SpaceX-style mission clock (top-left, clear of details rail) */
 .mission-clock {
   position: absolute;
   top: 0.85rem;
-  left: 1.1rem;
+  left: calc(var(--telemetry-width) + 1.1rem);
   z-index: 8;
   pointer-events: none;
   padding: 0.4rem 0.9rem 0.42rem;
@@ -518,8 +520,9 @@ body.menus-active {
 .hud-header {
   pointer-events: none;
   max-width: 22rem;
-  /* Clear the mission clock badge above */
+  /* Clear the mission clock badge above and the left details rail */
   margin-top: 3.15rem;
+  margin-left: var(--telemetry-width);
 }
 
 .hud-menu-link {
@@ -785,16 +788,16 @@ body.menus-active {
   user-select: none;
 }
 
-/* Right-side mission details rail (full height above ticker + bottom bar) */
+/* Left-side mission details rail (full height above ticker + bottom bar) */
 .telemetry {
   position: absolute;
   top: 0;
-  right: 0;
+  left: 0;
   bottom: 0;
   /* Leave room for ticker + scrubber + bookmarks + footer */
   margin-bottom: 8.25rem;
-  width: 12.25rem;
-  max-width: min(12.25rem, 38vw);
+  width: var(--telemetry-width);
+  max-width: min(var(--telemetry-width), 38vw);
   padding: 0.85rem 0.75rem 0.75rem;
   box-sizing: border-box;
   display: flex;
@@ -808,14 +811,14 @@ body.menus-active {
   line-height: 1.35;
   border-radius: 0;
   border-top: none;
-  border-right: none;
+  border-left: none;
   border-bottom: none;
-  border-left: 1px solid var(--panel-border);
+  border-right: 1px solid var(--panel-border);
   background: linear-gradient(
     90deg,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(0, 0, 0, 0.78) 40%,
-    rgba(0, 0, 0, 0.88) 100%
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.78) 60%,
+    rgba(0, 0, 0, 0.55) 100%
   );
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1732,9 +1735,13 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --telemetry-width: 9.75rem;
+  }
+
   .mission-clock {
     top: 0.65rem;
-    left: 0.75rem;
+    left: calc(var(--telemetry-width) + 0.75rem);
     padding: 0.32rem 0.7rem;
   }
 
@@ -1747,7 +1754,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   }
 
   .telemetry {
-    width: 9.75rem;
     max-width: 34vw;
     margin-bottom: 8.5rem;
     padding: 0.55rem 0.5rem 0.55rem;
