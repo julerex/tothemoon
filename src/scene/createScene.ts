@@ -178,10 +178,13 @@ function orientStarDomeToEcliptic(stars: THREE.Mesh): void {
  * fall back to a procedural canvas map if the asset is missing.
  */
 function createStarDome(): THREE.Mesh {
-  // Dim the sky map so bodies, trails, and sphere of influence shells read clearly
+  // Dim the sky map so bodies, trails, and sphere of influence shells read clearly.
+  // transparent: V5 cinema fades opacity near pad / during entry brownout.
   const mat = new THREE.MeshBasicMaterial({
     side: THREE.BackSide,
     depthWrite: false,
+    transparent: true,
+    opacity: 1,
     color: 0x555566,
     toneMapped: false,
   });

@@ -39,9 +39,9 @@ Related:
 
 **Shipped (V4):** stainless anisotropy + weld rings, windward heat-shield edge wear, denser high-contrast grid fins for fin/gridfin cams.
 
-**Not yet:** soft shadows, post/bloom stack, altitude haze (V5).
+**Shipped (V5):** tight pad+craft sun shadows, mild bloom + altitude exposure, star-dome fade, entry brownout haze.
 
-Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
+Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
 ---
 
@@ -154,19 +154,19 @@ Pad massing reads from altitude; trench + pad cams need density up close.
 
 ---
 
-## V5 — Cinema (do later)
+## V5 — Cinema — **done 2026-08-11**
 
-### Soft shadows
+### Soft shadows — **done**
 
-Directional sun shadows for **pad + craft only** (tight shadow camera around focus). Huge for trench/pad realism; careful with AU-scale + logarithmic depth.
+Directional sun shadows for **pad + craft only** (tight ortho frustum re-centered on craft each frame via `updateSunShadowFocus`). Off above ~80 km so AU-scale views stay cheap. Log-depth friendly (light sits sunward of focus, not AU-scale).
 
-### Light post stack
+### Light post stack — **done**
 
-Mild bloom on engines/Sun; slight exposure adaptation pad → space. Stay subtle.
+`EffectComposer` + mild `UnrealBloomPass` (high threshold → engines/Sun/floods) + `OutputPass`. Exposure adapts pad → LEO → deep space (`cinemaExposure`).
 
-### Atmospheric haze by altitude
+### Atmospheric haze by altitude — **done**
 
-Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in atmosphere.
+`groundSky` brownout tint on entry; star-dome opacity fades near pad and under brownout; blue sky shell still altitude-gated.
 
 ---
 
@@ -177,7 +177,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 3. ~~**V3** — pad close-up (trench cam payoff)~~ **done**  
 4. ~~**V2** — terminator / Moon low-sun polish~~ **done**  
 5. ~~**V4** — craft materials as needed for fin/gridfin~~ **done**  
-6. **V5** — shadows / post only when the above is stable  
+6. ~~**V5** — shadows / post only when the above is stable~~ **done**  
 
 ---
 
@@ -200,3 +200,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 | 2026-08-11 | V3 shipped: pad scorch/stains, volumetric deluge, chopsticks/QD silhouette, trench heat haze |
 | 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |
 | 2026-08-11 | V4 shipped: stainless anisotropy + weld rings, windward tile edge wear, denser grid fins |
+| 2026-08-11 | V5 shipped: pad/craft shadows, mild bloom + exposure, star fade, entry brownout |

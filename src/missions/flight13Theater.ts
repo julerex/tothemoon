@@ -53,6 +53,7 @@ import {
   FLIGHT13_SPLASH_LON,
 } from "../physics/flight13Mission";
 import {
+  entryPlasmaStrength,
   landingEngineCount,
   landingFlipBlend,
   shipAttitudeMode,
@@ -64,6 +65,16 @@ import {
   updateStarbaseLaunchFx,
 } from "../scene/earthTheater";
 import { createGroundSky, updateGroundSky } from "../scene/groundSky";
+import {
+  atmosphereBrownout,
+  cameraAltitudeEarthKm,
+  createCinemaComposer,
+  enableSunShadows,
+  markShadowMeshes,
+  renderCinema,
+  resizeCinema,
+  updateSunShadowFocus,
+} from "../scene/cinema";
 import { toggleZoomLabels, updateZoomLabels } from "../scene/zoomLabels";
 import { createVectorArrows } from "../scene/vectorArrows";
 import { nextAutoCamCut } from "../camera/autoCam";
@@ -164,7 +175,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// Slightly brighter for stainless stack + afternoon pad (day launch)
+// Slightly brighter for stainless stack + afternoon pad (day launch);
+// V5 cinemaExposure adapts per-frame from camera altitude.
 renderer.toneMappingExposure = 1.2;
 
 const camera = new THREE.PerspectiveCamera(50, 1, 1, 2_000_000);
@@ -172,6 +184,8 @@ const director = new CameraDirector(camera, canvas);
 director.setEpoch(epoch);
 
 const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
+// V5: soft sun shadows for pad + craft
+enableSunShadows(renderer, sunLight);
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
@@ -184,6 +198,7 @@ const _skySun = new THREE.Vector3();
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
 bodies.earth.add(starbasePad);
+markShadowMeshes(starbasePad, { cast: true, receive: true });
 const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
@@ -206,6 +221,17 @@ if (groundTrack) orbitExtras.push(groundTrack);
 const { group: craft, locator } = createCraft();
 scene.add(craft);
 director.setCraft(craft);
+markShadowMeshes(craft, { cast: true, receive: true });
+
+// V5 cinema stack (mild bloom + exposure adaptation)
+const cinema = createCinemaComposer(renderer, scene, camera);
+/** Last frame flags for scrub-safe cinema (set in applyMissionState). */
+const cinemaState = {
+  burning: false,
+  phase: "launch" as string,
+  plasma: 0,
+  altEarth: 0,
+};
 
 // Velocity / acceleration arrows (O with orbits; labels on hover only)
 const vectorArrows = createVectorArrows();
@@ -237,6 +263,7 @@ const stageT = stageEvent?.t ?? null;
 scene.add(stagingFx.group);
 // Grid-fin cam follows the free-flyer after stage-out
 director.setDetachedBooster(stagingFx.detachedBooster);
+markShadowMeshes(stagingFx.group, { cast: true, receive: true });
 
 // Indian Ocean splash site (Earth-fixed) + entry plasma on the craft
 const splashFx = new SplashFx();
@@ -572,6 +599,9 @@ function applyMissionState(u: number): void {
   const showThrustN = prelaunch ? 0 : frame.thrustN;
   const displayPhase = prelaunch ? "launch" : frame.phase;
   const displayAltEarth = prelaunch ? 0.01 : frame.altEarth;
+  cinemaState.burning = showBurning;
+  cinemaState.phase = displayPhase;
+  cinemaState.altEarth = displayAltEarth;
 
   // Flight 13 is always Earth-local for attitude
   const useSurfaceAttitude = true;
@@ -625,6 +655,14 @@ function applyMissionState(u: number): void {
     displayAltEarth,
     prelaunch ? 0 : speedAir,
   );
+  cinemaState.plasma = prelaunch
+    ? 0
+    : entryPlasmaStrength(
+        Math.max(0, physicsT),
+        displayPhase as PhaseId,
+        displayAltEarth,
+        speedAir,
+      );
   updateBodies(simT, bodies, epoch);
   // Osculating Earth–Moon ring — same epoch as bodies so the Moon sits on it
   if (orbitsVisible) updateMoonRelativeOrbit(moonRelOrbit, simT, epoch);
@@ -821,6 +859,12 @@ function resize(): void {
     camera.updateProjectionMatrix();
     // Line2 stroke width is resolution-dependent
     updateFatLineResolutions(scene, w, h);
+    resizeCinema(
+      cinema,
+      w,
+      h,
+      Math.min(window.devicePixelRatio || 1, 2),
+    );
   }
 }
 
@@ -848,10 +892,20 @@ function frame(): void {
   director.update(dt, simT, craftPos, craftVel);
   updateZoomLabels(scene, camera);
 
-  // Pad / low-altitude sky (fades out once the camera leaves the atmosphere)
-  updateGroundSky(groundSky, camera, _skyEarth, _skySun);
-
-  renderer.render(scene, camera);
+  // Pad / low-altitude sky + V5 brownout / star fade / shadows / bloom
+  const camAltKm = cameraAltitudeEarthKm(camera.position, _skyEarth);
+  const brownout = atmosphereBrownout(
+    cinemaState.phase,
+    cinemaState.altEarth > 0 ? cinemaState.altEarth : camAltKm,
+    cinemaState.plasma,
+  );
+  updateGroundSky(groundSky, camera, _skyEarth, _skySun, brownout);
+  updateSunShadowFocus(sunLight, craftPos, _skySun, camAltKm);
+  renderCinema(cinema, renderer, scene, {
+    camAltKm,
+    burning: cinemaState.burning,
+    brownout,
+  });
 }
 
 frame();

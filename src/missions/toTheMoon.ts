@@ -53,6 +53,16 @@ import {
   updateStarbaseLaunchFx,
 } from "../scene/earthTheater";
 import { createGroundSky, updateGroundSky } from "../scene/groundSky";
+import {
+  atmosphereBrownout,
+  cameraAltitudeEarthKm,
+  createCinemaComposer,
+  enableSunShadows,
+  markShadowMeshes,
+  renderCinema,
+  resizeCinema,
+  updateSunShadowFocus,
+} from "../scene/cinema";
 import { toggleZoomLabels, updateZoomLabels } from "../scene/zoomLabels";
 import { createVectorArrows } from "../scene/vectorArrows";
 import { nextAutoCamCut } from "../camera/autoCam";
@@ -136,6 +146,8 @@ const director = new CameraDirector(camera, canvas);
 director.setEpoch(epoch);
 
 const { scene, sunLight, fillLight, earthshine, orbitGroup } = createScene();
+// V5: soft sun shadows for pad + craft (tight frustum; see cinema.ts)
+enableSunShadows(renderer, sunLight);
 const bodies = createBodies();
 scene.add(bodies.earthGroup, bodies.moonGroup, bodies.sunGroup);
 
@@ -148,6 +160,8 @@ const _skySun = new THREE.Vector3();
 // Starbase pad + ground track (Earth mesh-local → co-rotates)
 const starbasePad = createStarbasePad();
 bodies.earth.add(starbasePad);
+// Pad receives/casts; Earth globe itself stays out of the shadow map
+markShadowMeshes(starbasePad, { cast: true, receive: true });
 const groundTrack = createAscentGroundTrack(cache.samples, epoch);
 if (groundTrack) bodies.earth.add(groundTrack);
 
@@ -181,6 +195,12 @@ if (groundTrack) orbitExtras.push(groundTrack);
 const { group: craft, locator } = createCraft();
 scene.add(craft);
 director.setCraft(craft);
+markShadowMeshes(craft, { cast: true, receive: true });
+
+// V5 cinema stack (mild bloom + exposure adaptation)
+const cinema = createCinemaComposer(renderer, scene, camera);
+/** Last frame flags for scrub-safe cinema (set in applyMissionState). */
+const cinemaState = { burning: false, phase: "launch" as string };
 
 // Velocity / acceleration arrows (O with orbits; labels on hover only)
 const vectorArrows = createVectorArrows();
@@ -211,6 +231,7 @@ const stageT = stageEvent?.t ?? null;
 scene.add(stagingFx.group);
 // Grid-fin cam follows the free-flyer after stage-out
 director.setDetachedBooster(stagingFx.detachedBooster);
+markShadowMeshes(stagingFx.group, { cast: true, receive: true });
 
 // Landing site + dust
 const landingFx = new LandingFx();
@@ -447,6 +468,8 @@ function applyMissionState(u: number): void {
 
   craft.position.copy(craftPos);
   const showBurning = prelaunch ? false : frame.burning;
+  cinemaState.burning = showBurning;
+  cinemaState.phase = prelaunch ? "launch" : frame.phase;
   const showThrustN = prelaunch ? 0 : frame.thrustN;
   // Use surface-relative attitude through early cislunar; pure inertial beyond
   const useSurfaceAttitude = attitudeNearEarth(
@@ -496,7 +519,7 @@ function applyMissionState(u: number): void {
   const sunUnit = applySunLight(sunLight, b.sun, b.earth, _skySun);
   applyFillLight(fillLight, sunUnit, b.earth);
   applyEarthshine(earthshine, b.earth, b.moon);
-  // Cache for ground-sky update after the camera moves this frame
+  // Cache for ground-sky / cinema after the camera moves this frame
   _skyEarth.copy(_earthPos);
 
   updateLocatorVisibility(locator, camera, craftPos, {
@@ -660,6 +683,12 @@ function resize(): void {
     camera.updateProjectionMatrix();
     // Line2 stroke width is resolution-dependent
     updateFatLineResolutions(scene, w, h);
+    resizeCinema(
+      cinema,
+      w,
+      h,
+      Math.min(window.devicePixelRatio || 1, 2),
+    );
   }
 }
 
@@ -686,10 +715,20 @@ function frame(): void {
   director.update(dt, simT, craftPos, craftVel);
   updateZoomLabels(scene, camera);
 
-  // Pad / low-altitude sky (fades out once the camera leaves the atmosphere)
-  updateGroundSky(groundSky, camera, _skyEarth, _skySun);
-
-  renderer.render(scene, camera);
+  // Pad / low-altitude sky + V5 brownout / star fade / shadows / bloom
+  const camAltKm = cameraAltitudeEarthKm(camera.position, _skyEarth);
+  const brownout = atmosphereBrownout(
+    cinemaState.phase,
+    camAltKm,
+  );
+  updateGroundSky(groundSky, camera, _skyEarth, _skySun, brownout);
+  // Tight sun shadow frustum on craft (same sun unit as lighting)
+  updateSunShadowFocus(sunLight, craftPos, _skySun, camAltKm);
+  renderCinema(cinema, renderer, scene, {
+    camAltKm,
+    burning: cinemaState.burning,
+    brownout,
+  });
 }
 
 frame();

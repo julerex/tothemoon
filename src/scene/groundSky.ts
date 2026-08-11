@@ -8,6 +8,8 @@ import { R_EARTH } from "../physics/constants";
  * horizon gradient tinted by sun elevation. Opacity falls off with camera
  * altitude so deep-space and globe views stay starfield-black.
  *
+ * V5: optional entry brownout tint (plasma / high-speed entry theater).
+ *
  * Scene unit = 1 km. Scrub-safe (no wall-clock state).
  */
 
@@ -37,6 +39,8 @@ export function createGroundSky(): GroundSky {
       uSunDir: { value: new THREE.Vector3(1, 0, 0) },
       uOpacity: { value: 0 },
       uDay: { value: 1 },
+      /** Entry brownout 0..1 — warms horizon / dims blue (visual V5). */
+      uBrownout: { value: 0 },
     },
     vertexShader: /* glsl */ `
       #include <common>
@@ -56,6 +60,7 @@ export function createGroundSky(): GroundSky {
       uniform vec3 uSunDir;
       uniform float uOpacity;
       uniform float uDay;
+      uniform float uBrownout;
       varying vec3 vWorldPos;
 
       void main() {
@@ -94,8 +99,21 @@ export function createGroundSky(): GroundSky {
 
         vec3 col = mix(nightCol, dayCol, clamp(uDay, 0.0, 1.0));
 
+        // Entry brownout: warm orange-brown, strongest near horizon (V5)
+        float bo = clamp(uBrownout, 0.0, 1.0);
+        if (bo > 0.001) {
+          vec3 brown = vec3(0.55, 0.22, 0.06);
+          vec3 amber = vec3(0.75, 0.35, 0.1);
+          vec3 boCol = mix(brown, amber, sunFacing * 0.6);
+          float boMix = bo * (0.35 + 0.65 * horizon);
+          col = mix(col, boCol, boMix);
+          // Slightly denser haze so stars drop out behind the shell
+          // (alpha boost applied below)
+        }
+
         // Stronger near the horizon; slightly thinner at zenith
         float density = mix(0.92, 0.72, zenith) + horizon * 0.12;
+        density += bo * horizon * 0.18;
         float alpha = uOpacity * density;
         // Fade fragments looking into the ground (below local horizon)
         alpha *= smoothstep(-0.12, 0.02, elev);
@@ -136,12 +154,14 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
  * and sun elevation at the camera.
  *
  * @param sunWorldDir unit vector roughly Earth → Sun (or light direction)
+ * @param brownout entry brownout 0..1 (visual V5; optional)
  */
 export function updateGroundSky(
   sky: GroundSky,
   camera: THREE.Camera,
   earthPos: THREE.Vector3,
   sunWorldDir: THREE.Vector3,
+  brownout = 0,
 ): void {
   sky.mesh.position.copy(earthPos);
 
@@ -151,6 +171,7 @@ export function updateGroundSky(
     // Degenerate (inside core) — hide
     sky.mesh.visible = false;
     sky.material.uniforms.uOpacity!.value = 0;
+    sky.material.uniforms.uBrownout!.value = 0;
     return;
   }
 
@@ -164,6 +185,7 @@ export function updateGroundSky(
   if (opacity < 0.01) {
     sky.mesh.visible = false;
     sky.material.uniforms.uOpacity!.value = 0;
+    sky.material.uniforms.uBrownout!.value = 0;
     return;
   }
 
@@ -184,5 +206,9 @@ export function updateGroundSky(
   sky.material.uniforms.uSunDir!.value.copy(_sunDir);
   sky.material.uniforms.uOpacity!.value = opacity;
   sky.material.uniforms.uDay!.value = day;
+  sky.material.uniforms.uBrownout!.value = Math.max(
+    0,
+    Math.min(1, brownout),
+  );
   sky.mesh.visible = true;
 }
