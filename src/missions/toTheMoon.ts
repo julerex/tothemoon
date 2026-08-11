@@ -57,6 +57,15 @@ import {
   landingBeatCardReady,
   type LandingBeatKind,
 } from "../mission/landingBeat";
+import {
+  attitudeNearEarth,
+  clampCraftAboveEarth,
+  craftTrailStyle,
+  relativeSpeedKmS,
+  shouldClampAboveEarth,
+  sunElevAtPad,
+  telemetryAltitudeKm,
+} from "../mission/frameDerive";
 import { buildTimeline } from "../mission/timeline";
 import {
   physicsTToSampleU,
@@ -441,35 +450,24 @@ function applyMissionState(u: number): void {
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
   // Never draw the craft under Earth's surface (ascent / low Earth orbit numerical dips)
-  const nearEarthPhase =
-    frame.phase === "launch" ||
-    frame.phase === "ascent" ||
-    frame.phase === "lowEarthOrbit" ||
-    frame.phase === "translunarInjection";
-  if (nearEarthPhase) {
-    const dx = craftPos.x - b.earth.x;
-    const dy = craftPos.y - b.earth.y;
-    const dz = craftPos.z - b.earth.z;
-    const r = Math.hypot(dx, dy, dz);
-    const minR = R_EARTH + 0.05; // tiny epsilon above mean surface (km)
-    if (r < minR && r > 1e-6) {
-      const s = minR / r;
-      craftPos.set(
-        b.earth.x + dx * s,
-        b.earth.y + dy * s,
-        b.earth.z + dz * s,
-      );
-    }
+  if (shouldClampAboveEarth(frame.phase)) {
+    const lifted = clampCraftAboveEarth(
+      craftPos,
+      b.earth,
+      R_EARTH + 0.05,
+    );
+    craftPos.set(lifted.x, lifted.y, lifted.z);
   }
 
   craft.position.copy(craftPos);
   const showBurning = prelaunch ? false : frame.burning;
   const showThrustN = prelaunch ? 0 : frame.thrustN;
   // Use surface-relative attitude through early cislunar; pure inertial beyond
-  const attitudeNearEarth =
-    nearEarthPhase ||
-    (Number.isFinite(frame.altEarth) && frame.altEarth < 50_000);
-  orientCraft(craftVel, _earthPos, _earthVel, attitudeNearEarth);
+  const useSurfaceAttitude = attitudeNearEarth(
+    frame.phase,
+    prelaunch ? 0.01 : frame.altEarth,
+  );
+  orientCraft(craftVel, _earthPos, _earthVel, useSurfaceAttitude);
 
   updateCraftVisuals(craft, {
     staged: prelaunch ? false : frame.staged,
@@ -483,23 +481,13 @@ function applyMissionState(u: number): void {
   // LOI visual beat: brighten trail while approach burn is live (scrub-safe)
   {
     const trailMat = (craftTrail as Line2).material as LineMaterial;
-    const loiBeat =
-      !prelaunch && frame.phase === "approach" && frame.burning;
-    trailMat.linewidth = loiBeat ? 5.0 : 3.25;
-    trailMat.opacity = loiBeat ? 0.92 : 0.72;
+    const style = craftTrailStyle(prelaunch, frame.phase, frame.burning);
+    trailMat.linewidth = style.linewidth;
+    trailMat.opacity = style.opacity;
   }
   // Sun elevation at Starbase (for night floodlights / day fill)
   starbasePad.getWorldPosition(_padWorld);
-  const sunDx = b.sun.x - b.earth.x;
-  const sunDy = b.sun.y - b.earth.y;
-  const sunDz = b.sun.z - b.earth.z;
-  const sunLen = Math.hypot(sunDx, sunDy, sunDz) || 1;
-  const padUpX = _padWorld.x - b.earth.x;
-  const padUpY = _padWorld.y - b.earth.y;
-  const padUpZ = _padWorld.z - b.earth.z;
-  const upLen = Math.hypot(padUpX, padUpY, padUpZ) || 1;
-  const sunElev =
-    (sunDx * padUpX + sunDy * padUpY + sunDz * padUpZ) / (sunLen * upLen);
+  const sunElev = sunElevAtPad(b.sun, b.earth, _padWorld);
   updateStarbaseLaunchFx(starbasePad, {
     // Negative during T− hold so vent steam / pad ops stay live
     missionT: physicsT,
@@ -556,26 +544,16 @@ function applyMissionState(u: number): void {
   }
 
   // Altitude: Earth during launch/ low Earth orbit/ translunar injection/coast (far from Moon); else Moon
-  const nearEarth =
-    frame.phase === "launch" ||
-    frame.phase === "ascent" ||
-    frame.phase === "lowEarthOrbit" ||
-    frame.phase === "translunarInjection" ||
-    frame.phase === "coast";
-  const altitude =
-    nearEarth && frame.distMoon > 100_000 ? frame.altEarth : frame.altMoon;
+  const altitude = telemetryAltitudeKm(
+    frame.phase,
+    frame.distMoon,
+    frame.altEarth,
+    frame.altMoon,
+  );
 
   // Relative speeds for metrics (M) — barycentric inertial sample minus body vel
-  const speedEarth = Math.hypot(
-    craftVel.x - b.earthVel.x,
-    craftVel.y - b.earthVel.y,
-    craftVel.z - b.earthVel.z,
-  );
-  const speedMoon = Math.hypot(
-    craftVel.x - b.moonVel.x,
-    craftVel.y - b.moonVel.y,
-    craftVel.z - b.moonVel.z,
-  );
+  const speedEarth = relativeSpeedKmS(craftVel, b.earthVel);
+  const speedMoon = relativeSpeedKmS(craftVel, b.moonVel);
 
   // Craft nose (+Z) in world for thrust-direction accel arrow
   _craftHeading.set(0, 0, 1).applyQuaternion(craft.quaternion);

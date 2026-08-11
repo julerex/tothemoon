@@ -70,6 +70,10 @@ import {
   landingBeatCardReady,
   type LandingBeatKind,
 } from "../mission/landingBeat";
+import {
+  clampCraftAboveEarth,
+  sunElevAtPad,
+} from "../mission/frameDerive";
 import { buildTimeline } from "../mission/timeline";
 import {
   physicsTToSampleU,
@@ -563,30 +567,14 @@ function applyMissionState(u: number): void {
   _earthPos.set(b.earth.x, b.earth.y, b.earth.z);
   _earthVel.set(b.earthVel.x, b.earthVel.y, b.earthVel.z);
 
-  // Never draw the craft under Earth's surface
-  const nearEarthPhase =
-    frame.phase === "launch" ||
-    frame.phase === "ascent" ||
-    frame.phase === "lowEarthOrbit" ||
-    frame.phase === "translunarInjection" ||
-    frame.phase === "coast" ||
-    frame.phase === "entry" ||
-    frame.phase === "descent" ||
-    frame.phase === "splashdown";
-  if (nearEarthPhase) {
-    const dx = craftPos.x - b.earth.x;
-    const dy = craftPos.y - b.earth.y;
-    const dz = craftPos.z - b.earth.z;
-    const r = Math.hypot(dx, dy, dz);
-    const minR = R_EARTH + 0.05; // tiny epsilon above mean surface (km)
-    if (r < minR && r > 1e-6) {
-      const s = minR / r;
-      craftPos.set(
-        b.earth.x + dx * s,
-        b.earth.y + dy * s,
-        b.earth.z + dz * s,
-      );
-    }
+  // Never draw the craft under Earth's surface (entire Flight 13 arc is near Earth)
+  {
+    const lifted = clampCraftAboveEarth(
+      craftPos,
+      b.earth,
+      R_EARTH + 0.05,
+    );
+    craftPos.set(lifted.x, lifted.y, lifted.z);
   }
 
   craft.position.copy(craftPos);
@@ -597,18 +585,12 @@ function applyMissionState(u: number): void {
   const displayAltEarth = prelaunch ? 0.01 : frame.altEarth;
 
   // Flight 13 is always Earth-local for attitude
-  const attitudeNearEarth =
-    nearEarthPhase ||
-    frame.phase === "coast" ||
-    frame.phase === "entry" ||
-    frame.phase === "descent" ||
-    frame.phase === "splashdown" ||
-    (Number.isFinite(frame.altEarth) && frame.altEarth < 50_000);
+  const useSurfaceAttitude = true;
   orientCraft(
     craftVel,
     _earthPos,
     _earthVel,
-    attitudeNearEarth,
+    useSurfaceAttitude,
     Math.max(0, physicsT),
     displayPhase,
     showBurning,
@@ -628,16 +610,7 @@ function applyMissionState(u: number): void {
   });
   // Sun elevation at Starbase (for night floodlights / day fill)
   starbasePad.getWorldPosition(_padWorld);
-  const sunDx = b.sun.x - b.earth.x;
-  const sunDy = b.sun.y - b.earth.y;
-  const sunDz = b.sun.z - b.earth.z;
-  const sunLen = Math.hypot(sunDx, sunDy, sunDz) || 1;
-  const padUpX = _padWorld.x - b.earth.x;
-  const padUpY = _padWorld.y - b.earth.y;
-  const padUpZ = _padWorld.z - b.earth.z;
-  const upLen = Math.hypot(padUpX, padUpY, padUpZ) || 1;
-  const sunElev =
-    (sunDx * padUpX + sunDy * padUpY + sunDz * padUpZ) / (sunLen * upLen);
+  const sunElev = sunElevAtPad(b.sun, b.earth, _padWorld);
   updateStarbaseLaunchFx(starbasePad, {
     // Negative during T− hold so vent steam / pad ops stay live
     missionT: physicsT,
