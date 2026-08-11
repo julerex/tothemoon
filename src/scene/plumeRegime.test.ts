@@ -56,6 +56,38 @@ describe("plumeRegimeFor", () => {
       plumeRegimeFor(undefined, "booster", { recoveryPhase: "landing" }),
       "landing",
     );
+    assert.equal(
+      plumeRegimeFor(undefined, "booster", { recoveryPhase: "caught" }),
+      "landing",
+    );
+  });
+
+  it("maps entry to vacuum and splashdown to landing", () => {
+    assert.equal(plumeRegimeFor("entry", "ship", { staged: true }), "vacuum");
+    assert.equal(
+      plumeRegimeFor("splashdown", "ship", { staged: true }),
+      "landing",
+    );
+    assert.equal(plumeRegimeFor("landed", "ship", { staged: true }), "landing");
+  });
+
+  it("falls back by altitude for unknown phases", () => {
+    assert.equal(
+      plumeRegimeFor("unknown", "booster", { altEarthKm: 20 }),
+      "atmosphere",
+    );
+    assert.equal(
+      plumeRegimeFor("unknown", "booster", { altEarthKm: 200 }),
+      "atmosphere",
+    );
+    assert.equal(
+      plumeRegimeFor("unknown", "ship", { staged: true, altEarthKm: 20 }),
+      "atmosphere",
+    );
+    assert.equal(
+      plumeRegimeFor("unknown", "ship", { staged: true, altEarthKm: 200 }),
+      "vacuum",
+    );
   });
 });
 
@@ -89,6 +121,25 @@ describe("plumeLook", () => {
     assert.ok(ship.light[2]! > ship.light[0]!);
     assert.ok(boost.light[0]! > boost.light[2]!);
   });
+
+  it("covers booster boostback / landing / fallback regimes", () => {
+    const bb = plumeLook("boostback", "booster");
+    const land = plumeLook("landing", "booster");
+    const loi = plumeLook("loi", "booster");
+    const hot = plumeLook("hotStage", "booster");
+    assert.ok(bb.opacity > 0 && land.radial < bb.radial);
+    // Booster LOI falls back to vacuum palette; hotStage → atmosphere
+    assert.ok(loi.radial > land.radial);
+    assert.ok(hot.opacity > loi.opacity);
+  });
+
+  it("covers ship hotStage and boostback fallback", () => {
+    const hot = plumeLook("hotStage", "ship");
+    const bb = plumeLook("boostback", "ship");
+    const vac = plumeLook("vacuum", "ship");
+    assert.ok(hot.lightI > 0);
+    assert.deepEqual(bb.light, vac.light);
+  });
 });
 
 describe("plumeThrustLag", () => {
@@ -115,6 +166,10 @@ describe("plumeThrustLag", () => {
       t = next;
     }
     assert.ok(lag > 0.95);
+  });
+
+  it("snaps when prev lag is non-finite", () => {
+    assert.equal(plumeThrustLag(Number.NaN, 0.7, 1, 1.05), 0.7);
   });
 });
 

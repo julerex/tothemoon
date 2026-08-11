@@ -95,6 +95,49 @@ describe("buildTimeline", () => {
     }
   });
 
+  it("emits flight-test beats for entry / splashdown packs", () => {
+    const samples: Sample[] = [
+      sample(0, "launch", { staged: false }),
+      sample(50, "ascent", { staged: false }),
+      sample(140, "ascent", {
+        staged: true,
+        burning: true,
+        thrustN: 2e6,
+      }),
+      sample(150, "coast", { staged: true, burning: false }),
+      sample(800, "coast", {
+        staged: true,
+        burning: true,
+        thrustN: 5e5,
+      }),
+      sample(900, "coast", { staged: true, burning: false }),
+      sample(2000, "entry", { staged: true }),
+      sample(2500, "descent", { staged: true, burning: true, thrustN: 1e6 }),
+      sample(2800, "splashdown", { staged: true }),
+    ];
+    const tl = buildTimeline(samples, 2800);
+    const ids = new Set(tl.events.map((e) => e.id));
+    assert.ok(ids.has("max-q"));
+    assert.ok(ids.has("seco"));
+    assert.ok(ids.has("relight"));
+    assert.ok(ids.has("entry"));
+    assert.ok(ids.has("splashdown"));
+    assert.ok(ids.has("land-flip"));
+    assert.ok(ids.has("land-3to2"));
+    assert.ok(ids.has("land-2to1"));
+  });
+
+  it("emits touchdown for soft-land packs", () => {
+    const samples: Sample[] = [
+      sample(0, "launch"),
+      sample(100, "coast", { staged: true }),
+      sample(200, "descent", { staged: true }),
+      sample(300, "landed", { staged: true }),
+    ];
+    const tl = buildTimeline(samples, 300);
+    assert.ok(tl.events.some((e) => e.id === "touchdown"));
+  });
+
   it("dedupes events that share an id", () => {
     // Two launch-like segments would try to emit liftoff once only via phase walk
     const samples: Sample[] = [

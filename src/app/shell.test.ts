@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseRoute } from "./shell";
-import { missionByPath, MISSIONS } from "./missionCatalog";
+import {
+  missionById,
+  missionByPath,
+  MISSIONS,
+} from "./missionCatalog";
 import {
   GLOSSARY,
   glossaryById,
+  glossaryCategoryLabel,
   glossaryGrouped,
 } from "./glossary";
 
@@ -48,6 +53,13 @@ describe("missionCatalog", () => {
     assert.equal(missionByPath("to-the-moon")?.id, "to-the-moon");
     assert.equal(missionByPath("flight-13")?.status, "ready");
   });
+
+  it("resolves by id and rejects unknown", () => {
+    assert.equal(missionById("to-the-moon")?.path, "to-the-moon");
+    assert.equal(missionById("flight-13")?.id, "flight-13");
+    assert.equal(missionById("nope"), undefined);
+    assert.equal(missionByPath("nope"), undefined);
+  });
 });
 
 describe("glossary", () => {
@@ -72,5 +84,13 @@ describe("glossary", () => {
   it("resolves known terms", () => {
     assert.equal(glossaryById("tli")?.term.includes("Translunar"), true);
     assert.equal(glossaryById("ecliptic")?.category, "physics");
+    assert.equal(glossaryById("missing"), undefined);
+  });
+
+  it("labels every category", () => {
+    assert.ok(glossaryCategoryLabel("mission").length > 0);
+    assert.ok(glossaryCategoryLabel("vehicle").length > 0);
+    assert.ok(glossaryCategoryLabel("physics").length > 0);
+    assert.ok(glossaryCategoryLabel("views").length > 0);
   });
 });

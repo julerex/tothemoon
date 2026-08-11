@@ -2,9 +2,51 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   boardSizeUnits,
+  drawVisualKeymap,
   KEYMAP_ROWS,
   rowWidthUnits,
 } from "./visualKeymap.ts";
+
+/** Minimal Canvas 2D mock that records draw ops. */
+function mockCtx() {
+  const canvas = { width: 0, height: 0 };
+  let fills = 0;
+  let strokes = 0;
+  let texts = 0;
+  const ctx = {
+    canvas,
+    lineWidth: 1,
+    strokeStyle: "",
+    fillStyle: "",
+    font: "",
+    textAlign: "left" as CanvasTextAlign,
+    textBaseline: "alphabetic" as CanvasTextBaseline,
+    globalAlpha: 1,
+    setTransform() {},
+    clearRect() {},
+    fillRect() {
+      fills++;
+    },
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    closePath() {},
+    stroke() {
+      strokes++;
+    },
+    fill() {
+      fills++;
+    },
+    fillText() {
+      texts++;
+    },
+    get counts() {
+      return { fills, strokes, texts };
+    },
+  };
+  return ctx;
+}
 
 describe("visualKeymap layout", () => {
   it("has five rows of keys", () => {
@@ -51,5 +93,23 @@ describe("visualKeymap layout", () => {
     assert.ok(w > 10);
     assert.ok(h > 4);
     assert.ok(Number.isFinite(w) && Number.isFinite(h));
+  });
+
+  it("boardSizeUnits handles a single empty-ish row", () => {
+    const { w, h } = boardSizeUnits([[{ label: "X" }]]);
+    assert.ok(w >= 1);
+    assert.equal(h, 1);
+  });
+
+  it("drawVisualKeymap paints board and mouse legend without throwing", () => {
+    const ctx = mockCtx();
+    drawVisualKeymap(ctx as unknown as CanvasRenderingContext2D, 800, 400, 1);
+    assert.ok(ctx.canvas.width === 800);
+    assert.ok(ctx.canvas.height === 400);
+    assert.ok(ctx.counts.strokes > 10);
+    assert.ok(ctx.counts.texts > 10);
+    // Second call with same size should not resize
+    drawVisualKeymap(ctx as unknown as CanvasRenderingContext2D, 800, 400, 1);
+    assert.equal(ctx.canvas.width, 800);
   });
 });

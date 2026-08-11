@@ -13,21 +13,30 @@ import {
   derivePadFx,
   expandSteamSprites,
   flameVisual,
+  floodFixtureEmissive,
+  floodSpotDistance,
   floodSpotIntensity,
   hazeBaseZs,
   hazeSpritePose,
   olmLampColorHex,
   padBeaconOpacity,
   padDayNight,
+  padFillColorHex,
+  padFillDistance,
+  padFillIntensity,
   padFlameStrength,
   padHazePeak,
   padOpsLights,
   padSteamStrength,
   padVentStrength,
+  plumeLightDistance,
+  plumeLightIntensity,
+  plumeLightRgb,
   sheetSpritePose,
   smoothstep,
   steamSpritePose,
   STEAM_TIERS,
+  tongueVisual,
   ventSpritePose,
   type LaunchPadFxState,
 } from "./padLaunchFx.ts";
@@ -255,12 +264,29 @@ describe("mesh / light scalars", () => {
   it("flame visual gates visibility", () => {
     assert.equal(flameVisual(0).visible, false);
     assert.equal(flameVisual(0.1).visible, true);
+    assert.equal(tongueVisual(0.04).visible, false);
+    assert.equal(tongueVisual(0.1).visible, true);
     assert.ok(bloomVisual(0.1, 1).visible);
     assert.equal(bloomVisual(0, 1).visible, false);
   });
 
   it("primary flood is brighter than secondary", () => {
     assert.ok(floodSpotIntensity(1, 0, 0) > floodSpotIntensity(1, 0, 1));
+    assert.ok(floodSpotDistance(1) > floodSpotDistance(0));
+  });
+
+  it("fill / plume light track ops and flame", () => {
+    assert.equal(padFillIntensity(false, 1, 0, 0), 0);
+    assert.ok(padFillIntensity(true, 0, 1, 0) > padFillIntensity(true, 1, 0, 0));
+    assert.equal(padFillColorHex(0.2), 0xffe0c8);
+    assert.equal(padFillColorHex(0), 0xdde6f4);
+    assert.ok(padFillDistance(1) > padFillDistance(0));
+    assert.equal(plumeLightIntensity(0.5), 1.1);
+    assert.equal(plumeLightDistance(0.5), 0.19);
+    const rgb = plumeLightRgb(1);
+    assert.equal(rgb[0], 1);
+    assert.ok(rgb[1]! > 0.55);
+    assert.ok(floodFixtureEmissive(1) > floodFixtureEmissive(0));
   });
 
   it("olm lamps brighten at night when pad ops", () => {

@@ -7,15 +7,20 @@ import {
   SHIP_PROP_KG,
 } from "./constants.ts";
 import {
+  accelFromForceN,
   applyImpulsiveShipDv,
   burnForce,
   burnProp,
+  cloneProp,
   coastProp,
   createPropState,
   fuelBoosterFrac,
   fuelShipFrac,
   hasPropellant,
+  maxThrustN,
   limitAccelByThrust,
+  remainingBoosterKg,
+  remainingShipKg,
   stageBooster,
   thrustForceN,
   wetMassKg,
@@ -28,6 +33,24 @@ describe("propellant bookkeeping", () => {
     assert.equal(fuelShipFrac(p), 1);
     assert.equal(p.staged, false);
     assert.ok(wetMassKg(p) > BOOSTER_PROP_KG);
+    assert.equal(remainingBoosterKg(p), BOOSTER_PROP_KG);
+    assert.equal(remainingShipKg(p), SHIP_PROP_KG);
+    assert.equal(maxThrustN(p, "booster"), BOOSTER_THRUST_N);
+  });
+
+  it("cloneProp is independent of the source", () => {
+    const p = createPropState(10);
+    const c = cloneProp(p);
+    p.shipPropKg = 0;
+    assert.equal(c.shipPropKg, SHIP_PROP_KG);
+    assert.equal(c.lastT, 10);
+  });
+
+  it("accelFromForceN converts N to km/s² and zeros tiny force", () => {
+    const p = createPropState(0);
+    assert.equal(accelFromForceN(p, 0), 0);
+    const a = accelFromForceN(p, BOOSTER_THRUST_N);
+    assert.ok(a > 0 && Number.isFinite(a));
   });
 
   it("burnProp drains the selected tank and never goes negative", () => {

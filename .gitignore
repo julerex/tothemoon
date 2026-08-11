@@ -6,6 +6,10 @@ dist
 dist-ssr
 *.local
 
+# Coverage (c8 / npm run coverage)
+coverage
+.nyc_output
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json
