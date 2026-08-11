@@ -718,19 +718,19 @@ export function bindHud(
     } else if (e.key === "1") {
       handleCameraKey("sun", "1");
     } else if (e.key === "2") {
-      handleCameraKey("earth", "2");
+      handleCameraKey("moon", "2");
     } else if (e.key === "3") {
-      handleCameraKey("moon", "3");
+      handleCameraKey("earth", "3");
     } else if (e.key === "4") {
-      handleCameraKey("chase", "4");
+      handleCameraKey("starbase", "4");
     } else if (e.key === "5") {
-      handleCameraKey("starbase", "5");
+      handleCameraKey("trench", "5");
     } else if (e.key === "6") {
-      handleCameraKey("fin", "6");
+      handleCameraKey("gridfin", "6");
     } else if (e.key === "7") {
-      handleCameraKey("gridfin", "7");
+      handleCameraKey("chase", "7");
     } else if (e.key === "8") {
-      handleCameraKey("trench", "8");
+      handleCameraKey("fin", "8");
     } else if (e.key === "q" || e.key === "Q") {
       handlers.onOrbitKey("q", true);
     } else if (e.key === "e" || e.key === "E") {
@@ -894,25 +894,25 @@ export function bindHud(
   > = {
     free: { title: "Free camera", detail: "WASD pan · drag to look" },
     sun: { title: "Sun", detail: "Focus · key 1 · double-tap to frame" },
-    earth: { title: "Earth", detail: "Focus · key 2 · double-tap to frame" },
-    moon: { title: "Moon", detail: "Focus · key 3 · double-tap to frame" },
-    chase: {
-      title: "Starship",
-      detail: "Chase · key 4 · double-tap to frame",
-    },
+    moon: { title: "Moon", detail: "Focus · key 2 · double-tap to frame" },
+    earth: { title: "Earth", detail: "Focus · key 3 · double-tap to frame" },
     starbase: {
       title: "Starbase",
-      detail: "Pad · key 5 · double-tap to frame",
-    },
-    fin: { title: "Ship fin", detail: "Aft engines · key 6" },
-    gridfin: {
-      title: "Booster grid fin",
-      detail: "Aft engines · key 7",
+      detail: "Pad · key 4 · double-tap to frame",
     },
     trench: {
-      title: "Flame trench",
-      detail: "Under-pad · engines side · key 8",
+      title: "Launchpad",
+      detail: "Flame trench · engines side · key 5",
     },
+    gridfin: {
+      title: "Booster",
+      detail: "Grid fin · aft engines · key 6",
+    },
+    chase: {
+      title: "Starship",
+      detail: "Chase · key 7 · double-tap to frame",
+    },
+    fin: { title: "Ship fin", detail: "Aft engines · key 8" },
   };
 
   /** Double-tap window for number-key frame zoom (ms). */
@@ -993,13 +993,13 @@ export function bindHud(
   /** Focus modes cycled by ` (backtick) — same order as number keys 1–8. */
   const CAMERA_CYCLE: readonly CameraMode[] = [
     "sun",
-    "earth",
     "moon",
-    "chase",
+    "earth",
     "starbase",
-    "fin",
-    "gridfin",
     "trench",
+    "gridfin",
+    "chase",
+    "fin",
   ];
 
   /** Advance focus to the next preset (skip free / unlisted). */

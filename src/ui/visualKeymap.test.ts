@@ -19,9 +19,14 @@ describe("visualKeymap layout", () => {
       }
     }
     assert.equal(actions.get("`"), "Cycle cameras");
-    assert.equal(actions.get("6"), "Fin cam");
-    assert.equal(actions.get("7"), "Grid fin");
-    assert.equal(actions.get("8"), "Trench");
+    assert.equal(actions.get("1"), "Sun");
+    assert.equal(actions.get("2"), "Moon");
+    assert.equal(actions.get("3"), "Earth");
+    assert.equal(actions.get("4"), "Pad");
+    assert.equal(actions.get("5"), "Launchpad");
+    assert.equal(actions.get("6"), "Booster");
+    assert.equal(actions.get("7"), "Starship");
+    assert.equal(actions.get("8"), "Fin cam");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
     assert.equal(actions.get("C"), "Roll ←");
