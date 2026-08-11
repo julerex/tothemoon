@@ -49,6 +49,34 @@ import {
   setEarthGcOverlayOpen,
 } from "./earthGcOverlay";
 import {
+  clamp01,
+  formatAccelG,
+  formatDistance,
+  formatDistancePrecise,
+  formatFocusDistance,
+  formatFuel,
+  formatFuelDetailed,
+  formatMassKg,
+  formatMinMoonAlt,
+  formatMissionTime,
+  formatMissionTimeDetailed,
+  formatOptional,
+  formatPlaybackLine,
+  formatProgressPercent,
+  formatProgressRemainingLine,
+  formatSpeed,
+  formatSpeedPrecise,
+  formatThrust,
+  formatThrustDetailed,
+  formatTranslunarInjectionDv,
+  formatTranslunarInjectionDvDetailed,
+  formatWebcastMissionTime,
+  fuelBarWidthPercent,
+  parseSpeedMode,
+  thrustAccelG,
+  wetMassFromFuel,
+} from "./hudFormat";
+import {
   ensurePolarOverlayBound,
   isPolarOverlayOpen,
   redrawPolarOverlay,
@@ -1118,7 +1146,7 @@ export function bindHud(
     updateNewsTicker(tel.t, tel.playing, tel.playbackSpeed);
     if (dateEl) dateEl.textContent = tel.dateUtc;
     distEl.textContent = formatDistance(tel.distanceToMoon);
-    progEl.textContent = `${Math.round(Math.min(1, u) * 100)}%`;
+    progEl.textContent = formatProgressPercent(tel.t, tel.durationS);
     altEl.textContent = formatDistance(Math.max(0, tel.altitude));
     if (camEl) camEl.textContent = formatFocusDistance(tel.focusDistance);
     spdEl.textContent = formatSpeed(tel.speed);
@@ -1134,10 +1162,10 @@ export function bindHud(
       }
     }
     if (barBooster) {
-      barBooster.style.width = `${Math.round(clamp01(tel.fuelBooster) * 100)}%`;
+      barBooster.style.width = fuelBarWidthPercent(tel.fuelBooster);
     }
     if (barShip) {
-      barShip.style.width = `${Math.round(clamp01(tel.fuelShip) * 100)}%`;
+      barShip.style.width = fuelBarWidthPercent(tel.fuelShip);
     }
 
     lastPlaying = tel.playing;
@@ -1158,26 +1186,25 @@ export function bindHud(
           }
           if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
           if (mcTranslunarInjectionDeltaV) {
-            mcTranslunarInjectionDeltaV.textContent = `${tel.translunarInjectionDeltaV.toFixed(3)} km/s`;
+            mcTranslunarInjectionDeltaV.textContent = formatTranslunarInjectionDv(
+              tel.translunarInjectionDeltaV,
+            );
           }
           if (mcMinAlt) {
-            mcMinAlt.textContent =
-              tel.minMoonAlt < 1
-                ? `${(tel.minMoonAlt * 1000).toFixed(0)} m`
-                : formatDistance(Math.max(0, tel.minMoonAlt));
+            mcMinAlt.textContent = formatMinMoonAlt(tel.minMoonAlt);
           }
           if (mcFuel) mcFuel.textContent = formatFuel(tel.fuelShip, "ship");
           if (mcPeakSpeed) {
-            mcPeakSpeed.textContent =
-              tel.peakSpeedKmS != null && Number.isFinite(tel.peakSpeedKmS)
-                ? formatSpeed(tel.peakSpeedKmS)
-                : "—";
+            mcPeakSpeed.textContent = formatOptional(
+              tel.peakSpeedKmS,
+              formatSpeed,
+            );
           }
           if (mcStageT) {
-            mcStageT.textContent =
-              tel.stageT != null && Number.isFinite(tel.stageT)
-                ? formatMissionTime(tel.stageT)
-                : "—";
+            mcStageT.textContent = formatOptional(
+              tel.stageT,
+              formatMissionTime,
+            );
           }
           if (mcSky) {
             try {
@@ -1229,18 +1256,20 @@ export function bindHud(
   }
 
   function updateMetrics(tel: Telemetry): void {
-    const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
     const rEarth = R_EARTH + tel.altEarth;
     const rMoon = tel.distMoon;
     const boosterKg = clamp01(tel.fuelBooster) * BOOSTER_PROP_KG;
     const shipKg = clamp01(tel.fuelShip) * SHIP_PROP_KG;
-    const wetKg = tel.staged
-      ? SHIP_DRY_KG + shipKg
-      : BOOSTER_DRY_KG + boosterKg + SHIP_DRY_KG + shipKg;
-    const accelG =
-      wetKg > 1 && tel.thrustN > 0
-        ? tel.thrustN / (wetKg * 9.80665)
-        : 0;
+    const wetKg = wetMassFromFuel(
+      tel.fuelBooster,
+      tel.fuelShip,
+      tel.staged,
+      BOOSTER_DRY_KG,
+      BOOSTER_PROP_KG,
+      SHIP_DRY_KG,
+      SHIP_PROP_KG,
+    );
+    const accelG = thrustAccelG(tel.thrustN, wetKg);
 
     setText(mx.phase, tel.phase);
     setText(mx.time, formatMissionTimeDetailed(tel.t));
@@ -1252,11 +1281,11 @@ export function bindHud(
     }
     setText(
       mx.progress,
-      `${(Math.min(1, Math.max(0, u)) * 100).toFixed(2)}% · ${formatMissionTimeDetailed(Math.max(0, tel.durationS - tel.t))} left`,
+      formatProgressRemainingLine(tel.t, tel.durationS),
     );
     setText(
       mx.playback,
-      `${formatRate(tel.playbackSpeed)}${tel.playing ? "" : " · paused"}`,
+      formatPlaybackLine(tel.playbackSpeed, tel.playing),
     );
     setText(mx.altEarth, formatDistancePrecise(tel.altEarth));
     setText(mx.rEarth, formatDistancePrecise(rEarth));
@@ -1279,10 +1308,7 @@ export function bindHud(
     );
     setText(mx.mass, formatMassKg(wetKg));
     setText(mx.thrust, formatThrustDetailed(tel.thrustN));
-    setText(
-      mx.accel,
-      accelG > 1e-4 ? `${accelG.toFixed(3)} g` : "—",
-    );
+    setText(mx.accel, formatAccelG(accelG));
     setText(
       mx.engines,
       tel.burning && tel.thrustN > 500 ? "burning" : "coast / idle",
@@ -1291,7 +1317,7 @@ export function bindHud(
     setText(mx.duration, formatMissionTimeDetailed(tel.durationS));
     setText(
       mx.translunarInjectionDeltaV,
-      `${tel.translunarInjectionDeltaV.toFixed(4)} km/s`,
+      formatTranslunarInjectionDvDetailed(tel.translunarInjectionDeltaV),
     );
     setText(
       mx.minalt,
@@ -1301,15 +1327,11 @@ export function bindHud(
     );
     setText(
       mx.peakSpeed,
-      tel.peakSpeedKmS != null && Number.isFinite(tel.peakSpeedKmS)
-        ? formatSpeedPrecise(tel.peakSpeedKmS)
-        : "—",
+      formatOptional(tel.peakSpeedKmS, formatSpeedPrecise),
     );
     setText(
       mx.stageT,
-      tel.stageT != null && Number.isFinite(tel.stageT)
-        ? formatMissionTimeDetailed(tel.stageT)
-        : "—",
+      formatOptional(tel.stageT, formatMissionTimeDetailed),
     );
     setText(
       mx.keplerDev,
@@ -1337,12 +1359,6 @@ export function bindHud(
 
 function setText(node: HTMLElement | null, text: string): void {
   if (node) node.textContent = text;
-}
-
-function parseSpeedMode(value: string): number {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return 1;
-  return n;
 }
 
 function renderPhaseMarkers(
@@ -1470,137 +1486,6 @@ function renderBookmarks(
     });
     root.appendChild(btn);
   });
-}
-
-function formatRate(speed: number): string {
-  const sign = speed < 0 ? "−" : "";
-  const mag = Math.abs(speed);
-  if (mag >= 100) return `${sign}${Math.round(mag)}×`;
-  if (mag >= 10) return `${sign}${Math.round(mag)}×`;
-  return `${sign}${mag.toFixed(0)}×`;
-}
-
-function formatMissionTime(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h ${String(m).padStart(2, "0")}m`;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
-}
-
-/**
- * SpaceX webcast-style mission clock: T+HH:MM:SS (or T− for pre-liftoff).
- * Hours grow past 24 for multi-day coasts (no day field).
- */
-function formatWebcastMissionTime(seconds: number): string {
-  const neg = seconds < 0;
-  const s = Math.floor(Math.abs(seconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  // Match webcast badge: T+00:01:14 — hours always two digits when &lt; 100
-  const hh = h < 100 ? pad(h) : String(h);
-  return `${neg ? "T−" : "T+"}${hh}:${pad(m)}:${pad(sec)}`;
-}
-
-/** Metrics panel: include seconds. */
-function formatMissionTimeDetailed(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (d > 0) return `${d}d ${h}h ${pad(m)}m ${pad(sec)}s`;
-  return `${h}h ${pad(m)}m ${pad(sec)}s · ${s.toLocaleString()} s`;
-}
-
-function formatDistance(km: number): string {
-  const v = Math.max(0, km);
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
-  if (v >= 10) return `${Math.round(v)} km`;
-  return `${v.toFixed(2)} km`;
-}
-
-function formatDistancePrecise(km: number): string {
-  const v = km; // allow negative altitude (below mean radius)
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "−" : "";
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(3)} Mkm`;
-  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(3)} Mm (${abs.toFixed(1)} km)`;
-  if (abs >= 1) return `${sign}${abs.toFixed(3)} km`;
-  if (abs >= 0.001) return `${sign}${(abs * 1000).toFixed(1)} m`;
-  return `${sign}${(abs * 1e6).toFixed(0)} mm`;
-}
-
-/** Camera–focus range: AU-scale down to meters. */
-function formatFocusDistance(km: number): string {
-  const v = Math.max(0, km);
-  if (v >= 149_597_870.7) return `${(v / 149_597_870.7).toFixed(3)} AU`;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
-  if (v >= 10) return `${Math.round(v)} km`;
-  if (v >= 1) return `${v.toFixed(2)} km`;
-  if (v >= 0.001) return `${(v * 1000).toFixed(0)} m`;
-  return `${(v * 1e6).toFixed(0)} mm`;
-}
-
-function formatSpeed(kmPerS: number): string {
-  const v = Math.max(0, kmPerS);
-  if (v >= 1) return `${v.toFixed(2)} km/s`;
-  return `${(v * 1000).toFixed(0)} m/s`;
-}
-
-function formatSpeedPrecise(kmPerS: number): string {
-  const v = Math.max(0, kmPerS);
-  if (v >= 1) return `${v.toFixed(4)} km/s · ${(v * 1000).toFixed(1)} m/s`;
-  return `${(v * 1000).toFixed(2)} m/s · ${v.toFixed(6)} km/s`;
-}
-
-function formatFuel(frac: number, tank: "booster" | "ship"): string {
-  const f = Math.max(0, Math.min(1, frac));
-  const cap = tank === "booster" ? BOOSTER_PROP_KG : SHIP_PROP_KG;
-  const kg = f * cap;
-  const pct = `${Math.round(f * 100)}%`;
-  if (kg >= 1_000_000) return `${pct} · ${(kg / 1_000_000).toFixed(2)} kt`;
-  if (kg >= 1000) return `${pct} · ${(kg / 1000).toFixed(0)} t`;
-  return `${pct} · ${Math.round(kg)} kg`;
-}
-
-function formatFuelDetailed(frac: number, kg: number, capKg: number): string {
-  const f = clamp01(frac);
-  const pct = `${(f * 100).toFixed(2)}%`;
-  return `${pct} · ${formatMassKg(kg)} / ${formatMassKg(capKg)}`;
-}
-
-function formatMassKg(kg: number): string {
-  const v = Math.max(0, kg);
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(3)} kt (${Math.round(v).toLocaleString()} kg)`;
-  if (v >= 1000) return `${(v / 1000).toFixed(2)} t (${Math.round(v).toLocaleString()} kg)`;
-  return `${Math.round(v)} kg`;
-}
-
-function formatThrust(newtons: number): string {
-  const n = Math.max(0, newtons);
-  if (n < 500) return "—";
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MN`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} kN`;
-  return `${Math.round(n)} N`;
-}
-
-function formatThrustDetailed(newtons: number): string {
-  const n = Math.max(0, newtons);
-  if (n < 1) return "0 N";
-  if (n >= 1e6) return `${(n / 1e6).toFixed(3)} MN · ${(n / 1e3).toFixed(0)} kN`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(2)} kN · ${Math.round(n).toLocaleString()} N`;
-  return `${n.toFixed(1)} N`;
-}
-
-function clamp01(v: number): number {
-  return Math.min(1, Math.max(0, v));
 }
 
 function el<T extends HTMLElement>(sel: string): T {

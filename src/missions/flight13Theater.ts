@@ -83,6 +83,7 @@ import {
 } from "../mission/prelaunch";
 import type { PhaseId } from "../physics/missionTypes";
 import { bindHud } from "../ui/hud";
+import { nudgePlaybackSpeed } from "../ui/hudFormat";
 import { setTheaterVisible } from "../app/shell";
 
 /**
@@ -286,24 +287,6 @@ const AIR_VEL_ATTITUDE_MIN = 0.04;
  * Playback rates offered in the HUD / nudged by `,` (slower / reverse) and
  * `.` (faster / forward). Includes negative reverse rates.
  */
-const SPEED_STEPS = [
-  -2000, -1000, -500, -100, -50, -10, -1, 1, 10, 50, 100, 500, 1000, 2000,
-] as const;
-
-function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
-  // Find nearest step at or "beyond" current in the nudge direction
-  if (dir > 0) {
-    for (const step of SPEED_STEPS) {
-      if (step > current + 1e-9) return step;
-    }
-    return SPEED_STEPS[SPEED_STEPS.length - 1]!;
-  }
-  for (let i = SPEED_STEPS.length - 1; i >= 0; i--) {
-    const step = SPEED_STEPS[i]!;
-    if (step < current - 1e-9) return step;
-  }
-  return SPEED_STEPS[0]!;
-}
 
 /** Guided phase cameras — on by default; off when the user takes control. */
 const autoCam = {
