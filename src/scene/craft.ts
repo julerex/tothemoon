@@ -20,10 +20,25 @@ import { createNameLabel } from "./zoomLabels";
  *
  * V1 plumes: multi-layer soft sprites (no geometric cones) with regime tables
  * for atmosphere vs vacuum vs LOI/landing; dual lights during hot-stage.
+ *
+ * V4 materials: circumferential stainless anisotropy + weld rings readable at
+ * fin cam; windward-only heat-shield edge wear; denser high-contrast grid fins
+ * for grid-fin cam sky silhouette.
  */
 
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
+
+/** Ship barrel weld ring fractions of ship height (V4 — denser for fin cam). */
+export const SHIP_WELD_RING_FRACTIONS = [
+  0.95, 0.82, 0.68, 0.55, 0.42, 0.28, 0.15,
+] as const;
+
+/** Booster barrel weld ring count (V4). */
+export const BOOSTER_WELD_RING_COUNT = 9;
+
+/** Grid-fin lattice lines per axis (V4 denser sky silhouette). */
+export const GRID_FIN_LATTICE_N = 6;
 
 /** Mesh units per real meter (before CRAFT_MESH_SCALE). */
 const U = 1 / 40;
@@ -45,37 +60,60 @@ export function createCraft(): {
   const group = new THREE.Group();
   const mesh = new THREE.Group();
 
-  const steel = new THREE.MeshStandardMaterial({
+  // V4 stainless: circumferential brush + weld-band maps (fin-cam readable)
+  const stainless = makeStainlessMaps(512);
+  const steel = new THREE.MeshPhysicalMaterial({
     color: 0xc8ccd0,
-    metalness: 0.82,
-    roughness: 0.28,
+    map: stainless.color,
+    roughnessMap: stainless.roughness,
+    metalness: 0.9,
+    roughness: 0.3,
+    anisotropy: 0.82,
+    anisotropyRotation: 0, // brush along cylinder U (circumference)
   });
-  const steelBright = new THREE.MeshStandardMaterial({
+  const steelBright = new THREE.MeshPhysicalMaterial({
     color: 0xd8e0e4,
-    metalness: 0.88,
-    roughness: 0.22,
+    map: stainless.color,
+    roughnessMap: stainless.roughness,
+    metalness: 0.94,
+    roughness: 0.2,
+    anisotropy: 0.88,
+    anisotropyRotation: 0,
   });
   const steelDark = new THREE.MeshStandardMaterial({
-    color: 0x7a8088,
-    metalness: 0.72,
-    roughness: 0.42,
+    color: 0x6a7078,
+    metalness: 0.78,
+    roughness: 0.4,
   });
   const steelMatte = new THREE.MeshStandardMaterial({
-    color: 0xa8adb4,
-    metalness: 0.7,
-    roughness: 0.38,
+    color: 0x9aa0a8,
+    metalness: 0.68,
+    roughness: 0.42,
+  });
+  // Shiny weld catch-light for barrel rings (fin cam payoff)
+  const weldMat = new THREE.MeshStandardMaterial({
+    color: 0xb8c0c8,
+    metalness: 0.95,
+    roughness: 0.16,
   });
   const tileMap = makeHeatTileTexture();
   const tile = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     map: tileMap,
-    metalness: 0.12,
-    roughness: 0.88,
+    metalness: 0.1,
+    roughness: 0.9,
   });
+  // Charred / ablated edge trim (windward only — V4)
   const tileEdge = new THREE.MeshStandardMaterial({
-    color: 0x2a2e32,
-    metalness: 0.25,
-    roughness: 0.7,
+    color: 0x1a1c20,
+    metalness: 0.18,
+    roughness: 0.82,
+  });
+  const tileWear = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: makeHeatTileEdgeWearTexture(),
+    metalness: 0.14,
+    roughness: 0.78,
   });
   const engine = new THREE.MeshStandardMaterial({
     color: 0x12141a,
@@ -88,9 +126,20 @@ export function createCraft(): {
     roughness: 0.35,
   });
   const accent = new THREE.MeshStandardMaterial({
-    color: 0x4a5560,
+    color: 0x3a424c,
+    metalness: 0.58,
+    roughness: 0.42,
+  });
+  // Dark lattice / frame for grid-fin sky silhouette (V4)
+  const finFrame = new THREE.MeshStandardMaterial({
+    color: 0x1c2026,
     metalness: 0.55,
-    roughness: 0.45,
+    roughness: 0.48,
+  });
+  const finLattice = new THREE.MeshStandardMaterial({
+    color: 0x5a646e,
+    metalness: 0.7,
+    roughness: 0.38,
   });
 
   // Stage local frames: engines at z≈0, nose/top at +height.
@@ -188,20 +237,49 @@ export function createCraft(): {
   heatFwd.position.z = SHIP_H - 0.52;
   ship.add(heatFwd);
 
-  // Tile edge leeward trim
+  // Windward tile edge wear only (longitudinal sides of TPS arc — V4)
   for (const side of [-1, 1]) {
+    const ang = side * Math.PI * 0.32;
+    // Dark structural edge strip
     const trim = new THREE.Mesh(
-      new THREE.BoxGeometry(0.008, 0.014, 0.72),
+      new THREE.BoxGeometry(0.01, 0.016, 0.74),
       tileEdge,
     );
-    const ang = side * Math.PI * 0.32;
     trim.position.set(
-      Math.sin(ang) * R * 1.01,
-      Math.cos(ang) * R * 1.01,
+      Math.sin(ang) * R * 1.014,
+      Math.cos(ang) * R * 1.014,
       SHIP_H * 0.45,
     );
     trim.rotation.z = -ang;
     ship.add(trim);
+    // Ablated / charred wear band just inboard of the edge (fin-cam readable)
+    const wear = new THREE.Mesh(
+      new THREE.BoxGeometry(0.014, 0.01, 0.7),
+      tileWear,
+    );
+    const wearAng = side * Math.PI * 0.28;
+    wear.position.set(
+      Math.sin(wearAng) * R * 1.016,
+      Math.cos(wearAng) * R * 1.016,
+      SHIP_H * 0.45,
+    );
+    wear.rotation.z = -wearAng;
+    ship.add(wear);
+  }
+  // Forward heat-shield edge wear (nose arc sides)
+  for (const side of [-1, 1]) {
+    const ang = side * Math.PI * 0.3;
+    const wearFwd = new THREE.Mesh(
+      new THREE.BoxGeometry(0.012, 0.009, 0.34),
+      tileWear,
+    );
+    wearFwd.position.set(
+      Math.sin(ang) * R * 0.95,
+      Math.cos(ang) * R * 0.95,
+      SHIP_H - 0.52,
+    );
+    wearFwd.rotation.z = -ang;
+    ship.add(wearFwd);
   }
 
   // Flight-test white / missing-tile markers
@@ -223,9 +301,12 @@ export function createCraft(): {
     ship.add(marker);
   }
 
-  // Barrel ring welds
-  for (const z of [0.95, 0.75, 0.55, 0.35, 0.18].map((f) => f * SHIP_H)) {
-    ship.add(makeBarrelRing(R * 1.005, 0.004, z, steelDark));
+  // Barrel ring welds — thicker + shiny catch-light for fin cam (V4)
+  for (const f of SHIP_WELD_RING_FRACTIONS) {
+    const z = f * SHIP_H;
+    ship.add(makeBarrelRing(R * 1.006, 0.0055, z, weldMat));
+    // Thin secondary shadow ring slightly aft of each weld
+    ship.add(makeBarrelRing(R * 1.004, 0.0025, z - 0.008, steelDark));
   }
 
   // Forward flaps (Block-2: smaller, higher, slightly leeward)
@@ -238,6 +319,21 @@ export function createCraft(): {
     flap.rotation.z = side * 0.12;
     flap.rotation.x = 0.08;
     ship.add(flap);
+    // Windward face of flap gets a tile patch + edge wear strip
+    const flapTile = new THREE.Mesh(
+      new THREE.BoxGeometry(0.008, 0.16, 0.22),
+      tile,
+    );
+    flapTile.position.set(side * (R + 0.036), 0.01, SHIP_H - 0.62);
+    flapTile.rotation.z = side * 0.12;
+    ship.add(flapTile);
+    const flapWear = new THREE.Mesh(
+      new THREE.BoxGeometry(0.006, 0.04, 0.2),
+      tileWear,
+    );
+    flapWear.position.set(side * (R + 0.038), -0.06, SHIP_H - 0.62);
+    flapWear.rotation.z = side * 0.12;
+    ship.add(flapWear);
     const hinge = new THREE.Mesh(
       new THREE.BoxGeometry(0.04, 0.05, 0.07),
       accent,
@@ -347,10 +443,13 @@ export function createCraft(): {
     booster.add(chine);
   }
 
-  // Barrel ring welds
-  for (let i = 0; i < 7; i++) {
-    const z = BOOST_H * 0.88 - (i / 6) * BOOST_H * 0.78;
-    booster.add(makeBarrelRing(R * 1.008, 0.005, z, steelDark));
+  // Barrel ring welds — denser shiny rings for grid-fin / pad close-ups (V4)
+  for (let i = 0; i < BOOSTER_WELD_RING_COUNT; i++) {
+    const z =
+      BOOST_H * 0.9 -
+      (i / Math.max(1, BOOSTER_WELD_RING_COUNT - 1)) * BOOST_H * 0.8;
+    booster.add(makeBarrelRing(R * 1.009, 0.006, z, weldMat));
+    booster.add(makeBarrelRing(R * 1.006, 0.0028, z - 0.009, steelDark));
   }
 
   // Hot-staging interstage ring + vents
@@ -377,45 +476,22 @@ export function createCraft(): {
     booster.add(vent);
   }
 
-  // V3 grid fins: three larger fins, gap toward +X (tower)
+  // V4 grid fins: denser lattice + dark outer frame for sky silhouette
   const finW = 3.75 * U;
   const finH = 7.5 * U;
-  const finT = 0.35 * U;
+  const finT = 0.38 * U;
   const finZ = BOOST_H - 0.35;
   // First fin sits at +Y (ang = π/2) — host for the grid-fin cam
   let gridFinCamAng = Math.PI / 2;
   let gridFinCamR = R + finH * 0.5;
   for (let i = 0; i < 3; i++) {
     const ang = Math.PI / 2 + (i * 2 * Math.PI) / 3;
-    const fin = new THREE.Group();
-    const plate = new THREE.Mesh(
-      new THREE.BoxGeometry(finH, finT, finW),
-      steelMatte,
-    );
-    fin.add(plate);
-    for (const u of [-0.35, -0.12, 0.12, 0.35].map((f) => f * finW)) {
-      const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(finH * 0.92, finT * 1.2, finT * 0.9),
-        accent,
-      );
-      bar.position.z = u;
-      fin.add(bar);
-    }
-    for (const u of [-0.35, -0.12, 0.12, 0.35].map((f) => f * finH)) {
-      const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(finT * 0.9, finT * 1.2, finW * 0.92),
-        accent,
-      );
-      bar.position.x = u;
-      fin.add(bar);
-    }
-    const pivot = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.012, 0.014, 0.04, 8),
-      steelDark,
-    );
-    pivot.rotation.z = Math.PI / 2;
-    pivot.position.x = -finH * 0.45;
-    fin.add(pivot);
+    const fin = makeGridFin(finH, finW, finT, {
+      frame: finFrame,
+      lattice: finLattice,
+      plate: steelMatte,
+      pivot: steelDark,
+    });
 
     const attachR = R + finH * 0.42;
     fin.position.set(Math.cos(ang) * attachR, Math.sin(ang) * attachR, finZ);
@@ -549,6 +625,172 @@ function makeBarrelRing(
   ring.position.z = z;
   // Torus lies in XY by default — correct for barrel bands around Z
   return ring;
+}
+
+/**
+ * Super Heavy grid fin with dark outer frame + denser lattice (V4).
+ * Silhouette reads against sky on the grid-fin cam.
+ */
+function makeGridFin(
+  finH: number,
+  finW: number,
+  finT: number,
+  mats: {
+    frame: THREE.Material;
+    lattice: THREE.Material;
+    plate: THREE.Material;
+    pivot: THREE.Material;
+  },
+): THREE.Group {
+  const fin = new THREE.Group();
+  fin.name = "grid-fin";
+
+  // Thin matte plate (does not fill the whole aperture — lattice shows through edges)
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(finH * 0.96, finT * 0.55, finW * 0.96),
+    mats.plate,
+  );
+  fin.add(plate);
+
+  // Outer frame — dark, thicker for sky silhouette
+  const frameT = finT * 1.55;
+  const frameBar = finT * 1.35;
+  // Leading / trailing (along finW / local Z)
+  for (const z of [-finW * 0.5, finW * 0.5]) {
+    const bar = new THREE.Mesh(
+      new THREE.BoxGeometry(finH * 1.02, frameT, frameBar),
+      mats.frame,
+    );
+    bar.position.z = z;
+    fin.add(bar);
+  }
+  // Root / tip (along finH / local X)
+  for (const x of [-finH * 0.5, finH * 0.5]) {
+    const bar = new THREE.Mesh(
+      new THREE.BoxGeometry(frameBar, frameT, finW * 1.02),
+      mats.frame,
+    );
+    bar.position.x = x;
+    fin.add(bar);
+  }
+
+  // Dense lattice — mid-gray so cells read as holes against sky
+  const nLat = GRID_FIN_LATTICE_N;
+  for (let i = 0; i < nLat; i++) {
+    const t = (i + 0.5) / nLat - 0.5;
+    const zBar = new THREE.Mesh(
+      new THREE.BoxGeometry(finH * 0.9, finT * 0.95, finT * 0.72),
+      mats.lattice,
+    );
+    zBar.position.z = t * finW * 0.88;
+    fin.add(zBar);
+    const xBar = new THREE.Mesh(
+      new THREE.BoxGeometry(finT * 0.72, finT * 0.95, finW * 0.9),
+      mats.lattice,
+    );
+    xBar.position.x = t * finH * 0.88;
+    fin.add(xBar);
+  }
+
+  const pivot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.016, 0.048, 10),
+    mats.pivot,
+  );
+  pivot.rotation.z = Math.PI / 2;
+  pivot.position.x = -finH * 0.45;
+  fin.add(pivot);
+
+  return fin;
+}
+
+/**
+ * Procedural stainless maps for cylinder UV (U = circumference, V = height).
+ * Circumferential brush streaks + horizontal weld bands for fin-cam close-ups.
+ */
+function makeStainlessMaps(size = 512): {
+  color: THREE.CanvasTexture;
+  roughness: THREE.CanvasTexture;
+} {
+  const w = size;
+  const h = size;
+  const colorCanvas = document.createElement("canvas");
+  colorCanvas.width = w;
+  colorCanvas.height = h;
+  const roughCanvas = document.createElement("canvas");
+  roughCanvas.width = w;
+  roughCanvas.height = h;
+  const cctx = colorCanvas.getContext("2d")!;
+  const rctx = roughCanvas.getContext("2d")!;
+
+  // Base steel
+  cctx.fillStyle = "#c4c8cc";
+  cctx.fillRect(0, 0, w, h);
+  rctx.fillStyle = "#6a6a6a";
+  rctx.fillRect(0, 0, w, h);
+
+  // Circumferential brush (horizontal streaks in UV = around barrel)
+  for (let y = 0; y < h; y++) {
+    const n = ((y * 17 + 31) % 13) - 6;
+    const lum = 188 + n * 2;
+    cctx.fillStyle = `rgb(${lum},${lum + 2},${lum + 4})`;
+    cctx.fillRect(0, y, w, 1);
+    const rough = 95 + ((y * 13) % 40);
+    rctx.fillStyle = `rgb(${rough},${rough},${rough})`;
+    rctx.fillRect(0, y, w, 1);
+  }
+  // Fine grain noise
+  for (let i = 0; i < w * h * 0.04; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const a = 0.03 + Math.random() * 0.05;
+    cctx.fillStyle = `rgba(255,255,255,${a})`;
+    cctx.fillRect(x, y, 1, 1);
+  }
+
+  // Horizontal weld bands (constant V) — brighter, slightly rougher flanks
+  const weldYs = [0.08, 0.22, 0.36, 0.5, 0.64, 0.78, 0.92];
+  for (const fy of weldYs) {
+    const y = fy * h;
+    const band = Math.max(2, h * 0.012);
+    // Core bright weld
+    const g = cctx.createLinearGradient(0, y - band, 0, y + band);
+    g.addColorStop(0, "rgba(180,185,190,0)");
+    g.addColorStop(0.35, "rgba(210,216,222,0.55)");
+    g.addColorStop(0.5, "rgba(230,236,240,0.75)");
+    g.addColorStop(0.65, "rgba(210,216,222,0.55)");
+    g.addColorStop(1, "rgba(180,185,190,0)");
+    cctx.fillStyle = g;
+    cctx.fillRect(0, y - band, w, band * 2);
+    // Roughness: polished center, HAZ flanks
+    rctx.fillStyle = "#a8a8a8";
+    rctx.fillRect(0, y - band * 1.4, w, band * 0.5);
+    rctx.fillStyle = "#404040";
+    rctx.fillRect(0, y - band * 0.35, w, band * 0.7);
+    rctx.fillStyle = "#a8a8a8";
+    rctx.fillRect(0, y + band * 0.9, w, band * 0.5);
+  }
+
+  // Longitudinal chine hints (vertical dark/bright lines)
+  for (const fx of [0.12, 0.37, 0.62, 0.87]) {
+    const x = fx * w;
+    cctx.fillStyle = "rgba(255,255,255,0.08)";
+    cctx.fillRect(x - 1, 0, 2, h);
+    cctx.fillStyle = "rgba(0,0,0,0.06)";
+    cctx.fillRect(x + 2, 0, 1, h);
+  }
+
+  const color = new THREE.CanvasTexture(colorCanvas);
+  color.colorSpace = THREE.SRGBColorSpace;
+  color.wrapS = THREE.RepeatWrapping;
+  color.wrapT = THREE.RepeatWrapping;
+  color.anisotropy = 8;
+
+  const roughness = new THREE.CanvasTexture(roughCanvas);
+  roughness.wrapS = THREE.RepeatWrapping;
+  roughness.wrapT = THREE.RepeatWrapping;
+  roughness.anisotropy = 4;
+
+  return { color, roughness };
 }
 
 function makeBell(
@@ -717,7 +959,10 @@ export function applyPlumeLayers(
   }
 }
 
-/** Dense hex-ish TPS tile map for the windward heat shield. */
+/**
+ * Dense hex-ish TPS tile map for the windward heat shield.
+ * V4: left/right UV columns get edge wear (matches windward arc sides only).
+ */
 function makeHeatTileTexture(): THREE.CanvasTexture {
   const w = 256;
   const h = 512;
@@ -740,29 +985,104 @@ function makeHeatTileTexture(): THREE.CanvasTexture {
     for (let col = -1; col <= cols; col++) {
       const x = col * tw + xOff;
       const y = row * th;
-      // Slight per-tile brightness variation
+      // Edge columns (windward arc sides) — lighter / charred wear
+      const edge =
+        col <= 1 || col >= cols - 2
+          ? 1
+          : col <= 2 || col >= cols - 3
+            ? 0.45
+            : 0;
       const n =
         14 +
         ((row * 17 + col * 31) % 11) +
-        ((row * 3 + col * 7) % 5);
-      ctx.fillStyle = `rgb(${n},${n + 1},${n + 2})`;
+        ((row * 3 + col * 7) % 5) +
+        Math.round(edge * 22);
+      const r = Math.min(255, n + (edge > 0.5 ? 8 : 0));
+      const g = Math.min(255, n + 1 + (edge > 0.5 ? 4 : 0));
+      const b = Math.min(255, n + 2);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fillRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
       // Grout
-      ctx.strokeStyle = "rgba(48,52,58,0.85)";
+      ctx.strokeStyle = edge > 0 ? "rgba(70,60,50,0.9)" : "rgba(48,52,58,0.85)";
       ctx.lineWidth = 0.7;
       ctx.strokeRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
     }
   }
 
-  // Occasional lighter / damaged tiles
-  for (let i = 0; i < 18; i++) {
-    const col = (i * 5 + 3) % cols;
+  // Occasional lighter / damaged tiles — biased toward edges
+  for (let i = 0; i < 28; i++) {
+    const edgeBias = i % 3 !== 0;
+    const col = edgeBias
+      ? i % 2 === 0
+        ? i % 3
+        : cols - 1 - (i % 3)
+      : (i * 5 + 3) % cols;
     const row = (i * 11 + 7) % rows;
     const xOff = (row % 2) * (tw * 0.5);
     const x = col * tw + xOff;
     const y = row * th;
-    ctx.fillStyle = i % 4 === 0 ? "#c8ccd2" : "#2a3036";
+    ctx.fillStyle =
+      i % 5 === 0 ? "#c8ccd2" : i % 3 === 0 ? "#3a342e" : "#2a3036";
     ctx.fillRect(x + 1, y + 0.8, tw - 2, th - 1.4);
+  }
+
+  // Soft char gradient on left/right margins (windward edge only)
+  const left = ctx.createLinearGradient(0, 0, tw * 2.2, 0);
+  left.addColorStop(0, "rgba(90,70,50,0.35)");
+  left.addColorStop(0.6, "rgba(40,36,32,0.15)");
+  left.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = left;
+  ctx.fillRect(0, 0, tw * 2.2, h);
+  const right = ctx.createLinearGradient(w, 0, w - tw * 2.2, 0);
+  right.addColorStop(0, "rgba(90,70,50,0.35)");
+  right.addColorStop(0.6, "rgba(40,36,32,0.15)");
+  right.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = right;
+  ctx.fillRect(w - tw * 2.2, 0, tw * 2.2, h);
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.ClampToEdgeWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.anisotropy = 4;
+  return map;
+}
+
+/**
+ * Narrow edge-wear strip texture (ablated / soot streak) for windward trims.
+ */
+function makeHeatTileEdgeWearTexture(): THREE.CanvasTexture {
+  const w = 64;
+  const h = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  const base = ctx.createLinearGradient(0, 0, w, 0);
+  base.addColorStop(0, "#1a1410");
+  base.addColorStop(0.35, "#3a3228");
+  base.addColorStop(0.55, "#5a5040");
+  base.addColorStop(0.75, "#2a2620");
+  base.addColorStop(1, "#12141a");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+
+  // Longitudinal soot / heat streaks
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * w;
+    const a = 0.08 + Math.random() * 0.2;
+    ctx.fillStyle =
+      Math.random() < 0.4
+        ? `rgba(180,160,120,${a})`
+        : `rgba(20,18,16,${a + 0.1})`;
+    ctx.fillRect(x, 0, 1 + Math.random() * 2, h);
+  }
+  // Chip / missing tile marks
+  for (let i = 0; i < 12; i++) {
+    const y = (i / 12) * h + Math.random() * 8;
+    ctx.fillStyle = i % 3 === 0 ? "#b8bcc4" : "#2c2824";
+    ctx.fillRect(w * 0.25, y, w * 0.5, 3 + Math.random() * 4);
   }
 
   const map = new THREE.CanvasTexture(canvas);

@@ -37,7 +37,9 @@ Related:
 
 **Shipped (V3):** pad close-up — scorch/water stains, multi-tier deluge + sheets, chopsticks/QD silhouette, trench heat haze.
 
-**Not yet:** soft shadows, post/bloom stack (V5); craft material polish (V4).
+**Shipped (V4):** stainless anisotropy + weld rings, windward heat-shield edge wear, denser high-contrast grid fins for fin/gridfin cams.
+
+**Not yet:** soft shadows, post/bloom stack, altitude haze (V5).
 
 Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
@@ -139,13 +141,16 @@ Pad massing reads from altitude; trench + pad cams need density up close.
 
 ---
 
-## V4 — Craft materials (fin / gridfin cams)
+## V4 — Craft materials (fin / gridfin cams) — **done 2026-08-11**
 
-- Stainless **anisotropy / weld rings** more readable at fin cam
-- Heat-shield edge wear only on windward side
-- Grid fins: clearer silhouette against sky for gridfin cam
+- ~~Stainless **anisotropy / weld rings** more readable at fin cam~~ **done**
+  (`MeshPhysicalMaterial` circumferential anisotropy + brush/weld maps; denser shiny torus weld rings with shadow companions)
+- ~~Heat-shield edge wear only on windward side~~ **done**
+  (edge-biased TPS texture + char gradients; windward trim/wear strips; flap tile wear)
+- ~~Grid fins: clearer silhouette against sky for gridfin cam~~ **done**
+  (dark outer frame, denser 6×6 lattice, thicker frame members)
 
-**Likely files:** `craft.ts`.
+**Files:** `craft.ts` (+ `craftMaterials.test.ts` layout contracts).
 
 ---
 
@@ -171,7 +176,7 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
 3. ~~**V3** — pad close-up (trench cam payoff)~~ **done**  
 4. ~~**V2** — terminator / Moon low-sun polish~~ **done**  
-5. **V4** — craft materials as needed for fin/gridfin  
+5. ~~**V4** — craft materials as needed for fin/gridfin~~ **done**  
 6. **V5** — shadows / post only when the above is stable  
 
 ---
@@ -194,3 +199,4 @@ Extend `groundSky`: fade stars near horizon, brownout on entry, blue sky only in
 | 2026-08-11 | V1 shipped: regime multi-layer plumes, dual hot-stage lights, lag/gimbal, LOI trail beat |
 | 2026-08-11 | V3 shipped: pad scorch/stains, volumetric deluge, chopsticks/QD silhouette, trench heat haze |
 | 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |
+| 2026-08-11 | V4 shipped: stainless anisotropy + weld rings, windward tile edge wear, denser grid fins |

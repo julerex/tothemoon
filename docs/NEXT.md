@@ -265,3 +265,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Lunar LOI restored: n-body coast → capture burn → polar LLO → powered descent → south-pole land |
 | 2026-08-11 | Visual V0: anti-sun fill, Earth/Moon limbs, night pad floods, Earthshine, Earth night lights |
 | 2026-08-11 | Visual V2: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun surface |
+| 2026-08-11 | Visual V4: stainless anisotropy/welds, windward tile wear, denser grid-fin silhouette |
