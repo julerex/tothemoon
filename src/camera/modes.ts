@@ -143,6 +143,20 @@ export class CameraDirector {
     this.distEaseU = 1;
   }
 
+  /**
+   * Re-seat the pad opening shot at mission time `t` (may be negative during
+   * the T− countdown). Call after the first prelaunch state apply so the
+   * camera and stack share the same Earth-fixed epoch.
+   */
+  snapPadOpening(t: number): void {
+    this.simTime = t;
+    this.cancelDistanceEase();
+    this.applyPadOpeningShot();
+    this.applyClipPlanes();
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+  }
+
   /** Craft root (for fin-cam attachment). Call once after createCraft. */
   setCraft(craft: THREE.Object3D): void {
     this.craft = craft;
@@ -160,10 +174,14 @@ export class CameraDirector {
    * Starbase pad opening: look at the launch complex from 45° above the local
    * horizon, with camera.up = surface normal so the ground reads level.
    * Azimuth is from the west (inland) so the Gulf sits behind the stack.
+   *
+   * Uses {@link simTime} so prelaunch (t < 0) seats the camera on the same
+   * pad epoch as the stack — Earth moves ~30 km/s, so a T−2:00 craft at
+   * pad(t) is thousands of km from pad(0).
    */
   private applyPadOpeningShot(): void {
     this.focus = "starbase";
-    const pad = starbasePadState(0);
+    const pad = starbasePadState(this.simTime);
     this.desiredTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
     this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
     this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();

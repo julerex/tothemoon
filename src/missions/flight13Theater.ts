@@ -838,6 +838,12 @@ function resize(): void {
 
 const wall = new THREE.Clock();
 applyMissionState(0);
+// Pad opening was built at t=0 in the director ctor; transport u=0 is T−2:00.
+// Snap so the camera tracks the same epoch as the stack on the pad.
+{
+  const openT = transportUToPhysicsT(0, physicsDurationS);
+  director.snapPadOpening(openT);
+}
 
 function frame(): void {
   requestAnimationFrame(frame);
@@ -849,8 +855,9 @@ function frame(): void {
 
   pulsePadBeacon(starbasePad, wall.elapsedTime);
   spinBodies(bodies, dt);
+  // Keep prelaunch t < 0 — pad / Earth move ~thousands of km in 2 min.
   const simT = transportUToPhysicsT(clock.t, physicsDurationS);
-  director.update(dt, Math.max(0, simT), craftPos, craftVel);
+  director.update(dt, simT, craftPos, craftVel);
   updateZoomLabels(scene, camera);
 
   // Pad / low-altitude sky (fades out once the camera leaves the atmosphere)
