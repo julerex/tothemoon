@@ -4,8 +4,19 @@
  * Pure helpers (no THREE) so scrub-safe burn FX stay unit-tested and shared
  * by craft stack, hot-stage dual plumes, and detached-booster recovery.
  *
+ * ## Pattern
+ *
+ * ```
+ * phase + kind + opts  →  plumeRegimeFor()  →  plumeLook()
+ * missionT / lag        →  plumeThrustLag() / plumeGimbalOffset()
+ *                              ↓
+ *                    craft.applyPlumeLayers  (THREE)
+ * ```
+ *
  * Not CFD: opacity/scale tables for watchability. Atmosphere = denser/tighter;
  * vacuum = wider/sparser; LOI and landing get distinct ship beats.
+ *
+ * @see padLaunchFx — same pure-FX style for Starbase pad
  */
 
 /** Which stage owns the plume. */
@@ -66,7 +77,14 @@ const ATMO_ALT_KM = 80;
 
 /**
  * Pick a plume regime from mission phase + stage context.
- * Scrub-safe: pure function of sample fields.
+ *
+ * Scrub-safe: pure function of sample fields (no wall-clock). Order of
+ * precedence: detached recovery phase → ship hot-stage pre-sep → phase map →
+ * altitude fallback for ambiguous coasts.
+ *
+ * @param phase - Timeline phase id, or `undefined` for recovery-only booster
+ * @param kind - Booster vs ship palette / rules
+ * @param opts - Hot-stage ramp, staged flag, altitude, recovery phase
  */
 export function plumeRegimeFor(
   phase: string | undefined,
@@ -223,6 +241,10 @@ const SHIP_HOT: PlumeLook = {
 /**
  * Regime → look table. Booster and ship palettes differ (methane orange vs
  * blue-white Raptor vacuum).
+ *
+ * @param regime - From {@link plumeRegimeFor}
+ * @param kind - Selects booster vs ship constant tables
+ * @returns Multipliers + RGB triples applied on top of thrust-normalized bases
  */
 export function plumeLook(regime: PlumeRegimeId, kind: PlumeKind): PlumeLook {
   if (kind === "booster") {

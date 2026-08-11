@@ -1,3 +1,10 @@
+/**
+ * Unit tests for pure pad launch FX (`padLaunchFx.ts`).
+ *
+ * Covers scrub stability (same inputs → same outputs), day/night floods,
+ * flame/steam/haze/vent gates, sprite pose finiteness, and layout expanders.
+ * No THREE / DOM — these helpers must stay pure.
+ */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {

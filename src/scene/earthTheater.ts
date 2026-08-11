@@ -40,27 +40,52 @@ import {
   type LaunchPadFxState,
 } from "./padLaunchFx";
 
-/** Re-export pure pad FX state type for mission theaters. */
+/**
+ * Re-export pure pad FX state type for mission theaters.
+ * Definition and docs live in `padLaunchFx.ts`.
+ */
 export type { LaunchPadFxState } from "./padLaunchFx";
 
 /**
- * Starbase pad (Earth-fixed mesh-local) + ascent ground-track on the globe.
- * Pad is parented under the spinning Earth mesh so it co-rotates correctly.
+ * Starbase pad (Earth-fixed mesh-local) + helpers for ascent ground-track.
  *
- * Dual scale:
- *  - True-scale OLM + Mechazilla + OLP-2 hardstand / tank farm / GSE for Ship cam
- *    (layout loosely follows the public satellite footprint: tower SW, tanks E/NE,
- *    warehouse + Boca Chica Blvd north, tan coastal scrub outside the concrete)
- *  - Large thin annular landmark for Earth cam (never a solid disc through the rocket)
+ * ## Parenting
  *
- * V3 close-up (trench / pad cam): scorch + water stains, multi-tier deluge sheets,
- * thicker chopsticks/QD silhouette, scrub-driven heat haze over the trench.
+ * The returned group is parented under the spinning Earth mesh so it co-rotates.
+ * Pad origin matches craft engines at t≈0 (`R_EARTH` + pad altitude). Local
+ * frame: **+Y up**, tower at **+X**, scene unit = **1 km**.
  *
- * FX strengths / sprite poses live in pure `padLaunchFx.ts` (data → transform →
- * thin THREE apply in `updateStarbaseLaunchFx`).
+ * ## Dual scale
  *
- * Pad origin matches craft engines at t≈0 (R_EARTH + pad altitude). Local +Y = up.
- * Liftoff FX update from mission time so scrubbing stays deterministic.
+ * - **True-scale** OLM + Mechazilla + OLP-2 hardstand / tank farm / GSE for
+ *   Ship / pad / trench cams (satellite footprint: tower SW, tanks E/NE,
+ *   warehouse + Boca Chica Blvd north, tan coastal scrub outside concrete).
+ * - **Landmark rings** for Earth cam (thin annuli — never a solid disc that
+ *   would z-fight the stack).
+ *
+ * ## Visual V3 close-up
+ *
+ * Scorch + water stains, multi-tier deluge sheets, chopsticks/QD silhouette,
+ * scrub-driven heat haze. Strengths/poses are pure (`padLaunchFx.ts`); this
+ * module only builds meshes and applies poses each tick.
+ *
+ * ## Named objects (for `getObjectByName` / FX)
+ *
+ * | Name | Role |
+ * |------|------|
+ * | `pad-flame` / `pad-flame-tongues` | Trench flame sheet + cones |
+ * | `pad-steam` | Multi-tier deluge ring sprites |
+ * | `pad-deluge-sheets` | Volumetric sheet curtains |
+ * | `pad-heat-haze` | Ignition shimmer over trench |
+ * | `pad-vent-steam` | Tank-farm hold vents |
+ * | `pad-flood-*` / `pad-fill` / `pad-plume-light` | Lighting |
+ * | `pad-ground-bloom` | Tight under-plume bloom |
+ * | `pad-beacon` | Tower peak (wall-clock pulse) |
+ * | `mechazilla` / `pad-chopstick-*` / `pad-qd-arm` / `pad-olm` | Tower stack |
+ *
+ * @returns Root group named `starbase-pad`, already oriented on the globe
+ * @see updateStarbaseLaunchFx
+ * @see padLaunchFx.derivePadFx
  */
 export function createStarbasePad(): THREE.Group {
   const pad = new THREE.Group();
@@ -343,12 +368,16 @@ export function createStarbasePad(): THREE.Group {
  * OLP-2-style pad complex (theater massing from public satellite layout).
  *
  * Local frame (km): origin = stack / OLM, +Y up, tower at +X.
- *  - Large gray concrete hardstand (angular, not a round disc)
- *  - Dense white horizontal tank rows E/NE of the tower
- *  - Pipe racks, warehouse, Boca Chica Blvd + parking to the north
- *  - Tan coastal scrub outside the fence line
  *
- * Scene units = km. Keeps clearance under the stack so OLM / engines stay clear.
+ * Contents:
+ * - Angular concrete hardstand slabs (not a round disc)
+ * - Dense white horizontal tank rows E/NE of the tower + pipe racks / GSE
+ * - Warehouse, Boca Chica Blvd + parking to the north
+ * - Tan coastal scrub outside the fence line
+ * - V3 apron decals: scorch disc, water stains, runoff trails
+ *
+ * Keeps vertical clearance under the stack so OLM / engines stay clear.
+ * Group name: `pad-surroundings`.
  */
 function createPadSurroundings(): THREE.Group {
   const g = new THREE.Group();
@@ -829,7 +858,15 @@ function createPadSurroundings(): THREE.Group {
   return g;
 }
 
-/** Cool-white flood + warm plume fill under the stack. */
+/**
+ * Cool-white tower floods + warm plume fill under the stack.
+ *
+ * Intensities start at 0; {@link updateStarbaseLaunchFx} drives them from
+ * `padOpsLights` / flame strength each tick (day/night aware).
+ *
+ * Named lights: `pad-flood-0..2`, `pad-fill`, `pad-plume-light`,
+ * `pad-flood-fixture-*`, `pad-olm-lamp-*`.
+ */
 function createPadLights(): THREE.Group {
   const g = new THREE.Group();
   g.name = "pad-lights";
@@ -901,21 +938,29 @@ function createPadLights(): THREE.Group {
 
 /**
  * Drive flame trench, deluge steam / sheets, heat haze, vent plumes, and pad
- * lighting from mission state. Scrub-safe: all scalars/poses come from pure
- * `derivePadFx` + sprite pose helpers (`padLaunchFx.ts`); this only mutates THREE.
+ * lighting from mission state.
  *
- * `missionT` may be negative (pre-liftoff countdown) so tank-farm vent steam
- * reads during the T− hold like the webcast.
+ * **Scrub-safe:** scalars and poses come only from pure helpers in
+ * `padLaunchFx.ts` (`derivePadFx`, `*SpritePose`, `*Visual`). This function
+ * mutates THREE objects and does not allocate new meshes.
+ *
+ * `state.missionT` may be negative (pre-liftoff countdown) so tank-farm vent
+ * steam reads during the T− hold like the webcast.
+ *
+ * @param pad - Root from {@link createStarbasePad} (or any parent of the named FX nodes)
+ * @param state - Mission sample fields + optional `sunElev`
  */
 export function updateStarbaseLaunchFx(
   pad: THREE.Object3D,
   state: LaunchPadFxState,
 ): void {
+  // Pure tick: all strengths / day-night / vents derived once
   const fx = derivePadFx(state);
   const { animT, day, night, flame, steamStr, hazePeak, ventStr, padOps, floodBase } =
     fx;
   const { strength, flicker } = flame;
 
+  /** Map a pure {@link SpritePose} onto a billboard (opacity + transform). */
   const applySpritePose = (
     obj: THREE.Sprite,
     pose: { opacity: number; position: { x: number; y: number; z: number }; scale: { x: number; y: number } },
@@ -926,6 +971,7 @@ export function updateStarbaseLaunchFx(
     obj.scale.set(pose.scale.x, pose.scale.y, 1);
   };
 
+  // --- Trench flame sheet + tongue cones ---------------------------------
   const flameMesh = pad.getObjectByName("pad-flame") as THREE.Mesh | undefined;
   if (flameMesh) {
     const fv = flameVisual(strength);
@@ -946,11 +992,13 @@ export function updateStarbaseLaunchFx(
     tongues.scale.set(1, tv.scaleY, 1);
   }
 
+  // --- Deluge ring / sheets / haze / vents (userData holds rest pose) ----
   const steam = pad.getObjectByName("pad-steam");
   if (steam) {
     steam.visible = steamStr > 0.03;
     steam.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
+      // Rest fields written at create time from expandSteamSprites()
       applySpritePose(
         obj,
         steamSpritePose(
@@ -996,6 +1044,7 @@ export function updateStarbaseLaunchFx(
 
   const haze = pad.getObjectByName("pad-heat-haze");
   if (haze) {
+    // Ignition shimmer — peaks early; pure hazePeak already includes time/alt
     haze.visible = hazePeak > 0.04;
     haze.traverse((obj) => {
       if (!(obj instanceof THREE.Sprite)) return;
@@ -1035,6 +1084,7 @@ export function updateStarbaseLaunchFx(
     });
   }
 
+  // --- Floods / fill / plume light / OLM lamps / ground bloom ------------
   for (let i = 0; i < 3; i++) {
     const spot = pad.getObjectByName(`pad-flood-${i}`) as
       | THREE.SpotLight
@@ -1096,8 +1146,14 @@ export function updateStarbaseLaunchFx(
 }
 
 /**
- * Sub-satellite ground track for launch → early low Earth orbit, in Earth mesh-local coords
- * so it co-rotates with the surface.
+ * Sub-satellite ground track for launch → early low Earth orbit.
+ *
+ * Built in **Earth mesh-local** coords so the line co-rotates with the surface
+ * (same frame as the Starbase pad). Samples are projected to a thin shell just
+ * above the ellipsoid (`R_EARTH + 1.5` km) and downsampled to ≤400 points.
+ *
+ * @param samples - Baked trajectory samples (mission time ascending)
+ * @returns Fat line named `ascent-ground-track`, or `null` if too few points
  */
 export function createAscentGroundTrack(
   samples: Sample[],
@@ -1146,7 +1202,10 @@ export function createAscentGroundTrack(
   return line;
 }
 
-/** Tight warm bloom under the plume (true-scale; only while burning). */
+/**
+ * Tight warm bloom sprite under the plume (true-scale; only while burning).
+ * Procedural canvas radial; opacity driven each tick by {@link bloomVisual}.
+ */
 function makeGroundBloomSprite(): THREE.Sprite {
   const size = 64;
   const canvas = document.createElement("canvas");
@@ -1174,9 +1233,13 @@ function makeGroundBloomSprite(): THREE.Sprite {
 }
 
 /**
- * True-scale Orbital Launch Integration Tower (Mechazilla).
- * Scene units = km. ~146 m tall, ~14 m face, chopsticks + QD arm silhouette.
- * Stack is 9 m diameter / ~123 m tall — tower stands just clear of the OLM.
+ * True-scale Orbital Launch Integration Tower (Mechazilla) + OLM.
+ *
+ * Scene units = km. ~146 m tall, ~14 m face. Stack is ~9 m diameter / ~123 m
+ * tall — tower stands just clear of the OLM (~22 m offset on +X).
+ *
+ * V3 silhouette: thicker chopsticks, carriage cheeks, QD boom with umbilical
+ * bellows, heat-darkened OLM top ring. Group name: `mechazilla`.
  */
 function createMechazillaTower(): THREE.Group {
   const g = new THREE.Group();
@@ -1449,7 +1512,10 @@ function createMechazillaTower(): THREE.Group {
   return g;
 }
 
-/** X-brace panels on Mechazilla faces (skips over-dense mid rings). */
+/**
+ * Diagonal X-brace panels on Mechazilla faces.
+ * Places braces every other ring bay to avoid an over-dense lattice from LEO.
+ */
 function addTowerBracing(
   g: THREE.Group,
   ox: number,
@@ -1496,6 +1562,10 @@ function addTowerBracing(
   }
 }
 
+/**
+ * Soft radial steam billboard texture (shared by deluge ring, sheets, vents).
+ * Procedural canvas — no external assets.
+ */
 function makeSteamTexture(): THREE.CanvasTexture {
   const size = 64;
   const canvas = document.createElement("canvas");
@@ -1514,8 +1584,10 @@ function makeSteamTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Irregular radial scorch for OLM apron / trench floor (theater, not photo).
- * Shared canvas texture — cheap procedural, no asset pipeline.
+ * Irregular radial scorch for OLM apron / trench floor / OLM top (visual V3).
+ *
+ * Theater-grade procedural map — fixed blotch positions so scrub/recreate is
+ * stable. Not a photo texture; cheap and pipeline-free.
  */
 function makeScorchTexture(): THREE.CanvasTexture {
   const size = 128;
@@ -1560,7 +1632,10 @@ function makeScorchTexture(): THREE.CanvasTexture {
   return map;
 }
 
-/** Soft green-gray water / deluge stain for apron decals. */
+/**
+ * Soft green-gray water / deluge runoff stain for apron decals.
+ * Used as a transparent map on thin ground planes around the OLM.
+ */
 function makeWaterStainTexture(): THREE.CanvasTexture {
   const size = 64;
   const canvas = document.createElement("canvas");
@@ -1586,7 +1661,8 @@ function makeWaterStainTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Soft additive shimmer for trench heat haze (no real refraction — theater cue).
+ * Soft additive shimmer for trench heat haze.
+ * No real refraction — a warm gradient billboard as a theater cue only.
  */
 function makeHeatHazeTexture(): THREE.CanvasTexture {
   const size = 64;
@@ -1607,7 +1683,15 @@ function makeHeatHazeTexture(): THREE.CanvasTexture {
   return map;
 }
 
-/** Pulse pad beacon (wall-clock UI only; opacity from pure helper). */
+/**
+ * Pulse the tower beacon opacity from **wall-clock** time.
+ *
+ * UI chrome only — not scrub-critical. Opacity comes from pure
+ * {@link padBeaconOpacity}; do not drive this from mission `t`.
+ *
+ * @param pad - Starbase pad root
+ * @param wallT - Seconds of wall time (e.g. `performance.now() / 1000`)
+ */
 export function pulsePadBeacon(pad: THREE.Object3D, wallT: number): void {
   const beacon = pad.getObjectByName("pad-beacon") as THREE.Mesh | undefined;
   if (!beacon) return;

@@ -1,18 +1,42 @@
 /**
  * Pure pad launch FX — strengths and sprite poses from mission state.
  *
- * No THREE: scrub-safe, unit-testable. `earthTheater.updateStarbaseLaunchFx`
- * maps these values onto scene objects.
+ * ## Architecture
  *
- * Theater-grade (not CFD / ops imagery). All time dependence uses mission `t`
- * so scrubbing never desyncs from wall-clock-only animation.
+ * ```
+ * LaunchPadFxState  →  derivePadFx()  →  *SpritePose() / *Visual()
+ *                                              ↓
+ *                         earthTheater.updateStarbaseLaunchFx  (THREE only)
+ * ```
+ *
+ * **No THREE** in this module: scrub-safe, unit-testable, shared by both
+ * mission theaters (lunar + Flight 13). Scene unit = **1 km**.
+ *
+ * ## Scrub safety
+ *
+ * All time dependence uses **mission** `t` (may be negative during the T−
+ * countdown hold). Do not call `performance.now()` here — wall-clock is only
+ * allowed for the tower beacon pulse (`padBeaconOpacity`), which is UI chrome.
+ *
+ * ## Theater grade
+ *
+ * Looks are tuned for trench / pad cameras, not CFD or ops imagery. Opacity
+ * and scale tables favor watchability over physical fidelity.
+ *
+ * @see earthTheater.updateStarbaseLaunchFx — impure applicator
+ * @see docs/VISUAL_REALISM.md — V3 pad close-up backlog item
  */
 
 // ---------------------------------------------------------------------------
 // Math (local, no THREE dependency)
 // ---------------------------------------------------------------------------
 
-/** Clamp to [0, 1]. */
+/**
+ * Clamp a number into [0, 1].
+ *
+ * @param x - Input; non-finite values map to `0`
+ * @returns Value in [0, 1]
+ */
 export function clamp01(x: number): number {
   if (!Number.isFinite(x)) return 0;
   if (x <= 0) return 0;
@@ -20,18 +44,37 @@ export function clamp01(x: number): number {
   return x;
 }
 
-/** Hermite smoothstep on [edge0, edge1] → [0, 1]. */
+/**
+ * Hermite smoothstep on the interval [edge0, edge1] → [0, 1].
+ *
+ * GLSL-style argument order `(edge0, edge1, x)`, unlike Three's
+ * `MathUtils.smoothstep(x, min, max)`.
+ *
+ * @param edge0 - Lower edge of the transition (maps to 0)
+ * @param edge1 - Upper edge of the transition (maps to 1)
+ * @param x - Sample value
+ */
 export function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
 }
 
+/** Immutable 3-vector in pad-local km (or any consistent frame). */
 export type Vec3 = Readonly<{ x: number; y: number; z: number }>;
+
+/** Sprite XY scale (Three sprites ignore Z stretch for billboards). */
 export type Scale2 = Readonly<{ x: number; y: number }>;
 
+/**
+ * Fully derived sprite state for one frame — ready for THREE apply.
+ * Opacity may be 0; callers still set visibility on the parent group.
+ */
 export type SpritePose = Readonly<{
+  /** Material opacity in [0, ~1]; not pre-clamped past 1. */
   opacity: number;
+  /** Pad-local position (km). */
   position: Vec3;
+  /** Billboard scale (km-ish sprite size). */
   scale: Scale2;
 }>;
 
@@ -40,18 +83,34 @@ export type SpritePose = Readonly<{
 // ---------------------------------------------------------------------------
 
 /**
- * Mission-time pad FX input. Liftoff = 0; negative = pre-liftoff countdown
- * (tank-farm vent steam / pad-ops lights).
+ * Mission-time pad FX input (from the active sample + lighting).
+ *
+ * Liftoff is `missionT === 0`. Negative values are the pre-liftoff countdown
+ * window (tank-farm vent steam, pad-ops floods). Callers typically pass the
+ * same fields already available on the mission sample / theater tick.
  */
 export type LaunchPadFxState = {
+  /**
+   * Mission clock seconds. Liftoff = 0; negative = T− hold
+   * (e.g. transport u maps −120…0 before light).
+   */
   missionT: number;
+  /**
+   * Timeline phase id (`launch`, `ascent`, `coast`, …).
+   * Gates flame / steam to pad-relevant phases.
+   */
   phase: string;
+  /**
+   * Whether engines are thrusting this sample.
+   * Flame trench FX require `true` and `missionT >= 0`.
+   */
   burning: boolean;
-  /** Altitude above Earth surface (km). */
+  /** Altitude above Earth surface (km). Fades pad FX as the stack climbs. */
   altEarth: number;
   /**
-   * Sun elevation factor at Starbase: 1 = high day, 0 = civil twilight,
-   * negative ≈ night. From sun·localUp.
+   * Sun elevation cue at Starbase: ≈1 high day, ≈0 civil twilight,
+   * negative ≈ night. Usually `sun · localUp` at the pad. Defaults to a
+   * mild daytime when omitted so daylight missions stay readable.
    */
   sunElev?: number;
 };
@@ -60,29 +119,57 @@ export type LaunchPadFxState = {
 // Layout specs (data) — construction + pose bases share one source of truth
 // ---------------------------------------------------------------------------
 
+/**
+ * One radial tier of deluge steam sprites around the OLM.
+ * Used by both `createStarbasePad` (mesh build) and pose helpers.
+ */
 export type SteamTierSpec = Readonly<{
+  /** Number of sprites evenly spaced on the ring. */
   n: number;
+  /** Ring radius (km) at rest. */
   r0: number;
+  /** Height above pad deck (km). */
   y0: number;
+  /** Base uniform sprite scale (km). */
   scale: number;
+  /** THREE color hex for the sprite material. */
   color: number;
 }>;
 
-/** Multi-tier deluge ring around OLM (V3). */
+/**
+ * Multi-tier deluge ring around the OLM (visual V3).
+ *
+ * - Tier 0 — tight, bright lip steam  
+ * - Tier 1 — mid plume  
+ * - Tier 2 — lofted translucent cloud  
+ *
+ * Outer tiers get lower opacity via `steamSpritePose` (`tier` index).
+ */
 export const STEAM_TIERS: readonly SteamTierSpec[] = [
   { n: 10, r0: 0.028, y0: 0.012, scale: 0.07, color: 0xe0e6ec },
   { n: 8, r0: 0.045, y0: 0.028, scale: 0.11, color: 0xd0d6de },
   { n: 6, r0: 0.062, y0: 0.05, scale: 0.15, color: 0xc4cad2 },
 ];
 
+/**
+ * One deluge “sheet” curtain sprite (stretched billboard along the trench).
+ * `phase` is a fixed time offset so sheets do not animate in lockstep.
+ */
 export type DelugeSheetSpec = Readonly<{
+  /** Rest pose [x, y, z] in pad km. */
   pos: readonly [number, number, number];
+  /** Rest scale X (km). */
   sx: number;
+  /** Rest scale Y (km). */
   sy: number;
+  /** Animation phase offset (radians-ish into sin chains). */
   phase: number;
 }>;
 
-/** Sheet curtains along trench (V3 volumetric deluge). */
+/**
+ * Sheet curtains along the flame-trench long axis (visual V3 volumetric deluge).
+ * Paired with the multi-tier ring for denser steam under trench cam.
+ */
 export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
   { pos: [0.012, 0.018, 0], sx: 0.055, sy: 0.04, phase: 0.2 },
   { pos: [-0.012, 0.016, 0], sx: 0.05, sy: 0.038, phase: 1.1 },
@@ -92,7 +179,10 @@ export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
   { pos: [-0.006, 0.032, -0.008], sx: 0.058, sy: 0.048, phase: 4.2 },
 ];
 
-/** Tank-farm vent sprite anchors (km, pad frame). */
+/**
+ * Tank-farm vent sprite anchors in pad-local km (+X / +Z ≈ east/north of OLM).
+ * Positions sit over the white horizontal tank rows from the satellite layout.
+ */
 export const VENT_ANCHORS: readonly (readonly [number, number, number])[] = [
   [0.095, 0.014, 0.035],
   [0.11, 0.016, 0.05],
@@ -106,38 +196,46 @@ export const VENT_ANCHORS: readonly (readonly [number, number, number])[] = [
   [0.09, 0.014, 0.085],
 ];
 
-/** Heat-haze count and spacing along trench Z. */
+/** Number of heat-haze billboards along the trench. */
 export const HAZE_COUNT = 5;
+/** First haze sprite Z (km, pad frame; trench runs roughly ±Z). */
 export const HAZE_Z0 = -0.018;
+/** Spacing between haze sprites along Z (km). */
 export const HAZE_DZ = 0.009;
 
-/**
- * Expand steam tiers into per-sprite construction records (pure, deterministic).
- */
-export function expandSteamSprites(
-  tiers: readonly SteamTierSpec[] = STEAM_TIERS,
-): readonly {
+/** One expanded steam sprite ready for mesh construction. */
+export type ExpandedSteamSprite = Readonly<{
+  /** Rest angle around +Y (rad). */
   ang: number;
   r0: number;
   y0: number;
   scale: number;
   color: number;
+  /** Fixed animation phase so sprites desync. */
   phase: number;
+  /** Index into `STEAM_TIERS` (0 = lip, higher = loft). */
   tier: number;
-}[] {
-  const out: {
-    ang: number;
-    r0: number;
-    y0: number;
-    scale: number;
-    color: number;
-    phase: number;
-    tier: number;
-  }[] = [];
+}>;
+
+/**
+ * Expand steam tier specs into per-sprite construction records.
+ *
+ * Pure and deterministic: same tiers always yield the same angles/phases so
+ * create and update stay in lockstep. Slight angular offset by index avoids
+ * a perfect regular polygon that looks synthetic.
+ *
+ * @param tiers - Defaults to {@link STEAM_TIERS}
+ * @returns Flat list of sprites (length = sum of `n` over tiers)
+ */
+export function expandSteamSprites(
+  tiers: readonly SteamTierSpec[] = STEAM_TIERS,
+): readonly ExpandedSteamSprite[] {
+  const out: ExpandedSteamSprite[] = [];
   let steamIdx = 0;
   for (let ti = 0; ti < tiers.length; ti++) {
     const tier = tiers[ti]!;
     for (let i = 0; i < tier.n; i++) {
+      // Offset each successive sprite so rings do not stack on the same rays
       const ang = (i / tier.n) * Math.PI * 2 + steamIdx * 0.17;
       out.push({
         ang,
@@ -154,7 +252,13 @@ export function expandSteamSprites(
   return out;
 }
 
-/** Z positions for heat-haze sprites. */
+/**
+ * Z positions for heat-haze sprites along the trench.
+ *
+ * @param count - Sprite count (default {@link HAZE_COUNT})
+ * @param z0 - First Z (default {@link HAZE_Z0})
+ * @param dz - Step along Z (default {@link HAZE_DZ})
+ */
 export function hazeBaseZs(
   count = HAZE_COUNT,
   z0 = HAZE_Z0,
@@ -167,10 +271,25 @@ export function hazeBaseZs(
 // Aggregate strengths (pure of mission state)
 // ---------------------------------------------------------------------------
 
-export type PadDayNight = Readonly<{ day: number; night: number }>;
+/**
+ * Day / night blend for pad floods and steam backlighting.
+ * `day + night === 1` (within float error).
+ */
+export type PadDayNight = Readonly<{
+  /** 1 = high midday sun, 0 = deep night. */
+  day: number;
+  /** 1 − day. */
+  night: number;
+}>;
 
 /**
- * Day factor: 1 midday, 0 deep night (soft twilight band around elev ≈ 0).
+ * Map sun elevation to a soft day/night pair for flood balance.
+ *
+ * Twilight band is roughly elev ∈ [−0.08, 0.22] (smoothstep). Outside that
+ * range the pad is fully day or fully night. Missing elev defaults to mild day
+ * so tests / older callers do not go pitch-black.
+ *
+ * @param sunElev - `sun · padUp`, or `undefined` for default day
  */
 export function padDayNight(sunElev: number | undefined): PadDayNight {
   const elev = sunElev ?? 0.4;
@@ -178,24 +297,35 @@ export function padDayNight(sunElev: number | undefined): PadDayNight {
   return { day, night: 1 - day };
 }
 
+/**
+ * Flame-trench intensity bundle: gate + fade + flicker + final strength.
+ * Shared by flame mesh, tongues, plume point light, and ground bloom.
+ */
 export type PadFlameBundle = Readonly<{
-  /** Engines lighting trench while still near pad. */
+  /** True when engines should light the trench (phase + burn + t≥0). */
   active: boolean;
-  /** Altitude fade in [0, 1]. */
+  /** Altitude fade in [0, 1]; ~0 by ~18 km. */
   altFade: number;
-  /** Deterministic flicker mult (~0.8–1). */
+  /** Deterministic flicker mult (~0.86–1); uses max(0, missionT). */
   flicker: number;
-  /** Final trench flame strength (0 when not burning on pad). */
+  /** Final strength: `active ? altFade * flicker : 0`. */
   strength: number;
 }>;
 
-/** Flame / tongue / plume-light strength from mission state. */
+/**
+ * Flame / tongue / plume-light strength from mission state.
+ *
+ * Active only while burning on pad-like phases (`launch`, early `ascent`
+ * below 25 km) and after liftoff (`missionT >= 0`). Flicker is a cheap dual
+ * sine of mission time (scrub-stable).
+ */
 export function padFlameStrength(state: LaunchPadFxState): PadFlameBundle {
   const onPadPhase =
     state.phase === "launch" ||
     (state.phase === "ascent" && state.altEarth < 25);
   const active = state.burning && onPadPhase && state.missionT >= 0;
   const altFade = clamp01(1 - state.altEarth / 18);
+  // Prelaunch (t < 0) does not flicker flame — clamp for the sin clock only
   const t = Math.max(0, state.missionT);
   const flicker =
     0.9 + 0.06 * Math.sin(t * 41.2) + 0.04 * Math.sin(t * 77.5 + 0.7);
@@ -204,7 +334,13 @@ export function padFlameStrength(state: LaunchPadFxState): PadFlameBundle {
 }
 
 /**
- * Deluge steam strength — hangs longer than hard flame (true-scale around OLM).
+ * Deluge steam envelope strength — hangs longer than hard flame.
+ *
+ * Stays up through thicker atmosphere theater (~30 km fade, hard cut 35 km)
+ * and the first three minutes after liftoff, but only on `launch` / `ascent`
+ * while engines burn. True-scale cloud around the OLM, not a multi-km fog.
+ *
+ * @returns Steam strength in [0, 1]
  */
 export function padSteamStrength(state: LaunchPadFxState): number {
   if (!state.burning || state.altEarth >= 35 || state.missionT >= 180) {
@@ -215,13 +351,23 @@ export function padSteamStrength(state: LaunchPadFxState): number {
 }
 
 /**
- * Heat haze peak over trench — strongest early after light, fades with altitude.
+ * Heat-haze peak over the trench (visual V3).
+ *
+ * Strongest in the first seconds after light (`missionT` small), then eases
+ * over ~25 s, and dies by ~4 km altitude. Multiplied by flame strength so
+ * haze never appears without thrust.
+ *
+ * @param flameStrength - From {@link padFlameStrength}.strength
+ * @param missionT - Mission clock (s)
+ * @param altEarth - Altitude (km)
+ * @returns Peak scalar ≥ 0 used by {@link hazeSpritePose}
  */
 export function padHazePeak(
   flameStrength: number,
   missionT: number,
   altEarth: number,
 ): number {
+  // Clamp time fade into [0.15, 1] so residual shimmer lasts past peak roar
   const timeFade = Math.min(
     1,
     Math.max(0.15, 1 - Math.max(0, missionT) / 25),
@@ -231,8 +377,16 @@ export function padHazePeak(
 }
 
 /**
- * Tank-farm vent steam: full on countdown hold, eases after liftoff.
- * Dims when engines light so deluge owns the frame.
+ * Tank-farm vent steam strength.
+ *
+ * - **T− hold** (`missionT < 0`): full webcast-style plume with slow sin pulse  
+ * - **Post-liftoff** (t &lt; 90 s, alt &lt; 12 km): linear ease-out  
+ * - **Engines lit** (`flameStrength > 0.2`): ×0.55 so deluge owns the frame  
+ *
+ * @param state - Mission pad state
+ * @param flameStrength - Current trench flame strength
+ * @param animT - Animation clock (defaults to `state.missionT`; may be negative)
+ * @returns Vent strength ≥ 0
  */
 export function padVentStrength(
   state: LaunchPadFxState,
@@ -241,6 +395,7 @@ export function padVentStrength(
 ): number {
   let ventStr = 0;
   if (state.missionT < 0) {
+    // Full hold plume (SpaceX webcast look)
     ventStr = 0.85 + 0.15 * Math.sin(animT * 0.7);
   } else if (state.missionT < 90 && state.altEarth < 12) {
     ventStr = clamp01(1 - state.missionT / 90) * 0.75;
@@ -249,12 +404,24 @@ export function padVentStrength(
   return ventStr;
 }
 
+/**
+ * Whether pad-ops lighting is on, plus the night-led flood base intensity.
+ * `floodBase` is already day/night weighted (tiny residual in full day).
+ */
 export type PadOpsLights = Readonly<{
+  /** True while the stack is near the complex or on countdown. */
   padOps: boolean;
+  /** Spot base intensity before per-index / plume dimming. */
   floodBase: number;
 }>;
 
-/** Flood / pad-ops gate and night-led flood base intensity. */
+/**
+ * Flood / pad-ops gate and night-led flood base intensity (visual V0.1).
+ *
+ * Floods are strong at night and very restrained by day so sun + geometry
+ * read cleanly. Ops stay on through countdown, early ascent near pad, and
+ * briefly after liftoff on the launch phase.
+ */
 export function padOpsLights(
   state: LaunchPadFxState,
   dayNight: PadDayNight,
@@ -273,20 +440,35 @@ export function padOpsLights(
   return { padOps, floodBase };
 }
 
-/** Full derived bundle used by the scene applicator. */
+/**
+ * Full derived scalar bundle for one pad FX tick.
+ * Produced by {@link derivePadFx}; consumed by `updateStarbaseLaunchFx`.
+ */
 export type PadFxDerived = Readonly<{
+  /** Mission-time animation clock (may be negative on hold). */
   animT: number;
   day: number;
   night: number;
   flame: PadFlameBundle;
+  /** Deluge steam envelope [0, 1]. */
   steamStr: number;
+  /** Heat-haze peak scalar. */
   hazePeak: number;
+  /** Tank-farm vent envelope. */
   ventStr: number;
   padOps: boolean;
   floodBase: number;
 }>;
 
-/** Derive all pad FX scalars from mission state (one pure entry point). */
+/**
+ * Derive all pad FX scalars from mission state (single pure entry point).
+ *
+ * Prefer this over calling individual strength helpers when applying a full
+ * frame so day/night, flame, steam, haze, vent, and floods stay consistent.
+ *
+ * @param state - Mission pad input
+ * @returns Immutable derived bundle (same inputs → same outputs)
+ */
 export function derivePadFx(state: LaunchPadFxState): PadFxDerived {
   const animT = state.missionT;
   const { day, night } = padDayNight(state.sunElev);
@@ -312,23 +494,41 @@ export function derivePadFx(state: LaunchPadFxState): PadFxDerived {
 // Per-sprite poses (pure)
 // ---------------------------------------------------------------------------
 
+/**
+ * Rest / identity fields stored on each steam sprite's `userData` at create time.
+ * `tier` selects outer-ring opacity/loft multipliers.
+ */
 export type SteamSpriteBase = Readonly<{
   baseAng: number;
   baseR: number;
   baseY: number;
   baseScale: number;
   phase: number;
+  /** 0 = OLM lip, higher = lofted tiers. */
   tier: number;
 }>;
 
+/**
+ * Pose for one deluge-ring steam sprite.
+ *
+ * Slow azimuthal drift + vertical loft scale with `steamStr`. Night slightly
+ * boosts opacity so steam reads against floods. Outer tiers thin out.
+ *
+ * @param base - Rest pose from construction `userData`
+ * @param steamStr - From {@link padSteamStrength}
+ * @param night - From {@link padDayNight}
+ * @param animT - Mission-time clock
+ */
 export function steamSpritePose(
   base: SteamSpriteBase,
   steamStr: number,
   night: number,
   animT: number,
 ): SpritePose {
+  // Outer tiers are thinner / loft more
   const tierOp = 1 - base.tier * 0.18;
   const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + base.phase);
+  // Slightly brighter steam at night (backlit by floods / plume)
   const opacity = (0.26 + 0.14 * night) * steamStr * wobble * tierOp;
   const grow =
     base.baseScale * (0.85 + steamStr * 0.9) +
@@ -352,6 +552,9 @@ export function steamSpritePose(
   };
 }
 
+/**
+ * Rest fields for a deluge sheet curtain (from {@link DELUGE_SHEETS} + userData).
+ */
 export type SheetSpriteBase = Readonly<{
   baseX: number;
   baseY: number;
@@ -361,6 +564,10 @@ export type SheetSpriteBase = Readonly<{
   phase: number;
 }>;
 
+/**
+ * Pose for one trench-aligned deluge sheet (stretched billboard).
+ * Vertical scale pulses harder than horizontal so curtains “breathe.”
+ */
 export function sheetSpritePose(
   base: SheetSpriteBase,
   steamStr: number,
@@ -387,11 +594,22 @@ export function sheetSpritePose(
   };
 }
 
+/**
+ * Rest fields for a heat-haze sprite (`baseZ` along trench, fixed `phase`).
+ */
 export type HazeSpriteBase = Readonly<{
   baseZ: number;
   phase: number;
 }>;
 
+/**
+ * Pose for one heat-haze shimmer above the trench.
+ *
+ * Additive-style opacity (caller uses additive blending). Fast sin rates give
+ * a refractive shimmer without real distortion — theater cue only.
+ *
+ * @param hazePeak - From {@link padHazePeak}
+ */
 export function hazeSpritePose(
   base: HazeSpriteBase,
   hazePeak: number,
@@ -416,6 +634,9 @@ export function hazeSpritePose(
   };
 }
 
+/**
+ * Rest fields for a tank-farm vent sprite (anchors from {@link VENT_ANCHORS}).
+ */
 export type VentSpriteBase = Readonly<{
   baseX: number;
   baseY: number;
@@ -423,6 +644,10 @@ export type VentSpriteBase = Readonly<{
   phase: number;
 }>;
 
+/**
+ * Pose for one tank-farm vent plume sprite.
+ * Taller than wide (scale Y > X) so hold steam reads as rising columns.
+ */
 export function ventSpritePose(
   base: VentSpriteBase,
   ventStr: number,
@@ -451,12 +676,20 @@ export function ventSpritePose(
 // Mesh / light scalars (pure)
 // ---------------------------------------------------------------------------
 
+/**
+ * Visibility + opacity + Y-scale for trench flame / tongue meshes.
+ * `scaleY` is applied as `(1, scaleY, 1)` on the mesh.
+ */
 export type FlameVisual = Readonly<{
   visible: boolean;
   opacity: number;
   scaleY: number;
 }>;
 
+/**
+ * Primary trench flame sheet visual from flame strength.
+ * Hidden below a small threshold to avoid additive noise when “off.”
+ */
 export function flameVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.02,
@@ -465,6 +698,9 @@ export function flameVisual(strength: number): FlameVisual {
   };
 }
 
+/**
+ * Secondary flame-tongue cones (slightly later visibility gate than the sheet).
+ */
 export function tongueVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.05,
@@ -473,12 +709,18 @@ export function tongueVisual(strength: number): FlameVisual {
   };
 }
 
+/** Tight ground-bloom sprite under the engines (not a multi-km landmark). */
 export type BloomVisual = Readonly<{
   visible: boolean;
   opacity: number;
+  /** Uniform sprite scale (km). */
   scale: number;
 }>;
 
+/**
+ * Ground bloom under the plume — true-scale, only while burning strongly.
+ * Opacity includes flicker so the pad glow breathes with the flame.
+ */
 export function bloomVisual(strength: number, flicker: number): BloomVisual {
   return {
     visible: strength > 0.04,
@@ -487,7 +729,16 @@ export function bloomVisual(strength: number, flicker: number): BloomVisual {
   };
 }
 
-/** Spot intensity mult for flood index (0 = primary, others slightly dimmer). */
+/**
+ * Per-flood SpotLight intensity.
+ *
+ * Dims while the plume is roaring (avoids double-wash) and weights index 0
+ * as the primary tower flood slightly brighter than secondary fixtures.
+ *
+ * @param floodBase - From {@link padOpsLights}
+ * @param flameStrength - From {@link padFlameStrength}.strength
+ * @param index - Flood index (`0` = primary)
+ */
 export function floodSpotIntensity(
   floodBase: number,
   flameStrength: number,
@@ -498,10 +749,17 @@ export function floodSpotIntensity(
   return floodBase * plumeDim * weight;
 }
 
+/**
+ * Spot light `distance` (km reach). Slightly longer at night so the apron reads.
+ */
 export function floodSpotDistance(night: number): number {
   return 0.28 + 0.1 * night;
 }
 
+/**
+ * Cool ambient fill under/around the stack.
+ * Night-led; tiny day residual; pulls back when flame strength is high.
+ */
 export function padFillIntensity(
   padOps: boolean,
   day: number,
@@ -512,40 +770,61 @@ export function padFillIntensity(
   return 0.03 * day + 0.55 * night * (1 - 0.4 * flameStrength);
 }
 
-/** Warm when burning, cool otherwise. */
+/**
+ * Fill light color as hex: warm when engines light the pad, cool metal-halide otherwise.
+ */
 export function padFillColorHex(flameStrength: number): number {
   return flameStrength > 0.1 ? 0xffe0c8 : 0xdde6f4;
 }
 
+/** Fill light `distance` (km); a bit larger at night. */
 export function padFillDistance(night: number): number {
   return 0.22 + 0.08 * night;
 }
 
+/** Warm plume point-light intensity under the engines only. */
 export function plumeLightIntensity(strength: number): number {
   return 2.2 * strength;
 }
 
+/** Plume point-light reach (km). */
 export function plumeLightDistance(strength: number): number {
   return 0.14 + 0.1 * strength;
 }
 
+/**
+ * Plume light RGB (0–1). Green channel rides flicker so the glow is not static orange.
+ */
 export function plumeLightRgb(
   flicker: number,
 ): Readonly<[number, number, number]> {
   return [1, 0.55 + 0.1 * flicker, 0.28];
 }
 
+/**
+ * Emissive intensity for the small flood fixture meshes (so lamps read as real sources).
+ */
 export function floodFixtureEmissive(floodBase: number): number {
   return 0.15 + floodBase * 1.4;
 }
 
-/** OLM work-lamp color hex; dark when pad ops off. */
+/**
+ * OLM ring work-lamp color hex.
+ * Bright cool white at night ops; dimmer day ops; dark gray when pad ops off.
+ */
 export function olmLampColorHex(padOps: boolean, night: number): number {
   if (!padOps) return 0x444444;
   return night > 0.5 ? 0xf4f8ff : 0xc8d0dc;
 }
 
-/** Beacon opacity from wall-clock (UI pulse; only non-mission-time FX). */
+/**
+ * Tower beacon opacity from **wall-clock** time.
+ *
+ * This is the only intentional non-mission-time FX on the pad (UI pulse while
+ * the page is open). Do not use for scrub-critical effects.
+ *
+ * @param wallT - Seconds from `performance.now()` / app clock (not mission t)
+ */
 export function padBeaconOpacity(wallT: number): number {
   return 0.55 + 0.4 * Math.sin(wallT * 4);
 }
