@@ -2,6 +2,8 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
+Visual realism backlog (lighting, Earth night, plumes, pad close-up, shadows): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+
 **Live:** https://julerex.github.io/tothemoon/
 
 ---

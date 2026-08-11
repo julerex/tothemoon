@@ -70,7 +70,8 @@ Base path is `/tothemoon/` (GitHub project Pages).
 
 ## Roadmap
 
-Recommended next work (prioritized): [docs/NEXT.md](./docs/NEXT.md).
+Recommended next work (prioritized): [docs/NEXT.md](./docs/NEXT.md).  
+Visual realism backlog (for agents): [docs/VISUAL_REALISM.md](./docs/VISUAL_REALISM.md).
 
 ## Deploy
 
