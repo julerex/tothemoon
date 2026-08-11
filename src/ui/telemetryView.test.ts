@@ -1,0 +1,153 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  boosterMetricsLabel,
+  buildTelemetryView,
+  enginesLabel,
+  keplerDevLabel,
+  scrubRangeValue,
+  stagedLabel,
+  type Telemetry,
+} from "./telemetryView.ts";
+
+function baseTel(over: Partial<Telemetry> = {}): Telemetry {
+  return {
+    phase: "Ascent",
+    phaseId: "ascent",
+    t: 120,
+    durationS: 1000,
+    distanceToMoon: 380_000,
+    altitude: 40,
+    speed: 2.5,
+    fuelBooster: 0.8,
+    fuelShip: 1,
+    thrustN: 5e6,
+    playing: true,
+    dateUtc: "2027-07-18 12:00 UTC",
+    playbackSpeed: 10,
+    missionComplete: false,
+    translunarInjectionDeltaV: 3.1,
+    minMoonAlt: 200,
+    focusDistance: 50,
+    altEarth: 40,
+    altMoon: 200_000,
+    distMoon: 380_000,
+    speedEarth: 2.4,
+    speedMoon: 1.0,
+    staged: false,
+    burning: true,
+    ...over,
+  };
+}
+
+describe("label helpers", () => {
+  it("enginesLabel / stagedLabel", () => {
+    assert.equal(enginesLabel(true, 1000), "burning");
+    assert.equal(enginesLabel(true, 100), "coast / idle");
+    assert.equal(enginesLabel(false, 1e6), "coast / idle");
+    assert.equal(stagedLabel(true), "yes · ship only");
+    assert.equal(stagedLabel(false), "no · full stack");
+  });
+
+  it("boosterMetricsLabel empty after stage", () => {
+    assert.equal(boosterMetricsLabel(true, 0, 0), "staged · empty");
+    assert.match(boosterMetricsLabel(false, 0.5, 1000), /50\.00%/);
+  });
+
+  it("keplerDevLabel", () => {
+    assert.equal(keplerDevLabel(undefined), "—");
+    assert.equal(keplerDevLabel(0), "—");
+    assert.match(keplerDevLabel(12.5), /12\.500 km/);
+  });
+
+  it("scrubRangeValue", () => {
+    assert.equal(scrubRangeValue(0, 100), "0");
+    assert.equal(scrubRangeValue(50, 100), "500");
+    assert.equal(scrubRangeValue(100, 100), "1000");
+    assert.equal(scrubRangeValue(10, 0), "0");
+  });
+});
+
+describe("buildTelemetryView", () => {
+  it("maps main strip from telemetry", () => {
+    const v = buildTelemetryView(baseTel(), {
+      skyLine: () => "sky-test",
+    });
+    assert.equal(v.main.phase, "Ascent");
+    assert.equal(v.main.missionClock, "T+00:02:00");
+    assert.equal(v.main.progress, "12%");
+    assert.equal(v.main.playLabel, "Pause");
+    assert.equal(v.main.playPressed, true);
+    assert.equal(v.main.sky, "sky-test");
+    assert.equal(v.main.scrubValue, "120");
+    assert.ok(Math.abs(v.main.progressU - 0.12) < 1e-12);
+    assert.equal(v.complete, null);
+    assert.equal(v.metrics.engines, "burning");
+    assert.equal(v.metrics.sky, "sky-test");
+    assert.match(v.metrics.playback, /10×/);
+    assert.equal(v.metrics.forceCheckVisible, false);
+  });
+
+  it("builds complete card when missionComplete", () => {
+    const v = buildTelemetryView(
+      baseTel({
+        missionComplete: true,
+        completeKind: "landed",
+        phaseId: "landed",
+        phase: "Landed",
+        t: 1000,
+        fuelShip: 0.2,
+        peakSpeedKmS: 11,
+        stageT: 150,
+        minMoonAlt: 0.05,
+      }),
+      { skyLine: (t) => `sky@${t}` },
+    );
+    assert.ok(v.complete);
+    assert.match(v.complete!.subtitle, /Malapert|south pole|Starbase/i);
+    assert.equal(v.complete!.minMoonAlt, "50 m");
+    assert.equal(v.complete!.peakSpeed, "11.00 km/s");
+    assert.equal(v.complete!.sky, "sky@1000");
+    assert.equal(v.main.missionComplete, true);
+  });
+
+  it("splashdown complete subtitle flag", () => {
+    const v = buildTelemetryView(
+      baseTel({
+        missionComplete: true,
+        completeKind: "landed",
+        phaseId: "splashdown",
+        phase: "Splashdown",
+      }),
+      { skyLine: () => "—" },
+    );
+    assert.match(v.complete!.subtitle, /Flight 13|splash/i);
+  });
+
+  it("metrics force check row", () => {
+    const v = buildTelemetryView(
+      baseTel({ forceCompareLine: "  coast ok  " }),
+      { skyLine: () => "—" },
+    );
+    assert.equal(v.metrics.forceCheckVisible, true);
+    assert.equal(v.metrics.forceCheck, "coast ok");
+  });
+
+  it("staged metrics booster cell", () => {
+    const v = buildTelemetryView(
+      baseTel({ staged: true, fuelBooster: 0 }),
+      { skyLine: () => "—" },
+    );
+    assert.equal(v.metrics.booster, "staged · empty");
+    assert.equal(v.metrics.staged, "yes · ship only");
+  });
+
+  it("paused play label", () => {
+    const v = buildTelemetryView(baseTel({ playing: false }), {
+      skyLine: () => "—",
+    });
+    assert.equal(v.main.playLabel, "Play");
+    assert.equal(v.main.playPressed, false);
+    assert.match(v.metrics.playback, /paused/);
+  });
+});

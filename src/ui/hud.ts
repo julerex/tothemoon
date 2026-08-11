@@ -5,10 +5,6 @@ import {
   buildBookmarks,
   type CinematicBookmark,
 } from "../mission/bookmarks";
-import {
-  landingBeatCompleteSubtitle,
-  type LandingBeatKind,
-} from "../mission/landingBeat";
 import { buildScrubEventTicks } from "../mission/scrubEvents";
 import {
   buildNewsBeats,
@@ -23,15 +19,6 @@ import type {
 } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
 import type { Sample } from "../physics/missionTypes";
-import { formatSkyPhaseLine } from "../physics/skyPhase";
-import {
-  BOOSTER_DRY_KG,
-  BOOSTER_PROP_KG,
-  R_EARTH,
-  R_MOON,
-  SHIP_DRY_KG,
-  SHIP_PROP_KG,
-} from "../physics/constants";
 import {
   buildBoosterKeyframes,
   type RecoveryProfile,
@@ -48,34 +35,7 @@ import {
   redrawEarthGcOverlay,
   setEarthGcOverlayOpen,
 } from "./earthGcOverlay";
-import {
-  clamp01,
-  formatAccelG,
-  formatDistance,
-  formatDistancePrecise,
-  formatFocusDistance,
-  formatFuel,
-  formatFuelDetailed,
-  formatMassKg,
-  formatMinMoonAlt,
-  formatMissionTime,
-  formatMissionTimeDetailed,
-  formatOptional,
-  formatPlaybackLine,
-  formatProgressPercent,
-  formatProgressRemainingLine,
-  formatSpeed,
-  formatSpeedPrecise,
-  formatThrust,
-  formatThrustDetailed,
-  formatTranslunarInjectionDv,
-  formatTranslunarInjectionDvDetailed,
-  formatWebcastMissionTime,
-  fuelBarWidthPercent,
-  parseSpeedMode,
-  thrustAccelG,
-  wetMassFromFuel,
-} from "./hudFormat";
+import { formatMissionTime, parseSpeedMode } from "./hudFormat";
 import {
   ensurePolarOverlayBound,
   isPolarOverlayOpen,
@@ -84,7 +44,14 @@ import {
   setPolarOverlayOpen,
   setPolarOverlaySamples,
 } from "./polarOverlay";
+import {
+  buildTelemetryView,
+  type Telemetry,
+  type TelemetryView,
+} from "./telemetryView";
 import { drawVisualKeymap } from "./visualKeymap";
+
+export type { Telemetry } from "./telemetryView";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
@@ -122,55 +89,6 @@ export type HudHandlers = {
    * focus pick (Auto-cam stays on).
    */
   onBookmark?: (bookmark: CinematicBookmark) => void;
-};
-
-export type Telemetry = {
-  phase: string;
-  phaseId: PhaseId;
-  t: number;
-  durationS: number;
-  distanceToMoon: number;
-  altitude: number;
-  speed: number;
-  /** Booster propellant remaining 0–1 */
-  fuelBooster: number;
-  /** Ship propellant remaining 0–1 */
-  fuelShip: number;
-  /** Thrust force (N) */
-  thrustN: number;
-  playing: boolean;
-  dateUtc: string;
-  /** Effective playback speed currently applied to the clock */
-  playbackSpeed: number;
-  /** True once the craft has landed (and landing-beat hold has elapsed) */
-  missionComplete: boolean;
-  /** Terminal beat kind for complete-card copy (landed / impact / flyby) */
-  completeKind?: LandingBeatKind | null;
-  /** Translunar injection Δv (km/s) for mission-complete stats */
-  translunarInjectionDeltaV: number;
-  /** Minimum lunar altitude during approach/capture (km) */
-  minMoonAlt: number;
-  /** Peak inertial |v| (km/s) from pack meta */
-  peakSpeedKmS?: number;
-  /** Mission time of booster stage-out (s), or null */
-  stageT?: number | null;
-  /** Peak |r_nbody − r_kepler| on Translunar injection coast (km) */
-  keplerRefMaxDevKm?: number;
-  /** Camera distance to focus target (km) */
-  focusDistance: number;
-  /** Detailed metrics (M overlay) */
-  altEarth: number;
-  altMoon: number;
-  distMoon: number;
-  speedEarth: number;
-  speedMoon: number;
-  staged: boolean;
-  burning: boolean;
-  /**
-   * Optional Flight 13 force-model check (n-body vs Earth-only).
-   * When set, Metrics shows a "Force check" row.
-   */
-  forceCompareLine?: string | null;
 };
 
 const CALLOUT_MS = 4200;
@@ -1138,94 +1056,15 @@ export function bindHud(
   }
 
   function update(tel: Telemetry): void {
-    const u = tel.durationS > 0 ? tel.t / tel.durationS : 0;
-    phaseEl.textContent = tel.phase;
-    if (missionClockEl) {
-      missionClockEl.textContent = formatWebcastMissionTime(tel.t);
-    }
-    updateNewsTicker(tel.t, tel.playing, tel.playbackSpeed);
-    if (dateEl) dateEl.textContent = tel.dateUtc;
-    distEl.textContent = formatDistance(tel.distanceToMoon);
-    progEl.textContent = formatProgressPercent(tel.t, tel.durationS);
-    altEl.textContent = formatDistance(Math.max(0, tel.altitude));
-    if (camEl) camEl.textContent = formatFocusDistance(tel.focusDistance);
-    spdEl.textContent = formatSpeed(tel.speed);
-    boosterEl.textContent = formatFuel(tel.fuelBooster, "booster");
-    shipEl.textContent = formatFuel(tel.fuelShip, "ship");
-    thrustEl.textContent = formatThrust(tel.thrustN);
-    // Sky phase (Sun / Moon) — live at scrubber time
-    if (skyEl) {
-      try {
-        skyEl.textContent = formatSkyPhaseLine(Math.max(0, tel.t));
-      } catch {
-        skyEl.textContent = "—";
-      }
-    }
-    if (barBooster) {
-      barBooster.style.width = fuelBarWidthPercent(tel.fuelBooster);
-    }
-    if (barShip) {
-      barShip.style.width = fuelBarWidthPercent(tel.fuelShip);
-    }
+    const view = buildTelemetryView(tel);
+    applyMainTelemetry(view);
+    applyCompleteCard(view);
 
     lastPlaying = tel.playing;
-    if (btnPlay) {
-      btnPlay.textContent = tel.playing ? "Pause" : "Play";
-      btnPlay.setAttribute("aria-pressed", tel.playing ? "true" : "false");
-    }
-
-    // Mission complete panel (main delays this until landing-beat hold elapses)
-    if (completeEl) {
-      if (tel.missionComplete) {
-        if (!completeShown) {
-          completeShown = true;
-          if (mcSub) {
-            mcSub.textContent = landingBeatCompleteSubtitle(tel.completeKind, {
-              splashdown: tel.phaseId === "splashdown",
-            });
-          }
-          if (mcDuration) mcDuration.textContent = formatMissionTime(tel.durationS);
-          if (mcTranslunarInjectionDeltaV) {
-            mcTranslunarInjectionDeltaV.textContent = formatTranslunarInjectionDv(
-              tel.translunarInjectionDeltaV,
-            );
-          }
-          if (mcMinAlt) {
-            mcMinAlt.textContent = formatMinMoonAlt(tel.minMoonAlt);
-          }
-          if (mcFuel) mcFuel.textContent = formatFuel(tel.fuelShip, "ship");
-          if (mcPeakSpeed) {
-            mcPeakSpeed.textContent = formatOptional(
-              tel.peakSpeedKmS,
-              formatSpeed,
-            );
-          }
-          if (mcStageT) {
-            mcStageT.textContent = formatOptional(
-              tel.stageT,
-              formatMissionTime,
-            );
-          }
-          if (mcSky) {
-            try {
-              // Phase at terminal mission time (landing / splash)
-              mcSky.textContent = formatSkyPhaseLine(
-                Math.max(0, tel.durationS > 0 ? tel.durationS : tel.t),
-              );
-            } catch {
-              mcSky.textContent = "—";
-            }
-          }
-        }
-        completeEl.hidden = false;
-      } else {
-        completeEl.hidden = true;
-        completeShown = false;
-      }
-    }
+    updateNewsTicker(tel.t, tel.playing, tel.playbackSpeed);
 
     // Keep the speed select in sync with keyboard nudges
-    const rateStr = String(tel.playbackSpeed);
+    const rateStr = String(view.main.playbackSpeed);
     if (
       speed.value !== rateStr &&
       speed.querySelector(`option[value="${rateStr}"]`)
@@ -1234,7 +1073,7 @@ export function bindHud(
     }
 
     if (!scrubbing) {
-      scrub.value = String(Math.round(Math.min(1, u) * 1000));
+      scrub.value = view.main.scrubValue;
     }
 
     // Highlight active phase marker
@@ -1247,7 +1086,7 @@ export function bindHud(
 
     maybeFireEvents(tel.t, tel.playing);
 
-    if (metricsOpen) updateMetrics(tel);
+    if (metricsOpen) applyMetrics(view);
     if (crossSectionOpen) redrawCrossSection(tel.t);
     if (isEarthGcOverlayOpen()) redrawEarthGcOverlay();
     setPolarOverlayMissionT(tel.t);
@@ -1255,98 +1094,92 @@ export function bindHud(
     if (keymapOpen) redrawKeymap();
   }
 
-  function updateMetrics(tel: Telemetry): void {
-    const rEarth = R_EARTH + tel.altEarth;
-    const rMoon = tel.distMoon;
-    const boosterKg = clamp01(tel.fuelBooster) * BOOSTER_PROP_KG;
-    const shipKg = clamp01(tel.fuelShip) * SHIP_PROP_KG;
-    const wetKg = wetMassFromFuel(
-      tel.fuelBooster,
-      tel.fuelShip,
-      tel.staged,
-      BOOSTER_DRY_KG,
-      BOOSTER_PROP_KG,
-      SHIP_DRY_KG,
-      SHIP_PROP_KG,
-    );
-    const accelG = thrustAccelG(tel.thrustN, wetKg);
-
-    setText(mx.phase, tel.phase);
-    setText(mx.time, formatMissionTimeDetailed(tel.t));
-    setText(mx.date, tel.dateUtc);
-    try {
-      setText(mx.sky, formatSkyPhaseLine(Math.max(0, tel.t)));
-    } catch {
-      setText(mx.sky, "—");
+  /** Apply pure main-strip labels to the DOM. */
+  function applyMainTelemetry(view: TelemetryView): void {
+    const m = view.main;
+    phaseEl.textContent = m.phase;
+    if (missionClockEl) missionClockEl.textContent = m.missionClock;
+    if (dateEl) dateEl.textContent = m.dateUtc;
+    distEl.textContent = m.distance;
+    progEl.textContent = m.progress;
+    altEl.textContent = m.altitude;
+    if (camEl) camEl.textContent = m.focusDistance;
+    spdEl.textContent = m.speed;
+    boosterEl.textContent = m.fuelBooster;
+    shipEl.textContent = m.fuelShip;
+    thrustEl.textContent = m.thrust;
+    if (skyEl) skyEl.textContent = m.sky;
+    if (barBooster) barBooster.style.width = m.fuelBoosterBar;
+    if (barShip) barShip.style.width = m.fuelShipBar;
+    if (btnPlay) {
+      btnPlay.textContent = m.playLabel;
+      btnPlay.setAttribute("aria-pressed", m.playPressed ? "true" : "false");
     }
-    setText(
-      mx.progress,
-      formatProgressRemainingLine(tel.t, tel.durationS),
-    );
-    setText(
-      mx.playback,
-      formatPlaybackLine(tel.playbackSpeed, tel.playing),
-    );
-    setText(mx.altEarth, formatDistancePrecise(tel.altEarth));
-    setText(mx.rEarth, formatDistancePrecise(rEarth));
-    setText(mx.altMoon, formatDistancePrecise(tel.altMoon));
-    setText(mx.distMoon, formatDistancePrecise(Math.max(0, rMoon - R_MOON)));
-    setText(mx.rMoon, formatDistancePrecise(rMoon));
-    setText(mx.cam, formatFocusDistance(tel.focusDistance));
-    setText(mx.speed, formatSpeedPrecise(tel.speed));
-    setText(mx.speedEarth, formatSpeedPrecise(tel.speedEarth));
-    setText(mx.speedMoon, formatSpeedPrecise(tel.speedMoon));
-    setText(
-      mx.booster,
-      tel.staged
-        ? "staged · empty"
-        : formatFuelDetailed(tel.fuelBooster, boosterKg, BOOSTER_PROP_KG),
-    );
-    setText(
-      mx.ship,
-      formatFuelDetailed(tel.fuelShip, shipKg, SHIP_PROP_KG),
-    );
-    setText(mx.mass, formatMassKg(wetKg));
-    setText(mx.thrust, formatThrustDetailed(tel.thrustN));
-    setText(mx.accel, formatAccelG(accelG));
-    setText(
-      mx.engines,
-      tel.burning && tel.thrustN > 500 ? "burning" : "coast / idle",
-    );
-    setText(mx.staged, tel.staged ? "yes · ship only" : "no · full stack");
-    setText(mx.duration, formatMissionTimeDetailed(tel.durationS));
-    setText(
-      mx.translunarInjectionDeltaV,
-      formatTranslunarInjectionDvDetailed(tel.translunarInjectionDeltaV),
-    );
-    setText(
-      mx.minalt,
-      Number.isFinite(tel.minMoonAlt)
-        ? formatDistancePrecise(Math.max(0, tel.minMoonAlt))
-        : "—",
-    );
-    setText(
-      mx.peakSpeed,
-      formatOptional(tel.peakSpeedKmS, formatSpeedPrecise),
-    );
-    setText(
-      mx.stageT,
-      formatOptional(tel.stageT, formatMissionTimeDetailed),
-    );
-    setText(
-      mx.keplerDev,
-      tel.keplerRefMaxDevKm != null &&
-        Number.isFinite(tel.keplerRefMaxDevKm) &&
-        tel.keplerRefMaxDevKm > 0
-        ? formatDistancePrecise(tel.keplerRefMaxDevKm)
-        : "—",
-    );
-    // Flight 13: n-body vs Earth-only force check (optional)
+  }
+
+  /**
+   * Mission-complete card: fill once when the beat becomes ready; hide when
+   * scrubbing back into the mission.
+   */
+  function applyCompleteCard(view: TelemetryView): void {
+    if (!completeEl) return;
+    if (view.complete) {
+      if (!completeShown) {
+        completeShown = true;
+        const c = view.complete;
+        if (mcSub) mcSub.textContent = c.subtitle;
+        if (mcDuration) mcDuration.textContent = c.duration;
+        if (mcTranslunarInjectionDeltaV) {
+          mcTranslunarInjectionDeltaV.textContent = c.translunarInjectionDeltaV;
+        }
+        if (mcMinAlt) mcMinAlt.textContent = c.minMoonAlt;
+        if (mcFuel) mcFuel.textContent = c.fuelShip;
+        if (mcPeakSpeed) mcPeakSpeed.textContent = c.peakSpeed;
+        if (mcStageT) mcStageT.textContent = c.stageT;
+        if (mcSky) mcSky.textContent = c.sky;
+      }
+      completeEl.hidden = false;
+    } else {
+      completeEl.hidden = true;
+      completeShown = false;
+    }
+  }
+
+  /** Apply pure Metrics overlay labels. */
+  function applyMetrics(view: TelemetryView): void {
+    const m = view.metrics;
+    setText(mx.phase, m.phase);
+    setText(mx.time, m.time);
+    setText(mx.date, m.date);
+    setText(mx.sky, m.sky);
+    setText(mx.progress, m.progress);
+    setText(mx.playback, m.playback);
+    setText(mx.altEarth, m.altEarth);
+    setText(mx.rEarth, m.rEarth);
+    setText(mx.altMoon, m.altMoon);
+    setText(mx.distMoon, m.distMoon);
+    setText(mx.rMoon, m.rMoon);
+    setText(mx.cam, m.cam);
+    setText(mx.speed, m.speed);
+    setText(mx.speedEarth, m.speedEarth);
+    setText(mx.speedMoon, m.speedMoon);
+    setText(mx.booster, m.booster);
+    setText(mx.ship, m.ship);
+    setText(mx.mass, m.mass);
+    setText(mx.thrust, m.thrust);
+    setText(mx.accel, m.accel);
+    setText(mx.engines, m.engines);
+    setText(mx.staged, m.staged);
+    setText(mx.duration, m.duration);
+    setText(mx.translunarInjectionDeltaV, m.translunarInjectionDeltaV);
+    setText(mx.minalt, m.minalt);
+    setText(mx.peakSpeed, m.peakSpeed);
+    setText(mx.stageT, m.stageT);
+    setText(mx.keplerDev, m.keplerDev);
     if (mx.forceRow && mx.forceCheck) {
-      const line = tel.forceCompareLine?.trim();
-      if (line) {
+      if (m.forceCheckVisible) {
         mx.forceRow.hidden = false;
-        mx.forceCheck.textContent = line;
+        mx.forceCheck.textContent = m.forceCheck;
       } else {
         mx.forceRow.hidden = true;
         mx.forceCheck.textContent = "—";
