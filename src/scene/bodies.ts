@@ -262,9 +262,9 @@ function makeEarthExtraMaps(
 
 /** Base params for Earth MeshStandardMaterial (before soft terminator). */
 function earthMaterialParams(
-  map: THREE.CanvasTexture,
-  rough: THREE.CanvasTexture,
-  night: THREE.CanvasTexture,
+  map: THREE.Texture,
+  rough: THREE.Texture,
+  night: THREE.Texture,
 ): THREE.MeshStandardMaterialParameters {
   return {
     map,
@@ -279,9 +279,9 @@ function earthMaterialParams(
 
 /** Earth surface MeshStandardMaterial with soft terminator. */
 function makeEarthMaterial(
-  map: THREE.CanvasTexture,
-  rough: THREE.CanvasTexture,
-  night: THREE.CanvasTexture,
+  map: THREE.Texture,
+  rough: THREE.Texture,
+  night: THREE.Texture,
 ): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial(
     earthMaterialParams(map, rough, night),
@@ -320,7 +320,64 @@ function makeEarthMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
 function makeTexturedEarth(texSize: number): THREE.Mesh {
   const { canvas, map } = makeEarthAlbedoMap(texSize);
   const { rough, night } = makeEarthExtraMaps(canvas, texSize);
-  return makeEarthMesh(makeEarthMaterial(map, rough, night));
+  const earth = makeEarthMesh(makeEarthMaterial(map, rough, night));
+  loadEarthPhotoAlbedo(earth);
+  return earth;
+}
+
+/** Draw a loaded image onto a canvas (optionally downsampled) for roughness remap. */
+function canvasFromTextureImage(
+  tex: THREE.Texture,
+  maxWidth = 2048,
+): HTMLCanvasElement | null {
+  const img = tex.image as { width?: number; height?: number } | undefined;
+  if (!img || typeof img.width !== "number" || typeof img.height !== "number") {
+    return null;
+  }
+  const w = Math.min(maxWidth, img.width);
+  const h = Math.max(1, Math.round((w * img.height) / img.width));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(img as CanvasImageSource, 0, 0, w, h);
+  return canvas;
+}
+
+/** Swap procedural albedo for NASA Blue Marble; rebuild roughness from the photo. */
+function applyEarthPhotoAlbedo(earth: THREE.Mesh, tex: THREE.Texture): void {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  const mat = earth.material as THREE.MeshStandardMaterial;
+  const prevMap = mat.map;
+  const prevRough = mat.roughnessMap;
+  mat.map = tex;
+  const canvas = canvasFromTextureImage(tex);
+  if (canvas) {
+    mat.roughnessMap = canvasDataMap(makeEarthRoughnessMap(canvas), 4);
+  }
+  mat.needsUpdate = true;
+  prevMap?.dispose();
+  prevRough?.dispose();
+}
+
+function onEarthPhotoMissing(): void {
+  console.warn("[tothemoon] NASA Blue Marble missing; using procedural Earth");
+}
+
+/** Prefer committed Blue Marble; keep procedural albedo if the JPEG is absent. */
+function loadEarthPhotoAlbedo(earth: THREE.Mesh): void {
+  const url = `${import.meta.env.BASE_URL}textures/earth_bluemarble_4k.jpg`;
+  new THREE.TextureLoader().load(
+    url,
+    (tex) => applyEarthPhotoAlbedo(earth, tex),
+    undefined,
+    () => onEarthPhotoMissing(),
+  );
 }
 
 /** Attach clouds + atmosphere shells + polar axis visual. */

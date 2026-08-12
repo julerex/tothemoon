@@ -14,3 +14,29 @@ Catalogs: Hipparcos-2, Tycho-2, Gaia DR2, Yale Bright Star Catalog, UCAC3, XHIP.
 
 U.S. government works from NASA are generally not subject to copyright in the
 United States; please retain credit when redistributing.
+
+---
+
+NASA Earth Observatory — Blue Marble Next Generation (December 2004)
+Source: https://visibleearth.nasa.gov/images/73909/blue-marble-next-generation-december
+File: earth_bluemarble_4k.jpg
+  Downsampled from world.topo.bathy.200412.3x21600x10800.jpg (21600×10800)
+  to 4096×2048 equirectangular for web use.
+  Original: https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x21600x10800.jpg
+
+Credit: NASA Earth Observatory.
+  Blue Marble Next Generation by Reto Stöckli, NASA Earth Observatory,
+  based on data from the MODIS science team.
+
+---
+
+Sentinel-2 cloudless mosaic — Starbase / Boca Chica surrounds
+Source: https://s2maps.eu/  (EOX IT Services GmbH)
+WMS: https://tiles.maps.eox.at/  layer s2cloudless-2024
+File: starbase_surrounds.jpg
+  4096×4096 JPEG crop, ~16×16 km box centered on 25.997°N 97.156°W
+  (EPSG:4326 bbox −97.236, 25.925, −97.076, 26.069), north-up.
+
+Contains modified Copernicus Sentinel data [2024].
+Sentinel-2 cloudless by EOX IT Services GmbH, licensed CC BY 4.0
+  https://creativecommons.org/licenses/by/4.0/
