@@ -166,7 +166,6 @@ function fillMainMenu(main: HTMLElement): void {
 function mainMenuHtml(): string {
   return [
     '<div class="menu-panel">',
-    '<p class="menu-kicker">Interactive mission theater</p>',
     '<h1 class="menu-title">tothemoon</h1>',
     mainMenuLead(),
     mainMenuNav(),
