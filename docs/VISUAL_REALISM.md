@@ -41,6 +41,8 @@ Related:
 
 **Shipped (V5):** tight pad+craft sun shadows, mild bloom + altitude exposure, star-dome fade, entry brownout haze.
 
+**Next (V6+):** terminal landings (dust/splash), Flight 13 entry craft, recovery catch, lunar site plate, coast watchability — see below.
+
 Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
 ---
@@ -66,6 +68,13 @@ Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,cinema,textur
 | **V3** | Pad close-up | Trench + pad cams are first-class now |
 | **V4** | Craft materials | Fin/gridfin cams need readable metal/tile |
 | **V5** | Cinema (shadows / post) | Biggest jump; do after V0–V3 or risk thrash |
+| **V6** | Terminal FX (dust / splash) | Both finales still thin vs pad/ascent |
+| **V7** | Entry / belly-flop craft | Flight 13’s unique act; attitude already exists |
+| **V8** | Recovery catch theater | Completes booster story Auto-cam sells |
+| **V9** | Lunar site plate | Smooth Moon + label → place that reads |
+| **V10** | Coast / LOI watchability | Longest scrub stretch; cheap overlays |
+| **V11** | Pad horizon depth | Optional; V3 already dense |
+| **V12** | Finale camera beats | Pair with V6/V7; multiplies FX |
 
 ---
 
@@ -179,6 +188,99 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 5. ~~**V4** — craft materials as needed for fin/gridfin~~ **done**  
 6. ~~**V5** — shadows / post only when the above is stable~~ **done**  
 
+**Next (post-V5):**
+
+7. **V6** — terminal dust + splash (both missions)  
+8. **V7** — Flight 13 entry / belly-flop craft readability  
+9. **V8** — chopsticks catch + Gulf site plate  
+10. **V9** — lunar Malapert site plate (after V6 dust)  
+11. **V12** — finale camera beats alongside V6/V7  
+12. **V10** — coast watchability when long scrub feels empty  
+13. **V11** — pad horizon last (diminishing returns)
+
+---
+
+## V6 — Terminal FX: lunar dust + ocean splash
+
+Both finales are still mostly a beacon + expanding disc (`landingFx.ts`, `splashFx.ts`) after a strong pad/ascent stack. Highest dual-mission ROI.
+
+- Multi-layer scrub-safe rings/sprites (inner spray, outer mist, brief vertical sheet) keyed to `alt` / `missionT − landT` — same tier pattern as pad deluge.
+- Touchdown “settle” beat: brief opacity spike then exponential fade (extend existing `landedDust` / `splashdownSpray`).
+- Optional craft-parented shadow contact cue when V5 shadows are active near the surface.
+- Pure helpers + unit tests for strength curves (scrub-deterministic).
+
+**Files:** `landingFx.ts`, `splashFx.ts`, mission `applyState` wiring.
+
+---
+
+## V7 — Entry / belly-flop craft readability (Flight 13)
+
+Physics and attitude already exist; chase shots still read as a rigid prop with additive plasma sprites.
+
+- Windward tile **emissive / char** intensity driven by `entryPlasmaStrength` (scrub-safe), not more plasma sprites.
+- Flap / elevon angle from AoA / phase so belly-flop reads as control surfaces.
+- Slight plasma trail asymmetry + bank-linked offset so chase matches news-ticker “plasma corridor” copy.
+
+**Files:** `craft.ts`, `entryFx.ts`, `missions/flight13/orientCraft.ts`, `flight13Attitude.ts`.
+
+---
+
+## V8 — Recovery catch theater (chopsticks + Gulf)
+
+Completes the booster story Auto-cam already sells (gridfin → recovery). NEXT.md still flags chopsticks close as optional.
+
+- Scrub-driven **chopsticks close** + carriage settle when recovery phase → `caught`.
+- **Gulf soft-land site plate** (beacon/ring like splash) at gulf lat/lon so offshore landing isn’t “vanish into ocean.”
+- Brief catch/land plume + contact flash on booster (reuse staging flash vocabulary).
+
+**Files:** `earthTheater.ts` / pad launch FX, `stagingFx.ts`, `boosterRecovery.ts`, Flight 13 bootstrap.
+
+---
+
+## V9 — Lunar site plate (Malapert close-up)
+
+Lunar finale is still smooth globe + HUD label. Do after V6 so dust and plate compose.
+
+- Local procedural “massif” cues: darker floors, rim rings, polar shadow wedges around land point (canvas/decals on a small local mesh — not DEM).
+- Landing-light / engine wash on surface during descent burn (point light + dust brightening).
+- Pair dust with craft shadow when low (open V2 note).
+
+**Files:** `landingFx.ts`, `textures.ts` or local canvas, lunar mission `applyState`, maybe `cinema.ts` shadow focus near Moon.
+
+---
+
+## V10 — Coast / LOI / cislunar watchability
+
+Longest scrub stretch; corridor already exists — add punctuation, not new physics.
+
+- Phase-reactive trail: coast dim, LOI/`approach` burn punch (partially there), perilune approach pulse.
+- Sparse mid-coast beats: Earth–Moon angle whisker, Sun–craft terminator cue, optional bookmark-aligned framing nudge.
+- Restrained deep-space bloom/exposure so LOI plume/trail pops against black (`cinema.ts` already altitude-gates).
+
+**Files:** `coastCorridor.ts`, trail styling in lunar `applyState`, `autoCam.ts` / bookmarks, `cinema.ts`.
+
+---
+
+## V11 — Pad horizon / coastal depth (optional, lower)
+
+Nice for trench/pad cams; V3 already dense — diminishing returns vs V6–V8.
+
+- Distant coastline / lagoon glints beyond scrub disc for pad+trench cams only (LOD-gated).
+- Soft horizon haze tied to `groundSky` day factor so pad doesn’t end in a hard texture cutoff.
+
+**Files:** `earthTheater.ts`, `groundSky.ts`, `textures.ts`.
+
+---
+
+## V12 — Chase / finale camera beats (pair with V6 / V7)
+
+Multiplies terminal FX; alone does not fix thin discs.
+
+- Flight 13: brief splash-oriented ease (lower chase / ocean horizon) on descent → splashdown.
+- Lunar: slightly wider chase in final ~30 s so dust plate + ship share frame.
+
+**Files:** `autoCam.ts`, `camera/modes.ts`, mission loops.
+
 ---
 
 ## Out of scope (unless explicitly requested)
@@ -187,6 +289,9 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 - Real-time volumetric clouds or full atmospheric scattering path
 - Ops-grade plume CFD tables
 - Non-deterministic particle systems that break scrubbing
+- WebGPU-only post path (keep WebGL first-class)
+- Inflating craft/pad scale for “cinematics”
+- Full-scene shadows beyond the existing pad/craft frustum
 
 ---
 
@@ -201,3 +306,4 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 | 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |
 | 2026-08-11 | V4 shipped: stainless anisotropy + weld rings, windward tile edge wear, denser grid fins |
 | 2026-08-11 | V5 shipped: pad/craft shadows, mild bloom + exposure, star fade, entry brownout |
+| 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V11 pad horizon, V12 finale cams |

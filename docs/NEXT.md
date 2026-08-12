@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (lighting, Earth night, plumes, pad close-up, shadows): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (lighting, Earth night, plumes, pad close-up, shadows; **next:** terminal FX, entry craft, recovery catch, lunar site): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
 
@@ -207,7 +207,8 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 1. ~~**Flight 13 Auto-cam story**~~ **done** (trench → ship → gridfin → entry chase)  
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
-4. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
+4. **Visual V6+** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+5. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
 
@@ -267,3 +268,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Visual V2: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun surface |
 | 2026-08-11 | Visual V4: stainless anisotropy/welds, windward tile wear, denser grid-fin silhouette |
 | 2026-08-11 | Visual V5: tight sun shadows, mild bloom/exposure, star fade, entry brownout |
+| 2026-08-12 | Visual V6+ backlog: terminal FX → entry craft → recovery catch → lunar site; coast / pad horizon / finale cams |
