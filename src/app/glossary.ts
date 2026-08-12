@@ -48,6 +48,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Shown as theater kinematics on Super Heavy recovery.",
   },
   {
+    id: "chopsticks",
+    term: "Chopsticks / Mechazilla",
+    category: "vehicle",
+    definition:
+      "The tower arms at Starbase that catch Super Heavy on return. Mechazilla is the tower; the chopsticks are the pair of beams that close around the booster. Theater silhouette only — not a mechanical sim.",
+  },
+  {
     id: "cross-section",
     term: "Cross-section",
     category: "views",
@@ -81,6 +88,20 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "physics",
     definition:
       "Earth’s orbital plane around the Sun. The theater frame is ecliptic J2000 (XY = ecliptic, +Z = ecliptic north). The Polar map looks along +Z onto that plane.",
+  },
+  {
+    id: "flame-trench",
+    term: "Flame trench",
+    category: "vehicle",
+    definition:
+      "Open channel under the launch mount that directs engine exhaust away from the pad at liftoff. The Launchpad camera (key 5) stands in this trench looking up at the Super Heavy engine bells.",
+  },
+  {
+    id: "hardstand",
+    term: "Hardstand",
+    category: "vehicle",
+    definition:
+      "The concrete apron around the launch mount — roads, slabs, and tank farm at true pad scale. Distinct from the tan coastal brush (scrub) outside the concrete.",
   },
   {
     id: "hot-stage",
@@ -118,6 +139,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Craft integrated under Earth + Moon gravity (plus solar tide, Earth J₂, and simple drag at low altitude). Bodies follow prescribed ephemerides; the craft does not back-react on them.",
   },
   {
+    id: "olm",
+    term: "OLM (Orbital Launch Mount)",
+    category: "vehicle",
+    definition:
+      "Steel ring-table the Super Heavy stack sits on at Starbase. Open in the center so engine exhaust dumps into the flame trench; the Launchpad camera looks through that opening at the Raptors.",
+  },
+  {
     id: "polar-map",
     term: "Polar map",
     category: "views",
@@ -150,7 +178,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Starbase",
     category: "mission",
     definition:
-      "SpaceX launch site at Boca Chica, Texas. Both missions start from the pad theater (flame trench, tower, chopsticks silhouette) at true geographic scale on the spinning Earth.",
+      "SpaceX launch site at Boca Chica, Texas. Both missions start from the pad theater (OLM, flame trench, tower, chopsticks) at true geographic scale on the spinning Earth.",
   },
   {
     id: "starship",

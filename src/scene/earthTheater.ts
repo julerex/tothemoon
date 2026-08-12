@@ -14,6 +14,7 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
+import { PAD_VISUAL_ALT_KM, TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../camera/trenchCam";
 import { createFatLine } from "./fatLines";
 import {
   bloomVisual,
@@ -84,6 +85,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * | `pad-ground-bloom` | Tight under-plume bloom |
  * | `pad-beacon` | Tower peak (wall-clock pulse) |
  * | `mechazilla` / `pad-chopstick-*` / `pad-qd-arm` / `pad-olm` | Tower stack |
+ * | `trench-cam` / `trench-cam-look` | Flame-trench camera mount (under OLM) |
  *
  * @returns Root group named `starbase-pad`, already oriented on the globe
  * @see updateStarbaseLaunchFx
@@ -98,7 +100,7 @@ const GROUND_OFFSET = {
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 function placePadOnEarth(pad: THREE.Group): void {
-  const padAlt = Math.max(STARBASE_ALT, 0.05);
+  const padAlt = Math.max(STARBASE_ALT, PAD_VISUAL_ALT_KM);
   const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, R_EARTH + padAlt);
   pad.position.set(local.x, local.y, local.z);
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
@@ -159,10 +161,18 @@ function addPadTrenchAndFlame(pad: THREE.Group): void {
 }
 
 function addTrenchMeshes(pad: THREE.Group): void {
-  const trenchSteel = new THREE.MeshStandardMaterial({ color: 0x1a1c20, metalness: 0.45, roughness: 0.72 });
-  const trench = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.006, 0.055), trenchSteel);
-  trench.position.y = -0.006;
+  const trench = new THREE.Group();
   trench.name = "pad-trench";
+  const trenchSteel = new THREE.MeshStandardMaterial({ color: 0x1a1c20, metalness: 0.45, roughness: 0.72 });
+  // Open U-channel along ±Z so trench cam can see engines / flame, not a solid plug.
+  const wallH = 0.006;
+  const wallT = 0.0015;
+  const halfW = 0.009;
+  for (const x of [-halfW, halfW]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, 0.055), trenchSteel);
+    wall.position.set(x, -0.006, 0);
+    trench.add(wall);
+  }
   pad.add(trench);
   addTrenchFloor(pad);
 }
@@ -331,10 +341,22 @@ function addPadFxSprites(pad: THREE.Group): void {
   addPadVentSteam(pad, steamTex);
 }
 
+function addTrenchCamMounts(pad: THREE.Group): void {
+  const mount = new THREE.Object3D();
+  mount.name = "trench-cam";
+  mount.position.set(TRENCH_CAM_LOCAL.x, TRENCH_CAM_LOCAL.y, TRENCH_CAM_LOCAL.z);
+  pad.add(mount);
+  const look = new THREE.Object3D();
+  look.name = "trench-cam-look";
+  look.position.set(TRENCH_CAM_LOOK_LOCAL.x, TRENCH_CAM_LOOK_LOCAL.y, TRENCH_CAM_LOOK_LOCAL.z);
+  pad.add(look);
+}
+
 function populateStarbasePad(pad: THREE.Group): void {
   pad.add(createPadSurroundings());
   addPadLandmarks(pad);
   addPadTrenchAndFlame(pad);
+  addTrenchCamMounts(pad);
   addPadFxSprites(pad);
   pad.add(createMechazillaTower());
   pad.add(createPadLights());
@@ -460,16 +482,32 @@ function makeScrubTerrainMat(): THREE.MeshStandardMaterial {
   });
 }
 
+function addGroundRing(
+  g: THREE.Group,
+  innerR: number,
+  outerR: number,
+  mat: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  segs = 24,
+  name?: string,
+): void {
+  const mesh = new THREE.Mesh(new THREE.RingGeometry(innerR, outerR, segs, 1), mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, y, z);
+  if (name) mesh.name = name;
+  g.add(mesh);
+}
+
 function addPadScrubAndPond(g: THREE.Group, mats: PadSurroundMats): void {
-  // Single disc (r ≈ 1.55 km) covers the old multi-patch footprint without
-  // coplanar multi-mesh depth fighting.
-  addGroundDisc(g, 1.55, makeScrubTerrainMat(), 0, -0.007, 0, 48, "pad-scrub-terrain");
+  // Ring (not a disc) so the OLM / trench opening is not roofed from below.
+  addGroundRing(g, 0.08, 1.55, makeScrubTerrainMat(), 0, -0.007, 0, 48, "pad-scrub-terrain");
   addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20, "pad-pond");
 }
 
 type PadSlab = { size: [number, number, number]; pos: [number, number, number]; kind: "concrete" | "concreteLight" | "concreteDark" };
 const PAD_SLABS: PadSlab[] = [
-  { size: [0.16, 0.0028, 0.14], pos: [0.02, -0.0024, 0.0], kind: "concreteLight" },
   { size: [0.22, 0.0026, 0.2], pos: [0.14, -0.0026, 0.06], kind: "concrete" },
   { size: [0.18, 0.0025, 0.12], pos: [0.04, -0.0028, 0.14], kind: "concreteDark" },
   { size: [0.12, 0.0025, 0.1], pos: [0.12, -0.0028, -0.08], kind: "concrete" },
@@ -482,7 +520,19 @@ function addPadSlab(g: THREE.Group, mats: PadSurroundMats, s: PadSlab): void {
   g.add(slab);
 }
 
+function addOlmApronRing(g: THREE.Group, mats: PadSurroundMats): void {
+  const apron = new THREE.Mesh(
+    new THREE.RingGeometry(0.012, 0.08, 40, 1),
+    mats.concreteLight,
+  );
+  apron.rotation.x = -Math.PI / 2;
+  apron.position.y = -0.001;
+  apron.name = "pad-olm-apron";
+  g.add(apron);
+}
+
 function addPadHardstand(g: THREE.Group, mats: PadSurroundMats): void {
+  addOlmApronRing(g, mats);
   for (const s of PAD_SLABS) addPadSlab(g, mats, s);
 }
 
@@ -494,7 +544,7 @@ function makeScorchMat(): THREE.MeshStandardMaterial {
 }
 
 function addPadScorch(g: THREE.Group): void {
-  const scorch = new THREE.Mesh(new THREE.CircleGeometry(0.048, 40), makeScorchMat());
+  const scorch = new THREE.Mesh(new THREE.RingGeometry(0.008, 0.048, 40, 1), makeScorchMat());
   scorch.rotation.x = -Math.PI / 2;
   scorch.position.y = -0.0004;
   scorch.name = "pad-scorch";
@@ -1422,8 +1472,11 @@ function addQdHead(qd: THREE.Group, mats: TowerMats): void {
 }
 
 function addOlm(g: THREE.Group, mats: TowerMats): void {
-  const olmMat = new THREE.MeshStandardMaterial({ color: 0x4a4844, metalness: 0.62, roughness: 0.55 });
-  const olm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20), olmMat);
+  const olmMat = new THREE.MeshStandardMaterial({
+    color: 0x4a4844, metalness: 0.62, roughness: 0.55, side: THREE.DoubleSide,
+  });
+  // Open-ended ring (real OLM is a table with a hole) so trench cam sees Raptors.
+  const olm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20, 1, true), olmMat);
   olm.position.set(0, TOWER_OY0 + 0.002, 0);
   olm.name = "pad-olm";
   g.add(olm);

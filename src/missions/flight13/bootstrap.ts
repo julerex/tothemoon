@@ -506,6 +506,7 @@ function assembleOverlays(
   epoch: F13Ctx["epoch"],
 ) {
   const pad = mountPadAndTrail(core.bodies, cache, epoch);
+  core.director.setPad(pad.starbasePad);
   const orbits = mountMoonOrbits(
     core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.craftTrail,
   );
