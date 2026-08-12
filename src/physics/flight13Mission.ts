@@ -31,6 +31,8 @@ import {
   SHIP_THRUST_N,
 } from "./constants";
 import {
+  EARTH_SPIN_RATE,
+  earthNorthPole,
   geodeticToMeshLocal,
   meshLocalToInertial,
   starbasePadState,
@@ -66,6 +68,7 @@ import {
 import { deriveTrajectoryMeta } from "./trajectoryMeta";
 import {
   clone,
+  cross,
   dot,
   len,
   normalize,
@@ -785,21 +788,40 @@ function killInwardRadialRel(vel: V3, bodyVel: V3, dir: V3, L: number): void {
   vel.z -= (dir.z / L) * vr;
 }
 
-function dampRelVel(vel: V3, bodyVel: V3, factor: number): void {
-  vel.x = bodyVel.x + (vel.x - bodyVel.x) * factor;
-  vel.y = bodyVel.y + (vel.y - bodyVel.y) * factor;
-  vel.z = bodyVel.z + (vel.z - bodyVel.z) * factor;
+/** Soften velocity toward `refVel`: vel ← ref + (vel − ref)·factor. */
+function dampRelVel(vel: V3, refVel: V3, factor: number): void {
+  vel.x = refVel.x + (vel.x - refVel.x) * factor;
+  vel.y = refVel.y + (vel.y - refVel.y) * factor;
+  vel.z = refVel.z + (vel.z - refVel.z) * factor;
 }
 
-/** Keep craft above surface with light friction when decked early. */
+/**
+ * Co-rotating surface velocity at `_relP` (Earth COM vel + ω × r).
+ * Writes into `out`. Must not use `_relP` as `out`.
+ */
+function surfaceFrameVel(earthVel: V3, relP: V3, out: V3): V3 {
+  earthNorthPole(_tmp);
+  set(_tmp2, _tmp.x * EARTH_SPIN_RATE, _tmp.y * EARTH_SPIN_RATE, _tmp.z * EARTH_SPIN_RATE);
+  cross(_tmp3, _tmp2, relP);
+  return set(out, earthVel.x + _tmp3.x, earthVel.y + _tmp3.y, earthVel.z + _tmp3.z);
+}
+
+/**
+ * Keep craft above surface with light friction when decked early.
+ * Friction damps toward the **co-rotating pad frame** (not Earth COM) — damping
+ * vs earthVel strips ω×r and kicks the stack westward at liftoff (~17 m/s).
+ */
 function surfaceClamp(loop: F13Loop): void {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
   if (!(L - R_EARTH < 0.02 && loop.state.t < F13.SPLASH - 1)) return;
   placeOnSphere(loop.state.pos, b.earth, _relP, L, R_EARTH + 0.02);
-  killInwardRadialRel(loop.state.vel, b.earthVel, _relP, L);
-  dampRelVel(loop.state.vel, b.earthVel, 0.96);
+  sub(_relP, loop.state.pos, b.earth);
+  const L2 = len(_relP) || 1;
+  killInwardRadialRel(loop.state.vel, b.earthVel, _relP, L2);
+  surfaceFrameVel(b.earthVel, _relP, _tmp);
+  dampRelVel(loop.state.vel, _tmp, 0.96);
 }
 
 /** Drain propellant once per step. */

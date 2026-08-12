@@ -4,10 +4,15 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  EARTH_SPIN_RATE,
+  earthNorthPole,
+  enuAtPosition,
+} from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
 import { F13, runFlight13Mission } from "./flight13Mission.ts";
-import { len, sub, v3 } from "./vec3.ts";
+import { cross, dot, len, set, sub, v3 } from "./vec3.ts";
 
 describe("runFlight13Mission", () => {
   const epoch = makeFlight13Epoch(0, 0);
@@ -142,5 +147,33 @@ describe("runFlight13Mission", () => {
     assert.ok(a > 120, `SECO alt ${a}`);
     assert.ok(v > 7.0 && v < 8.2, `SECO v ${v}`);
     assert.ok(Math.abs(vr) < 0.45, `SECO vr ${vr}`);
+  });
+
+  it("liftoff stays near-vertical (no pad-frame west kick from surface clamp)", () => {
+    // Regression: surfaceClamp used to damp vs Earth COM and strip ω×r,
+    // injecting ~17 m/s ground-relative west and curving the pad trail sideways.
+    const up = v3(), east = v3(), north = v3();
+    const omega = v3(), rRel = v3(), vAtm = v3(), vRel = v3();
+    earthNorthPole(omega);
+    set(omega, omega.x * EARTH_SPIN_RATE, omega.y * EARTH_SPIN_RATE, omega.z * EARTH_SPIN_RATE);
+    let maxAbsEast = 0;
+    for (const s of result.samples) {
+      if (s.t > 20) break;
+      const b = getBodies(s.t, epoch);
+      set(rRel, s.pos.x - b.earth.x, s.pos.y - b.earth.y, s.pos.z - b.earth.z);
+      cross(vAtm, omega, rRel);
+      set(
+        vRel,
+        s.vel.x - b.earthVel.x - vAtm.x,
+        s.vel.y - b.earthVel.y - vAtm.y,
+        s.vel.z - b.earthVel.z - vAtm.z,
+      );
+      enuAtPosition(s.t, s.pos, b.earth, up, east, north);
+      maxAbsEast = Math.max(maxAbsEast, Math.abs(dot(vRel, east)));
+    }
+    assert.ok(
+      maxAbsEast < 0.005,
+      `early |v_east| ${maxAbsEast} km/s — expected near-zero before gravity turn`,
+    );
   });
 });
