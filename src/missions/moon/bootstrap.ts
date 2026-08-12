@@ -40,7 +40,6 @@ import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
 import { LandingFx } from "../../scene/landingFx";
 import {
-  createAscentGroundTrack,
   createStarbasePad,
 } from "../../scene/earthTheater";
 import { createGroundSky } from "../../scene/groundSky";
@@ -207,17 +206,14 @@ function mountCore(canvas: HTMLCanvasElement, epoch: Trajectory["epoch"]) {
 function mountPadTrail(
   bodies: ReturnType<typeof createBodies>,
   cache: Trajectory,
-  epoch: Trajectory["epoch"],
   orbitGroup: THREE.Group,
 ) {
   const starbasePad = createStarbasePad();
   bodies.earth.add(starbasePad);
   markPadShadowMeshes(starbasePad);
-  const groundTrack = createAscentGroundTrack(cache.samples, epoch);
-  if (groundTrack) bodies.earth.add(groundTrack);
   const craftTrail = createTrailFromPoints(trailPoints(cache, 1500)) as Line2;
   orbitGroup.add(craftTrail);
-  return { starbasePad, craftTrail, groundTrack };
+  return { starbasePad, craftTrail };
 }
 
 function mountCorridor(orbitGroup: THREE.Group, cache: Trajectory): void {
@@ -235,13 +231,11 @@ function mountOrbits(
   bodies: ReturnType<typeof createBodies>,
   cache: Trajectory,
   epoch: Trajectory["epoch"],
-  groundTrack: THREE.Object3D | null,
 ) {
   orbitGroup.add(createMoonPathThroughSim(cache.durationS, 640, epoch));
   const moonRelOrbit = createMoonRelativeOrbit(0, epoch);
   bodies.earthGroup.add(moonRelOrbit);
   const orbitExtras: THREE.Object3D[] = [moonRelOrbit];
-  if (groundTrack) orbitExtras.push(groundTrack);
   return { moonRelOrbit, orbitExtras };
 }
 
@@ -430,10 +424,10 @@ function assemblePadOrbits(
   cache: Trajectory,
 ) {
   const epoch = cache.epoch;
-  const pad = mountPadTrail(core.bodies, cache, epoch, core.sceneParts.orbitGroup);
+  const pad = mountPadTrail(core.bodies, cache, core.sceneParts.orbitGroup);
   mountCorridor(core.sceneParts.orbitGroup, cache);
   const orbits = mountOrbits(
-    core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.groundTrack,
+    core.sceneParts.orbitGroup, core.bodies, cache, epoch,
   );
   return { pad, orbits };
 }
@@ -446,8 +440,10 @@ function assembleCraftCinema(
   const { craft, locator } = mountCraft(core.sceneParts.scene, core.director);
   const cinema = createCinemaComposer(core.renderer, core.sceneParts.scene, core.camera);
   const vectorArrows = createVectorArrows();
-  core.sceneParts.scene.add(vectorArrows.group);
-  orbits.orbitExtras.push(vectorArrows.group);
+  if (vectorArrows.group.visible) {
+    core.sceneParts.scene.add(vectorArrows.group);
+    orbits.orbitExtras.push(vectorArrows.group);
+  }
   const fx = mountFx(core.sceneParts.scene, craft, core.director, cache, cache.epoch);
   return { craft, locator, cinema, vectorArrows, fx };
 }

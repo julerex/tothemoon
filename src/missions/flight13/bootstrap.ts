@@ -39,7 +39,6 @@ import { StagingFx, findStageEvent } from "../../scene/stagingFx";
 import { EntryFx } from "../../scene/entryFx";
 import { SplashFx } from "../../scene/splashFx";
 import {
-  createAscentGroundTrack,
   createStarbasePad,
 } from "../../scene/earthTheater";
 import { createGroundSky } from "../../scene/groundSky";
@@ -246,12 +245,10 @@ function mountPadAndTrail(
   const starbasePad = createStarbasePad();
   bodies.earth.add(starbasePad);
   markPadShadowMeshes(starbasePad);
-  const groundTrack = createAscentGroundTrack(cache.samples, epoch);
-  if (groundTrack) bodies.earth.add(groundTrack);
   const trailPts = meshLocalTrailFromSamples(cache.samples, 1500, epoch);
   const craftTrail = createTrailFromPoints(trailPts);
   bodies.earth.add(craftTrail);
-  return { starbasePad, craftTrail, groundTrack };
+  return { starbasePad, craftTrail };
 }
 
 function mountMoonOrbits(
@@ -260,13 +257,11 @@ function mountMoonOrbits(
   cache: Trajectory,
   epoch: F13Ctx["epoch"],
   craftTrail: THREE.Object3D,
-  groundTrack: THREE.Object3D | null,
 ) {
   orbitGroup.add(createMoonPathThroughSim(cache.durationS, 640, epoch));
   const moonRelOrbit = createMoonRelativeOrbit(0, epoch);
   bodies.earthGroup.add(moonRelOrbit);
   const orbitExtras: THREE.Object3D[] = [moonRelOrbit, craftTrail];
-  if (groundTrack) orbitExtras.push(groundTrack);
   return { moonRelOrbit, orbitExtras };
 }
 
@@ -512,7 +507,7 @@ function assembleOverlays(
 ) {
   const pad = mountPadAndTrail(core.bodies, cache, epoch);
   const orbits = mountMoonOrbits(
-    core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.craftTrail, pad.groundTrack,
+    core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.craftTrail,
   );
   const { craft, locator } = mountCraft(core.sceneParts.scene, core.director);
   return { pad, orbits, craft, locator };
@@ -525,8 +520,10 @@ function assembleCinema(
 ) {
   const cinema = createCinemaComposer(core.renderer, core.sceneParts.scene, core.camera);
   const vectorArrows = createVectorArrows();
-  core.sceneParts.scene.add(vectorArrows.group);
-  overlays.orbits.orbitExtras.push(vectorArrows.group);
+  if (vectorArrows.group.visible) {
+    core.sceneParts.scene.add(vectorArrows.group);
+    overlays.orbits.orbitExtras.push(vectorArrows.group);
+  }
   const fx = mountFx(core.sceneParts.scene, overlays.craft, core.director, cache, core.bodies);
   return { cinema, vectorArrows, fx };
 }

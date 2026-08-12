@@ -507,9 +507,29 @@ function disposeArrows(rt: ArrowRuntime): void {
 }
 
 /**
+ * Master switch for craft / Earth / Moon velocity + acceleration arrows.
+ * When false, {@link createVectorArrows} returns a no-op (nothing drawn).
+ */
+export const VECTOR_ARROWS_ENABLED = false;
+
+function createDisabledVectorArrows(): VectorArrows {
+  const group = new THREE.Group();
+  group.name = "vector-arrows";
+  group.visible = false;
+  return {
+    group,
+    update: () => {},
+    setPointer: () => {},
+    dispose: () => {},
+  };
+}
+
+/**
  * Build velocity + acceleration arrows for Starship, Earth, and Moon.
+ * Disabled when {@link VECTOR_ARROWS_ENABLED} is false.
  */
 export function createVectorArrows(): VectorArrows {
+  if (!VECTOR_ARROWS_ENABLED) return createDisabledVectorArrows();
   const rt = makeArrowRuntime();
   return {
     group: rt.group,
