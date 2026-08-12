@@ -21,3 +21,10 @@ When committing and pushing:
 - Scene unit = 1 km. Prefer small, focused diffs over drive-by refactors.
 - Hygiene: `npm run typecheck`, `npm run lint` (ESLint), `npm test` (or `npm run ci` for all three).
 - Prefer JSDoc on exported pure helpers and module headers; extend unit tests when changing physics or timeline contracts.
+
+## Cursor Cloud specific instructions
+
+- Single frontend service; no backend/database/external services. Standard commands live in `package.json` and `README.md` (`npm run dev`, `npm run ci`, `npm run build`, etc.). Node 22 is available and matches the toolchain.
+- The dev server runs at `http://localhost:5173/tothemoon/` — the `/tothemoon/` base path is required; the bare root `http://localhost:5173/` will not load the app.
+- WebGL gotcha for manual/browser testing: the 3D theater needs a WebGL context, which the cloud VM lacks a GPU for. Modern Chrome (v140+) gates software rendering, so you must launch Chrome with `--enable-unsafe-swiftshader` (together with `--use-gl=angle --use-angle=swiftshader --ignore-gpu-blocklist`) or the canvas stays black with a `THREE.WebGLRenderer: A WebGL context could not be created` error. The UI, routing, and trajectory data load fine without it — only the 3D render fails.
+- `npm run build`/`npm run precompute` regenerate the committed `src/data/*trajectory.json` packs; they usually produce a tiny diff (metadata) — revert those files unless a trajectory/physics change intentionally updates them.
