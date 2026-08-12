@@ -9,6 +9,13 @@ import {
   geodeticToMeshLocal,
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
+import {
+  STARBASE_PLATE_INNER_KM,
+  STARBASE_PLATE_OUTER_KM,
+  STARBASE_PLATE_Y_KM,
+  starbasePlateUv,
+  starbasePlateYawRad,
+} from "./starbasePlate";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
@@ -63,9 +70,11 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  *
  * - **True-scale** OLM + Mechazilla + OLP-2 hardstand / tank farm / GSE for
  *   Ship / pad / trench cams (satellite footprint: tower SW, tanks E/NE,
- *   warehouse + Boca Chica Blvd north, tan coastal scrub outside concrete).
+ *   warehouse + Boca Chica Blvd north). Sentinel-2 surrounds plate (~8 km)
+ *   replaces tan scrub when `starbase_surrounds.jpg` loads; procedural scrub
+ *   remains the fallback.
  * - **Landmark rings** for Earth cam (thin annuli — never a solid disc that
- *   would z-fight the stack).
+ *   would z-fight the stack). Hidden once the photo plate is on.
  *
  * ## Visual V3 close-up
  *
@@ -85,6 +94,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * | `pad-flood-*` / `pad-fill` / `pad-plume-light` | Lighting |
  * | `pad-ground-bloom` | Tight under-plume bloom |
  * | `pad-beacon` | Tower peak (wall-clock pulse) |
+ * | `pad-satellite-plate` | Sentinel-2 surrounds disc (hidden until JPEG loads) |
  * | `mechazilla` / `pad-chopstick-*` / `pad-qd-arm` / `pad-olm` | Tower stack |
  * | `trench-cam` / `trench-cam-look` | Flame-trench camera mount (under OLM) |
  *
@@ -143,6 +153,7 @@ function addLandmarkRim(pad: THREE.Group): void {
   );
   mesh.rotation.x = Math.PI / 2;
   mesh.position.y = -0.005;
+  mesh.name = "pad-landmark-rim";
   pad.add(mesh);
 }
 
@@ -355,6 +366,7 @@ function addTrenchCamMounts(pad: THREE.Group): void {
 function populateStarbasePad(pad: THREE.Group): void {
   pad.add(createPadSurroundings());
   addPadLandmarks(pad);
+  addStarbaseSatellitePlate(pad);
   addPadTrenchAndFlame(pad);
   addTrenchCamMounts(pad);
   addPadFxSprites(pad);
@@ -372,6 +384,119 @@ export function createStarbasePad(): THREE.Group {
   return pad;
 }
 
+const STARBASE_PLATE_HIDE = [
+  "pad-landmark-scrub",
+  "pad-landmark-ring",
+  "pad-landmark-rim",
+  "pad-scrub-terrain",
+] as const;
+
+/** Radial alpha: opaque through most of the disc, fade at the outer rim. */
+function paintPlateAlpha(ctx: CanvasRenderingContext2D, size: number): void {
+  const cx = size * 0.5;
+  const g = ctx.createRadialGradient(cx, cx, cx * 0.78, cx, cx, cx);
+  g.addColorStop(0, "#ffffff");
+  g.addColorStop(1, "#000000");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+}
+
+function makePlateAlphaTexture(): THREE.CanvasTexture {
+  const map = makeSizedCanvasTexture(256, paintPlateAlpha);
+  map.colorSpace = THREE.NoColorSpace;
+  return map;
+}
+
+/** Planar UVs on an XZ ring so the north-up JPEG maps +X east / +Z north. */
+function applyStarbasePlateUvs(geo: THREE.BufferGeometry, outerKm: number): void {
+  const pos = geo.getAttribute("position");
+  const uv = geo.getAttribute("uv");
+  if (!pos || !uv) return;
+  for (let i = 0; i < pos.count; i++) {
+    const [u, v] = starbasePlateUv(pos.getX(i), pos.getZ(i), outerKm);
+    uv.setXY(i, u, v);
+  }
+  uv.needsUpdate = true;
+}
+
+function makeStarbasePlateGeometry(): THREE.RingGeometry {
+  const geo = new THREE.RingGeometry(
+    STARBASE_PLATE_INNER_KM,
+    STARBASE_PLATE_OUTER_KM,
+    96,
+    1,
+  );
+  geo.rotateX(-Math.PI / 2);
+  applyStarbasePlateUvs(geo, STARBASE_PLATE_OUTER_KM);
+  return geo;
+}
+
+function makeStarbasePlateMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0.04,
+    roughness: 0.95,
+    transparent: true,
+    depthWrite: false,
+    alphaMap: makePlateAlphaTexture(),
+    ...GROUND_OFFSET,
+  });
+}
+
+function hideProceduralPadGround(pad: THREE.Group): void {
+  for (const name of STARBASE_PLATE_HIDE) {
+    const node = pad.getObjectByName(name);
+    if (node) node.visible = false;
+  }
+}
+
+function applyStarbasePlateTexture(
+  pad: THREE.Group,
+  plate: THREE.Mesh,
+  tex: THREE.Texture,
+): void {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  const mat = plate.material as THREE.MeshStandardMaterial;
+  mat.map = tex;
+  mat.needsUpdate = true;
+  plate.visible = true;
+  hideProceduralPadGround(pad);
+}
+
+function onStarbasePlateMissing(): void {
+  console.warn(
+    "[tothemoon] Starbase surrounds texture missing; using procedural scrub",
+  );
+}
+
+function loadStarbasePlateTexture(pad: THREE.Group, plate: THREE.Mesh): void {
+  const url = `${import.meta.env.BASE_URL}textures/starbase_surrounds.jpg`;
+  new THREE.TextureLoader().load(
+    url,
+    (tex) => applyStarbasePlateTexture(pad, plate, tex),
+    undefined,
+    () => onStarbasePlateMissing(),
+  );
+}
+
+/**
+ * North-up Sentinel-2 disc around the pad. Hidden until the JPEG loads so
+ * procedural scrub / landmark rings remain the fallback.
+ */
+function addStarbaseSatellitePlate(pad: THREE.Group): void {
+  const plate = new THREE.Mesh(makeStarbasePlateGeometry(), makeStarbasePlateMaterial());
+  plate.name = "pad-satellite-plate";
+  plate.position.y = STARBASE_PLATE_Y_KM;
+  plate.rotation.y = starbasePlateYawRad();
+  plate.visible = false;
+  plate.renderOrder = -1;
+  pad.add(plate);
+  loadStarbasePlateTexture(pad, plate);
+}
 
 /**
  * OLP-2-style pad complex (theater massing from public satellite layout).

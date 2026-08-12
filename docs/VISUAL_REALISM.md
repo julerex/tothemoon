@@ -20,10 +20,10 @@ Related:
 
 | Area | In place |
 |------|----------|
-| **Bodies** | Canvas Earth (clouds, atmo limb) + Moon (albedo/roughness); true radii |
+| **Bodies** | NASA Blue Marble albedo (procedural fallback) + canvas clouds/atmo limb + Moon (albedo/roughness); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2-inspired hardstand, tanks, Mechazilla, trench, deluge/vent steam, flood logic |
+| **Pad** | OLP-2-inspired hardstand, tanks, Mechazilla, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes, hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, lunar dust, ocean splash |
 | **Cameras** | Trench, pad, chase (look-ahead/bank), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -41,16 +41,18 @@ Related:
 
 **Shipped (V5):** tight pad+craft sun shadows, mild bloom + altitude exposure, star-dome fade, entry brownout haze.
 
+**Shipped (V11):** NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate (procedural fallback).
+
 **Next (V6+):** terminal landings (dust/splash), Flight 13 entry craft, recovery catch, lunar site plate, coast watchability — see below.
 
-Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
+Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
 ---
 
 ## Working agreements
 
 - **Theater vs ops:** document approximations in README or short code comments when adding “realistic-looking” FX.
-- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted.
+- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe + Sentinel-2 Starbase plate, with procedural fallback) are the accepted exception — not a tile server or DEM.
 - **Scrub-safe:** opacity/scale/position from mission `t`, phase, alt, burn flags — not `performance.now()` alone (wall-clock OK only for toast/UI animation).
 - **Scale honesty:** scene unit = 1 km; craft/pad true-scale; do not inflate the stack for “cinematics.”
 - **Performance:** pad/chase cameras are the hot path; avoid full-scene real-time shadows without a tight focus frustum.
@@ -73,7 +75,7 @@ Key modules: `src/scene/{bodies,craft,earthTheater,earthAtmosphere,cinema,textur
 | **V8** | Recovery catch theater | Completes booster story Auto-cam sells |
 | **V9** | Lunar site plate | Smooth Moon + label → place that reads |
 | **V10** | Coast / LOI watchability | Longest scrub stretch; cheap overlays |
-| **V11** | Pad horizon depth | Optional; V3 already dense |
+| **V11** | Pad horizon depth | **Done** — Sentinel-2 plate + Blue Marble |
 | **V12** | Finale camera beats | Pair with V6/V7; multiplies FX |
 
 ---
@@ -196,7 +198,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 10. **V9** — lunar Malapert site plate (after V6 dust)  
 11. **V12** — finale camera beats alongside V6/V7  
 12. **V10** — coast watchability when long scrub feels empty  
-13. **V11** — pad horizon last (diminishing returns)
+13. ~~**V11** — pad horizon / satellite surrounds plate~~ **done** (see below)
 
 ---
 
@@ -261,14 +263,15 @@ Longest scrub stretch; corridor already exists — add punctuation, not new phys
 
 ---
 
-## V11 — Pad horizon / coastal depth (optional, lower)
+## V11 — Pad horizon / coastal depth — **done 2026-08-12**
 
-Nice for trench/pad cams; V3 already dense — diminishing returns vs V6–V8.
+Photo plate instead of procedural coastline glints:
 
-- Distant coastline / lagoon glints beyond scrub disc for pad+trench cams only (LOD-gated).
-- Soft horizon haze tied to `groundSky` day factor so pad doesn’t end in a hard texture cutoff.
+- **Sentinel-2 cloudless** disc (~8 km radius, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north. Soft radial alpha vs the globe.
+- Procedural scrub + Earth-cam landmark rings remain the fallback if the JPEG is missing.
+- **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights + clouds stay procedural).
 
-**Files:** `earthTheater.ts`, `groundSky.ts`, `textures.ts`.
+**Files:** `starbasePlate.ts` (+ tests), `earthTheater.ts`, `bodies.ts`, `public/textures/{earth_bluemarble_4k,starbase_surrounds}.jpg`.
 
 ---
 
@@ -285,7 +288,7 @@ Multiplies terminal FX; alone does not fix thin discs.
 
 ## Out of scope (unless explicitly requested)
 
-- Full PBR satellite Earth/Moon phototextures and DEM
+- Full PBR / DEM / tile-server Earth or Moon (the committed Blue Marble + Starbase JPEGs are the theater-grade exception)
 - Real-time volumetric clouds or full atmospheric scattering path
 - Ops-grade plume CFD tables
 - Non-deterministic particle systems that break scrubbing
@@ -306,4 +309,5 @@ Multiplies terminal FX; alone does not fix thin discs.
 | 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |
 | 2026-08-11 | V4 shipped: stainless anisotropy + weld rings, windward tile edge wear, denser grid fins |
 | 2026-08-11 | V5 shipped: pad/craft shadows, mild bloom + exposure, star fade, entry brownout |
-| 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V11 pad horizon, V12 finale cams |
+| 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V12 finale cams |
+| 2026-08-12 | V11 shipped: NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate |
