@@ -21,17 +21,6 @@ export type MissionDef = {
 
 export const MISSIONS: readonly MissionDef[] = [
   {
-    id: "to-the-moon",
-    title: "Starbase → Moon",
-    subtitle: "July 2027 · Boca Chica · true scale",
-    blurb:
-      "Interactive theater: staged ascent from Starbase, low Earth orbit dogleg, " +
-      "translunar injection, ballistic n-body coast, and lunar arrival.",
-    badge: "Full theater",
-    status: "ready",
-    path: "to-the-moon",
-  },
-  {
     id: "flight-13",
     title: "Starship Flight 13",
     subtitle: "July 2026 · Starbase · flight test · true scale",
@@ -42,6 +31,17 @@ export const MISSIONS: readonly MissionDef[] = [
     badge: "Full theater",
     status: "ready",
     path: "flight-13",
+  },
+  {
+    id: "to-the-moon",
+    title: "Starbase → Moon",
+    subtitle: "July 2027 · Boca Chica · true scale",
+    blurb:
+      "Interactive theater: staged ascent from Starbase, low Earth orbit dogleg, " +
+      "translunar injection, ballistic n-body coast, and lunar arrival.",
+    badge: "Full theater",
+    status: "ready",
+    path: "to-the-moon",
   },
 ] as const;
 
