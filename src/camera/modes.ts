@@ -11,6 +11,7 @@ import {
   solarSystemExclusionSpheres,
   SURFACE_CLEARANCE_KM,
 } from "./surfaceClamp";
+import { trenchCamWorldPose } from "./trenchCam";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -31,17 +32,6 @@ export type CameraMode =
   | "fin"
   | "gridfin"
   | "trench";
-
-/**
- * Flame-trench cam (km, pad ENU): stand north of the OLM, slightly below the
- * deck, a little west so the engine bells read as a side cluster rather than
- * head-on under the stack.
- */
-const TRENCH_NORTH_KM = 0.032;
-const TRENCH_EAST_KM = -0.016;
-const TRENCH_UP_KM = -0.011;
-/** Look a few meters above the engine plane so Raptors fill the frame. */
-const TRENCH_LOOK_UP_KM = 0.006;
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
@@ -137,6 +127,8 @@ export class CameraDirector {
   private readonly craftPos = new THREE.Vector3();
   private readonly craftVel = new THREE.Vector3();
   private craft: THREE.Object3D | null = null;
+  /** Starbase pad group; trench-cam mounts are children of this. */
+  private pad: THREE.Object3D | null = null;
   /** Detached Super Heavy (StagingFx); preferred host for grid-fin cam after stage-out. */
   private detachedBooster: THREE.Object3D | null = null;
   private simTime = 0;
@@ -228,6 +220,15 @@ export class CameraDirector {
   /** Craft root (for fin-cam attachment). Call once after createCraft. */
   setCraft(craft: THREE.Object3D): void {
     this.craft = craft;
+  }
+
+  /**
+   * Starbase pad group (for flame-trench cam). Call once after createStarbasePad.
+   * Mounts `trench-cam` / `trench-cam-look` live in the visual pad frame so the
+   * shot is not seated at physics `STARBASE_ALT` (inside the Earth mesh).
+   */
+  setPad(pad: THREE.Object3D): void {
+    this.pad = pad;
   }
 
   /**
@@ -661,18 +662,33 @@ export class CameraDirector {
    * Flame-trench angle: under the OLM deck, offset to the side, looking at
    * the Super Heavy engine bells. Pad-fixed mount so the stack rises out of
    * frame on liftoff (classic webcast under-pad shot).
+   *
+   * Prefers named mounts on the visual pad group; falls back to an ENU pose
+   * lifted to the visual pad altitude (not physics `STARBASE_ALT`).
    */
   private applyTrenchCam(): void {
+    if (this.applyTrenchCamFromPad()) return;
+    this.applyTrenchCamFromEnu();
+  }
+
+  private applyTrenchCamFromPad(): boolean {
+    if (!this.pad) return false;
+    const mount = this.pad.getObjectByName("trench-cam");
+    const look = this.pad.getObjectByName("trench-cam-look");
+    if (!mount || !look) return false;
+    this.pad.updateMatrixWorld(true);
+    this.seatMountCam(mount, look, this.pad);
+    return true;
+  }
+
+  private applyTrenchCamFromEnu(): void {
     const pad = starbasePadState(this.simTime, this.epoch);
     this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
     this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
     this.buildTrenchNorth();
-    this.placeTrenchMount(pad.pos);
-    this.seatTrenchLook();
-  }
-
-  private seatTrenchLook(): void {
-    this.finLook.copy(this.craftPos).addScaledVector(this.padUp, TRENCH_LOOK_UP_KM);
+    const pose = trenchCamWorldPose(pad.pos, this.padEast, this.padUp, this.tmp);
+    this.finPos.set(pose.position.x, pose.position.y, pose.position.z);
+    this.finLook.set(pose.look.x, pose.look.y, pose.look.z);
     this.finUp.copy(this.padUp);
     this.camera.position.copy(this.finPos);
     this.camera.up.copy(this.finUp);
@@ -688,14 +704,6 @@ export class CameraDirector {
       if (this.tmp.lengthSq() < 1e-12) this.tmp.set(1, 0, 0);
     }
     this.tmp.normalize();
-  }
-
-  private placeTrenchMount(padPos: { x: number; y: number; z: number }): void {
-    this.finPos
-      .set(padPos.x, padPos.y, padPos.z)
-      .addScaledVector(this.tmp, TRENCH_NORTH_KM)
-      .addScaledVector(this.padEast, TRENCH_EAST_KM)
-      .addScaledVector(this.padUp, TRENCH_UP_KM);
   }
 
   /**

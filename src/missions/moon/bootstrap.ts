@@ -425,6 +425,7 @@ function assemblePadOrbits(
 ) {
   const epoch = cache.epoch;
   const pad = mountPadTrail(core.bodies, cache, core.sceneParts.orbitGroup);
+  core.director.setPad(pad.starbasePad);
   mountCorridor(core.sceneParts.orbitGroup, cache);
   const orbits = mountOrbits(
     core.sceneParts.orbitGroup, core.bodies, cache, epoch,
