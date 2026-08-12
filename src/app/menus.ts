@@ -1,5 +1,6 @@
 /**
  * Main menu, Mission Menu, and Glossary screens. Pure DOM bind; routing stays in main.
+ * Main-menu items are numbered 1–n and selectable via those digit keys when visible.
  */
 
 import {
@@ -7,7 +8,66 @@ import {
   type GlossaryEntry,
 } from "./glossary";
 import { MISSIONS, type MissionDef } from "./missionCatalog";
-import { navigate } from "./shell";
+import { getShellView, navigate } from "./shell";
+
+/** Result of mapping a digit key to a main-menu action. */
+export type MainMenuKeyAction =
+  | { type: "nav"; path: string }
+  | { type: "external"; href: string };
+
+type MainMenuNavItem = {
+  digit: string;
+  kind: "nav";
+  nav: string;
+  path: string;
+  label: string;
+  primary: boolean;
+};
+
+type MainMenuLinkItem = {
+  digit: string;
+  kind: "link";
+  href: string;
+  label: string;
+};
+
+type MainMenuItem = MainMenuNavItem | MainMenuLinkItem;
+
+/** Main menu entries in display order (digit keys 1…n). */
+export const MAIN_MENU_ITEMS: readonly MainMenuItem[] = [
+  {
+    digit: "1",
+    kind: "nav",
+    nav: "missions",
+    path: "/missions",
+    label: "Mission Menu",
+    primary: true,
+  },
+  {
+    digit: "2",
+    kind: "nav",
+    nav: "glossary",
+    path: "/glossary",
+    label: "Glossary",
+    primary: false,
+  },
+  {
+    digit: "3",
+    kind: "link",
+    href: "https://github.com/julerex/tothemoon",
+    label: "Source on GitHub",
+  },
+];
+
+/**
+ * Map a keyboard digit (`"1"`…`"9"`) to a main-menu action, or null if unbound.
+ */
+export function mainMenuActionForDigit(digit: string): MainMenuKeyAction | null {
+  const item = MAIN_MENU_ITEMS.find((i) => i.digit === digit);
+  if (!item) return null;
+  if (item.kind === "nav") return { type: "nav", path: item.path };
+  return { type: "external", href: item.href };
+}
 
 function missionCard(m: MissionDef): string {
   const statusLabel = m.status === "ready" ? "Play" : "Open briefing";
@@ -110,7 +170,7 @@ function mainMenuHtml(): string {
     '<h1 class="menu-title">tothemoon</h1>',
     mainMenuLead(),
     mainMenuNav(),
-    '<p class="menu-foot">© Julian le Roux 2026 · scene unit = 1&nbsp;km</p>',
+    '<p class="menu-foot">© Julian le Roux 2026 · scene unit = 1&nbsp;km · number keys select menu items</p>',
     '</div>',
   ].join("");
 }
@@ -120,12 +180,21 @@ function mainMenuLead(): string {
 }
 
 function mainMenuNav(): string {
-  return `<nav class="menu-actions" aria-label="Main menu">${menuBtn("missions", "Mission Menu", true)}${menuBtn("glossary", "Glossary", false)}<a class="menu-btn menu-btn-ghost" href="https://github.com/julerex/tothemoon" target="_blank" rel="noopener noreferrer">Source on GitHub</a></nav>`;
+  const buttons = MAIN_MENU_ITEMS.map(mainMenuItemHtml).join("");
+  return `<nav class="menu-actions" aria-label="Main menu">${buttons}</nav>`;
 }
 
-function menuBtn(nav: string, label: string, primary: boolean): string {
-  const cls = primary ? "menu-btn menu-btn-primary" : "menu-btn menu-btn-ghost";
-  return `<button type="button" class="${cls}" data-nav="${nav}">${label}</button>`;
+function mainMenuItemHtml(item: MainMenuItem): string {
+  const label = numberedLabel(item.digit, item.label);
+  if (item.kind === "link") {
+    return `<a class="menu-btn menu-btn-ghost" href="${escapeAttr(item.href)}" target="_blank" rel="noopener noreferrer" data-menu-digit="${item.digit}" aria-keyshortcuts="${item.digit}">${label}</a>`;
+  }
+  const cls = item.primary ? "menu-btn menu-btn-primary" : "menu-btn menu-btn-ghost";
+  return `<button type="button" class="${cls}" data-nav="${item.nav}" data-menu-digit="${item.digit}" aria-keyshortcuts="${item.digit}">${label}</button>`;
+}
+
+function numberedLabel(digit: string, label: string): string {
+  return `<span class="menu-btn-num" aria-hidden="true">${digit}</span><span class="menu-btn-text">${escapeHtml(label)}</span>`;
 }
 
 function fillMissionMenu(missions: HTMLElement): void {
@@ -181,6 +250,7 @@ function wireMenuClicks(roots: {
   glossary: HTMLElement;
 }): void {
   wireMainMenuClicks(roots.main);
+  wireMainMenuKeys(roots.main);
   wireMissionMenuClicks(roots.missions);
   wireGlossaryMenuClicks(roots.glossary);
 }
@@ -191,6 +261,43 @@ function wireMainMenuClicks(main: HTMLElement): void {
     if (nav === "missions") navigate("/missions");
     if (nav === "glossary") navigate("/glossary");
   });
+}
+
+function wireMainMenuKeys(main: HTMLElement): void {
+  window.addEventListener("keydown", (e) => onMainMenuKeyDown(main, e));
+}
+
+function onMainMenuKeyDown(main: HTMLElement, e: KeyboardEvent): void {
+  if (getShellView() !== "main") return;
+  if (main.hidden) return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (isEditableTarget(e.target)) return;
+  const action = mainMenuActionForDigit(e.key);
+  if (!action) return;
+  e.preventDefault();
+  runMainMenuAction(main, action);
+}
+
+function runMainMenuAction(main: HTMLElement, action: MainMenuKeyAction): void {
+  if (action.type === "nav") {
+    navigate(action.path);
+    return;
+  }
+  const digit = MAIN_MENU_ITEMS.find(
+    (i) => i.kind === "link" && i.href === action.href,
+  )?.digit;
+  const link = digit
+    ? main.querySelector<HTMLAnchorElement>(`a[data-menu-digit="${digit}"]`)
+    : null;
+  if (link) link.click();
+  else window.open(action.href, "_blank", "noopener,noreferrer");
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return target.isContentEditable;
 }
 
 function wireMissionMenuClicks(missions: HTMLElement): void {

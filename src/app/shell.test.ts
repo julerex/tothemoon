@@ -12,6 +12,10 @@ import {
   glossaryCategoryLabel,
   glossaryGrouped,
 } from "./glossary";
+import {
+  MAIN_MENU_ITEMS,
+  mainMenuActionForDigit,
+} from "./menus";
 
 describe("parseRoute", () => {
   it("maps empty and root to main", () => {
@@ -92,5 +96,32 @@ describe("glossary", () => {
     assert.ok(glossaryCategoryLabel("vehicle").length > 0);
     assert.ok(glossaryCategoryLabel("physics").length > 0);
     assert.ok(glossaryCategoryLabel("views").length > 0);
+  });
+});
+
+describe("main menu digit keys", () => {
+  it("numbers items 1…n without gaps", () => {
+    assert.equal(MAIN_MENU_ITEMS.length, 3);
+    MAIN_MENU_ITEMS.forEach((item, i) => {
+      assert.equal(item.digit, String(i + 1));
+    });
+  });
+
+  it("maps digit keys to navigation and external actions", () => {
+    assert.deepEqual(mainMenuActionForDigit("1"), {
+      type: "nav",
+      path: "/missions",
+    });
+    assert.deepEqual(mainMenuActionForDigit("2"), {
+      type: "nav",
+      path: "/glossary",
+    });
+    assert.deepEqual(mainMenuActionForDigit("3"), {
+      type: "external",
+      href: "https://github.com/julerex/tothemoon",
+    });
+    assert.equal(mainMenuActionForDigit("0"), null);
+    assert.equal(mainMenuActionForDigit("4"), null);
+    assert.equal(mainMenuActionForDigit("a"), null);
   });
 });

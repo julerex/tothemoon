@@ -149,7 +149,33 @@ body.menus-active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.65rem;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.menu-btn-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.2rem;
+  border: 1px solid currentColor;
+  border-radius: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.menu-btn-primary .menu-btn-num {
+  border-color: rgba(0, 0, 0, 0.35);
+  opacity: 0.9;
+}
+
+.menu-btn-text {
+  letter-spacing: 0.08em;
 }
 
 .menu-btn:hover:not(:disabled) {
