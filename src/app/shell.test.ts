@@ -88,6 +88,9 @@ describe("glossary", () => {
   it("resolves known terms", () => {
     assert.equal(glossaryById("tli")?.term.includes("Translunar"), true);
     assert.equal(glossaryById("ecliptic")?.category, "physics");
+    assert.equal(glossaryById("olm")?.term.includes("Orbital Launch Mount"), true);
+    assert.equal(glossaryById("flame-trench")?.category, "vehicle");
+    assert.equal(glossaryById("hardstand")?.term, "Hardstand");
     assert.equal(glossaryById("missing"), undefined);
   });
 
