@@ -12,8 +12,6 @@ export type MissionDef = {
   title: string;
   subtitle: string;
   blurb: string;
-  /** Short badge for cards (e.g. "July 2027", "Flight test") */
-  badge: string;
   status: MissionStatus;
   /** Hash path segment: `#/mission/<path>` */
   path: string;
@@ -28,7 +26,6 @@ export const MISSIONS: readonly MissionDef[] = [
       "Full theater: staged ascent, hot-stage, suborbital coast, Raptor relight, " +
       "entry, and Indian Ocean splashdown on the public Flight 13 timeline. " +
       "Same visual stack as the lunar mission (pad, craft, cameras, HUD).",
-    badge: "Full theater",
     status: "ready",
     path: "flight-13",
   },
@@ -39,7 +36,6 @@ export const MISSIONS: readonly MissionDef[] = [
     blurb:
       "Interactive theater: staged ascent from Starbase, low Earth orbit dogleg, " +
       "translunar injection, ballistic n-body coast, and lunar arrival.",
-    badge: "Full theater",
     status: "ready",
     path: "to-the-moon",
   },

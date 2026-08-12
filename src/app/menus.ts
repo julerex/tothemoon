@@ -86,7 +86,6 @@ function missionCardHtml(
 ): string {
   return `
     <button type="button" class="mission-card ${statusClass}" data-mission="${m.path}" aria-label="${escapeAttr(m.title)} — ${statusLabel}">
-      <span class="mission-card-badge">${escapeHtml(m.badge)}</span>
       <span class="mission-card-title">${escapeHtml(m.title)}</span>
       <span class="mission-card-sub">${escapeHtml(m.subtitle)}</span>
       <span class="mission-card-blurb">${escapeHtml(m.blurb)}</span>
