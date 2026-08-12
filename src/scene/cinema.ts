@@ -217,11 +217,12 @@ export function markShadowMeshes(
 }
 
 /**
- * Pad shadow policy: **receive** craft/tower shadows on all pad surfaces, but
- * only **cast** from vertical structures (tower, tanks, OLM, chopsticks).
- *
- * Flat hardstand / scrub / landmark rings must not cast — coplanar cast+receive
- * produces noisy self-acne (“TV snow”) on the launch apron.
+ * Pad shadow policy:
+ * - **Cast** only from vertical structures (tower, tanks, OLM, chopsticks).
+ * - **Receive** on hardstand slabs + scorch (craft/tower contact shadows).
+ * - Large flat scrub discs / landmark rings neither cast nor receive —
+ *   coplanar multi-disc stacks and multi-km receivers both produce TV-snow
+ *   shadow-map acne on pad cams.
  */
 const PAD_CAST_ROOTS = [
   "mechazilla", "pad-tank-farm", "pad-warehouse", "pad-olm",
@@ -229,31 +230,44 @@ const PAD_CAST_ROOTS = [
   "pad-flood-fixture-0", "pad-flood-fixture-1", "pad-flood-fixture-2", "pad-flood-fixture-3",
 ] as const;
 
-const PAD_RECEIVE_ONLY = [
-  "pad-landmark-scrub", "pad-landmark-ring", "pad-scorch", "pad-surroundings",
+/** Large coplanar flats — never cast or receive. */
+const PAD_NO_SHADOW = [
+  "pad-landmark-scrub", "pad-landmark-ring", "pad-scrub-terrain", "pad-pond",
 ] as const;
+
+/** Small apron surfaces that should still catch craft/tower shadows. */
+const PAD_RECEIVE_ONLY = ["pad-scorch"] as const;
 
 function isFlatBoxGeometry(geom: THREE.BoxGeometry): boolean {
   const p = geom.parameters as { width: number; height: number; depth: number };
   return Math.min(p.width, p.height, p.depth) < Math.max(p.width, p.height, p.depth) * 0.08;
 }
 
+function isLargeFlatPadGeometry(geom: THREE.BufferGeometry): boolean {
+  return (
+    geom instanceof THREE.CircleGeometry ||
+    geom instanceof THREE.RingGeometry ||
+    geom instanceof THREE.PlaneGeometry
+  );
+}
+
 function isFlatPadGeometry(geom: THREE.BufferGeometry): boolean {
-  if (geom instanceof THREE.CircleGeometry) return true;
-  if (geom instanceof THREE.RingGeometry) return true;
-  if (geom instanceof THREE.PlaneGeometry) return true;
+  if (isLargeFlatPadGeometry(geom)) return true;
   if (geom instanceof THREE.BoxGeometry) return isFlatBoxGeometry(geom);
   return false;
 }
 
+/**
+ * Surroundings: thin hardstand boxes receive; discs/planes/rings do not
+ * (large coplanar receivers snow under the pad sun frustum).
+ */
 function silenceFlatPadMeshes(node: THREE.Object3D): void {
   node.traverse((obj) => {
     const mesh = obj as THREE.Mesh;
     if (!mesh.isMesh) return;
-    if (isFlatPadGeometry(mesh.geometry)) {
-      mesh.castShadow = false;
-      mesh.receiveShadow = true;
-    }
+    if (!isFlatPadGeometry(mesh.geometry)) return;
+    mesh.castShadow = false;
+    mesh.receiveShadow = !isLargeFlatPadGeometry(mesh.geometry);
   });
 }
 
@@ -264,19 +278,27 @@ function markPadCastRoots(pad: THREE.Object3D): void {
   }
 }
 
+function markPadNoShadow(pad: THREE.Object3D): void {
+  for (const name of PAD_NO_SHADOW) {
+    const node = pad.getObjectByName(name);
+    if (node) markShadowMeshes(node, { cast: false, receive: false });
+  }
+}
+
 function markPadReceiveOnly(pad: THREE.Object3D): void {
   for (const name of PAD_RECEIVE_ONLY) {
     const node = pad.getObjectByName(name);
-    if (!node) continue;
-    if (name === "pad-surroundings") silenceFlatPadMeshes(node);
-    else markShadowMeshes(node, { cast: false, receive: true });
+    if (node) markShadowMeshes(node, { cast: false, receive: true });
   }
+  const surroundings = pad.getObjectByName("pad-surroundings");
+  if (surroundings) silenceFlatPadMeshes(surroundings);
 }
 
 export function markPadShadowMeshes(pad: THREE.Object3D): void {
   markShadowMeshes(pad, { cast: false, receive: true });
   markPadCastRoots(pad);
   markPadReceiveOnly(pad);
+  markPadNoShadow(pad);
 }
 
 /**

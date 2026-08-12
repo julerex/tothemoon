@@ -378,8 +378,6 @@ type PadSurroundMats = {
   concrete: THREE.MeshStandardMaterial;
   concreteLight: THREE.MeshStandardMaterial;
   concreteDark: THREE.MeshStandardMaterial;
-  scrub: THREE.MeshStandardMaterial;
-  scrubDark: THREE.MeshStandardMaterial;
   dirt: THREE.MeshStandardMaterial;
   asphalt: THREE.MeshStandardMaterial;
   water: THREE.MeshStandardMaterial;
@@ -405,12 +403,17 @@ function groundStd(
   });
 }
 
-function makePadGroundMats(): Pick<PadSurroundMats, "concrete" | "concreteLight" | "concreteDark" | "scrub" | "scrubDark" | "dirt" | "asphalt" | "water"> {
+function makePadGroundMats(): Pick<
+  PadSurroundMats,
+  "concrete" | "concreteLight" | "concreteDark" | "dirt" | "asphalt" | "water"
+> {
   return {
-    concrete: groundStd(0x9a9ea4, 0.18, 0.9), concreteLight: groundStd(0xb0b4b8, 0.15, 0.88),
-    concreteDark: groundStd(0x6a6e74, 0.22, 0.86), scrub: groundStd(0x9a8a68, 0.04, 0.98),
-    scrubDark: groundStd(0x7a6a4e, 0.04, 0.97), dirt: groundStd(0xb0a080, 0.05, 0.96),
-    asphalt: groundStd(0x4a4c50, 0.12, 0.92), water: groundStd(0x4a6a62, 0.4, 0.4),
+    concrete: groundStd(0x9a9ea4, 0.18, 0.9),
+    concreteLight: groundStd(0xb0b4b8, 0.15, 0.88),
+    concreteDark: groundStd(0x6a6e74, 0.22, 0.86),
+    dirt: groundStd(0xb0a080, 0.05, 0.96),
+    asphalt: groundStd(0x4a4c50, 0.12, 0.92),
+    water: groundStd(0x4a6a62, 0.4, 0.4),
   };
 }
 
@@ -434,27 +437,34 @@ function addGroundDisc(
   y: number,
   z: number,
   segs = 24,
+  name?: string,
 ): void {
   const disc = new THREE.Mesh(new THREE.CircleGeometry(r, segs), mat);
   disc.rotation.x = -Math.PI / 2;
   disc.position.set(x, y, z);
+  if (name) disc.name = name;
   g.add(disc);
 }
 
-const SCRUB_PATCHES: { r: number; pos: [number, number]; kind: "scrub" | "scrubDark" | "dirt" }[] = [
-  { r: 0.9, pos: [-0.55, -0.4], kind: "scrub" },
-  { r: 0.7, pos: [0.55, -0.65], kind: "scrubDark" },
-  { r: 0.85, pos: [-0.7, 0.35], kind: "dirt" },
-  { r: 0.6, pos: [0.85, 0.15], kind: "scrub" },
-  { r: 0.75, pos: [0.2, 0.85], kind: "scrubDark" },
-  { r: 0.5, pos: [-0.3, -0.85], kind: "dirt" },
-  { r: 0.55, pos: [0.95, -0.35], kind: "scrub" },
-  { r: 0.45, pos: [-0.9, -0.1], kind: "scrubDark" },
-];
+/**
+ * One soft-edged terrain disc for coastal scrub — avoids stacked coplanar
+ * CircleGeometry patches that z-fight into TV-snow at pad cams.
+ */
+function makeScrubTerrainMat(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    map: makeScrubTerrainTexture(),
+    color: 0xffffff,
+    metalness: 0.04,
+    roughness: 0.98,
+    ...GROUND_OFFSET,
+  });
+}
 
 function addPadScrubAndPond(g: THREE.Group, mats: PadSurroundMats): void {
-  for (const p of SCRUB_PATCHES) addGroundDisc(g, p.r, mats[p.kind], p.pos[0], -0.007, p.pos[1]);
-  addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20);
+  // Single disc (r ≈ 1.55 km) covers the old multi-patch footprint without
+  // coplanar multi-mesh depth fighting.
+  addGroundDisc(g, 1.55, makeScrubTerrainMat(), 0, -0.007, 0, 48, "pad-scrub-terrain");
+  addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20, "pad-pond");
 }
 
 type PadSlab = { size: [number, number, number]; pos: [number, number, number]; kind: "concrete" | "concreteLight" | "concreteDark" };
@@ -1596,6 +1606,39 @@ function paintScorch(ctx: CanvasRenderingContext2D, size: number): void {
 
 function makeScorchTexture(): THREE.CanvasTexture {
   return makeSizedCanvasTexture(128, paintScorch);
+}
+
+/** Soft coastal scrub blotches (fixed seeds — scrub-stable recreate). */
+const SCRUB_TERRAIN_BLOTS: readonly (readonly [number, number, number, string])[] = [
+  [0.32, 0.38, 0.28, "rgba(154, 138, 104, 0.95)"],
+  [0.68, 0.28, 0.24, "rgba(122, 106, 78, 0.9)"],
+  [0.28, 0.68, 0.26, "rgba(176, 160, 128, 0.88)"],
+  [0.72, 0.62, 0.22, "rgba(154, 138, 104, 0.9)"],
+  [0.5, 0.52, 0.3, "rgba(138, 122, 90, 0.75)"],
+  [0.42, 0.22, 0.18, "rgba(122, 106, 78, 0.85)"],
+  [0.78, 0.45, 0.2, "rgba(176, 160, 128, 0.8)"],
+  [0.55, 0.78, 0.22, "rgba(122, 106, 78, 0.88)"],
+];
+
+function paintScrubTerrain(ctx: CanvasRenderingContext2D, size: number): void {
+  ctx.fillStyle = "#8a7a5c";
+  ctx.fillRect(0, 0, size, size);
+  for (const [ux, uy, ur, color] of SCRUB_TERRAIN_BLOTS) {
+    const x = ux * size;
+    const y = uy * size;
+    const r = ur * size;
+    const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "rgba(138, 122, 92, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function makeScrubTerrainTexture(): THREE.CanvasTexture {
+  return makeSizedCanvasTexture(256, paintScrubTerrain);
 }
 
 /**

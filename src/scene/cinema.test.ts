@@ -120,7 +120,7 @@ describe("cameraAltitudeEarthKm", () => {
 });
 
 describe("markPadShadowMeshes", () => {
-  it("receives on ground discs but does not cast from them", () => {
+  it("keeps hardstand receiving; large scrub discs neither cast nor receive", () => {
     const pad = new THREE.Group();
     pad.name = "starbase-pad";
 
@@ -130,6 +130,13 @@ describe("markPadShadowMeshes", () => {
     );
     scrub.name = "pad-landmark-scrub";
     pad.add(scrub);
+
+    const terrain = new THREE.Mesh(
+      new THREE.CircleGeometry(1.5, 8),
+      new THREE.MeshStandardMaterial(),
+    );
+    terrain.name = "pad-scrub-terrain";
+    pad.add(terrain);
 
     const tower = new THREE.Group();
     tower.name = "mechazilla";
@@ -147,14 +154,23 @@ describe("markPadShadowMeshes", () => {
       new THREE.MeshStandardMaterial(),
     );
     surroundings.add(slab);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(0.5, 8),
+      new THREE.MeshStandardMaterial(),
+    );
+    surroundings.add(disc);
     pad.add(surroundings);
 
     markPadShadowMeshes(pad);
 
-    assert.equal(scrub.receiveShadow, true);
+    assert.equal(scrub.receiveShadow, false);
     assert.equal(scrub.castShadow, false);
+    assert.equal(terrain.receiveShadow, false);
+    assert.equal(terrain.castShadow, false);
     assert.equal(slab.receiveShadow, true);
     assert.equal(slab.castShadow, false);
+    assert.equal(disc.receiveShadow, false);
+    assert.equal(disc.castShadow, false);
     assert.equal(shaft.castShadow, true);
     assert.equal(shaft.receiveShadow, true);
   });
