@@ -1084,11 +1084,6 @@ select {
   gap: 0.35rem 0.5rem;
 }
 
-.scrubber-label {
-  padding-bottom: 0.55rem;
-  flex-shrink: 0;
-}
-
 .scrub-wrap {
   position: relative;
   flex: 1 1 auto;
