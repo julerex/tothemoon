@@ -6,8 +6,13 @@
  * mesh. Radial push-out against each body sphere fixes that.
  */
 
-/** Extra km above the mesh radius so the near plane does not bite into terrain. */
-export const SURFACE_CLEARANCE_KM = 0.05;
+import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
+
+/**
+ * Extra km above the mesh radius so the near plane does not bite into terrain.
+ * Same value as the physics/visual Earth surface shell.
+ */
+export const SURFACE_CLEARANCE_KM = EARTH_SURFACE_ALT_KM;
 
 export type BodySphere = {
   x: number;

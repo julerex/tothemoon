@@ -224,8 +224,8 @@ export class CameraDirector {
 
   /**
    * Starbase pad group (for flame-trench cam). Call once after createStarbasePad.
-   * Mounts `trench-cam` / `trench-cam-look` live in the visual pad frame so the
-   * shot is not seated at physics `STARBASE_ALT` (inside the Earth mesh).
+   * Mounts `trench-cam` / `trench-cam-look` live on the pad group (physics pad
+   * = visual pad = `STARBASE_ALT`).
    */
   setPad(pad: THREE.Object3D): void {
     this.pad = pad;
@@ -663,8 +663,8 @@ export class CameraDirector {
    * the Super Heavy engine bells. Pad-fixed mount so the stack rises out of
    * frame on liftoff (classic webcast under-pad shot).
    *
-   * Prefers named mounts on the visual pad group; falls back to an ENU pose
-   * lifted to the visual pad altitude (not physics `STARBASE_ALT`).
+   * Prefers named mounts on the pad group; falls back to an ENU pose on
+   * `starbasePadState` (physics pad = visual pad = `STARBASE_ALT`).
    */
   private applyTrenchCam(): void {
     if (this.applyTrenchCamFromPad()) return;

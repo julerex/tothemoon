@@ -134,8 +134,24 @@ export const LOW_EARTH_ORBIT_RADIUS = R_EARTH + LOW_EARTH_ORBIT_ALTITUDE;
 export const STARBASE_LAT = (25.997 * Math.PI) / 180;
 export const STARBASE_LON = (-97.156 * Math.PI) / 180; // °W negative
 
-/** Pad altitude above mean radius (km) */
-export const STARBASE_ALT = 0.01;
+/**
+ * Shared altitude above mean Earth radius (km).
+ *
+ * Physics pad, visual pad/stack, splash site, booster floor, and free-cam
+ * exclusion all sit on this shell so trench / OLM / engines line up. 50 m
+ * keeps pad local-Y (meshes extend ~10 m below origin) and the under-deck
+ * trench cam (~11 m below the pad) outside the Earth sphere.
+ */
+export const EARTH_SURFACE_ALT_KM = 0.05;
+
+/**
+ * Pad altitude above mean radius (km). Same shell as {@link EARTH_SURFACE_ALT_KM}
+ * — visuals must not override this with a separate clamp.
+ */
+export const STARBASE_ALT = EARTH_SURFACE_ALT_KM;
+
+/** Earth-center radius of the shared surface shell (km). */
+export const EARTH_SURFACE_RADIUS_KM = R_EARTH + EARTH_SURFACE_ALT_KM;
 
 /**
  * Peak commanded ascent acceleration (km/s²) ≈ 2.8 g.

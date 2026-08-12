@@ -4,21 +4,18 @@
  * Pad frame (see `earthTheater.ts`): origin = OLM / stack engines, **+Y up**,
  * **+X toward the tower**, trench along ±Z. Scene unit = 1 km.
  *
- * The mount stands *inside* the OLM ring (not 30 m north of it) so the look
- * ray does not hit the table, Earth mesh, or apron discs. A previous ENU
- * offset used the physics pad altitude (`STARBASE_ALT` = 10 m) while the
- * visual pad / clamped stack sit at {@link SURFACE_CLEARANCE_KM} (50 m),
- * which put the camera inside the Earth sphere — a black frame at launch.
+ * The mount stands *inside* the OLM ring so the look ray does not hit the
+ * table, Earth mesh, or apron discs. Physics pad, visual pad, and stack share
+ * {@link STARBASE_ALT} — no separate visual lift.
  */
 
 import { STARBASE_ALT } from "../physics/constants";
-import { SURFACE_CLEARANCE_KM } from "./surfaceClamp";
 
 /**
- * Visual pad / craft-clamp altitude above mean Earth radius (km).
- * Matches `placePadOnEarth` (`max(STARBASE_ALT, 0.05)`) and the ascent clamp.
+ * Pad / craft-clamp altitude above mean Earth radius (km).
+ * Same shell as physics {@link STARBASE_ALT}.
  */
-export const PAD_VISUAL_ALT_KM = SURFACE_CLEARANCE_KM;
+export const PAD_VISUAL_ALT_KM = STARBASE_ALT;
 
 /**
  * Camera in pad-local km: west of the stack, under the OLM deck, along the
@@ -47,9 +44,8 @@ export const OLM_DECK_TOP_KM = 0.004;
 export const ENGINE_CLUSTER_RADIUS_KM = 0.006;
 
 /**
- * Lift along pad-up from {@link starbasePadState} to the visual pad origin.
- * Physics pad is `STARBASE_ALT`; meshes and the clamped stack use
- * {@link PAD_VISUAL_ALT_KM}.
+ * Extra lift from {@link starbasePadState} to the visual pad origin.
+ * Always 0 — physics and visuals share {@link STARBASE_ALT}.
  */
 export function padVisualLiftKm(): number {
   return PAD_VISUAL_ALT_KM - STARBASE_ALT;
@@ -65,10 +61,10 @@ export type Vec3Like = { x: number; y: number; z: number };
 /**
  * World-space trench camera pose from a pad ENU basis.
  *
- * `padPos` is the physics pad origin from `starbasePadState` (km). The pose is
- * lifted to the visual pad so the camera is not inside the Earth mesh.
+ * `padPos` is the pad origin from `starbasePadState` (km), which matches the
+ * visual pad on {@link STARBASE_ALT}.
  *
- * @param padPos - Physics pad origin (km)
+ * @param padPos - Pad origin (km)
  * @param east - Unit east
  * @param up - Unit surface normal
  * @param north - Unit north (`up × east`)
