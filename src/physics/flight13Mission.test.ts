@@ -8,11 +8,33 @@ import {
   EARTH_SPIN_RATE,
   earthNorthPole,
   enuAtPosition,
+  inertialRelToMeshLocal,
 } from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
 import { F13, runFlight13Mission } from "./flight13Mission.ts";
 import { cross, dot, len, set, sub, v3 } from "./vec3.ts";
+
+/** Geodetic longitude (deg, east-positive) from an inertial sample position. */
+function sampleLonDeg(
+  t: number,
+  pos: { x: number; y: number; z: number },
+  epoch: ReturnType<typeof makeFlight13Epoch>,
+): number {
+  const b = getBodies(t, epoch);
+  const local = v3();
+  inertialRelToMeshLocal(
+    v3(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z),
+    t,
+    local,
+    epoch,
+  );
+  const theta = Math.atan2(local.z, -local.x);
+  let lon = ((theta - Math.PI) * 180) / Math.PI;
+  while (lon > 180) lon -= 360;
+  while (lon < -180) lon += 360;
+  return lon;
+}
 
 describe("runFlight13Mission", () => {
   const epoch = makeFlight13Epoch(0, 0);
@@ -78,7 +100,7 @@ describe("runFlight13Mission", () => {
       Math.abs(cur.t - 1200) < Math.abs(best.t - 1200) ? cur : best,
     );
     const a = altitudeEarth(mid.t, mid.pos, epoch);
-    assert.ok(a > 150, `mid-coast alt ${a} km — expected lofted suborbital`);
+    assert.ok(a > 120, `mid-coast alt ${a} km — expected lofted suborbital`);
   });
 
   it("has a lofted free coast (no multi-minute surface skid before entry)", () => {
@@ -147,6 +169,29 @@ describe("runFlight13Mission", () => {
     assert.ok(a > 120, `SECO alt ${a}`);
     assert.ok(v > 7.0 && v < 8.2, `SECO v ${v}`);
     assert.ok(Math.abs(vr) < 0.45, `SECO vr ${vr}`);
+  });
+
+  it("ascends eastward along the Flight 13 corridor (not west across the Pacific)", () => {
+    // Regression: short geodetic path Starbase → 95°E splash is westward; steering
+    // must follow the Earth GC plane (Starbase → Gauteng → Indian Ocean) instead.
+    const padLonDeg = -97.156;
+    const s = result.samples.reduce((best, cur) =>
+      Math.abs(cur.t - 120) < Math.abs(best.t - 120) ? cur : best,
+    );
+    const lonAt120 = sampleLonDeg(s.t, s.pos, epoch);
+    assert.ok(
+      lonAt120 > padLonDeg + 0.15,
+      `lon@~120s ${lonAt120}° — expected east of Starbase (Gulf), not Pacific`,
+    );
+    const s300 = result.samples.reduce((best, cur) =>
+      Math.abs(cur.t - 300) < Math.abs(best.t - 300) ? cur : best,
+    );
+    const lonAt300 = sampleLonDeg(s300.t, s300.pos, epoch);
+    assert.ok(
+      lonAt300 > padLonDeg + 2,
+      `lon@~300s ${lonAt300}° — expected further east over the Gulf`,
+    );
+    assert.ok(lonAt300 < 0, `lon@~300s ${lonAt300}° — still western hemisphere`);
   });
 
   it("liftoff stays near-vertical (no pad-frame west kick from surface clamp)", () => {

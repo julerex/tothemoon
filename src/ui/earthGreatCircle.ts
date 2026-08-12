@@ -13,11 +13,15 @@ import {
   STARBASE_LON,
 } from "../physics/constants";
 import {
+  flight13GreatCirclePlane,
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
-} from "../physics/flight13Mission";
-import { geodeticToMeshLocal } from "../physics/earthFrame";
-import { cross, dot, normalize, type V3, v3 } from "../physics/vec3";
+  GAUTENG_LAT,
+  GAUTENG_LON,
+  siteUnit,
+  type Flight13CorridorPlane,
+} from "../physics/flight13Corridor";
+import { dot, v3 } from "../physics/vec3";
 
 /** 2-D point in the Earth-centered great-circle plane (km). */
 export type PlanePoint = { x: number; y: number };
@@ -51,16 +55,7 @@ export type EarthGcLabel = {
   offPlaneKm: number;
 };
 
-export type EarthGcPlane = {
-  /** Mesh-local unit: Starbase radial. */
-  u: V3;
-  /** Mesh-local unit: 90° along GC toward splashdown. */
-  v: V3;
-  /** Mesh-local unit: plane normal. */
-  n: V3;
-  /** Central angle Starbase → splashdown (rad). */
-  splashAngleRad: number;
-};
+export type EarthGcPlane = Flight13CorridorPlane;
 
 export type EarthGcModel = {
   profileId: "flight-13";
@@ -86,11 +81,13 @@ export type ViewTransform = {
 
 // ── Flight 13 corridor sites (theater-grade coordinates) ───────────────
 
-/** Johannesburg / Gauteng province (rad). */
-export const GAUTENG_LAT = (-26.2041 * Math.PI) / 180;
-export const GAUTENG_LON = (28.0473 * Math.PI) / 180;
-
-export { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "../physics/flight13Mission";
+export {
+  FLIGHT13_SPLASH_LAT,
+  FLIGHT13_SPLASH_LON,
+  GAUTENG_LAT,
+  GAUTENG_LON,
+  siteUnit,
+} from "../physics/flight13Corridor";
 
 /** Approximate geographic center of Australia (label only). */
 export const AUSTRALIA_LAT = (-25.2744 * Math.PI) / 180;
@@ -125,105 +122,8 @@ export const FLIGHT13_SITES: readonly EarthGcSite[] = [
 ] as const;
 
 const _tmp = v3();
-const _tmp2 = v3();
-const _tmp3 = v3();
 
-/** Unit mesh-local radial for a geodetic site. */
-export function siteUnit(lat: number, lon: number, out: V3 = v3()): V3 {
-  geodeticToMeshLocal(lat, lon, 1, out);
-  return normalize(out, out);
-}
-
-/**
- * Best-fit great-circle plane through Starbase, Gauteng, and splashdown
- * (mesh-local, Earth-fixed). Normal ≈ S×G + G×L + L×S so all three lie near
- * the section; `u` is the Starbase radial projected into the plane.
- *
- * Orientation: Gauteng has positive angle from Starbase; splash angle is
- * unwrapped so the corridor runs Starbase → Gauteng → landing (increasing).
- */
-export function flight13GreatCirclePlane(): EarthGcPlane {
-  const s = siteUnit(STARBASE_LAT, STARBASE_LON, v3());
-  const g = siteUnit(GAUTENG_LAT, GAUTENG_LON, v3());
-  const splash = siteUnit(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, v3());
-  let { u, v, n } = planeBasisFromSites(s, g, splash);
-  ({ u, v, n } = orientPlaneTowardGauteng(u, v, n, g));
-  const splashAngleRad = unwrapSplashAngle(splash, u, v, g);
-  return { u, v, n, splashAngleRad };
-}
-
-function planeBasisFromSites(
-  s: V3,
-  g: V3,
-  splash: V3,
-): { u: V3; v: V3; n: V3 } {
-  const n = bestFitNormal(s, g, splash);
-  const u = projectStarbaseU(s, n);
-  cross(_tmp, n, u);
-  const v = normalize(v3(), _tmp);
-  return { u, v, n };
-}
-
-function bestFitNormal(s: V3, g: V3, splash: V3): V3 {
-  cross(_tmp, s, g);
-  cross(_tmp2, g, splash);
-  cross(_tmp3, splash, s);
-  const nRaw = v3(
-    _tmp.x + _tmp2.x + _tmp3.x,
-    _tmp.y + _tmp2.y + _tmp3.y,
-    _tmp.z + _tmp2.z + _tmp3.z,
-  );
-  return normalize(v3(), nRaw);
-}
-
-function projectStarbaseU(s: V3, n: V3): V3 {
-  const sn = dot(s, n);
-  const uRaw = v3(s.x - n.x * sn, s.y - n.y * sn, s.z - n.z * sn);
-  return normalize(v3(), uRaw);
-}
-
-function orientPlaneTowardGauteng(
-  u: V3,
-  v: V3,
-  n: V3,
-  g: V3,
-): { u: V3; v: V3; n: V3 } {
-  if (Math.atan2(dot(g, v), dot(g, u)) < 0) v = flipV3(v);
-  ({ u, v, n } = reorthonormalizeUV(u, v));
-  if (Math.atan2(dot(g, v), dot(g, u)) < 0) {
-    v = flipV3(v);
-    n = flipV3(n);
-  }
-  return { u, v, n };
-}
-
-function flipV3(v: V3): V3 {
-  return v3(-v.x, -v.y, -v.z);
-}
-
-function reorthonormalizeUV(u: V3, v: V3): { u: V3; v: V3; n: V3 } {
-  cross(_tmp2, u, v);
-  const n = normalize(v3(), _tmp2);
-  cross(_tmp3, n, u);
-  v = normalize(v3(), _tmp3);
-  return { u, v, n };
-}
-
-function unwrapSplashAngle(
-  splash: V3,
-  u: V3,
-  v: V3,
-  g: V3,
-): number {
-  const gAng = Math.atan2(dot(g, v), dot(g, u));
-  let splashAngleRad = Math.atan2(dot(splash, v), dot(splash, u));
-  while (splashAngleRad < gAng) splashAngleRad += 2 * Math.PI;
-  if (splashAngleRad - gAng > Math.PI && splashAngleRad - 2 * Math.PI > 0) {
-    const alt = splashAngleRad - 2 * Math.PI;
-    if (alt >= gAng * 0.5) splashAngleRad = alt;
-  }
-  return splashAngleRad;
-}
+export { flight13GreatCirclePlane };
 
 /**
  * Signed angle of a site in the GC plane, unwrapped onto the Flight 13 corridor

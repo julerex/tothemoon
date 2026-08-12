@@ -37,9 +37,13 @@ import {
   geodeticToMeshLocal,
   meshLocalToInertial,
   starbasePadState,
-  enuAtPosition,
 } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
+import {
+  corridorAlongAt,
+  FLIGHT13_SPLASH_LAT,
+  FLIGHT13_SPLASH_LON,
+} from "./flight13Corridor";
 import { makeFlight13Epoch } from "./flight13Epoch";
 import {
   altitudeEarth,
@@ -80,9 +84,7 @@ import {
   v3,
 } from "./vec3";
 
-/** Indian Ocean splash (theater — west of Australia; not a surveyed fix). */
-export const FLIGHT13_SPLASH_LAT = (-31.5 * Math.PI) / 180;
-export const FLIGHT13_SPLASH_LON = (95.0 * Math.PI) / 180;
+export { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "./flight13Corridor";
 
 /** Official approximate T+ anchors (s) from Flight 13 profile. */
 export const F13 = {
@@ -115,9 +117,11 @@ const SHIP_PROP_RESERVE = 0.07;
 
 /**
  * Target horizontal speed fraction of local circular at SECO.
- * Near-circular for a long coast; deorbit is the relight's job.
+ * Near-circular for a long eastbound coast to the Indian Ocean; deorbit is
+ * the relight's job. (Slightly under-circular + theater drag reenters over
+ * the Atlantic before splash.)
  */
-const SECO_VCIRC_FRAC = 0.985;
+const SECO_VCIRC_FRAC = 0.998;
 
 /**
  * Max |v_radial| (km/s) at SECO energy cut — keep loft modest without
@@ -141,8 +145,6 @@ const BELLY_CD_A_OVER_M = 1.6e-10;
 const BELLY_L_OVER_D = 0.42;
 
 const _up = v3();
-const _east = v3();
-const _north = v3();
 const _relP = v3();
 const _relV = v3();
 const _steer = v3();
@@ -172,54 +174,6 @@ export function splashSurfaceInertial(
   );
   meshLocalToInertial(_splashLocal, t, out, epoch);
   return normalize(out, out);
-}
-
-function padRadialInertial(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V3 {
-  const pad = starbasePadState(t, epoch);
-  return set(out, pad.up.x, pad.up.y, pad.up.z);
-}
-
-/** Project splash onto horizontal plane of `up`; write unit into `out`. */
-function horizTowardSplash(splash: V3, up: V3, out: V3): boolean {
-  const d = dot(splash, up);
-  set(_tmp3, splash.x - up.x * d, splash.y - up.y * d, splash.z - up.z * d);
-  if (len(_tmp3) < 1e-8) return false;
-  normalize(out, _tmp3);
-  return true;
-}
-
-function padEastFallback(t: number, out: V3, epoch?: EphemerisEpoch): V3 {
-  const b = getBodies(t, epoch);
-  const pad = starbasePadState(t, epoch);
-  enuAtPosition(t, pad.pos, b.earth, _up, _east, _north);
-  return set(out, _east.x, _east.y, _east.z);
-}
-
-/** Horizontal unit at pad toward splash (Flight 13 corridor). */
-function corridorAlongAtPad(t: number, out: V3 = v3(), epoch?: EphemerisEpoch): V3 {
-  const padUp = padRadialInertial(t, _tmp, epoch);
-  const splash = splashSurfaceInertial(t, _tmp2, epoch);
-  if (horizTowardSplash(splash, padUp, out)) return out;
-  return padEastFallback(t, out, epoch);
-}
-
-/**
- * Horizontal unit in the local sky plane from craft toward the splash great-circle.
- * Falls back to pad corridor if nearly radial.
- */
-function corridorAlongAtCraft(
-  t: number,
-  pos: V3,
-  out: V3 = v3(),
-  epoch?: EphemerisEpoch,
-): V3 {
-  const b = getBodies(t, epoch);
-  sub(_relP, pos, b.earth);
-  const r = len(_relP) || 1;
-  set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
-  const splash = splashSurfaceInertial(t, _tmp2, epoch);
-  if (horizTowardSplash(splash, _up, out)) return out;
-  return corridorAlongAtPad(t, out, epoch);
 }
 
 function makeSample(
@@ -283,7 +237,13 @@ function fillSteerFrame(
   epoch: EphemerisEpoch,
 ): SteerGeo {
   const g = fillEarthRelGeo(t, pos, vel, epoch);
-  return { alt: g.r - R_EARTH, vRad: g.vRad, vHoriz: g.vHoriz, vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)), along: corridorAlongAtCraft(t, pos, _along, epoch) };
+  return {
+    alt: g.r - R_EARTH,
+    vRad: g.vRad,
+    vHoriz: g.vHoriz,
+    vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)),
+    along: corridorAlongAt(t, pos, _along, epoch),
+  };
 }
 
 /** Vector from craft to surface point at radius `rSurf` along unit `surf`. */
@@ -347,9 +307,11 @@ function aimPitchAlong(along: V3, pitch: number, out: V3): void {
 }
 
 function pitchBoost(alt: number): number {
+  // Slightly slower pitch-over than a due-west short-arc loft so the eastbound
+  // corridor still has altitude in the bank when horizontal speed arrives.
   if (alt < 0.6) return 0;
-  if (alt < 45) return smoothstep(0.6, 45, alt) * (Math.PI / 2) * 0.93;
-  return (Math.PI / 2) * 0.94;
+  if (alt < 55) return smoothstep(0.6, 55, alt) * (Math.PI / 2) * 0.88;
+  return (Math.PI / 2) * 0.9;
 }
 
 /** Boost gravity-turn pitch along corridor. */
@@ -394,10 +356,31 @@ function steerUpperCircular(
   normalize(out, out);
 }
 
+/**
+ * At speed but below insert alt: climb with mostly radial thrust so eastbound
+ * assist does not keep stacking horizontal Δv into a high ellipse.
+ */
+function steerUpperLoft(along: V3, vRad: number, vHoriz: number, vTarget: number, out: V3): void {
+  const upW = vRad > 0.8 ? 0.55 : 0.8;
+  const alongW = vHoriz < vTarget ? 0.2 : -0.12;
+  set(
+    out,
+    _up.x * upW + along.x * alongW,
+    _up.y * upW + along.y * alongW,
+    _up.z * upW + along.z * alongW,
+  );
+  if (len(out) < 1e-8) set(out, _up.x, _up.y, _up.z);
+  normalize(out, out);
+}
+
 function steerUpper(geo: SteerGeo, out: V3): void {
   const vTarget = SECO_VCIRC_FRAC * geo.vCirc;
   if (geo.alt < SECO_ALT_MIN_KM) {
-    steerUpperClimb(geo.alt, geo.vRad, geo.vHoriz, vTarget, geo.along, out);
+    if (geo.vHoriz >= vTarget * 0.9) {
+      steerUpperLoft(geo.along, geo.vRad, geo.vHoriz, vTarget, out);
+    } else {
+      steerUpperClimb(geo.alt, geo.vRad, geo.vHoriz, vTarget, geo.along, out);
+    }
   } else {
     steerUpperCircular(geo.vRad, geo.vHoriz, vTarget, geo.along, out);
   }
