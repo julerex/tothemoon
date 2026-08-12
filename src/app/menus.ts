@@ -236,7 +236,7 @@ function menuHeaderBlock(kicker: string, title: string, sub?: string): string {
 }
 
 function menuBackBtn(): string {
-  return `<button type="button" class="menu-back" data-nav="main" title="Back to main menu">← Main menu</button>`;
+  return `<button type="button" class="menu-back" data-nav="main" title="Back to main menu (Esc)" aria-keyshortcuts="Escape">← Main menu</button>`;
 }
 
 function menuBackHeader(kicker: string, title: string): string {
@@ -251,6 +251,7 @@ function wireMenuClicks(roots: {
   wireMainMenuClicks(roots.main);
   wireMainMenuKeys(roots.main);
   wireMissionMenuClicks(roots.missions);
+  wireMissionMenuKeys(roots.missions);
   wireGlossaryMenuClicks(roots.glossary);
 }
 
@@ -301,6 +302,20 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 function wireMissionMenuClicks(missions: HTMLElement): void {
   missions.addEventListener("click", (e) => handleMissionClick(e));
+}
+
+function wireMissionMenuKeys(missions: HTMLElement): void {
+  window.addEventListener("keydown", (e) => onMissionMenuKeyDown(missions, e));
+}
+
+function onMissionMenuKeyDown(missions: HTMLElement, e: KeyboardEvent): void {
+  if (getShellView() !== "missions") return;
+  if (missions.hidden) return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (isEditableTarget(e.target)) return;
+  if (e.key !== "Escape") return;
+  e.preventDefault();
+  navigate("/");
 }
 
 function handleMissionClick(e: Event): void {
