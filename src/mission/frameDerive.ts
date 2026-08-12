@@ -31,8 +31,11 @@ export const TRAIL_STYLE_LOI: TrailStyle = Object.freeze({
 });
 
 /**
- * Lift craft position to sit just above Earth's mean surface when samples
- * dip slightly under R_EARTH during ascent / low Earth orbit.
+ * Lift craft position onto the shared Earth surface shell when samples
+ * dip slightly under that radius during ascent / low Earth orbit.
+ *
+ * `minR` should be `EARTH_SURFACE_RADIUS_KM` so the visual stack matches the
+ * physics pad — do not pass a separate visual clearance.
  *
  * @returns Clamped position, or the original `pos` when no lift is needed.
  */

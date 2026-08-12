@@ -6,7 +6,7 @@
 import type { Line2 } from "three/addons/lines/Line2.js";
 import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { bodyPositions } from "../../physics/bodies";
-import { R_EARTH, R_MOON } from "../../physics/constants";
+import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
 import { starbasePadState } from "../../physics/earthFrame";
 import { formatMissionDateUtc } from "../../physics/epoch";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
@@ -80,7 +80,7 @@ function syncEarth(ctx: MoonCtx, simT: number): BodyState {
 
 function maybeClamp(ctx: MoonCtx, frame: SampleFrame, b: BodyState): void {
   if (!shouldClampAboveEarth(frame.phase)) return;
-  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, R_EARTH + 0.05);
+  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
 }
 
@@ -89,7 +89,7 @@ function displayFields(prelaunch: boolean, frame: SampleFrame) {
     showBurning: prelaunch ? false : frame.burning,
     showThrustN: prelaunch ? 0 : frame.thrustN,
     displayPhase: prelaunch ? "launch" : frame.phase,
-    displayAltEarth: prelaunch ? 0.01 : frame.altEarth,
+    displayAltEarth: prelaunch ? STARBASE_ALT : frame.altEarth,
     staged: prelaunch ? false : frame.staged,
   };
 }
@@ -106,7 +106,7 @@ function applyAttitude(
 ): void {
   const useSurface = attitudeNearEarth(
     frame.phase,
-    prelaunch ? 0.01 : frame.altEarth,
+    prelaunch ? STARBASE_ALT : frame.altEarth,
   );
   orientCraft(ctx.orient, ctx.craftVel, ctx.earthPos, ctx.earthVel, useSurface);
 }
@@ -286,7 +286,7 @@ function hudCore(
     phaseId: prelaunch ? ("launch" as const) : frame.phase,
     t: physicsT, durationS: ctx.transportS,
     distanceToMoon: Math.max(0, frame.distMoon - R_MOON),
-    altitude: prelaunch ? 0.01 : altitude, speed: prelaunch ? 0 : frame.speed,
+    altitude: prelaunch ? STARBASE_ALT : altitude, speed: prelaunch ? 0 : frame.speed,
     fuelBooster: frame.fuelBooster, fuelShip: frame.fuelShip, thrustN: d.showThrustN,
   };
 }

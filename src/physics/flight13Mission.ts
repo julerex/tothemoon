@@ -25,6 +25,7 @@
 
 import {
   BOOSTER_THRUST_N,
+  EARTH_SURFACE_RADIUS_KM,
   HOT_STAGE_S,
   MU_EARTH,
   R_EARTH,
@@ -297,7 +298,7 @@ function aimToSurfPoint(pos: V3, earth: V3, surf: V3, rSurf: number, out: V3): n
 function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const bL = getBodies(t, epoch);
-  return aimToSurfPoint(pos, bL.earth, splash, R_EARTH + 0.05, _tmp3);
+  return aimToSurfPoint(pos, bL.earth, splash, EARTH_SURFACE_RADIUS_KM, _tmp3);
 }
 
 function steerLandBrake(out: V3, distSplash: number): void {
@@ -815,8 +816,8 @@ function surfaceClamp(loop: F13Loop): void {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
-  if (!(L - R_EARTH < 0.02 && loop.state.t < F13.SPLASH - 1)) return;
-  placeOnSphere(loop.state.pos, b.earth, _relP, L, R_EARTH + 0.02);
+  if (!(L < EARTH_SURFACE_RADIUS_KM + 1e-6 && loop.state.t < F13.SPLASH - 1)) return;
+  placeOnSphere(loop.state.pos, b.earth, _relP, L, EARTH_SURFACE_RADIUS_KM);
   sub(_relP, loop.state.pos, b.earth);
   const L2 = len(_relP) || 1;
   killInwardRadialRel(loop.state.vel, b.earthVel, _relP, L2);
@@ -849,7 +850,7 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
 
 function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
   const b = getBodies(loop.state.t, loop.epoch);
-  const targetR = R_EARTH + 0.02;
+  const targetR = EARTH_SURFACE_RADIUS_KM;
   if (rangeKm < 200) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
   else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
   set(loop.state.vel, b.earthVel.x, b.earthVel.y, b.earthVel.z);

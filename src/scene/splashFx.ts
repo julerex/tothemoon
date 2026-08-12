@@ -6,7 +6,7 @@
  */
 
 import * as THREE from "three";
-import { R_EARTH } from "../physics/constants";
+import { EARTH_SURFACE_RADIUS_KM } from "../physics/constants";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
@@ -65,7 +65,7 @@ function makeSpray(mat: THREE.MeshBasicMaterial): THREE.Mesh {
 
 function placeSiteOnEarth(site: THREE.Group): void {
   const local = { x: 0, y: 0, z: 0 };
-  geodeticToMeshLocal(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, R_EARTH, local);
+  geodeticToMeshLocal(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, EARTH_SURFACE_RADIUS_KM, local);
   site.position.set(local.x, local.y, local.z);
   const radial = new THREE.Vector3(local.x, local.y, local.z).normalize();
   site.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), radial);

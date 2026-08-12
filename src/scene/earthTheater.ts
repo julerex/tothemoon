@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import {
+  EARTH_SURFACE_RADIUS_KM,
   R_EARTH,
-  STARBASE_ALT,
   STARBASE_LAT,
   STARBASE_LON,
 } from "../physics/constants";
@@ -14,7 +14,7 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import type { Sample } from "../physics/mission";
 import { v3 } from "../physics/vec3";
-import { PAD_VISUAL_ALT_KM, TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../camera/trenchCam";
+import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../camera/trenchCam";
 import { createFatLine } from "./fatLines";
 import {
   bloomVisual,
@@ -55,8 +55,9 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * ## Parenting
  *
  * The returned group is parented under the spinning Earth mesh so it co-rotates.
- * Pad origin matches craft engines at t≈0 (`R_EARTH` + pad altitude). Local
- * frame: **+Y up**, tower at **+X**, scene unit = **1 km**.
+ * Pad origin matches craft engines at t≈0 (`EARTH_SURFACE_RADIUS_KM`, the
+ * shared physics/visual shell). Local frame: **+Y up**, tower at **+X**,
+ * scene unit = **1 km**.
  *
  * ## Dual scale
  *
@@ -100,8 +101,7 @@ const GROUND_OFFSET = {
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 function placePadOnEarth(pad: THREE.Group): void {
-  const padAlt = Math.max(STARBASE_ALT, PAD_VISUAL_ALT_KM);
-  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, R_EARTH + padAlt);
+  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_RADIUS_KM);
   pad.position.set(local.x, local.y, local.z);
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);

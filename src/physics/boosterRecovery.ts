@@ -15,7 +15,7 @@
  * Scene unit = km. Pure + scrub-deterministic from (stage event, age).
  */
 
-import { MU_EARTH, R_EARTH } from "./constants";
+import { EARTH_SURFACE_RADIUS_KM, MU_EARTH, R_EARTH } from "./constants";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
@@ -580,7 +580,7 @@ function keyframeSegmentIndex(kfs: RelKeyframe[], ageClamped: number): number {
 
 function clampAboveEarth(): void {
   const r = len(_pRel);
-  const minR = R_EARTH + 0.05;
+  const minR = EARTH_SURFACE_RADIUS_KM;
   if (r < minR && r > 1e-6) scale(_pRel, _pRel, minR / r);
 }
 

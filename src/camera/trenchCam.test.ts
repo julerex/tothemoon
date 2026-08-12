@@ -30,16 +30,17 @@ describe("trenchCam mount (pad-local)", () => {
     assert.equal(TRENCH_CAM_LOOK_LOCAL.z, 0);
   });
 
-  it("sits above the Earth mesh at visual pad altitude", () => {
+  it("sits above the Earth mesh on the shared pad shell", () => {
     const alt = STARBASE_ALT + padVisualLiftKm() + TRENCH_CAM_LOCAL.y;
     assert.equal(PAD_VISUAL_ALT_KM, SURFACE_CLEARANCE_KM);
+    assert.equal(PAD_VISUAL_ALT_KM, STARBASE_ALT);
     assert.ok(alt > 0, "must not be inside the Earth sphere");
-    assert.ok(alt >= SURFACE_CLEARANCE_KM, "at or above the visual pad / craft clamp");
+    assert.ok(alt >= SURFACE_CLEARANCE_KM, "at or above the shared pad / craft clamp");
   });
 
-  it("lifts physics pad (STARBASE_ALT) up to the visual pad", () => {
-    assert.ok(Math.abs(padVisualLiftKm() - (PAD_VISUAL_ALT_KM - STARBASE_ALT)) < 1e-12);
-    assert.ok(padVisualLiftKm() > 0);
+  it("does not lift physics pad away from the visual pad", () => {
+    assert.equal(padVisualLiftKm(), 0);
+    assert.equal(PAD_VISUAL_ALT_KM, STARBASE_ALT);
   });
 });
 
