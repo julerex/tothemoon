@@ -175,7 +175,7 @@ function mainMenuHtml(): string {
 }
 
 function mainMenuLead(): string {
-  return `<p class="menu-lead">True-scale Three.js theaters for Starship-class missions. Pick a mission to scrub the flight, fly the cameras, and watch the timeline.</p>`;
+  return `<p class="menu-lead">True-scale Three.js theaters for Starship-class missions.</p>`;
 }
 
 function mainMenuNav(): string {
