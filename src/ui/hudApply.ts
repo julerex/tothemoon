@@ -3,6 +3,7 @@
  */
 
 import type { MetricsDom, HudCompleteCard, HudDom } from "./hudDom";
+import { formatRate } from "./hudFormat";
 import type {
   CompleteCardLabels,
   MainTelemetryLabels,
@@ -81,6 +82,9 @@ function applyMainPlayButton(dom: HudDom, m: MainTelemetryLabels): void {
 function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.phaseEl.textContent = m.phase;
   if (dom.missionClockEl) dom.missionClockEl.textContent = m.missionClock;
+  if (dom.missionClockRateEl) {
+    dom.missionClockRateEl.textContent = formatRate(m.playbackSpeed);
+  }
   if (dom.dateEl) dom.dateEl.textContent = m.dateUtc;
   dom.distEl.textContent = m.distance;
   dom.progEl.textContent = m.progress;

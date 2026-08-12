@@ -22,6 +22,7 @@ export type HudTransport = {
 export type HudTelStrip = {
   phaseEl: HTMLElement;
   missionClockEl: HTMLElement | null;
+  missionClockRateEl: HTMLElement | null;
   newsTickerEl: HTMLElement | null;
   newsTextEl: HTMLElement | null;
   newsTextDupEl: HTMLElement | null;
@@ -153,6 +154,7 @@ function collectTelStripA(): Pick<
   HudTelStrip,
   | "phaseEl"
   | "missionClockEl"
+  | "missionClockRateEl"
   | "newsTickerEl"
   | "newsTextEl"
   | "newsTextDupEl"
@@ -162,7 +164,9 @@ function collectTelStripA(): Pick<
   | "progEl"
 > {
   return {
-    phaseEl: el("#phase"), missionClockEl: q("#mission-clock-value"),
+    phaseEl: el("#phase"),
+    missionClockEl: q("#mission-clock-value"),
+    missionClockRateEl: q("#mission-clock-rate"),
     newsTickerEl: q("#news-ticker"), newsTextEl: q("#news-ticker-text"),
     newsTextDupEl: q("#news-ticker-text-dup"), newsTrackEl: q("#news-ticker-track"),
     dateEl: q("#date"), distEl: el("#distance"), progEl: el("#progress"),
