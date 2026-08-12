@@ -807,6 +807,9 @@ function surfaceFrameVel(earthVel: V3, relP: V3, out: V3): V3 {
   return set(out, earthVel.x + _tmp3.x, earthVel.y + _tmp3.y, earthVel.z + _tmp3.z);
 }
 
+/** One-shot surface floor sits this far above the pad so clamp releases after the first snap. */
+const SURFACE_CLAMP_ABOVE_PAD_KM = 0.01;
+
 /**
  * Keep craft above surface with light friction when decked early.
  * Friction damps toward the **co-rotating pad frame** (not Earth COM) — damping
@@ -816,8 +819,9 @@ function surfaceClamp(loop: F13Loop): void {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
-  if (!(L < EARTH_SURFACE_RADIUS_KM + 1e-6 && loop.state.t < F13.SPLASH - 1)) return;
-  placeOnSphere(loop.state.pos, b.earth, _relP, L, EARTH_SURFACE_RADIUS_KM);
+  const floorR = EARTH_SURFACE_RADIUS_KM + SURFACE_CLAMP_ABOVE_PAD_KM;
+  if (!(L < floorR && loop.state.t < F13.SPLASH - 1)) return;
+  placeOnSphere(loop.state.pos, b.earth, _relP, L, floorR);
   sub(_relP, loop.state.pos, b.earth);
   const L2 = len(_relP) || 1;
   killInwardRadialRel(loop.state.vel, b.earthVel, _relP, L2);
