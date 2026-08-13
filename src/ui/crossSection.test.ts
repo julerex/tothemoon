@@ -78,7 +78,7 @@ describe("buildCrossSectionModel", () => {
   });
 
   it("frames atmosphere and booster envelope at true scale", () => {
-    assert.equal(model.rAtm, R_EARTH + ATM_H_MAX_KM);
+    assert.equal(model.rAtm, model.rEarth + ATM_H_MAX_KM);
     assert.ok(model.bounds.yMax >= model.rAtm - 5);
     assert.ok(model.bounds.xMax > 50);
     // Envelope stays low-Earth-orbit-local (not cislunar)

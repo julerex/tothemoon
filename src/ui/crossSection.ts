@@ -10,7 +10,6 @@
 
 import {
   ATM_H_MAX_KM,
-  R_EARTH,
   STARBASE_LAT,
   STARBASE_LON,
 } from "../physics/constants";
@@ -89,6 +88,15 @@ export type CrossSectionLive = {
 const _local = v3();
 const _rel = v3();
 
+/** Geocentric WGS84 radius at Starbase (km) — launch-plane surface circle. */
+function starbaseEllipsoidRadiusKm(): number {
+  const pad = v3();
+  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 0, pad);
+  return len(pad);
+}
+
+const LAUNCH_PLANE_R_EARTH = starbaseEllipsoidRadiusKm();
+
 /**
  * Mesh-local orthonormal basis at Starbase: up = pad radial, east = due east.
  * Fixed for the spinning Earth mesh (ground-relative diagram).
@@ -158,7 +166,7 @@ function dot3(a: V3, b: V3): number {
 }
 
 /** Geocentric altitude (km) from a plane point (uses planar radius). */
-export function planeAltitudeKm(p: PlanePoint, rEarth = R_EARTH): number {
+export function planeAltitudeKm(p: PlanePoint, rEarth = LAUNCH_PLANE_R_EARTH): number {
   return Math.hypot(p.x, p.y) - rEarth;
 }
 
@@ -166,7 +174,7 @@ export function planeAltitudeKm(p: PlanePoint, rEarth = R_EARTH): number {
  * Signed surface arc from the pad meridian (km): R · θ with θ = atan2(x, y).
  * Positive = downrange (east of pad radial).
  */
-export function surfaceArcKm(p: PlanePoint, rEarth = R_EARTH): number {
+export function surfaceArcKm(p: PlanePoint, rEarth = LAUNCH_PLANE_R_EARTH): number {
   return Math.atan2(p.x, p.y) * rEarth;
 }
 
@@ -221,8 +229,8 @@ function finishCrossSectionModel(
   boosterTrail: TimedPlanePoint[],
   stageT: number | null,
 ): CrossSectionModel {
-  const rEarth = R_EARTH;
-  const rAtm = R_EARTH + ATM_H_MAX_KM;
+  const rEarth = LAUNCH_PLANE_R_EARTH;
+  const rAtm = LAUNCH_PLANE_R_EARTH + ATM_H_MAX_KM;
   const bounds = computeCrossSectionBounds(shipTrail, boosterTrail, rEarth, rAtm);
   return { basis, shipTrail, boosterTrail, stageT, bounds, rAtm, rEarth };
 }
@@ -307,7 +315,7 @@ function stepPostStage(
 }
 
 function shipLeftEnvelope(pt: PlanePoint): boolean {
-  return Math.abs(pt.x) > 160 || Math.hypot(pt.x, pt.y) > R_EARTH + 160;
+  return Math.abs(pt.x) > 160 || Math.hypot(pt.x, pt.y) > LAUNCH_PLANE_R_EARTH + 160;
 }
 
 function fillBoosterRecovery(
