@@ -139,7 +139,7 @@ describe("markPadShadowMeshes", () => {
     pad.add(terrain);
 
     const plate = new THREE.Mesh(
-      new THREE.RingGeometry(0.12, 8, 8),
+      new THREE.PlaneGeometry(80, 80, 2, 2),
       new THREE.MeshStandardMaterial(),
     );
     plate.name = "pad-satellite-plate";

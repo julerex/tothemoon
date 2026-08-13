@@ -1,14 +1,16 @@
 /**
- * Starbase satellite plate yaw + planar UV contracts.
+ * Starbase satellite plate yaw, UV, drape, and WMS bbox contracts.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
-import { STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
+import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
 import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
 import {
-  STARBASE_PLATE_OUTER_KM,
+  STARBASE_PLATE_HALF_KM,
+  drapePlatePoint,
   starbasePlateUv,
+  starbasePlateWmsBboxDeg,
   starbasePlateYawRad,
 } from "./starbasePlate.ts";
 
@@ -20,11 +22,11 @@ describe("starbasePlateUv", () => {
   });
 
   it("maps +X (east) to the right edge and +Z (north) to the top", () => {
-    const r = STARBASE_PLATE_OUTER_KM;
-    const [uEast, vEast] = starbasePlateUv(r, 0);
-    const [uNorth, vNorth] = starbasePlateUv(0, r);
-    const [uWest, vWest] = starbasePlateUv(-r, 0);
-    const [uSouth, vSouth] = starbasePlateUv(0, -r);
+    const h = STARBASE_PLATE_HALF_KM;
+    const [uEast, vEast] = starbasePlateUv(h, 0);
+    const [uNorth, vNorth] = starbasePlateUv(0, h);
+    const [uWest, vWest] = starbasePlateUv(-h, 0);
+    const [uSouth, vSouth] = starbasePlateUv(0, -h);
     assert.equal(uEast, 1);
     assert.equal(vEast, 0.5);
     assert.equal(uNorth, 0.5);
@@ -35,13 +37,66 @@ describe("starbasePlateUv", () => {
     assert.equal(vSouth, 0);
   });
 
-  it("stays in 0…1 on the disc", () => {
-    const r = STARBASE_PLATE_OUTER_KM;
-    for (const ang of [0, 0.7, 1.4, 2.1, 3.5, 4.8, 5.5]) {
-      const [u, v] = starbasePlateUv(r * Math.cos(ang), r * Math.sin(ang));
+  it("maps square corners onto the JPEG corners", () => {
+    const h = STARBASE_PLATE_HALF_KM;
+    const [u, v] = starbasePlateUv(h, h);
+    assert.equal(u, 1);
+    assert.equal(v, 1);
+    const [uSw, vSw] = starbasePlateUv(-h, -h);
+    assert.equal(uSw, 0);
+    assert.equal(vSw, 0);
+  });
+
+  it("stays in 0…1 on the square including corners", () => {
+    const h = STARBASE_PLATE_HALF_KM;
+    for (const [x, z] of [
+      [h, 0],
+      [0, h],
+      [-h, 0],
+      [0, -h],
+      [h, h],
+      [h, -h],
+      [-h, h],
+      [-h, -h],
+    ] as const) {
+      const [u, v] = starbasePlateUv(x, z);
       assert.ok(u >= 0 && u <= 1, `u=${u}`);
       assert.ok(v >= 0 && v <= 1, `v=${v}`);
     }
+  });
+});
+
+describe("drapePlatePoint", () => {
+  it("leaves the pad origin on the tangent plane", () => {
+    const p = drapePlatePoint(0, 0, R_EARTH);
+    assert.ok(Math.abs(p.x) < 1e-12);
+    assert.ok(Math.abs(p.y) < 1e-12);
+    assert.ok(Math.abs(p.z) < 1e-12);
+  });
+
+  it("sinks the square edge toward Earth center", () => {
+    const p = drapePlatePoint(STARBASE_PLATE_HALF_KM, 0, R_EARTH);
+    assert.ok(p.y < -0.05, `y=${p.y}`);
+    assert.ok(Math.abs(p.z) < 1e-9);
+    assert.ok(p.x > 0);
+  });
+
+  it("keeps draped points on the sphere through Earth center", () => {
+    const p = drapePlatePoint(STARBASE_PLATE_HALF_KM, STARBASE_PLATE_HALF_KM, R_EARTH);
+    const dist = Math.hypot(p.x, p.y + R_EARTH, p.z);
+    assert.ok(Math.abs(dist - R_EARTH) < 1e-6, `dist=${dist}`);
+  });
+});
+
+describe("starbasePlateWmsBboxDeg", () => {
+  it("is a lon/lat square centered on Starbase", () => {
+    const b = starbasePlateWmsBboxDeg();
+    const lat0 = STARBASE_LAT * (180 / Math.PI);
+    const lon0 = STARBASE_LON * (180 / Math.PI);
+    assert.ok(Math.abs((b.minLat + b.maxLat) / 2 - lat0) < 1e-9);
+    assert.ok(Math.abs((b.minLon + b.maxLon) / 2 - lon0) < 1e-9);
+    assert.ok(b.maxLat - b.minLat > 0.4, "wider than the old ~0.14° disc");
+    assert.ok(b.maxLon - b.minLon > 0.4);
   });
 });
 

@@ -34,8 +34,10 @@ Sentinel-2 cloudless mosaic — Starbase / Boca Chica surrounds
 Source: https://s2maps.eu/  (EOX IT Services GmbH)
 WMS: https://tiles.maps.eox.at/  layer s2cloudless-2024
 File: starbase_surrounds.jpg
-  4096×4096 JPEG crop, ~16×16 km box centered on 25.997°N 97.156°W
-  (EPSG:4326 bbox −97.236, 25.925, −97.076, 26.069), north-up.
+  4096×4096 JPEG, ~80×80 km square centered on 25.997°N 97.156°W
+  (EPSG:4326 bbox −97.55622, 25.63727, −96.75578, 26.35673), north-up.
+  Full rectangle — not a circular crop.
+  Built from a 3×3 EOX WMS mosaic (`npm run starbase-surrounds`).
 
 Contains modified Copernicus Sentinel data [2024].
 Sentinel-2 cloudless by EOX IT Services GmbH, licensed CC BY 4.0
