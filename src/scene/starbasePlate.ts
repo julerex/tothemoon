@@ -4,6 +4,9 @@
  * The photo is a north-up square centered on the pad (full JPEG, not a circular
  * crop). The 3D pad group only aligns +Y to local up (`setFromUnitVectors`), so
  * this module yaws **the plate only** until plate +Z = geographic north.
+ * Right-handed +Y-up then puts plate +X **west** (east × north = up, so
+ * north × up = east = −X). UVs must increase toward −X or the Gulf lands
+ * inland.
  * Vertices are draped onto the Earth sphere so a wide plate stays on the globe.
  * Scene unit = 1 km.
  */
@@ -28,9 +31,11 @@ export const STARBASE_PLATE_SEGS = 48;
 
 /**
  * Planar UV for a north-up square photo covering ±`halfKm`.
- * Plate local: +X east, +Z north (after {@link starbasePlateYawRad}).
+ * After {@link starbasePlateYawRad}, plate local is right-handed +Y up:
+ * +Z north, +X west. U increases toward geographic east (−X); V toward
+ * north (+Z), the top of the JPEG (Three.js `flipY`).
  *
- * @returns `[u, v]` in 0…1 (v=1 is north / top of the JPEG)
+ * @returns `[u, v]` in 0…1 (u=1 east / right of the JPEG, v=1 north / top)
  */
 export function starbasePlateUv(
   xKm: number,
@@ -38,7 +43,7 @@ export function starbasePlateUv(
   halfKm = STARBASE_PLATE_HALF_KM,
 ): [number, number] {
   const s = 1 / (2 * halfKm);
-  return [0.5 + xKm * s, 0.5 + zKm * s];
+  return [0.5 - xKm * s, 0.5 + zKm * s];
 }
 
 /**
@@ -80,6 +85,8 @@ export function starbasePlateWmsBboxDeg(
 
 /**
  * Yaw (rad about pad +Y) that aligns plate +Z with geographic north.
+ * Plate +X is then west (right-handed +Y up); {@link starbasePlateUv}
+ * maps geographic east (−X) to the JPEG’s right edge.
  *
  * Matches `THREE.Quaternion.setFromUnitVectors(+Y, mesh-local up)` used by
  * `placePadOnEarth`. Degenerate at the poles (returns 0).
