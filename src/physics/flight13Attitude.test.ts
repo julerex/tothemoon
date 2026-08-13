@@ -6,9 +6,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   F13_ATT,
+  FWD_FLAP_REST_RAD,
+  entryFlapDeflectionRad,
   entryPlasmaStrength,
+  entryVisualBank,
   landingEngineCount,
   landingFlipBlend,
+  plasmaBankOffset,
   shipAttitudeMode,
 } from "./flight13Attitude.ts";
 
@@ -66,5 +70,51 @@ describe("entryPlasmaStrength", () => {
     assert.ok(mid > 0.3, `mid plasma ${mid}`);
     const late = entryPlasmaStrength(F13_ATT.TRANSONIC + 30, "entry", 20, 0.8);
     assert.ok(late < 0.15, `late plasma ${late}`);
+  });
+});
+
+describe("entryFlapDeflectionRad", () => {
+  it("stays at rest outside the Flight 13 entry window", () => {
+    const rest = entryFlapDeflectionRad(30, "ascent", 20, "prograde");
+    assert.equal(rest.fwd, FWD_FLAP_REST_RAD);
+    assert.equal(rest.aft, 0);
+    const lunar = entryFlapDeflectionRad(400_000, "descent", 5, "belly");
+    assert.equal(lunar.fwd, FWD_FLAP_REST_RAD);
+    assert.equal(lunar.aft, 0);
+  });
+
+  it("throws fully in belly-flop then tapers through transonic", () => {
+    const belly = entryFlapDeflectionRad(F13_ATT.ENTRY + 10, "entry", 80, "belly");
+    assert.ok(belly.fwd > FWD_FLAP_REST_RAD + 0.4);
+    assert.ok(belly.aft > 0.3);
+    const late = entryFlapDeflectionRad(F13_ATT.TRANSONIC + 40, "entry", 20, "belly");
+    assert.ok(late.fwd < belly.fwd);
+    assert.ok(late.aft < belly.aft);
+  });
+
+  it("folds toward rest after the landing flip", () => {
+    const after = entryFlapDeflectionRad(F13_ATT.LAND_FLIP + 3, "descent", 2, "engines_first");
+    assert.ok(after.fwd <= FWD_FLAP_REST_RAD + 0.05);
+    assert.ok(after.aft < 0.05);
+  });
+});
+
+describe("entryVisualBank / plasmaBankOffset", () => {
+  it("is +1 when starboard aligns with up × air", () => {
+    const bank = entryVisualBank(
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 0, z: 1 },
+      { x: 0, y: 1, z: 0 },
+    );
+    assert.ok(Math.abs(bank - 1) < 1e-9);
+  });
+
+  it("offsets the trail with bank and is scrub-stable", () => {
+    const a = plasmaBankOffset(0.5);
+    const b = plasmaBankOffset(0.5);
+    assert.deepEqual(a, b);
+    assert.ok(a.trailX > 0);
+    assert.ok(a.trailOpMul > 1);
+    assert.equal(plasmaBankOffset(0).trailX, 0);
   });
 });

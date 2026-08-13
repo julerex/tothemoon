@@ -1,5 +1,10 @@
 import * as THREE from "three";
 import {
+  entryFlapDeflectionRad,
+  shipAttitudeMode,
+} from "../physics/flight13Attitude";
+import type { PhaseId } from "../physics/missionTypes";
+import {
   plumeGimbalOffset,
   plumeLook,
   plumeRegimeFor,
@@ -24,7 +29,9 @@ import { createNameLabel } from "./zoomLabels";
  * V4 materials: circumferential stainless anisotropy + weld rings readable at
  * fin cam; windward-only heat-shield edge wear; denser high-contrast grid fins
  * for grid-fin cam sky silhouette.
- */
+ *
+ * V7 entry: windward tile emissive from plasma; hinged flaps/elevons from
+ * Flight 13 attitude (belly throw, transonic taper).
 
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
@@ -272,32 +279,37 @@ function addShipWeldRings(ship: THREE.Group, mats: CraftMats): void {
   }
 }
 
-/** One forward flap stack (structure + tile + wear + hinge). */
+/** One forward flap stack (structure + tile + wear) on a named hinge pivot. */
 function addFwdFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
+  const hingeX = side * (R + 0.005);
+  const hingeY = -0.01;
+  const hingeZ = SHIP_H - 0.52;
+  const pivot = new THREE.Group();
+  pivot.name = side < 0 ? "fwd-flap-L" : "fwd-flap-R";
+  pivot.position.set(hingeX, hingeY, hingeZ);
+  pivot.rotation.z = side * 0.12;
+  pivot.rotation.x = 0.08;
+  pivot.userData.restX = 0.08;
   const flap = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.2, 0.26), mats.steelDark);
-  flap.position.set(side * (R + 0.02), -0.02, SHIP_H - 0.62);
-  flap.rotation.z = side * 0.12;
-  flap.rotation.x = 0.08;
-  ship.add(flap);
-  addFwdFlapTiles(ship, mats, side);
-  addFwdFlapHinge(ship, mats, side);
+  flap.position.set(side * 0.015, -0.01, -0.10);
+  pivot.add(flap);
+  addFwdFlapTiles(pivot, mats, side);
+  addFwdFlapHinge(pivot, mats);
+  ship.add(pivot);
 }
 
-function addFwdFlapTiles(ship: THREE.Group, mats: CraftMats, side: number): void {
+function addFwdFlapTiles(pivot: THREE.Group, mats: CraftMats, side: number): void {
   const flapTile = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.16, 0.22), mats.tile);
-  flapTile.position.set(side * (R + 0.036), 0.01, SHIP_H - 0.62);
-  flapTile.rotation.z = side * 0.12;
-  ship.add(flapTile);
+  flapTile.position.set(side * 0.031, 0.02, -0.10);
+  pivot.add(flapTile);
   const flapWear = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.04, 0.2), mats.tileWear);
-  flapWear.position.set(side * (R + 0.038), -0.06, SHIP_H - 0.62);
-  flapWear.rotation.z = side * 0.12;
-  ship.add(flapWear);
+  flapWear.position.set(side * 0.033, -0.05, -0.10);
+  pivot.add(flapWear);
 }
 
-function addFwdFlapHinge(ship: THREE.Group, mats: CraftMats, side: number): void {
+function addFwdFlapHinge(pivot: THREE.Group, mats: CraftMats): void {
   const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.07), mats.accent);
-  hinge.position.set(side * (R + 0.005), -0.01, SHIP_H - 0.52);
-  ship.add(hinge);
+  pivot.add(hinge);
 }
 
 function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
@@ -317,15 +329,20 @@ function addFinCam(ship: THREE.Group): void {
   ship.add(finLook);
 }
 
-/** One aft elevon + tile face. */
+/** One aft elevon + tile face on a named hinge pivot. */
 function addAftFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
+  const pivot = new THREE.Group();
+  pivot.name = side < 0 ? "aft-elevon-L" : "aft-elevon-R";
+  pivot.position.set(side * (R + 0.01), 0, 0.32);
+  pivot.rotation.z = side * 0.16;
+  pivot.userData.restX = 0;
   const flap = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.24, 0.32), mats.steelDark);
-  flap.position.set(side * (R + 0.028), 0, 0.32);
-  flap.rotation.z = side * 0.16;
-  ship.add(flap);
+  flap.position.set(side * 0.018, 0, 0);
+  pivot.add(flap);
   const flapTile = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.2, 0.28), mats.tile);
-  flapTile.position.set(side * (R + 0.04), 0.02, 0.32);
-  ship.add(flapTile);
+  flapTile.position.set(side * 0.03, 0.02, 0);
+  pivot.add(flapTile);
+  ship.add(pivot);
 }
 
 function addAftFlaps(ship: THREE.Group, mats: CraftMats): void {
@@ -379,6 +396,7 @@ function buildShip(mats: CraftMats): THREE.Group {
   ship.position.z = BOOST_H;
   ship.userData.stackedZ = BOOST_H;
   ship.userData.stagedZ = 0;
+  ship.userData.heatMats = { tile: mats.tile, tileWear: mats.tileWear };
   return ship;
 }
 
@@ -1519,6 +1537,11 @@ export type CraftVisualState = {
    * Undefined / 0 → full ship plume when burning.
    */
   shipEngineCount?: number;
+  /**
+   * Entry plasma strength [0, 1] — drives windward tile emissive / char.
+   * Omit on missions without atmospheric entry.
+   */
+  plasmaStrength?: number;
 };
 
 /** Reference thrust (N) for plume size normalization. */
@@ -1766,6 +1789,47 @@ function setStackLayout(group: THREE.Group, staged: boolean): void {
   }
 }
 
+type HeatMats = {
+  tile: THREE.MeshStandardMaterial;
+  tileWear: THREE.MeshStandardMaterial;
+};
+
+/**
+ * Windward tile glow / char from entry plasma. Theater-grade — not a heat map.
+ * Intensity is scrub-safe via {@link CraftVisualState.plasmaStrength}.
+ */
+function updateEntryHeat(group: THREE.Group, plasma: number): void {
+  const ship = group.getObjectByName("ship");
+  const mats = ship?.userData.heatMats as HeatMats | undefined;
+  if (!mats) return;
+  const u = Number.isFinite(plasma) ? Math.max(0, Math.min(1, plasma)) : 0;
+  mats.tile.emissive.setRGB(0.95 * u, 0.28 * u, 0.05 * u);
+  mats.tile.emissiveIntensity = 1.85 * u;
+  mats.tileWear.emissive.setRGB(0.7 * u, 0.16 * u, 0.03 * u);
+  mats.tileWear.emissiveIntensity = 1.15 * u;
+}
+
+const FWD_FLAP_NAMES = ["fwd-flap-L", "fwd-flap-R"] as const;
+const AFT_ELEVON_NAMES = ["aft-elevon-L", "aft-elevon-R"] as const;
+
+function setPivotPitch(group: THREE.Group, name: string, pitch: number): void {
+  const pivot = group.getObjectByName(name);
+  if (pivot) pivot.rotation.x = pitch;
+}
+
+/**
+ * Belly-flop flap / elevon angles from mission phase (Flight 13 window only).
+ */
+function updateControlSurfaces(group: THREE.Group, state: CraftVisualState): void {
+  const t = state.missionT ?? 0;
+  const phase = (state.phase ?? "launch") as PhaseId;
+  const alt = state.altEarth ?? 200;
+  const mode = shipAttitudeMode(t, phase, alt, state.burning);
+  const def = entryFlapDeflectionRad(t, phase, alt, mode);
+  for (const name of FWD_FLAP_NAMES) setPivotPitch(group, name, def.fwd);
+  for (const name of AFT_ELEVON_NAMES) setPivotPitch(group, name, def.aft);
+}
+
 /**
  * Hide stacked booster after stage-out (detached mesh is handled by StagingFx);
  * drive multi-layer plumes + dual exhaust lights by regime (V1).
@@ -1792,6 +1856,8 @@ export function updateCraftVisuals(
   driveCraftPlumes(group, state, missionT, hotPre, hotPost, showBoost, showShip);
   dimShipBells(group, state);
   updateCondensation(group.getObjectByName("condense-cloud"), state.phase, missionT, state.burning);
+  updateEntryHeat(group, state.plasmaStrength ?? 0);
+  updateControlSurfaces(group, state);
 }
 
 function driveCraftPlumes(

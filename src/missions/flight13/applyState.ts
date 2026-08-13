@@ -17,6 +17,7 @@ import {
 } from "../../physics/flight13Mission";
 import {
   entryPlasmaStrength,
+  entryVisualBank,
   landingEngineCount,
 } from "../../physics/flight13Attitude";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
@@ -121,12 +122,18 @@ function craftVisualArgs(
   physicsT: number,
   frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
+  air: number,
 ) {
   const engCount = physicsT < 0 ? 0 : landingEngineCount(frame.t);
+  const t = Math.max(0, physicsT);
+  const plasma = physicsT < 0
+    ? 0
+    : entryPlasmaStrength(t, d.displayPhase, d.displayAltEarth, air);
   return {
     staged: d.stagedForCam, burning: d.showBurning, thrustN: d.showThrustN,
-    missionT: Math.max(0, physicsT), stageT: ctx.stageT, altEarth: d.displayAltEarth,
+    missionT: t, stageT: ctx.stageT, altEarth: d.displayAltEarth,
     phase: d.displayPhase, shipEngineCount: engCount > 0 ? engCount : undefined,
+    plasmaStrength: plasma,
   };
 }
 
@@ -135,8 +142,9 @@ function updateCraftFx(
   physicsT: number,
   frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
+  air: number,
 ): void {
-  updateCraftVisuals(ctx.craft, craftVisualArgs(ctx, physicsT, frame, d));
+  updateCraftVisuals(ctx.craft, craftVisualArgs(ctx, physicsT, frame, d, air));
 }
 
 function updatePadFx(
@@ -185,7 +193,13 @@ function updateEntry(
   air: number,
 ): void {
   const t = Math.max(0, physicsT);
-  ctx.entryFx.update(t, d.displayPhase, d.displayAltEarth, prelaunch ? 0 : air);
+  ctx.entryFx.update(
+    t,
+    d.displayPhase,
+    d.displayAltEarth,
+    prelaunch ? 0 : air,
+    prelaunch ? 0 : entryVisualBank(ctx.orient.side, ctx.orient.airVel, ctx.orient.localUp),
+  );
   ctx.cinemaState.plasma = prelaunch
     ? 0
     : entryPlasmaStrength(t, d.displayPhase, d.displayAltEarth, air);
@@ -444,10 +458,11 @@ function updateFxStack(
   b: BodyState,
 ): void {
   applyAttitude(ctx, physicsT, d);
-  updateCraftFx(ctx, physicsT, frame, d);
+  const air = speedAir(ctx, b);
+  updateCraftFx(ctx, physicsT, frame, d, air);
   updatePadFx(ctx, physicsT, b, d);
   updateStageSplash(ctx, physicsT, d);
-  updateEntry(ctx, physicsT, prelaunch, d, speedAir(ctx, b));
+  updateEntry(ctx, physicsT, prelaunch, d, air);
 }
 
 function updateSceneStack(
