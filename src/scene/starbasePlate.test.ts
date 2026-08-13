@@ -21,11 +21,11 @@ describe("starbasePlateUv", () => {
     assert.equal(v, 0.5);
   });
 
-  it("maps +X (east) to the right edge and +Z (north) to the top", () => {
+  it("maps −X (east) to the right edge and +Z (north) to the top", () => {
     const h = STARBASE_PLATE_HALF_KM;
-    const [uEast, vEast] = starbasePlateUv(h, 0);
+    const [uEast, vEast] = starbasePlateUv(-h, 0);
     const [uNorth, vNorth] = starbasePlateUv(0, h);
-    const [uWest, vWest] = starbasePlateUv(-h, 0);
+    const [uWest, vWest] = starbasePlateUv(h, 0);
     const [uSouth, vSouth] = starbasePlateUv(0, -h);
     assert.equal(uEast, 1);
     assert.equal(vEast, 0.5);
@@ -39,10 +39,10 @@ describe("starbasePlateUv", () => {
 
   it("maps square corners onto the JPEG corners", () => {
     const h = STARBASE_PLATE_HALF_KM;
-    const [u, v] = starbasePlateUv(h, h);
-    assert.equal(u, 1);
-    assert.equal(v, 1);
-    const [uSw, vSw] = starbasePlateUv(-h, -h);
+    const [uNe, vNe] = starbasePlateUv(-h, h);
+    assert.equal(uNe, 1);
+    assert.equal(vNe, 1);
+    const [uSw, vSw] = starbasePlateUv(h, -h);
     assert.equal(uSw, 0);
     assert.equal(vSw, 0);
   });
@@ -142,5 +142,21 @@ describe("starbasePlateYawRad", () => {
       plateNorthMesh.dot(geoNorth) > 0.999,
       `dot=${plateNorthMesh.dot(geoNorth)}`,
     );
+  });
+
+  it("puts plate +X west when +Z is north (right-handed +Y up)", () => {
+    const yaw = starbasePlateYawRad();
+    // rotation.y: +Z → (sin, 0, cos), +X → (cos, 0, −sin)
+    const plateX = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const plateZ = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const east = new THREE.Vector3().crossVectors(
+      plateZ,
+      new THREE.Vector3(0, 1, 0),
+    );
+    assert.ok(plateX.dot(east) < -0.999, `+X·east=${plateX.dot(east)}`);
+    const [uEast] = starbasePlateUv(-STARBASE_PLATE_HALF_KM, 0);
+    const [uWest] = starbasePlateUv(STARBASE_PLATE_HALF_KM, 0);
+    assert.equal(uEast, 1, "geographic east (−X) is the JPEG right edge");
+    assert.equal(uWest, 0, "geographic west (+X) is the JPEG left edge");
   });
 });

@@ -417,7 +417,7 @@ function makePlateAlphaTexture(): THREE.CanvasTexture {
   return map;
 }
 
-/** Planar UVs on an XZ square so the north-up JPEG maps +X east / +Z north. */
+/** Planar UVs on an XZ square: after yaw, +Z north / +X west; U grows toward −X (east). */
 function applyStarbasePlateUvs(geo: THREE.BufferGeometry, halfKm: number): void {
   const pos = geo.getAttribute("position");
   const uv = geo.getAttribute("uv");
