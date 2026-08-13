@@ -33,7 +33,7 @@ Related:
 
 **Shipped (V1):** regime-specific multi-layer plumes (atmosphere denser/tighter, vacuum wider/sparser, LOI + landing ship looks), dual hot-stage lights, scrub-safe thrust lag + gimbal wobble.
 
-**Shipped (V2):** Fresnel Rayleigh-ish multi-shell Earth limb, soft surface terminator, higher-contrast cloud deck, Moon mare/highland + crater-rim contrast for low sun, continuous lunar roughness.
+**Shipped (V2):** Fresnel Rayleigh-ish multi-shell Earth limb, soft surface terminator, Moon mare/highland + crater-rim contrast for low sun, continuous lunar roughness. (Procedural cloud deck was later **removed** so Blue Marble land/ocean stay unobscured.)
 
 **Shipped (V3):** pad close-up — scorch/water stains, multi-tier deluge + sheets, chopsticks/QD silhouette, trench heat haze.
 
@@ -43,7 +43,7 @@ Related:
 
 **Shipped (V11):** NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate (procedural fallback).
 
-**Next (V6+):** terminal landings (dust/splash), Flight 13 entry craft, recovery catch, lunar site plate, coast watchability — see below.
+**Next (locked):** V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site → V12 finale cams → V13 payload deploy → V10 coast. See **Next steps** below.
 
 Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx}.ts`.
 
@@ -52,7 +52,7 @@ Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere
 ## Working agreements
 
 - **Theater vs ops:** document approximations in README or short code comments when adding “realistic-looking” FX.
-- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe + Sentinel-2 Starbase plate, with procedural fallback) are the accepted exception — not a tile server or DEM.
+- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe + Sentinel-2 Starbase plate, with procedural fallback) are the accepted exception; an optional Moon albedo JPEG is V15 — not a tile server or DEM.
 - **Scrub-safe:** opacity/scale/position from mission `t`, phase, alt, burn flags — not `performance.now()` alone (wall-clock OK only for toast/UI animation).
 - **Scale honesty:** scene unit = 1 km; craft/pad true-scale; do not inflate the stack for “cinematics.”
 - **Performance:** pad/chase cameras are the hot path; avoid full-scene real-time shadows without a tight focus frustum.
@@ -77,6 +77,9 @@ Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere
 | **V10** | Coast / LOI watchability | Longest scrub stretch; cheap overlays |
 | **V11** | Pad horizon depth | **Done** — Sentinel-2 plate + Blue Marble |
 | **V12** | Finale camera beats | Pair with V6/V7; multiplies FX |
+| **V13** | Payload deploy theater | Flight 13’s unique mid-coast act; currently invisible |
+| **V14** | Heat-shield experiment tiles | Flight 13 white / flap-metal tiles; fin-cam payoff |
+| **V15** | Moon photo albedo | Optional V11 analogue (Clementine / LRO JPEG) |
 
 ---
 
@@ -127,7 +130,7 @@ Also shipped:
 
 - Soft **Rayleigh-ish limb** + thicker blue band near horizon — multi-shell Fresnel (`earthAtmosphere.ts`), day-weighted sun dir each frame
 - Softer day/night **terminator** — `smoothstep` N·L in `MeshStandardMaterial` via `applySoftTerminator`
-- Cloud deck: higher core/edge contrast + opacity for LEO
+- Procedural **cloud deck later removed** (2026-08-13, #14) so Blue Marble land/ocean stay unobscured in LEO and system views. Do not re-add a drifting translucent shell unless explicitly requested.
 
 ### Moon — **done**
 
@@ -181,7 +184,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 ---
 
-## Suggested sequencing (concrete)
+## Suggested sequencing (shipped)
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
@@ -189,77 +192,195 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 4. ~~**V2** — terminator / Moon low-sun polish~~ **done**  
 5. ~~**V4** — craft materials as needed for fin/gridfin~~ **done**  
 6. ~~**V5** — shadows / post only when the above is stable~~ **done**  
+7. ~~**V11** — pad horizon / satellite surrounds plate~~ **done**
 
-**Next (post-V5):**
+Shipped sequence (do not reopen unless a later slice regresses them):
+V0 lighting/night → V1 plumes → V3 pad close-up → V2 limb/Moon → V4 craft materials → V5 cinema → V11 Blue Marble + Starbase plate.
 
-7. **V6** — terminal dust + splash (both missions)  
-8. **V7** — Flight 13 entry / belly-flop craft readability  
-9. **V8** — chopsticks catch + Gulf site plate  
-10. **V9** — lunar Malapert site plate (after V6 dust)  
-11. **V12** — finale camera beats alongside V6/V7  
-12. **V10** — coast watchability when long scrub feels empty  
-13. ~~**V11** — pad horizon / satellite surrounds plate~~ **done** (see below)
+---
+
+## Next steps (locked 2026-08-13)
+
+V0–V5 and V11 are **shipped**. Remaining work is the thin finales, Flight 13’s unique acts, recovery theater, then coast punctuation.
+
+**Locked order for the next slices:**
+
+1. **V6 — Terminal FX** — multi-layer lunar dust + ocean splash; fix scrub-unsafe site beacons  
+2. **V7 — Entry / belly-flop craft** — tile heat, flap angles, bank-linked plasma  
+3. **V8 — Recovery catch theater** — chopsticks close + Gulf site plate + contact flash  
+4. **V9 — Lunar Malapert site plate** — local massif cues + engine wash + Moon-local shadows  
+5. **V12 — Finale camera beats** — splash-horizon chase + wider lunar dust frame (may land alongside V6/V7)  
+6. **V13 — Payload deploy theater** — Flight 13 Pez / Starlink V3 demo (currently no visual or timeline event)  
+7. **V10 — Coast / LOI watchability** — trail punctuation, not new physics  
+
+Then reassess. Heat-shield experiment tiles (V14) and a Moon photo albedo (V15) stay later unless a slice already in the craft/Moon files wants a small add-on.
+
+---
+
+## Remaining-code inventory (2026-08-13)
+
+What the remaining items actually look like in the tree today — use this instead of re-discovering gaps.
+
+| Slice | In place now | Gap |
+|-------|--------------|-----|
+| **V6 dust / splash** | One expanding `CircleGeometry` disc + site beacon/ring/label (`landingFx.ts`, `splashFx.ts`). Private `descentDust` / `landedDust` / `splashdownSpray` curves. **No unit tests.** | Single disc vs pad-deluge tiers. Site beacons pulse with `performance.now()` (breaks scrub). |
+| **V7 entry craft** | Belly-flop attitude (`flight13Attitude` + `orientCraft`). Three additive plasma sprites, fixed local offsets (`entryFx.ts`). Flaps are static boxes, not named groups. Three generic tile-marker boxes. | No tile emissive from plasma. No AoA-driven flap angle. No bank-linked plasma trail. |
+| **V8 recovery** | Kinematic gulf / chopsticks path (`boosterRecovery.ts`). Static `pad-chopstick-L/R` + carriage. Landing-burn plume + fade on detached booster. | Arms never close. No Gulf site plate. No catch contact flash. Grid fins stay deployed. |
+| **V9 lunar site** | Beacon + Malapert label + the V6 dust disc on a smooth procedural Moon. | No local massif mesh. No engine wash. V5 shadows use `cameraAltitudeEarthKm`, so lunar landing has **no** craft shadow. |
+| **V10 coast** | Kepler corridor overlay. `craftTrailStyle` is idle vs LOI-approach-burn only. | No perilune pulse, no Earth–Moon whisker, no mid-coast framing nudge. |
+| **V12 finale cams** | Auto-cam splashdown / descent / landed are plain `CHASE`. Lunar descent is also `CHASE` with no `frameScale`. | No ocean-horizon ease. No wider dust-plate chase in the last ~30 s. |
+| **V13 payload** | Public T+16:40–27:39 demo in `STARSHIP_13.md`. News ticker / timeline have **no** payload events. | Zero hatch, sats, or deploy trail. ~11 min of Flight 13 coast with no visual beat. |
+| **V14 tiles** | Windward TPS wear (V4) + three `addOneTileMarker` spots. | No white “missing tile” paints, no metallic-side aft-flap tiles from the Flight 13 notes. |
+| **V15 Moon photo** | Procedural canvas mare/crater albedo (`makeMoonTexture`). Earth already has Blue Marble. | Globe still reads “painted” next to photo Earth; optional theater JPEG only. |
+
+Pattern to copy: `padLaunchFx.ts` / `plumeRegime.ts` — **pure helpers, no THREE**, unit-tested curves, impure `update*` applicator.
 
 ---
 
 ## V6 — Terminal FX: lunar dust + ocean splash
 
-Both finales are still mostly a beacon + expanding disc (`landingFx.ts`, `splashFx.ts`) after a strong pad/ascent stack. Highest dual-mission ROI.
+Both finales are still a beacon + one expanding disc after a strong pad/ascent stack. Highest dual-mission ROI.
 
-- Multi-layer scrub-safe rings/sprites (inner spray, outer mist, brief vertical sheet) keyed to `alt` / `missionT − landT` — same tier pattern as pad deluge.
-- Touchdown “settle” beat: brief opacity spike then exponential fade (extend existing `landedDust` / `splashdownSpray`).
-- Optional craft-parented shadow contact cue when V5 shadows are active near the surface.
-- Pure helpers + unit tests for strength curves (scrub-deterministic).
+### V6.0 Scrub-safe site chrome (do first in this slice)
 
-**Files:** `landingFx.ts`, `splashFx.ts`, mission `applyState` wiring.
+`LandingFx.pulseBeacon` and `SplashFx.pulseBeacon` use `Math.sin(performance.now() * 0.004)`. That violates the scrub-safe agreement (wall-clock OK only for toast/UI). Drive opacity from `missionT` (same frequency is fine).
+
+### V6.1 Multi-layer terminal look
+
+Same tier idea as pad deluge (`padLaunchFx` 3-tier steam + sheets), not a particle system:
+
+| Layer | Lunar dust | Ocean splash |
+|-------|------------|--------------|
+| Inner core | Warm tan disc, small, high opacity at contact | White spray disc, tight |
+| Outer mist | Larger, lower opacity, slower expand | Cooler cyan mist ring |
+| Vertical sheet | Brief additive column on touchdown (engine wash kicking regolith) | Brief water sheet / rooster-tail on splash |
+
+Keyed to `alt` while descending and `missionT − landT` after contact. Touchdown **settle**: opacity spike at `landT` then exponential fade (extend existing `landedDust` / `splashdownSpray`).
+
+Optional: a tiny local **water specular patch** at splash lat/lon (canvas disc, not an ocean sim) so the Indian Ocean site is not dry Blue Marble.
+
+Craft-parented **shadow contact cue** only when V5 shadows are already on (Earth splash / pad). Lunar contact shadow waits for V9’s nearest-body cinema gate.
+
+### V6.2 Extract pure look helpers
+
+Move expand/opacity curves out of the THREE classes, matching `padLaunchFx`:
+
+- `landingFxLook.ts` — `descentDust`, `landedDust`, `dustExpandOpacity`, `dustActive`, beacon pulse  
+- `splashFxLook.ts` — `descentSpray`, `splashdownSpray`, `sprayExpandOpacity`, `nearSplash`, beacon pulse  
+
+**Done when:**
+
+- Three visible layers at contact on both missions; settle spike then fade.  
+- Scrubbing across `landT` replays the same look (no wall-clock pulse).  
+- Unit tests cover strength curves (pre-contact vs post-contact, alt gates, spike-then-fade).  
+- No trajectory bake.
+
+**Files:** `landingFx.ts`, `splashFx.ts`, new `*Look.ts` + tests, mission `applyState` if signatures change.
 
 ---
 
 ## V7 — Entry / belly-flop craft readability (Flight 13)
 
-Physics and attitude already exist; chase shots still read as a rigid prop with additive plasma sprites.
+Physics and attitude already exist (`shipAttitudeMode`, `landingFlipBlend`, `entryPlasmaStrength`). Chase shots still read as a rigid prop with three additive plasma sprites.
 
-- Windward tile **emissive / char** intensity driven by `entryPlasmaStrength` (scrub-safe), not more plasma sprites.
-- Flap / elevon angle from AoA / phase so belly-flop reads as control surfaces.
-- Slight plasma trail asymmetry + bank-linked offset so chase matches news-ticker “plasma corridor” copy.
+### V7.1 Windward tile heat
 
-**Files:** `craft.ts`, `entryFx.ts`, `missions/flight13/orientCraft.ts`, `flight13Attitude.ts`.
+Drive existing tile / `tileWear` **emissive** (and a char mix) from `entryPlasmaStrength`. Do **not** add more plasma sprites. Peak during entry, fall through descent, off after flip. Scrub-safe.
+
+### V7.2 Flap / elevon articulation
+
+Today `addFwdFlap` / `addAftFlap` parent meshes directly on the ship with baked rotations — they cannot animate.
+
+- Name groups (`fwd-flap-L/R`, `aft-flap-L/R`) and rotate locally.  
+- Pure `flapAngleFromAoA(aoaRad, phase, attitudeMode)` → hinge radians (forward vs aft may differ).  
+- Belly-flop → flaps out; landing flip → trail toward engines-first; splash settle → modest droop.
+
+### V7.3 Plasma corridor
+
+`placeEntrySprites` uses fixed local offsets. Offset the trail sprite with entry **bank** (already in attitude) so chase matches news-ticker “plasma corridor” copy. Keep flicker on `missionT` (already scrub-safe).
+
+**Done when:**
+
+- Fin/chase cams show glowing windward tiles during entry without extra sprites.  
+- Flaps move with phase/AoA; unit tests on the angle helper.  
+- Plasma trail leans with bank.  
+- No trajectory bake.
+
+**Files:** `craft.ts`, `entryFx.ts`, `missions/flight13/orientCraft.ts`, `flight13Attitude.ts` (+ tests). White experiment tiles are **V14**, not this slice.
 
 ---
 
 ## V8 — Recovery catch theater (chopsticks + Gulf)
 
-Completes the booster story Auto-cam already sells (gridfin → recovery). NEXT.md still flags chopsticks close as optional.
+Completes the booster story Auto-cam already sells (gridfin → recovery). NEXT.md still flags chopsticks close as optional. Path is kinematic (`boosterRecovery.ts`); this slice is visual only — do not wait on physics F1.
 
-- Scrub-driven **chopsticks close** + carriage settle when recovery phase → `caught`.
-- **Gulf soft-land site plate** (beacon/ring like splash) at gulf lat/lon so offshore landing isn’t “vanish into ocean.”
-- Brief catch/land plume + contact flash on booster (reuse staging flash vocabulary).
+### V8.1 Chopsticks close (lunar RTLS)
 
-**Files:** `earthTheater.ts` / pad launch FX, `stagingFx.ts`, `boosterRecovery.ts`, Flight 13 bootstrap.
+`pad-chopstick-L` / `pad-chopstick-R` / `pad-chopstick-carriage` exist and never move.
+
+- Pure `chopstickCloseU(age, schedule)` → 0…1 as recovery phase → `caught` (`landingEndS`).  
+- Rotate arms toward the booster; slight carriage settle.  
+- Grid-fin **fold** on the detached booster in the last seconds of landing burn (optional, same slice if small).
+
+### V8.2 Gulf site plate (Flight 13)
+
+Reuse splash-site vocabulary at `GULF_LAND_LAT` / `GULF_LAND_LON` (~25.55°N, 96.15°W) so the offshore landing is not “vanish into ocean.” Beacon + ring + short label (“Gulf of America”); parent under Earth so it co-rotates. Procedural water/wake disc — not a new Sentinel plate.
+
+### V8.3 Catch / land contact flash
+
+Brief additive flash + landing-plume punch at `landingEndS` (reuse `boostbackFlash` vocabulary in `StagingFx`). Hold/fade already exist.
+
+**Done when:**
+
+- Lunar mission: arms visibly close around the booster at catch; scrub-stable.  
+- Flight 13: gulf site is findable from Earth-cam / chase before booster fade.  
+- Unit tests on `chopstickCloseU` / gulf site visibility gates.  
+- No force-model recovery (that is PLAN.md F1).
+
+**Files:** `earthTheater.ts`, `padLaunchFx.ts` or a small `recoveryFxLook.ts`, `stagingFx.ts`, `boosterRecovery.ts` (read-only schedule), Flight 13 bootstrap.
 
 ---
 
 ## V9 — Lunar site plate (Malapert close-up)
 
-Lunar finale is still smooth globe + HUD label. Do after V6 so dust and plate compose.
+Lunar finale is still a smooth globe + HUD label. Do **after V6** so dust and plate compose.
 
-- Local procedural “massif” cues: darker floors, rim rings, polar shadow wedges around land point (canvas/decals on a small local mesh — not DEM).
-- Landing-light / engine wash on surface during descent burn (point light + dust brightening).
-- Pair dust with craft shadow when low (open V2 note).
+### V9.1 Local massif (not DEM)
 
-**Files:** `landingFx.ts`, `textures.ts` or local canvas, lunar mission `applyState`, maybe `cinema.ts` shadow focus near Moon.
+Small local mesh / canvas decals around the land point: darker floors, rim rings, polar shadow wedges. Same class as the Starbase procedural fallback — not LRO tiles. Keep the Malapert label.
+
+### V9.2 Engine wash
+
+Point light + dust brightening during descent burn (`burning && phase === "descent"`). Intensity from existing landing plume look; off after settle.
+
+### V9.3 Nearest-body cinema (required for craft shadow)
+
+V5 shadows and exposure use `cameraAltitudeEarthKm` in **both** mission loops. On lunar descent the camera is ~384_000 km from Earth, so `shadowsActive` is false and there is no craft contact shadow.
+
+- Add `cameraAltitudeNearestKm` (Earth vs Moon, whichever body the camera is near).  
+- Gate pad/craft sun shadows on **that** altitude (still off in deep space; on within ~80 km of a surface).  
+- Re-center the ortho frustum on the craft at the Moon the same way as the pad.
+
+**Done when:**
+
+- Malapert reads as a place from chase in the last kilometer.  
+- Descent burn lights the surface; dust (V6) sits on the plate.  
+- Craft casts a shadow on the local plate near touchdown.  
+- Cinema tests cover nearest-body altitude vs Earth-only.
+
+**Files:** `landingFx.ts`, `textures.ts` or local canvas, `cinema.ts` (+ tests), lunar `loop.ts` / `applyState`.
 
 ---
 
 ## V10 — Coast / LOI / cislunar watchability
 
-Longest scrub stretch; corridor already exists — add punctuation, not new physics.
+Longest scrub stretch; corridor already exists — add punctuation, not new physics. Do **after** finales so empty-coast work does not preempt splash/dust.
 
-- Phase-reactive trail: coast dim, LOI/`approach` burn punch (partially there), perilune approach pulse.
-- Sparse mid-coast beats: Earth–Moon angle whisker, Sun–craft terminator cue, optional bookmark-aligned framing nudge.
-- Restrained deep-space bloom/exposure so LOI plume/trail pops against black (`cinema.ts` already altitude-gates).
+- `craftTrailStyle` today is idle vs LOI-approach-burn only (`frameDerive.ts`). Add a dimmer free-coast style and a **perilune approach pulse** (near-Moon, pre-`approach` burn).  
+- Sparse mid-coast beats: Earth–Moon angle whisker on the corridor, Sun–craft terminator cue, optional bookmark-aligned Auto-cam nudge (do not fight Free orbit).  
+- Keep deep-space bloom/exposure restrained so LOI plume/trail pops (`cinema.ts` already altitude-gates).
 
-**Files:** `coastCorridor.ts`, trail styling in lunar `applyState`, `autoCam.ts` / bookmarks, `cinema.ts`.
+**Files:** `coastCorridor.ts`, `frameDerive.ts` (+ tests), lunar `applyState`, `autoCam.ts` / bookmarks, `cinema.ts`.
 
 ---
 
@@ -267,7 +388,7 @@ Longest scrub stretch; corridor already exists — add punctuation, not new phys
 
 Photo plate instead of procedural coastline glints:
 
-- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north, draped onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
+- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north, draped onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used. Later widened to a full ~80 km square (2026-08-13).
 - Procedural scrub + Earth-cam landmark rings remain the fallback if the JPEG is missing.
 - **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights stay procedural).
 
@@ -277,18 +398,77 @@ Photo plate instead of procedural coastline glints:
 
 ## V12 — Chase / finale camera beats (pair with V6 / V7)
 
-Multiplies terminal FX; alone does not fix thin discs.
+Multiplies terminal FX; alone does not fix thin discs. Safe to land in the same session as V6 or V7.
 
-- Flight 13: brief splash-oriented ease (lower chase / ocean horizon) on descent → splashdown.
-- Lunar: slightly wider chase in final ~30 s so dust plate + ship share frame.
+- Flight 13: `splashdown` / late `descent` Auto-cam stays chase but **lowers** the mount / favors ocean horizon (new `frameScale` or chase-height ease — not a new camera mode).  
+- Lunar: slightly **wider** chase in the final ~30 s (`frameScale` ~1.4) so dust plate + ship share frame.  
+- Do not disable Auto-cam; do not fight manual orbit.
 
-**Files:** `autoCam.ts`, `camera/modes.ts`, mission loops.
+**Files:** `autoCam.ts` (+ tests), `camera/modes.ts` if chase height needs a hook, mission loops.
+
+---
+
+## V13 — Flight 13 payload deploy theater
+
+Public Flight 13 notes: **20 Starlink V3** sats, Pez-style deploy ~T+16:40–27:39, then demise on reentry ~20 min later. The theater has **no** payload event, ticker line, or mesh — the unique mid-coast act is a dead stretch.
+
+Theater-grade only (not a constellation sim):
+
+- Timeline + ticker beats (`payload-start` / `payload-complete`) from the public T+ table (or packed sample times if those land in the bake).  
+- Hatch / Pez door on the ship (named group; open during the window).  
+- ~20 small sat silhouettes peeling on a delayed trail, then fade before entry (scrub from `missionT` vs event times). Same suborbital path as the ship — no extra integrator.  
+- Optional: six “camera sats” slightly distinct (white tile-imaging story in `STARSHIP_13.md`) if the hatch work is already open.
+
+**Done when:**
+
+- Scrubbing through the deploy window shows hatch + sats; outside it they are gone.  
+- Unit tests on deploy strength / visibility vs `t`.  
+- No new trajectory physics; do not wait on a pack change unless event times need baking.
+
+**Files:** `timeline.ts`, `newsTicker.ts`, `craft.ts` or `payloadFx.ts`, Flight 13 `applyState`.
+
+---
+
+## V14 — Heat-shield experiment tiles (later)
+
+Flight 13 notes: several tiles **painted white** (missing-tile imaging targets), tiles on the **metallic side of aft flaps**, modified aft-skirt attachments, load-sensing tiles. V4 wear is generic; `addOneTileMarker` is three gray boxes.
+
+- A few high-contrast white TPS rectangles on the windward belly (fin-cam readable).  
+- Tile patches on the stainless face of aft flaps.  
+- Keep counts small; do not model load cells.
+
+Fold into V7 only if that slice is already editing flap meshes; otherwise a follow-up after V7.
+
+**Files:** `craft.ts`, `craftMaterials.test.ts`.
+
+---
+
+## V15 — Moon photo albedo (later, optional)
+
+Earth has NASA Blue Marble; the Moon is still a procedural canvas. A single theater-grade JPEG (Clementine / LRO WAC, with procedural fallback) would be the V11 analogue — **not** a tile server or DEM.
+
+Do after V9 so the local Malapert plate sits on photo terrain. Same asset rules as Blue Marble: commit a modest JPEG, document credit in `public/textures/ATTRIBUTION.txt`.
+
+**Files:** `bodies.ts`, `textures.ts`, `public/textures/`.
+
+---
+
+## Definition of done (per visual slice)
+
+For each merged unit of work:
+
+1. Looks stay **theater-grade**; short comments (or README) note approximations.  
+2. FX strength/pose from mission `t` / phase / alt / burn — **no** `performance.now()` in look helpers.  
+3. Pure helpers + unit tests for new curves (same bar as `padLaunchFx` / `plumeRegime`).  
+4. `npm run typecheck`, `npm run lint`, `npm test` (or `npm run ci`).  
+5. Do **not** regenerate `src/data/*trajectory.json` unless the slice intentionally changes physics.  
+6. Do not inflate craft/pad scale. Scene unit remains **1 km**.
 
 ---
 
 ## Out of scope (unless explicitly requested)
 
-- Full PBR / DEM / tile-server Earth or Moon (the committed Blue Marble + Starbase JPEGs are the theater-grade exception)
+- Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs are the exception: Blue Marble + Starbase plate now; optional Clementine/LRO Moon albedo is V15)
 - Real-time volumetric clouds or full atmospheric scattering path
 - Ops-grade plume CFD tables
 - Non-deterministic particle systems that break scrubbing
@@ -312,3 +492,5 @@ Multiplies terminal FX; alone does not fix thin discs.
 | 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V12 finale cams |
 | 2026-08-12 | V11 shipped: NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate |
 | 2026-08-13 | Starbase plate: wider ~80 km square (full JPEG, not a circular crop) |
+| 2026-08-13 | Earth procedural cloud deck removed (#14); Blue Marble land/ocean unobscured |
+| 2026-08-13 | Locked next visual slices: V6→V7→V8→V9→V12→V13→V10; inventory current-code gaps; add V13 payload, V14 experiment tiles, V15 Moon albedo |
