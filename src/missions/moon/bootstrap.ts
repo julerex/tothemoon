@@ -64,6 +64,8 @@ export type MoonAutoCam = {
   enabled: boolean;
   phase: PhaseId | null;
   staged: boolean;
+  /** One-shot wider chase in the last ~30 s of descent. */
+  finaleNudged: boolean;
 };
 
 export type MoonCinemaState = { burning: boolean; phase: string };
@@ -460,6 +462,7 @@ function makeDisableAutoCam(autoCam: MoonAutoCam, getSetUi: () => (e: boolean) =
   return (): void => {
     if (!autoCam.enabled) return;
     autoCam.enabled = false;
+    autoCam.finaleNudged = false;
     getSetUi()(false);
   };
 }
@@ -616,7 +619,7 @@ function finishMoon(
 
 function runtimePack(world: ReturnType<typeof assembleWorld>, cache: Trajectory) {
   const clockPack = makeClock(cache);
-  const autoCam: MoonAutoCam = { enabled: true, phase: null, staged: false };
+  const autoCam: MoonAutoCam = { enabled: true, phase: null, staged: false, finaleNudged: false };
   const flags: MoonFlags = { orbitsVisible: true };
   const hudPack = bindHudPack(world, clockPack, cache, autoCam, flags);
   return { clockPack, autoCam, flags, hudPack };

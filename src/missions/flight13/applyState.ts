@@ -25,7 +25,7 @@ import {
 } from "../../mission/prelaunch";
 import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
-import { nextAutoCamCut } from "../../camera/autoCam";
+import { nextAutoCamCut, finaleChaseBias } from "../../camera/autoCam";
 import {
   applyEarthshine,
   applyFillLight,
@@ -249,6 +249,7 @@ function easeAutoSuggestion(
 function applyAutoCam(
   ctx: F13Ctx,
   d: ReturnType<typeof displayFields>,
+  b: BodyState,
 ): void {
   const autoCut = nextAutoCamCut(
     ctx.autoCam.enabled, d.displayPhase, d.stagedForCam,
@@ -257,6 +258,16 @@ function applyAutoCam(
   ctx.autoCam.phase = autoCut.phase;
   ctx.autoCam.staged = autoCut.staged;
   if (autoCut.suggestion) easeAutoSuggestion(ctx, autoCut.suggestion);
+  const chaseOn = ctx.autoCam.enabled && ctx.director.getMode() === "chase";
+  const bias = finaleChaseBias(chaseOn, "flight13", d.displayPhase);
+  ctx.director.setChaseBias({
+    ...bias,
+    lookDownDir: {
+      x: b.earth.x - ctx.craftPos.x,
+      y: b.earth.y - ctx.craftPos.y,
+      z: b.earth.z - ctx.craftPos.z,
+    },
+  });
 }
 
 function splashWorldPoint(ctx: F13Ctx, simT: number): void {
@@ -479,7 +490,7 @@ function updateSceneStack(
 ): void {
   updateLights(ctx, simT, b);
   updateLocators(ctx, frame, b);
-  applyAutoCam(ctx, d);
+  applyAutoCam(ctx, d, b);
 }
 
 function poseCraft(ctx: F13Ctx, u: number) {

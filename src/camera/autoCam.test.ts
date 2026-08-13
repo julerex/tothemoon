@@ -5,6 +5,9 @@ import {
   autoCamForPhase,
   autoCamForPhaseFlight13,
   autoCamForStaging,
+  finaleChaseBias,
+  lunarFinaleChaseScale,
+  lunarFinaleShouldCut,
   nextAutoCamCut,
 } from "./autoCam.ts";
 
@@ -70,6 +73,8 @@ describe("autoCamForPhaseFlight13", () => {
     assert.equal(autoCamForPhaseFlight13("entry").mode, "chase");
     assert.equal(autoCamForPhaseFlight13("descent").mode, "chase");
     assert.equal(autoCamForPhaseFlight13("splashdown").mode, "chase");
+    assert.ok((autoCamForPhaseFlight13("splashdown").frameScale ?? 1) > 1.3);
+    assert.ok((autoCamForPhaseFlight13("descent").frameScale ?? 1) > 1);
   });
 });
 
@@ -169,5 +174,42 @@ describe("nextAutoCamCut", () => {
       staged: true,
     });
     assert.equal(r.suggestion, null);
+  });
+});
+
+describe("lunarFinaleChaseScale", () => {
+  it("is null outside the last 30 s", () => {
+    assert.equal(lunarFinaleChaseScale(40), null);
+    assert.equal(lunarFinaleChaseScale(-20), null);
+  });
+
+  it("widens toward landT", () => {
+    const far = lunarFinaleChaseScale(30);
+    const near = lunarFinaleChaseScale(0);
+    assert.ok(far != null && near != null);
+    assert.ok(near > far);
+    assert.ok(near > 1.3);
+  });
+
+  it("cuts once on descent when Auto-cam is on", () => {
+    assert.equal(lunarFinaleShouldCut(true, "descent", 10, false), true);
+    assert.equal(lunarFinaleShouldCut(true, "descent", 10, true), false);
+    assert.equal(lunarFinaleShouldCut(false, "descent", 10, false), false);
+    assert.equal(lunarFinaleShouldCut(true, "approach", 10, false), false);
+  });
+});
+
+describe("finaleChaseBias", () => {
+  it("is identity when Auto-cam is off", () => {
+    assert.deepEqual(finaleChaseBias(false, "flight13", "splashdown"), {
+      lookAheadScale: 1, lookDownKm: 0,
+    });
+  });
+
+  it("looks down more on splash than mid-descent", () => {
+    const d = finaleChaseBias(true, "flight13", "descent");
+    const s = finaleChaseBias(true, "flight13", "splashdown");
+    assert.ok(s.lookDownKm > d.lookDownKm);
+    assert.ok(s.lookAheadScale > d.lookAheadScale);
   });
 });

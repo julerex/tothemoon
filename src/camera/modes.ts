@@ -149,6 +149,11 @@ export class CameraDirector {
   private readonly chaseLook = new THREE.Vector3();
   private readonly chaseRight = new THREE.Vector3();
   private readonly chaseUpDesired = new THREE.Vector3();
+  /** Extra chase look-ahead multiplier (finale ocean / dust framing). */
+  private chaseLookAheadScale = 1;
+  /** Extra chase look-down (km) along {@link chaseLookDownDir}. */
+  private chaseLookDownKm = 0;
+  private readonly chaseLookDownDir = new THREE.Vector3(0, -1, 0);
   /** 0…1 distance ease; 1 = idle. */
   private distEaseU = 1;
   private distEaseFrom = 0;
@@ -327,6 +332,24 @@ export class CameraDirector {
    * Switch focus target while preserving current zoom (distance to target)
    * and view direction. Fin mode snaps to the Starship forward-fin mount.
    */
+  /**
+   * Theater chase bias (Auto-cam finales). Identity when Auto-cam is off.
+   * Look-down is a world-space offset of the chase target (typically toward
+   * Earth or the Moon so the horizon reads).
+   */
+  setChaseBias(opts: {
+    lookAheadScale?: number;
+    lookDownKm?: number;
+    lookDownDir?: { x: number; y: number; z: number };
+  }): void {
+    this.chaseLookAheadScale = opts.lookAheadScale ?? 1;
+    this.chaseLookDownKm = opts.lookDownKm ?? 0;
+    if (opts.lookDownDir) {
+      this.chaseLookDownDir.set(opts.lookDownDir.x, opts.lookDownDir.y, opts.lookDownDir.z);
+      if (this.chaseLookDownDir.lengthSq() > 1e-12) this.chaseLookDownDir.normalize();
+    }
+  }
+
   setMode(mode: CameraMode): void {
     this.cancelDistanceEase();
     this.applyFocus(mode, /* frame */ false);
@@ -781,16 +804,21 @@ export class CameraDirector {
   private chaseTarget(out: THREE.Vector3): void {
     out.copy(this.craftPos);
     const sp = this.craftVel.length();
-    if (sp < 0.02) return;
-    out.addScaledVector(this.craftVel, this.chaseLookaheadKm(sp) / sp);
+    if (sp >= 0.02) {
+      out.addScaledVector(this.craftVel, this.chaseLookaheadKm(sp) / sp);
+    }
+    if (this.chaseLookDownKm > 1e-6) {
+      out.addScaledVector(this.chaseLookDownDir, this.chaseLookDownKm);
+    }
   }
 
   private chaseLookaheadKm(sp: number): number {
     const len = craftLengthKm(false);
+    const scale = Number.isFinite(this.chaseLookAheadScale) ? this.chaseLookAheadScale : 1;
     return THREE.MathUtils.clamp(
-      sp * CHASE_LOOKAHEAD_S,
+      sp * CHASE_LOOKAHEAD_S * scale,
       CHASE_LOOKAHEAD_MIN_KM,
-      Math.max(CHASE_LOOKAHEAD_MIN_KM, len * CHASE_LOOKAHEAD_MAX_FRAC),
+      Math.max(CHASE_LOOKAHEAD_MIN_KM, len * CHASE_LOOKAHEAD_MAX_FRAC * scale),
     );
   }
 
