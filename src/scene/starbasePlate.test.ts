@@ -19,18 +19,18 @@ describe("starbasePlateUv", () => {
     assert.equal(v, 0.5);
   });
 
-  it("maps +X (east) to the right edge and +Z (north) to the top", () => {
+  it("maps +X (west) to the left edge and +Z (north) to the top", () => {
     const r = STARBASE_PLATE_OUTER_KM;
-    const [uEast, vEast] = starbasePlateUv(r, 0);
+    const [uWest, vWest] = starbasePlateUv(r, 0);
     const [uNorth, vNorth] = starbasePlateUv(0, r);
-    const [uWest, vWest] = starbasePlateUv(-r, 0);
+    const [uEast, vEast] = starbasePlateUv(-r, 0);
     const [uSouth, vSouth] = starbasePlateUv(0, -r);
-    assert.equal(uEast, 1);
-    assert.equal(vEast, 0.5);
-    assert.equal(uNorth, 0.5);
-    assert.equal(vNorth, 1);
     assert.equal(uWest, 0);
     assert.equal(vWest, 0.5);
+    assert.equal(uNorth, 0.5);
+    assert.equal(vNorth, 1);
+    assert.equal(uEast, 1);
+    assert.equal(vEast, 0.5);
     assert.equal(uSouth, 0.5);
     assert.equal(vSouth, 0);
   });
@@ -86,6 +86,34 @@ describe("starbasePlateYawRad", () => {
     assert.ok(
       plateNorthMesh.dot(geoNorth) > 0.999,
       `dot=${plateNorthMesh.dot(geoNorth)}`,
+    );
+  });
+
+  it("puts plate +X on geographic west (Y-up right-handed, +Z north)", () => {
+    const yaw = starbasePlateYawRad(STARBASE_LAT, STARBASE_LON);
+    const pad = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
+    const up = new THREE.Vector3(pad.x, pad.y, pad.z).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      up,
+    );
+    const plateEastish = new THREE.Vector3(
+      Math.cos(yaw),
+      0,
+      -Math.sin(yaw),
+    ).applyQuaternion(q);
+
+    const eastPt = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON + 1e-4, 1);
+    const geoEast = new THREE.Vector3(
+      eastPt.x - pad.x,
+      eastPt.y - pad.y,
+      eastPt.z - pad.z,
+    ).normalize();
+    geoEast.addScaledVector(up, -geoEast.dot(up)).normalize();
+
+    assert.ok(
+      plateEastish.dot(geoEast) < -0.999,
+      `dot=${plateEastish.dot(geoEast)} (expected antiparallel to east)`,
     );
   });
 });

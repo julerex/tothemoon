@@ -20,9 +20,12 @@ export const STARBASE_PLATE_Y_KM = -0.008;
 
 /**
  * Planar UV for a north-up square photo covering ±`outerKm`.
- * Plate local: +X east, +Z north (after {@link starbasePlateYawRad}).
  *
- * @returns `[u, v]` in 0…1 (v=1 is north / top of the JPEG)
+ * After {@link starbasePlateYawRad}, plate +Z is geographic north. A
+ * right-handed Y-up frame then has **+X west** (up × north = west), not
+ * east. The JPEG is west-left / east-right, so U is mirrored vs +X.
+ *
+ * @returns `[u, v]` in 0…1 (u=0 west / left of the JPEG, v=1 north / top)
  */
 export function starbasePlateUv(
   xKm: number,
@@ -30,7 +33,7 @@ export function starbasePlateUv(
   outerKm = STARBASE_PLATE_OUTER_KM,
 ): [number, number] {
   const s = 1 / (2 * outerKm);
-  return [0.5 + xKm * s, 0.5 + zKm * s];
+  return [0.5 - xKm * s, 0.5 + zKm * s];
 }
 
 /**
