@@ -3,7 +3,7 @@
  * Starbase launch plane (mesh-local up × east).
  *
  * Black & white diagram for reading booster altitude vs downrange from liftoff
- * through chopsticks catch. Live craft markers use the stacked launch
+ * through chopsticks catch or gulf soft-land. Live craft markers use the stacked launch
  * silhouette until hot-stage, then separate Super Heavy / Starship glyphs.
  * Pure helpers are scrub-safe; canvas draw is live.
  */
@@ -61,7 +61,7 @@ export type CrossSectionModel = {
   basis: LaunchPlaneBasis;
   /** Stack path until stage-out (and ship while still in frame). */
   shipTrail: TimedPlanePoint[];
-  /** Booster: stacked path + return to launch site recovery to chopsticks. */
+  /** Booster: stacked path + recovery (chopsticks RTLS or gulf soft-land). */
   boosterTrail: TimedPlanePoint[];
   /** Stage-out mission time, or null if never staged. */
   stageT: number | null;
@@ -82,6 +82,8 @@ export type CrossSectionLive = {
   boosterAltKm: number;
   shipRangeKm: number;
   boosterRangeKm: number;
+  /** Recovery profile used to build the booster trail (legend copy). */
+  recoveryProfile: RecoveryProfile;
 };
 
 const _local = v3();
@@ -408,7 +410,7 @@ export function liveCrossSection(
 ): CrossSectionLive {
   const ship = liveShipPoint(model, samples, t, epoch);
   const boost = liveBoosterPoint(ship, stage, t, keyframes, recovery, epoch, model.basis);
-  return assembleLive(model, ship, boost);
+  return assembleLive(model, ship, boost, recovery);
 }
 
 function liveShipPoint(
@@ -472,6 +474,7 @@ function assembleLive(
   model: CrossSectionModel,
   ship: PlanePoint | null,
   boost: { booster: PlanePoint | null; boosterFade: number; staged: boolean },
+  recovery: RecoveryProfile,
 ): CrossSectionLive {
   return {
     ship,
@@ -479,6 +482,7 @@ function assembleLive(
     staged: boost.staged,
     boosterFade: boost.boosterFade,
     ...liveAltRange(model, ship, boost.booster),
+    recoveryProfile: recovery,
   };
 }
 
@@ -839,7 +843,7 @@ function drawCsReadout(
 ): void {
   setCsReadoutStyle(ctx);
   fillCsReadoutLines(ctx, live, missionT);
-  fillCsLegend(ctx, cssW);
+  fillCsLegend(ctx, cssW, live.recoveryProfile);
 }
 
 function setCsReadoutStyle(ctx: CanvasRenderingContext2D): void {
@@ -849,11 +853,16 @@ function setCsReadoutStyle(ctx: CanvasRenderingContext2D): void {
   ctx.textBaseline = "top";
 }
 
-function fillCsLegend(ctx: CanvasRenderingContext2D, cssW: number): void {
+function fillCsLegend(
+  ctx: CanvasRenderingContext2D,
+  cssW: number,
+  recovery: RecoveryProfile = "chopsticks",
+): void {
   ctx.textAlign = "right";
   ctx.globalAlpha = 0.8;
   ctx.fillText("white trails · true scale · launch plane", cssW - 12, 10);
-  ctx.fillText("Booster path: liftoff → chopsticks", cssW - 12, 25);
+  const dest = recovery === "gulf" ? "Gulf soft-land" : "chopsticks";
+  ctx.fillText(`Booster path: liftoff → ${dest}`, cssW - 12, 25);
   ctx.globalAlpha = 1;
 }
 

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   TRAIL_STYLE_IDLE,
   TRAIL_STYLE_LOI,
+  TRAIL_STYLE_COAST,
+  TRAIL_STYLE_APPROACH,
   attitudeNearEarth,
   clampCraftAboveEarth,
   craftTrailStyle,
@@ -58,9 +60,10 @@ describe("phase / attitude helpers", () => {
 describe("craftTrailStyle", () => {
   it("uses LOI style only during approach burn", () => {
     assert.equal(craftTrailStyle(false, "approach", true), TRAIL_STYLE_LOI);
-    assert.equal(craftTrailStyle(false, "approach", false), TRAIL_STYLE_IDLE);
+    assert.equal(craftTrailStyle(false, "approach", false), TRAIL_STYLE_APPROACH);
     assert.equal(craftTrailStyle(true, "approach", true), TRAIL_STYLE_IDLE);
-    assert.equal(craftTrailStyle(false, "coast", true), TRAIL_STYLE_IDLE);
+    assert.equal(craftTrailStyle(false, "coast", true), TRAIL_STYLE_COAST);
+    assert.equal(craftTrailStyle(false, "ascent", true), TRAIL_STYLE_IDLE);
   });
 });
 

@@ -4,6 +4,7 @@ import {
   boostbackFlashStrength,
   boosterVisibleS,
   buildBoosterKeyframes,
+  landingContactFlashStrength,
   recoverySchedule,
   sampleBoosterRecovery,
   type RecoveryProfile,
@@ -85,11 +86,14 @@ function makeStageFlashMesh(
 function makeStageFlashPair() {
   const flashMat = makeStageFlashMat(0xffcc88, 0.85);
   const boostbackFlashMat = makeStageFlashMat(0xffa060, 0);
+  const landingFlashMat = makeStageFlashMat(0xffe0a0, 0);
   return {
     flashMat,
     flash: makeStageFlashMesh(0.08, 12, 10, flashMat, "stage-flash"),
     boostbackFlashMat,
     boostbackFlash: makeStageFlashMesh(0.05, 10, 8, boostbackFlashMat, "boostback-flash"),
+    landingFlashMat,
+    landingFlash: makeStageFlashMesh(0.06, 10, 8, landingFlashMat, "landing-flash"),
   };
 }
 
@@ -124,6 +128,8 @@ export class StagingFx {
   private readonly flashMat: THREE.MeshBasicMaterial;
   private readonly boostbackFlash: THREE.Mesh;
   private readonly boostbackFlashMat: THREE.MeshBasicMaterial;
+  private readonly landingFlash: THREE.Mesh;
+  private readonly landingFlashMat: THREE.MeshBasicMaterial;
   /** Dim free-flyer locator (amber; dimmer than ship red). */
   private readonly locator: THREE.Sprite;
   private readonly locatorMat: THREE.SpriteMaterial;
@@ -147,9 +153,10 @@ export class StagingFx {
     this.exhaustLight = makeBoosterExhaustLight();
     this.booster.add(this.exhaustLight);
     ({ flashMat: this.flashMat, flash: this.flash,
-      boostbackFlashMat: this.boostbackFlashMat, boostbackFlash: this.boostbackFlash } = makeStageFlashPair());
+      boostbackFlashMat: this.boostbackFlashMat, boostbackFlash: this.boostbackFlash,
+      landingFlashMat: this.landingFlashMat, landingFlash: this.landingFlash } = makeStageFlashPair());
     ({ sprite: this.locator, mat: this.locatorMat } = makeBoosterLocator());
-    this.group.add(this.booster, this.flash, this.boostbackFlash, this.locator);
+    this.group.add(this.booster, this.flash, this.boostbackFlash, this.landingFlash, this.locator);
   }
 
   /**
@@ -187,6 +194,7 @@ export class StagingFx {
     this.booster.visible = false;
     this.flash.visible = false;
     this.boostbackFlash.visible = false;
+    this.landingFlash.visible = false;
     this.locator.visible = false;
     this.exhaustLight.intensity = 0;
     this.hidePlume();
@@ -219,6 +227,7 @@ export class StagingFx {
     this.updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
     this.updateFlash(age, craftPos);
     this.updateBoostbackFlash(age);
+    this.updateLandingFlash(age);
     this.updateLocator(age, camera);
   }
 
@@ -348,6 +357,19 @@ export class StagingFx {
       return;
     }
     this.placeBoostbackFlash(strength);
+  }
+
+  /** Brief contact flash at chopsticks catch / gulf soft-land. */
+  private updateLandingFlash(age: number): void {
+    const strength = landingContactFlashStrength(age, recoverySchedule(this.recoveryProfile));
+    if (strength < 0.02) {
+      this.landingFlash.visible = false;
+      return;
+    }
+    this.landingFlash.visible = true;
+    this.landingFlash.position.copy(this.booster.position);
+    this.landingFlash.scale.setScalar(0.07 + strength * 0.7);
+    this.landingFlashMat.opacity = 0.8 * strength;
   }
 
   /**

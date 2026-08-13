@@ -18,10 +18,22 @@ export type TrailStyle = Readonly<{
   opacity: number;
 }>;
 
-/** Default craft trail (coast / idle). */
+/** Default craft trail (ascent / burns other than LOI). */
 export const TRAIL_STYLE_IDLE: TrailStyle = Object.freeze({
   linewidth: 3.25,
   opacity: 0.72,
+});
+
+/** Dimmer ballistic coast — punctuation, not a new physics overlay. */
+export const TRAIL_STYLE_COAST: TrailStyle = Object.freeze({
+  linewidth: 2.55,
+  opacity: 0.46,
+});
+
+/** Perilune / LOI approach without the burn punch. */
+export const TRAIL_STYLE_APPROACH: TrailStyle = Object.freeze({
+  linewidth: 3.7,
+  opacity: 0.8,
 });
 
 /** LOI / approach burn beat — brighter, slightly fatter trail. */
@@ -84,15 +96,19 @@ export function attitudeNearEarth(
 }
 
 /**
- * Craft trail style: LOI approach burn gets a brighter beat; scrub-safe.
+ * Craft trail style: coast dims, LOI approach burn punches, perilune pulses.
+ * Scrub-safe (phase + burning only).
  */
 export function craftTrailStyle(
   prelaunch: boolean,
   phase: PhaseId,
   burning: boolean,
 ): TrailStyle {
-  const loiBeat = !prelaunch && phase === "approach" && burning;
-  return loiBeat ? TRAIL_STYLE_LOI : TRAIL_STYLE_IDLE;
+  if (prelaunch) return TRAIL_STYLE_IDLE;
+  if (phase === "approach" && burning) return TRAIL_STYLE_LOI;
+  if (phase === "approach") return TRAIL_STYLE_APPROACH;
+  if (phase === "coast") return TRAIL_STYLE_COAST;
+  return TRAIL_STYLE_IDLE;
 }
 
 /**

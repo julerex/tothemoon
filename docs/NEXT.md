@@ -117,7 +117,7 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 ### 9. Booster recovery silhouette — done (theater)
 
-Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
+Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate instead. Optional follow-up: dim free-flyer locator.
 
 ### 10. Epoch & lighting polish — **done**
 
@@ -207,7 +207,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 1. ~~**Flight 13 Auto-cam story**~~ **done** (trench → ship → gridfin → entry chase)  
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
-4. **Visual V6+** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 5. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
@@ -269,3 +269,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-11 | Visual V4: stainless anisotropy/welds, windward tile wear, denser grid-fin silhouette |
 | 2026-08-11 | Visual V5: tight sun shadows, mild bloom/exposure, star fade, entry brownout |
 | 2026-08-12 | Visual V6+ backlog: terminal FX → entry craft → recovery catch → lunar site; coast / pad horizon / finale cams |
+| 2026-08-13 | Visual V6–V12: multi-layer terminal FX, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast watchability |

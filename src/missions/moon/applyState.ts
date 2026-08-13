@@ -24,7 +24,7 @@ import {
   telemetryAltitudeKm,
 } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
-import { nextAutoCamCut } from "../../camera/autoCam";
+import { nextAutoCamCut, lunarFinaleChaseScale, lunarFinaleShouldCut, finaleChaseBias } from "../../camera/autoCam";
 import {
   applyEarthshine,
   applyFillLight,
@@ -37,7 +37,9 @@ import {
 } from "../../scene/craft";
 import { updateBodies } from "../../scene/bodies";
 import { updateMoonRelativeOrbit } from "../../scene/createScene";
-import { updateStarbaseLaunchFx } from "../../scene/earthTheater";
+import { updateCoastBeatsOverlay } from "../../scene/coastCorridor";
+import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
+import { deriveChopstickPose } from "../../scene/padRecoveryFx";
 import type { PhaseId } from "../../physics/missionTypes";
 import type { MoonCtx } from "./bootstrap";
 import { orientCraft } from "./orientCraft";
@@ -149,6 +151,10 @@ function updatePadFx(
     altEarth: d.displayAltEarth,
     sunElev,
   });
+  updateMechazillaRecovery(ctx.starbasePad, deriveChopstickPose({
+    age: ctx.stageT == null ? -1 : physicsT - ctx.stageT,
+    profile: "chopsticks",
+  }));
 }
 
 function updateLandingFx(
@@ -170,6 +176,10 @@ function updateLights(ctx: MoonCtx, simT: number, b: BodyState): void {
   updateBodies(simT, ctx.bodies, ctx.epoch);
   if (ctx.flags.orbitsVisible) {
     updateMoonRelativeOrbit(ctx.moonRelOrbit, simT, ctx.epoch);
+    const beats = ctx.orbitGroup.getObjectByName("coast-beats");
+    if (beats) {
+      updateCoastBeatsOverlay(beats, b.earth, b.moon, b.sun, ctx.craftPos);
+    }
   }
   const sunUnit = applySunLight(ctx.sunLight, b.sun, b.earth, ctx.skySun);
   applyFillLight(ctx.fillLight, sunUnit, b.earth);
@@ -202,7 +212,7 @@ function easeAutoSuggestion(
   ctx.notifyAutoCamera(s.mode);
 }
 
-function applyAutoCam(ctx: MoonCtx, frame: SampleFrame): void {
+function applyAutoCam(ctx: MoonCtx, frame: SampleFrame, b: BodyState): void {
   const autoCut = nextAutoCamCut(
     ctx.autoCam.enabled,
     frame.phase,
@@ -212,6 +222,37 @@ function applyAutoCam(ctx: MoonCtx, frame: SampleFrame): void {
   ctx.autoCam.phase = autoCut.phase;
   ctx.autoCam.staged = autoCut.staged;
   if (autoCut.suggestion) easeAutoSuggestion(ctx, autoCut.suggestion);
+  maybeLunarFinaleChase(ctx, frame);
+  applyFinaleChaseBias(ctx, frame.phase, b);
+}
+
+function maybeLunarFinaleChase(ctx: MoonCtx, frame: SampleFrame): void {
+  const last = ctx.cache.samples[ctx.cache.samples.length - 1];
+  if (!last || frame.phase !== "descent") {
+    ctx.autoCam.finaleNudged = false;
+    return;
+  }
+  const timeToLand = last.t - frame.t;
+  if (!lunarFinaleShouldCut(ctx.autoCam.enabled, frame.phase, timeToLand, ctx.autoCam.finaleNudged)) {
+    return;
+  }
+  const scale = lunarFinaleChaseScale(timeToLand);
+  if (scale == null) return;
+  ctx.autoCam.finaleNudged = true;
+  easeAutoSuggestion(ctx, { mode: "chase", frame: true, frameScale: scale });
+}
+
+function applyFinaleChaseBias(ctx: MoonCtx, phase: SampleFrame["phase"], b: BodyState): void {
+  const chaseOn = ctx.autoCam.enabled && ctx.director.getMode() === "chase";
+  const bias = finaleChaseBias(chaseOn, "lunar", phase);
+  ctx.director.setChaseBias({
+    ...bias,
+    lookDownDir: {
+      x: b.moon.x - ctx.craftPos.x,
+      y: b.moon.y - ctx.craftPos.y,
+      z: b.moon.z - ctx.craftPos.z,
+    },
+  });
 }
 
 function craftArrowState(ctx: MoonCtx, frame: SampleFrame) {
@@ -380,7 +421,7 @@ function sceneAndHud(
 ): void {
   updateLights(ctx, simT, b);
   updateLocators(ctx, frame, b);
-  applyAutoCam(ctx, frame);
+  applyAutoCam(ctx, frame, b);
   updateVectors(ctx, frame, b);
   const show = runLandingBeat(ctx, frame, u);
   pushHud(ctx, physicsT, prelaunch, frame, d, b, show);

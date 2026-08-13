@@ -8,6 +8,7 @@ import {
   altitudeFade,
   atmosphereBrownout,
   cameraAltitudeEarthKm,
+  cameraAltitudeMoonKm,
   cinemaBloomStrength,
   cinemaBloomThreshold,
   cinemaExposure,
@@ -15,12 +16,13 @@ import {
   EXPOSURE_PAD,
   EXPOSURE_SPACE,
   markPadShadowMeshes,
+  shadowAltitudeKm,
   shadowHalfExtentKm,
   shadowsActive,
   SHADOW_FADE_ALT_KM,
   starDomeOpacity,
 } from "./cinema.ts";
-import { R_EARTH } from "../physics/constants.ts";
+import { R_EARTH, R_MOON } from "../physics/constants.ts";
 
 describe("altitudeFade", () => {
   it("is 1 below full and 0 above fade", () => {
@@ -69,6 +71,13 @@ describe("cinemaBloom", () => {
     assert.ok(cinemaBloomThreshold(5) > 0.75);
     assert.ok(cinemaBloomThreshold(10_000) > cinemaBloomThreshold(5));
   });
+
+  it("punches bloom slightly during LOI approach burn", () => {
+    const spaceBurn = cinemaBloomStrength(200_000, true);
+    const loi = cinemaBloomStrength(200_000, true, "approach");
+    assert.ok(loi > spaceBurn);
+    assert.ok(loi - spaceBurn > 0.05);
+  });
 });
 
 describe("starDomeOpacity", () => {
@@ -116,6 +125,20 @@ describe("cameraAltitudeEarthKm", () => {
     const earth = { x: 0, y: 0, z: 0 };
     const cam = { x: R_EARTH + 10, y: 0, z: 0 };
     assert.ok(Math.abs(cameraAltitudeEarthKm(cam, earth) - 10) < 1e-9);
+  });
+});
+
+describe("cameraAltitudeMoonKm / shadowAltitudeKm", () => {
+  it("returns altitude above R_MOON", () => {
+    const moon = { x: 0, y: 0, z: 0 };
+    const cam = { x: R_MOON + 4, y: 0, z: 0 };
+    assert.ok(Math.abs(cameraAltitudeMoonKm(cam, moon) - 4) < 1e-9);
+  });
+
+  it("picks the nearer surface for shadow gating", () => {
+    assert.equal(shadowAltitudeKm(0.5, 380_000), 0.5);
+    assert.equal(shadowAltitudeKm(380_000, 2), 2);
+    assert.ok(shadowAltitudeKm(200_000, 200_000) > SHADOW_FADE_ALT_KM);
   });
 });
 

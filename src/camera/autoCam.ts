@@ -49,6 +49,59 @@ const LUNAR_PHASE: PhaseTable = {
   impact: MOON,
 };
 
+/** Wider chase so dust plate + ship share the frame in the last ~30 s. */
+export const LUNAR_FINALE_FRAME_SCALE = 1.45;
+/** Mission-time window (s before landT) for the lunar finale widen. */
+export const LUNAR_FINALE_WINDOW_S = 30;
+
+/**
+ * Chase frameScale for the last {@link LUNAR_FINALE_WINDOW_S} of lunar descent.
+ * Returns null outside the window (callers must not cut).
+ *
+ * @param timeToLandS - `landT - missionT` (s)
+ */
+export function lunarFinaleChaseScale(timeToLandS: number): number | null {
+  if (!Number.isFinite(timeToLandS) || timeToLandS > LUNAR_FINALE_WINDOW_S || timeToLandS < -8) {
+    return null;
+  }
+  const u = 1 - Math.max(0, timeToLandS) / LUNAR_FINALE_WINDOW_S;
+  return 1 + (LUNAR_FINALE_FRAME_SCALE - 1) * u;
+}
+
+/**
+ * True when Auto-cam should fire the one-shot lunar finale widen
+ * (crossing into the last 30 s of descent).
+ */
+export function lunarFinaleShouldCut(
+  enabled: boolean,
+  phase: PhaseId,
+  timeToLandS: number,
+  alreadyNudged: boolean,
+): boolean {
+  if (!enabled || alreadyNudged || phase !== "descent") return false;
+  return lunarFinaleChaseScale(timeToLandS) != null;
+}
+
+/**
+ * Chase look-ahead / look-down for terminal Auto-cam shots.
+ * Identity when Auto-cam is off so Free orbit is not biased.
+ */
+export function finaleChaseBias(
+  enabled: boolean,
+  profile: AutoCamProfile,
+  phase: PhaseId,
+): { lookAheadScale: number; lookDownKm: number } {
+  if (!enabled) return { lookAheadScale: 1, lookDownKm: 0 };
+  if (profile === "flight13" && (phase === "descent" || phase === "splashdown" || phase === "landed")) {
+    const splash = phase === "splashdown" || phase === "landed";
+    return { lookAheadScale: splash ? 1.35 : 1.18, lookDownKm: splash ? 0.14 : 0.08 };
+  }
+  if (profile === "lunar" && (phase === "descent" || phase === "landed")) {
+    return { lookAheadScale: 1.1, lookDownKm: 0.06 };
+  }
+  return { lookAheadScale: 1, lookDownKm: 0 };
+}
+
 /**
  * Default framing for a mission phase (lunar / cislunar profile).
  *
@@ -72,9 +125,9 @@ const FLIGHT13_PHASE: PhaseTable = {
   translunarInjection: CHASE,
   coast: { mode: "chase", frame: true, frameScale: 1.35 },
   entry: CHASE,
-  descent: CHASE,
-  splashdown: CHASE,
-  landed: CHASE,
+  descent: { mode: "chase", frame: true, frameScale: 1.22 },
+  splashdown: { mode: "chase", frame: true, frameScale: 1.55 },
+  landed: { mode: "chase", frame: true, frameScale: 1.55 },
   approach: CHASE,
   braking: CHASE,
   impact: CHASE,
@@ -89,7 +142,9 @@ const FLIGHT13_PHASE: PhaseTable = {
  * | Ascent | Starship chase |
  * | Staging | Booster grid-fin cam |
  * | Coast | Ship chase (suborbital; stay with stack) |
- * | Entry / descent / splash | Starship chase |
+ * | Entry | Starship chase |
+ * | Descent | Slightly wider chase (ocean horizon) |
+ * | Splash | Wider / lower chase |
  */
 export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {
   return FLIGHT13_PHASE[phase] ?? CHASE;

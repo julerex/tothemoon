@@ -107,3 +107,102 @@ export function entryPlasmaStrength(
   const speedU = Math.max(0, Math.min(1, (speedKmS - 1.8) / 3.5));
   return Math.max(0, Math.min(1, speedU * plasmaAltU(altKm) * plasmaLate(t) * 1.15));
 }
+
+/** Rest forward-flap pitch (rad) — slightly trailing at cruise. */
+export const FWD_FLAP_REST_RAD = 0.08;
+/** Peak belly-flop forward-flap extra pitch (rad). */
+export const FWD_FLAP_BELLY_RAD = 0.48;
+/** Peak belly-flop aft-elevon pitch (rad). */
+export const AFT_ELEVON_BELLY_RAD = 0.40;
+
+export type FlapDeflection = Readonly<{
+  /** Forward flap pitch about local +X (rad). */
+  fwd: number;
+  /** Aft elevon pitch about local +X (rad). */
+  aft: number;
+}>;
+
+/**
+ * Whether Flight 13 entry flap motion is in the live window.
+ * Lunar missions use the same craft mesh but much larger `t`, so they stay at rest.
+ */
+export function entryFlapsActive(t: number, phase: PhaseId | string): boolean {
+  if (phase !== "entry" && phase !== "descent" && phase !== "splashdown" && phase !== "coast") {
+    return false;
+  }
+  return t >= F13_ATT.ENTRY - 180 && t <= F13_ATT.SPLASH + 30;
+}
+
+/**
+ * Theater flap / elevon deflection from attitude mode (not CFD AoA).
+ * Full throw in `belly`, taper through transonic, fold toward rest at `engines_first`.
+ *
+ * @param t - Mission time (s)
+ * @param phase - Timeline phase
+ * @param altKm - Earth altitude (km)
+ * @param mode - {@link shipAttitudeMode} result
+ */
+export function entryFlapDeflectionRad(
+  t: number,
+  phase: PhaseId | string,
+  altKm: number,
+  mode: ShipAttitudeMode,
+): FlapDeflection {
+  if (!entryFlapsActive(t, phase) || mode === "prograde" || mode === "radial_up") {
+    return { fwd: FWD_FLAP_REST_RAD, aft: 0 };
+  }
+  let u = mode === "engines_first" ? 1 - landingFlipBlend(t) : 1;
+  if (t >= F13_ATT.TRANSONIC) {
+    u *= Math.max(0, 1 - (t - F13_ATT.TRANSONIC) / 50);
+  }
+  if (altKm < 10) u *= Math.max(0, (altKm - 0.2) / 9.8);
+  u = Math.max(0, Math.min(1, u));
+  return {
+    fwd: FWD_FLAP_REST_RAD + FWD_FLAP_BELLY_RAD * u,
+    aft: AFT_ELEVON_BELLY_RAD * u,
+  };
+}
+
+type Xyz = Readonly<{ x: number; y: number; z: number }>;
+
+/**
+ * Signed visual bank in [−1, 1]: craft local +X (starboard) dotted with
+ * `localUp × airVel` (starboard relative to the wind). Theater cue only.
+ */
+export function entryVisualBank(side: Xyz, airVel: Xyz, localUp: Xyz): number {
+  const aLen = Math.hypot(airVel.x, airVel.y, airVel.z);
+  if (!(aLen > 1e-6)) return 0;
+  const ax = airVel.x / aLen;
+  const ay = airVel.y / aLen;
+  const az = airVel.z / aLen;
+  const lx = localUp.y * az - localUp.z * ay;
+  const ly = localUp.z * ax - localUp.x * az;
+  const lz = localUp.x * ay - localUp.y * ax;
+  const lLen = Math.hypot(lx, ly, lz);
+  if (!(lLen > 1e-6)) return 0;
+  const bank = (side.x * lx + side.y * ly + side.z * lz) / lLen;
+  if (!Number.isFinite(bank)) return 0;
+  return Math.max(-1, Math.min(1, bank));
+}
+
+/** Plasma sprite X offset / opacity skew from {@link entryVisualBank}. */
+export type PlasmaBankOffset = Readonly<{
+  trailX: number;
+  sheathX: number;
+  trailOpMul: number;
+  sheathOpMul: number;
+}>;
+
+/**
+ * Asymmetric plasma-corridor pose from a signed bank in [−1, 1].
+ * Offsets are craft-local km (mesh units before CRAFT_MESH_SCALE).
+ */
+export function plasmaBankOffset(bank: number): PlasmaBankOffset {
+  const b = Number.isFinite(bank) ? Math.max(-1, Math.min(1, bank)) : 0;
+  return {
+    trailX: b * 0.14,
+    sheathX: b * 0.06,
+    trailOpMul: 1 + 0.3 * b,
+    sheathOpMul: 1 + 0.12 * b,
+  };
+}

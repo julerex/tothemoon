@@ -1,32 +1,36 @@
 /**
- * Indian Ocean splashdown site + multi-layer water spray theater FX for Flight 13.
+ * Gulf of America booster soft-land site plate for Flight 13.
  *
- * Earth-fixed site (lat/lon → mesh-local on the Earth body) so the beacon
- * co-rotates. Spray expands near terminal splash — scrub-deterministic.
+ * Earth-fixed (lat/lon → mesh-local) so the beacon co-rotates. Spray uses the
+ * shared terminal FX curves. Theater-grade — not a barge or CFD splash.
  *
- * Layers follow the pad-deluge tier pattern: inner spray, outer mist, brief
- * vertical sheet. Theater-grade, not CFD.
- *
- * @see terminalFx.ts — pure strength / pose helpers
- * @see docs/VISUAL_REALISM.md — V6 terminal FX
+ * @see padRecoveryFx.ts — visibility / AGL helpers
+ * @see docs/VISUAL_REALISM.md — V8 recovery catch
  */
 
 import * as THREE from "three";
 import { EARTH_SURFACE_RADIUS_KM } from "../physics/constants";
 import {
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
-} from "../physics/flight13Mission";
+  GULF_LAND_LAT,
+  GULF_LAND_LON,
+  GULF_SCHEDULE,
+  type BoosterRecoveryPhase,
+} from "../physics/boosterRecovery";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
 import { createNameLabel } from "./zoomLabels";
+import {
+  gulfLandingAltKm,
+  gulfSiteVisible,
+  gulfSprayPhase,
+} from "./padRecoveryFx";
 import {
   deriveSplashSpray,
   type ContactCuePose,
   type TerminalLayerPose,
 } from "./terminalFx";
 
-export const SPLASH_SITE_LABEL = "Indian Ocean";
-export const SPLASH_SITE_DETAIL = "Theater splash · west of Australia";
+export const GULF_SITE_LABEL = "Gulf of America";
+export const GULF_SITE_DETAIL = "Theater booster landing · offshore";
 
 function makeBasicMat(color: number, opacity: number, doubleSide = false): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
@@ -36,39 +40,39 @@ function makeBasicMat(color: number, opacity: number, doubleSide = false): THREE
 }
 
 function makeRingMesh(): THREE.Mesh {
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 3.2, 48), makeBasicMat(0x4ec4ff, 0.5, true));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 2.6, 48), makeBasicMat(0x6ec8a8, 0.5, true));
   ring.rotation.x = -Math.PI / 2;
   return ring;
 }
 
 function makeBeaconMesh(): THREE.Mesh {
   const beacon = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.4, 10, 10),
-    makeBasicMat(0x66ddff, 0.7),
+    new THREE.CylinderGeometry(0.18, 0.38, 8, 10),
+    makeBasicMat(0x88e0b0, 0.7),
   );
-  beacon.position.y = 5;
+  beacon.position.y = 4;
   return beacon;
 }
 
 function makeDiscMesh(): THREE.Mesh {
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), makeBasicMat(0x88e0ff, 0.3, true));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), makeBasicMat(0x7ad0b0, 0.28, true));
   disc.rotation.x = -Math.PI / 2;
   disc.position.y = 0.05;
   return disc;
 }
 
 function makeSiteLabel(): THREE.Object3D {
-  const siteLabel = createNameLabel(SPLASH_SITE_LABEL, "#88e0ff", {
+  const siteLabel = createNameLabel(GULF_SITE_LABEL, "#88e0b0", {
     targetPx: 15, aspect: 256 / 64, minH: 0.6,
   });
-  siteLabel.name = "splash-site-label";
-  siteLabel.position.set(0, 12, 0);
-  siteLabel.userData.detail = SPLASH_SITE_DETAIL;
+  siteLabel.name = "gulf-site-label";
+  siteLabel.position.set(0, 10, 0);
+  siteLabel.userData.detail = GULF_SITE_DETAIL;
   return siteLabel;
 }
 
 function makeSprayDisc(mat: THREE.MeshBasicMaterial, name: string): THREE.Mesh {
-  const spray = new THREE.Mesh(new THREE.CircleGeometry(1, 48), mat);
+  const spray = new THREE.Mesh(new THREE.CircleGeometry(1, 40), mat);
   spray.name = name;
   spray.rotation.x = -Math.PI / 2;
   spray.visible = false;
@@ -77,7 +81,7 @@ function makeSprayDisc(mat: THREE.MeshBasicMaterial, name: string): THREE.Mesh {
 
 function makeSheetGroup(color: number): { group: THREE.Group; mats: THREE.MeshBasicMaterial[] } {
   const group = new THREE.Group();
-  group.name = "splash-spray-sheet";
+  group.name = "gulf-spray-sheet";
   const mats: THREE.MeshBasicMaterial[] = [];
   for (let i = 0; i < 3; i++) {
     const mat = makeBasicMat(color, 0, true);
@@ -118,21 +122,19 @@ function applyContactPose(mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, pose: 
 
 function placeSiteOnEarth(site: THREE.Group): void {
   const local = { x: 0, y: 0, z: 0 };
-  geodeticToMeshLocal(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, EARTH_SURFACE_RADIUS_KM, local);
+  geodeticToMeshLocal(GULF_LAND_LAT, GULF_LAND_LON, EARTH_SURFACE_RADIUS_KM, local);
   site.position.set(local.x, local.y, local.z);
   const radial = new THREE.Vector3(local.x, local.y, local.z).normalize();
   site.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), radial);
 }
 
 /**
- * Splashdown site beacon + spray layers, parented under the Earth mesh so it
- * co-rotates with the ground track.
+ * Gulf booster landing beacon + spray, parented under the Earth mesh.
  */
-export class SplashFx {
+export class GulfLandFx {
   readonly group = new THREE.Group();
   private readonly site = new THREE.Group();
   private readonly beacon: THREE.Mesh;
-  private readonly ring: THREE.Mesh;
   private readonly innerMat: THREE.MeshBasicMaterial;
   private readonly outerMat: THREE.MeshBasicMaterial;
   private readonly contactMat: THREE.MeshBasicMaterial;
@@ -142,28 +144,24 @@ export class SplashFx {
   private readonly sheet: THREE.Group;
   private readonly sheetMats: THREE.MeshBasicMaterial[];
   private landT = 0;
+  private stageT = 0;
   private hasLand = false;
 
   constructor() {
-    this.group.name = "splash-fx";
-    this.ring = makeRingMesh();
+    this.group.name = "gulf-land-fx";
     this.beacon = makeBeaconMesh();
-    this.innerMat = makeBasicMat(0xc8eefc, 0, true);
-    this.outerMat = makeBasicMat(0xa8d8f0, 0, true);
-    this.contactMat = makeBasicMat(0x0a2030, 0, true);
-    this.inner = makeSprayDisc(this.innerMat, "splash-spray-inner");
-    this.outer = makeSprayDisc(this.outerMat, "splash-spray-outer");
-    this.contact = makeSprayDisc(this.contactMat, "splash-spray-contact");
+    this.innerMat = makeBasicMat(0xc8f0dc, 0, true);
+    this.outerMat = makeBasicMat(0xa8dcc8, 0, true);
+    this.contactMat = makeBasicMat(0x0a2418, 0, true);
+    this.inner = makeSprayDisc(this.innerMat, "gulf-spray-inner");
+    this.outer = makeSprayDisc(this.outerMat, "gulf-spray-outer");
+    this.contact = makeSprayDisc(this.contactMat, "gulf-spray-contact");
     this.contact.position.y = 0.02;
-    const sheet = makeSheetGroup(0xe8f6ff);
+    const sheet = makeSheetGroup(0xe8fff4);
     this.sheet = sheet.group;
     this.sheetMats = sheet.mats;
-    this.assembleSite();
-  }
-
-  private assembleSite(): void {
     this.site.add(
-      this.ring,
+      makeRingMesh(),
       this.beacon,
       makeDiscMesh(),
       makeSiteLabel(),
@@ -177,9 +175,13 @@ export class SplashFx {
     this.site.visible = false;
   }
 
-  /** Mission time of terminal splash (for spray age). */
-  setSplashTime(landT: number): void {
-    this.landT = landT;
+  /**
+   * @param stageT - Stage-out mission time (s)
+   * @param landT - Soft-land mission time (s); defaults to gulf schedule
+   */
+  setLandTime(stageT: number, landT?: number): void {
+    this.stageT = stageT;
+    this.landT = landT ?? stageT + GULF_SCHEDULE.landingEndS;
     this.hasLand = true;
   }
 
@@ -188,7 +190,7 @@ export class SplashFx {
     this.site.getWorldPosition(world);
     const dist = craftPos.distanceTo(world);
     const pulse = 0.55 + 0.35 * Math.sin(performance.now() * 0.004);
-    (this.beacon.material as THREE.MeshBasicMaterial).opacity = dist < 800 ? pulse : 0.4;
+    (this.beacon.material as THREE.MeshBasicMaterial).opacity = dist < 400 ? pulse : 0.4;
   }
 
   private hideSpray(): void {
@@ -198,7 +200,22 @@ export class SplashFx {
     this.contact.visible = false;
   }
 
-  private updateSpray(missionT: number, phase: string, altEarth: number): void {
+  update(
+    missionT: number,
+    craftPos: THREE.Vector3,
+    opts: { recoveryPhase: BoosterRecoveryPhase | string },
+  ): void {
+    if (!this.hasLand) {
+      this.site.visible = false;
+      return;
+    }
+    const age = missionT - this.stageT;
+    const show = gulfSiteVisible(opts.recoveryPhase, age);
+    this.site.visible = show;
+    if (!show) return;
+    this.pulseBeacon(craftPos);
+    const phase = gulfSprayPhase(opts.recoveryPhase);
+    const altEarth = gulfLandingAltKm(age);
     const derived = deriveSplashSpray({
       missionT, landT: this.landT, phase, altEarth,
     });
@@ -210,23 +227,5 @@ export class SplashFx {
     applyDiscPose(this.outer, this.outerMat, derived.outer);
     applySheetPose(this.sheet, this.sheetMats, derived.sheet);
     applyContactPose(this.contact, this.contactMat, derived.contact);
-  }
-
-  update(
-    missionT: number,
-    craftPos: THREE.Vector3,
-    opts: { phase: string; altEarth: number },
-  ): void {
-    if (!this.hasLand) {
-      this.site.visible = false;
-      return;
-    }
-    const derived = deriveSplashSpray({
-      missionT, landT: this.landT, phase: opts.phase, altEarth: opts.altEarth,
-    });
-    this.site.visible = derived.siteVisible;
-    if (!derived.siteVisible) return;
-    this.pulseBeacon(craftPos);
-    this.updateSpray(missionT, opts.phase, opts.altEarth);
   }
 }

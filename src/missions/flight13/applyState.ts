@@ -11,12 +11,14 @@ import {
   starbasePadState,
 } from "../../physics/earthFrame";
 import { formatMissionDateUtc } from "../../physics/epoch";
+import { boosterPhaseAt } from "../../physics/boosterRecovery";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
 } from "../../physics/flight13Mission";
 import {
   entryPlasmaStrength,
+  entryVisualBank,
   landingEngineCount,
 } from "../../physics/flight13Attitude";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
@@ -27,7 +29,7 @@ import {
 } from "../../mission/prelaunch";
 import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
-import { nextAutoCamCut } from "../../camera/autoCam";
+import { nextAutoCamCut, finaleChaseBias } from "../../camera/autoCam";
 import {
   applyEarthshine,
   applyFillLight,
@@ -40,7 +42,8 @@ import {
 } from "../../scene/craft";
 import { updateBodies } from "../../scene/bodies";
 import { updateMoonRelativeOrbit } from "../../scene/createScene";
-import { updateStarbaseLaunchFx } from "../../scene/earthTheater";
+import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
+import { deriveChopstickPose } from "../../scene/padRecoveryFx";
 import type { F13Ctx } from "./bootstrap";
 import { orientCraft } from "./orientCraft";
 
@@ -121,12 +124,18 @@ function craftVisualArgs(
   physicsT: number,
   frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
+  air: number,
 ) {
   const engCount = physicsT < 0 ? 0 : landingEngineCount(frame.t);
+  const t = Math.max(0, physicsT);
+  const plasma = physicsT < 0
+    ? 0
+    : entryPlasmaStrength(t, d.displayPhase, d.displayAltEarth, air);
   return {
     staged: d.stagedForCam, burning: d.showBurning, thrustN: d.showThrustN,
-    missionT: Math.max(0, physicsT), stageT: ctx.stageT, altEarth: d.displayAltEarth,
+    missionT: t, stageT: ctx.stageT, altEarth: d.displayAltEarth,
     phase: d.displayPhase, shipEngineCount: engCount > 0 ? engCount : undefined,
+    plasmaStrength: plasma,
   };
 }
 
@@ -135,8 +144,9 @@ function updateCraftFx(
   physicsT: number,
   frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
+  air: number,
 ): void {
-  updateCraftVisuals(ctx.craft, craftVisualArgs(ctx, physicsT, frame, d));
+  updateCraftVisuals(ctx.craft, craftVisualArgs(ctx, physicsT, frame, d, air));
 }
 
 function updatePadFx(
@@ -154,6 +164,10 @@ function updatePadFx(
     altEarth: d.displayAltEarth,
     sunElev,
   });
+  updateMechazillaRecovery(ctx.starbasePad, deriveChopstickPose({
+    age: ctx.stageT == null ? -1 : physicsT - ctx.stageT,
+    profile: "gulf",
+  }));
 }
 
 function updateStageSplash(
@@ -166,6 +180,9 @@ function updateStageSplash(
   ctx.splashFx.update(t, ctx.craftPos, {
     phase: d.displayPhase,
     altEarth: d.displayAltEarth,
+  });
+  ctx.gulfLandFx.update(t, ctx.craftPos, {
+    recoveryPhase: ctx.stageT == null ? "sep" : boosterPhaseAt(t - ctx.stageT, "gulf"),
   });
 }
 
@@ -185,7 +202,13 @@ function updateEntry(
   air: number,
 ): void {
   const t = Math.max(0, physicsT);
-  ctx.entryFx.update(t, d.displayPhase, d.displayAltEarth, prelaunch ? 0 : air);
+  ctx.entryFx.update(
+    t,
+    d.displayPhase,
+    d.displayAltEarth,
+    prelaunch ? 0 : air,
+    prelaunch ? 0 : entryVisualBank(ctx.orient.side, ctx.orient.airVel, ctx.orient.localUp),
+  );
   ctx.cinemaState.plasma = prelaunch
     ? 0
     : entryPlasmaStrength(t, d.displayPhase, d.displayAltEarth, air);
@@ -230,6 +253,7 @@ function easeAutoSuggestion(
 function applyAutoCam(
   ctx: F13Ctx,
   d: ReturnType<typeof displayFields>,
+  b: BodyState,
 ): void {
   const autoCut = nextAutoCamCut(
     ctx.autoCam.enabled, d.displayPhase, d.stagedForCam,
@@ -238,6 +262,16 @@ function applyAutoCam(
   ctx.autoCam.phase = autoCut.phase;
   ctx.autoCam.staged = autoCut.staged;
   if (autoCut.suggestion) easeAutoSuggestion(ctx, autoCut.suggestion);
+  const chaseOn = ctx.autoCam.enabled && ctx.director.getMode() === "chase";
+  const bias = finaleChaseBias(chaseOn, "flight13", d.displayPhase);
+  ctx.director.setChaseBias({
+    ...bias,
+    lookDownDir: {
+      x: b.earth.x - ctx.craftPos.x,
+      y: b.earth.y - ctx.craftPos.y,
+      z: b.earth.z - ctx.craftPos.z,
+    },
+  });
 }
 
 function splashWorldPoint(ctx: F13Ctx, simT: number): void {
@@ -444,10 +478,11 @@ function updateFxStack(
   b: BodyState,
 ): void {
   applyAttitude(ctx, physicsT, d);
-  updateCraftFx(ctx, physicsT, frame, d);
+  const air = speedAir(ctx, b);
+  updateCraftFx(ctx, physicsT, frame, d, air);
   updatePadFx(ctx, physicsT, b, d);
   updateStageSplash(ctx, physicsT, d);
-  updateEntry(ctx, physicsT, prelaunch, d, speedAir(ctx, b));
+  updateEntry(ctx, physicsT, prelaunch, d, air);
 }
 
 function updateSceneStack(
@@ -459,7 +494,7 @@ function updateSceneStack(
 ): void {
   updateLights(ctx, simT, b);
   updateLocators(ctx, frame, b);
-  applyAutoCam(ctx, d);
+  applyAutoCam(ctx, d, b);
 }
 
 function poseCraft(ctx: F13Ctx, u: number) {
