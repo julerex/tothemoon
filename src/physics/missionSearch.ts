@@ -1,5 +1,6 @@
 /**
- * Transfer search: epoch / Moon-phase / Translunar injection Δv grid for a close ballistic pass.
+ * Transfer search: epoch / Moon-phase / Translunar injection Δv for a B-plane
+ * south-pole perilune (theater). Coarse epoch grid, then 1-D golden-section on Δv.
  *
  * Pure scoring + search over probes; low Earth orbit template is rebuilt when epoch/phase
  * changes so scores match the path {@link flyMission} will bake.
@@ -13,7 +14,8 @@ import {
   MOON_SPHERE_OF_INFLUENCE_KM,
 } from "./constants";
 import { ensureAscent } from "./ascentCache";
-import { probePerilune } from "./ballisticCoast";
+import { bplaneMissNeedsTcm, DESIGN_PERILUNE_ALT_KM } from "./bplane";
+import { probePerilune, type ProbeResult } from "./ballisticCoast";
 import { starbaseSunElev } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { hasHorizonsTable } from "./horizonsEpoch";
@@ -34,11 +36,13 @@ export type TransferSearchResult = {
   bestAlt: number;
   bestPeriluneT: number;
   bestREarth: number;
+  bestBPlaneMissKm: number;
+  needsTcm: boolean;
   found: boolean;
 };
 
 const INTERCEPT_ALT = 80_000;
-const IDEAL_PERILUNE = 8_000;
+const IDEAL_PERILUNE = DESIGN_PERILUNE_ALT_KM;
 /**
  * Hot free-coast meets the Moon on the *outbound* leg near lunar distance
  * (~3 d), not at design apogee time of flight (~T). Prefer that window so the craft
@@ -90,22 +94,36 @@ function nearLunarTerm(rEarth: number): number {
   return ((rEarth - A_EM) / 1000) ** 2 * 50;
 }
 
-function periluneScore(
-  alt: number,
-  periluneT: number,
-  rEarth: number,
-): number {
+function bplaneMissTerm(pr: ProbeResult): number {
+  if (!Number.isFinite(pr.bPlaneMissKm)) return 50_000;
+  const southPen = pr.southDot < 0
+    ? 20_000 + (-pr.southDot) * 30_000
+    : (1 - Math.max(0, pr.southDot)) * 6_000;
+  return pr.bPlaneMissKm * 0.12 + southPen;
+}
+
+function periluneScore(pr: ProbeResult): number {
+  const alt = pr.minAlt;
+  const periluneT = pr.periluneT;
+  const rEarth = pr.rEarth;
   if (!Number.isFinite(alt) || alt > 400_000) return 1e12;
   if (rEarth < A_EM * 0.5 && alt > 50_000) return 1e12;
   const dtH = (periluneT - IDEAL_TOA) / 3600;
   const rErr = Math.abs(rEarth - A_EM) / 1000;
   return (
     periluneAltTerm(alt) + dtH * dtH * 12 + rErr * rErr * 25 +
-    periluneWindowPen(periluneT) + nearLunarTerm(rEarth) + sphereOfInfluenceTerm(alt)
+    periluneWindowPen(periluneT) + nearLunarTerm(rEarth) + sphereOfInfluenceTerm(alt) +
+    bplaneMissTerm(pr)
   );
 }
 
-type CandidateEval = { sc: number; alt: number; t: number; rE: number };
+type CandidateEval = {
+  sc: number;
+  alt: number;
+  t: number;
+  rE: number;
+  bMiss: number;
+};
 
 type SearchBest = {
   bestPhase: number;
@@ -115,7 +133,19 @@ type SearchBest = {
   bestREarth: number;
   bestScore: number;
   bestLandingT: number;
+  bestBPlaneMissKm: number;
 };
+
+function applyEval(best: SearchBest, ev: CandidateEval, ph: number, dv: number, landT: number): void {
+  best.bestScore = ev.sc;
+  best.bestAlt = ev.alt;
+  best.bestPeriluneT = ev.t;
+  best.bestREarth = ev.rE;
+  best.bestBPlaneMissKm = ev.bMiss;
+  best.bestPhase = ph;
+  best.bestDv = dv;
+  best.bestLandingT = landT;
+}
 
 /** Apply a candidate eval if it improves the best score. */
 function considerEval(
@@ -126,13 +156,7 @@ function considerEval(
   landT: number,
 ): void {
   if (!(ev.sc < best.bestScore)) return;
-  best.bestScore = ev.sc;
-  best.bestAlt = ev.alt;
-  best.bestPeriluneT = ev.t;
-  best.bestREarth = ev.rE;
-  best.bestPhase = ph;
-  best.bestDv = dv;
-  best.bestLandingT = landT;
+  applyEval(best, ev, ph, dv, landT);
 }
 
 /** Apply eval only when score improves by more than 1e-6 (refine steps). */
@@ -144,12 +168,7 @@ function considerEvalStrict(
   landT: number,
 ): boolean {
   if (!(ev.sc < best.bestScore - 1e-6)) return false;
-  best.bestScore = ev.sc; best.bestAlt = ev.alt;
-  best.bestPeriluneT = ev.t;
-  best.bestREarth = ev.rE;
-  best.bestPhase = ph;
-  best.bestDv = dv;
-  best.bestLandingT = landT;
+  applyEval(best, ev, ph, dv, landT);
   return true;
 }
 
@@ -169,6 +188,16 @@ function rebuildLeo(ctx: SearchCtx, epoch: EphemerisEpoch): void {
   ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
 }
 
+function evalFromProbe(pr: ProbeResult, epoch: EphemerisEpoch): CandidateEval {
+  return {
+    sc: periluneScore(pr) + launchDayPenalty(epoch),
+    alt: pr.minAlt,
+    t: pr.periluneT,
+    rE: pr.rEarth,
+    bMiss: pr.bPlaneMissKm,
+  };
+}
+
 /** Score a (Δv, moon-phase) pair; optionally rebuild LEO. */
 function evalCandidate(
   ctx: SearchCtx,
@@ -180,8 +209,12 @@ function evalCandidate(
   ctx.epoch = makeLunarEpoch(ph, landT, ctx.useHorizons);
   if (reAscent) ensureAscent(ctx.epoch);
   ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ctx.epoch);
-  const pr = probePerilune(dv, ctx.lowEarthOrbitRelative.current, ctx.epoch);
-  return { sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(ctx.epoch), alt: pr.minAlt, t: pr.periluneT, rE: pr.rEarth };
+  return evalFromProbe(probePerilune(dv, ctx.lowEarthOrbitRelative.current, ctx.epoch), ctx.epoch);
+}
+
+/** Δv-only probe at the current epoch / LEO template (no rebuild). */
+function evalDvOnly(ctx: SearchCtx, dv: number): CandidateEval {
+  return evalFromProbe(probePerilune(dv, ctx.lowEarthOrbitRelative.current, ctx.epoch), ctx.epoch);
 }
 
 function rangeOffsets(lo: number, hi: number, step: number): number[] {
@@ -259,6 +292,19 @@ function mediumPassAnalytic(ctx: SearchCtx, best: SearchBest): void {
   for (let i = -20; i <= 20; i++) mediumAnalyticAtPhase(ctx, best, seedPhase + i * 0.05, seedDv);
 }
 
+/** Local Δv polish after the golden-section basin find. */
+function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+  rebuildLeo(ctx, makeLunarEpoch(best.bestPhase, best.bestLandingT, ctx.useHorizons));
+  let improved = false;
+  const dDv = 0.008 / (1 + iter);
+  for (const s of [-2, -1, 1, 2]) {
+    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, best.bestDv + s * dDv));
+    const ev = evalDvOnly(ctx, dv);
+    if (considerEvalStrict(best, ev, best.bestPhase, dv, best.bestLandingT)) improved = true;
+  }
+  return improved;
+}
+
 /** One coordinate-descent iteration: epoch/phase then Δv. */
 function refineIteration(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
   let improved = false;
@@ -267,7 +313,8 @@ function refineIteration(ctx: SearchCtx, best: SearchBest, iter: number): boolea
   } else {
     improved = refinePhase(ctx, best, iter) || improved;
   }
-  improved = refineDv(ctx, best, iter) || improved;
+  if (iter === 0) improved = goldenSectionDv(ctx, best, 10) || improved;
+  else improved = refineDv(ctx, best, iter) || improved;
   return improved;
 }
 
@@ -296,14 +343,36 @@ function refinePhase(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
   return improved;
 }
 
-/** Coordinate descent on Δv. */
-function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
+/** 1-D golden-section minimize on TLI Δv at the current epoch. */
+function goldenSectionDv(ctx: SearchCtx, best: SearchBest, nIters = 10): boolean {
+  rebuildLeo(ctx, makeLunarEpoch(best.bestPhase, best.bestLandingT, ctx.useHorizons));
+  const phi = 0.5 * (3 - Math.sqrt(5));
+  let lo = Math.max(ctx.baseDv * 0.999, best.bestDv - 0.05);
+  let hi = Math.min(ctx.dvMax, best.bestDv + 0.05);
+  if (!(hi > lo + 1e-6)) return false;
+  let c = hi - phi * (hi - lo);
+  let d = lo + phi * (hi - lo);
+  let fc = evalDvOnly(ctx, c);
+  let fd = evalDvOnly(ctx, d);
+  considerEval(best, fc, best.bestPhase, c, best.bestLandingT);
+  considerEval(best, fd, best.bestPhase, d, best.bestLandingT);
   let improved = false;
-  const dDv = 0.008 / (1 + iter);
-  for (const s of [-2, -1, 1, 2]) {
-    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, best.bestDv + s * dDv));
-    const ev = evalCandidate(ctx, dv, best.bestPhase, best.bestLandingT, true);
-    if (considerEvalStrict(best, ev, best.bestPhase, dv, best.bestLandingT)) improved = true;
+  for (let i = 0; i < nIters; i++) {
+    if (fc.sc <= fd.sc) {
+      hi = d;
+      d = c;
+      fd = fc;
+      c = hi - phi * (hi - lo);
+      fc = evalDvOnly(ctx, c);
+      if (considerEvalStrict(best, fc, best.bestPhase, c, best.bestLandingT)) improved = true;
+    } else {
+      lo = c;
+      c = d;
+      fc = fd;
+      d = lo + phi * (hi - lo);
+      fd = evalDvOnly(ctx, d);
+      if (considerEvalStrict(best, fd, best.bestPhase, d, best.bestLandingT)) improved = true;
+    }
   }
   return improved;
 }
@@ -312,7 +381,8 @@ function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
 function logSearchResult(best: SearchBest, baseDv: number, found: boolean): void {
   const raDes = apogeeFromTranslunarInjectionDeltaV(LOW_EARTH_ORBIT_RADIUS, best.bestDv); const raLabel = Number.isFinite(raDes) ? (raDes / A_EM).toFixed(3) : "∞";
   console.info(
-    `[tothemoon] Ballistic 4-body probe minMoonAlt=${best.bestAlt.toFixed(0)} km @${(best.bestPeriluneT / 3600).toFixed(1)}h ` +
+    `[tothemoon] B-plane probe perilune=${best.bestAlt.toFixed(0)} km @${(best.bestPeriluneT / 3600).toFixed(1)}h ` +
+      `Bmiss=${Number.isFinite(best.bestBPlaneMissKm) ? best.bestBPlaneMissKm.toFixed(0) : "∞"} km ` +
       `rEarth=${(best.bestREarth / A_EM).toFixed(3)}×A_EM phase=${best.bestPhase.toFixed(3)} ` +
       `landT=${(best.bestLandingT / 3600).toFixed(1)}h ` +
       `dv=${best.bestDv.toFixed(4)} (Hohmann=${baseDv.toFixed(4)}) · ra_des≈${raLabel}×A_EM · ` +
@@ -321,11 +391,14 @@ function logSearchResult(best: SearchBest, baseDv: number, found: boolean): void
 }
 
 function emptySearchBest(guess: number, baseDv: number, T: number): SearchBest {
-  return { bestPhase: guess, bestDv: baseDv, bestAlt: Infinity, bestPeriluneT: T, bestREarth: Infinity, bestScore: Infinity, bestLandingT: T };
+  return {
+    bestPhase: guess, bestDv: baseDv, bestAlt: Infinity, bestPeriluneT: T, bestREarth: Infinity,
+    bestScore: Infinity, bestLandingT: T, bestBPlaneMissKm: Infinity,
+  };
 }
 
 /**
- * Search epoch / phase / Δv for the best ballistic perilune.
+ * Search epoch / phase / Δv for the best ballistic south-pole B-plane perilune.
  * Rebuilds ascent + low Earth orbit under explicit {@link EphemerisEpoch} candidates.
  * Updates `lowEarthOrbitRelative.current` whenever low Earth orbit is rebuilt.
  */
@@ -344,7 +417,17 @@ function initSearch(opts: {
 }
 
 function toSearchResult(best: SearchBest, found: boolean): TransferSearchResult {
-  return { bestPhase: best.bestPhase, bestDv: best.bestDv, bestLandingT: best.bestLandingT, bestAlt: best.bestAlt, bestPeriluneT: best.bestPeriluneT, bestREarth: best.bestREarth, found };
+  return {
+    bestPhase: best.bestPhase,
+    bestDv: best.bestDv,
+    bestLandingT: best.bestLandingT,
+    bestAlt: best.bestAlt,
+    bestPeriluneT: best.bestPeriluneT,
+    bestREarth: best.bestREarth,
+    bestBPlaneMissKm: best.bestBPlaneMissKm,
+    needsTcm: bplaneMissNeedsTcm(best.bestBPlaneMissKm, best.bestAlt),
+    found,
+  };
 }
 
 export function searchBallisticTransfer(opts: {

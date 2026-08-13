@@ -41,20 +41,21 @@ function logTliBurn(
 function captureArgs(
   state: ReturnType<typeof appendAscentAndLowEarthOrbitCoast>,
   samples: Sample[], lastT: { t: number }, prop: ReturnType<typeof createPropState>,
-  epoch: EphemerisEpoch, translunarInjectionDeltaV: number,
+  epoch: EphemerisEpoch, translunarInjectionDeltaV: number, applyTcm: boolean,
 ) {
-  return { state, samples, lastT, prop, moonPhase0: epoch.moonPhase0, translunarInjectionDeltaV, epoch };
+  return { state, samples, lastT, prop, moonPhase0: epoch.moonPhase0, translunarInjectionDeltaV, epoch, applyTcm };
 }
 
 function flyThroughCapture(
   epoch: EphemerisEpoch, translunarInjectionDeltaV: number,
   samples: Sample[], lastT: { t: number }, prop: ReturnType<typeof createPropState>,
+  applyTcm: boolean,
 ): MissionResult {
   const state = appendAscentAndLowEarthOrbitCoast(samples, lastT, prop, epoch);
   logLeoDogleg(prop);
   const burn = runFiniteTranslunarInjection(state, translunarInjectionDeltaV, samples, lastT, prop, epoch);
   logTliBurn(burn, prop);
-  return runLunarCapture(captureArgs(state, samples, lastT, prop, epoch, translunarInjectionDeltaV));
+  return runLunarCapture(captureArgs(state, samples, lastT, prop, epoch, translunarInjectionDeltaV, applyTcm));
 }
 
 /**
@@ -65,11 +66,12 @@ export function flyMission(
   epoch: EphemerisEpoch,
   translunarInjectionDeltaV: number,
   toa?: number,
+  applyTcm = false,
 ): MissionResult {
   void toa;
   if (!getAscent().ok) return ascentFailResult(epoch.moonPhase0, translunarInjectionDeltaV);
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
   const prop = createPropState(0);
-  return flyThroughCapture(epoch, translunarInjectionDeltaV, samples, lastT, prop);
+  return flyThroughCapture(epoch, translunarInjectionDeltaV, samples, lastT, prop, applyTcm);
 }

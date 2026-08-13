@@ -54,6 +54,12 @@ export type PackedTrajectory = {
   stageT: number | null;
   /** Peak |r_nbody − r_kepler| on Translunar injection coast (km); corridor meta */
   keplerRefMaxDevKm?: number;
+  /** Ballistic (pre-LOI) closest-approach altitude (km) */
+  periluneAltKm?: number;
+  /** B-plane miss vs south-pole design at ballistic closest approach (km) */
+  bPlaneMissKm?: number;
+  trajectoryCorrectionCount?: number;
+  trajectoryCorrectionTotalDeltaV?: number;
   samples: PackedSample[];
 };
 
@@ -78,11 +84,15 @@ function packMeta(result: MissionResult) {
   // Prefer integration minMoonAlt when finite (full-rate coast); fall back to scan
   const stageT = result.stageT !== undefined ? result.stageT : meta.stageT;
   const kepler = finiteOr(result.keplerRefMaxDevKm, undefined as number | undefined);
+  const perilune = finiteOr(result.periluneAltKm, undefined as number | undefined);
+  const bMiss = finiteOr(result.bPlaneMissKm, undefined as number | undefined);
   return {
     minMoonAlt: finiteOr(result.minMoonAlt, meta.minMoonAlt),
     peakSpeedKmS: round(finiteOr(result.peakSpeedKmS, meta.peakSpeedKmS), 6),
     stageT: stageT == null ? null : round(stageT, 3),
     keplerRefMaxDevKm: kepler != null ? round(kepler, 1) : undefined,
+    periluneAltKm: perilune != null ? round(perilune, 1) : undefined,
+    bPlaneMissKm: bMiss != null ? round(bMiss, 1) : undefined,
   };
 }
 
@@ -92,6 +102,8 @@ function packCore(result: MissionResult) {
     moonPhase0: result.moonPhase0, translunarInjectionDeltaV: result.translunarInjectionDeltaV,
     durationS: result.durationS, horizonsLandingT: result.horizonsLandingT,
     ok: result.ok, message: result.message,
+    trajectoryCorrectionCount: result.trajectoryCorrectionCount ?? 0,
+    trajectoryCorrectionTotalDeltaV: result.trajectoryCorrectionTotalDeltaV ?? 0,
   };
 }
 
@@ -122,6 +134,12 @@ console.info(
   `[precompute] meta v${packed.version}: minMoonAlt=${packed.minMoonAlt.toFixed(1)} km · peak|v|=${packed.peakSpeedKmS.toFixed(3)} km/s · stageT=${packed.stageT == null ? "—" : `${packed.stageT.toFixed(1)} s`}` +
     (packed.keplerRefMaxDevKm != null
       ? ` · Kepler max|Δr|=${packed.keplerRefMaxDevKm.toFixed(0)} km`
+      : "") +
+    (packed.periluneAltKm != null
+      ? ` · perilune=${packed.periluneAltKm.toFixed(0)} km`
+      : "") +
+    (packed.bPlaneMissKm != null
+      ? ` · Bmiss=${packed.bPlaneMissKm.toFixed(0)} km`
       : ""),
 );
 console.info(`[precompute] wrote ${outPath}`);

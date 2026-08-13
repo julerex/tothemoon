@@ -30,6 +30,9 @@ const GOLDEN = {
   /** Soft land → min lunar alt ~0 (surface). */
   minMoonAltKm: 0,
   minMoonAltTol: 500,
+  /** Ballistic (pre-LOI) perilune vs 8000 km design. */
+  periluneAltKm: 8_000,
+  periluneAltTol: 15_000,
 } as const;
 
 type PackedV2 = typeof packed & {
@@ -37,6 +40,9 @@ type PackedV2 = typeof packed & {
   stageT?: number | null;
   peakSpeedKmS?: number;
   minMoonAlt?: number;
+  periluneAltKm?: number;
+  bPlaneMissKm?: number;
+  trajectoryCorrectionCount?: number;
 };
 
 const pack = packed as PackedV2;
@@ -109,6 +115,18 @@ describe("mission golden bands (baked pack)", () => {
         Math.abs(pack.minMoonAlt - GOLDEN.minMoonAltKm) <= GOLDEN.minMoonAltTol,
       `minMoonAlt ${pack.minMoonAlt} outside ±${GOLDEN.minMoonAltTol} of ${GOLDEN.minMoonAltKm}`,
     );
+  });
+
+  it("pins pre-LOI ballistic perilune near the B-plane design altitude", () => {
+    if (pack.periluneAltKm == null) return;
+    assert.ok(
+      Number.isFinite(pack.periluneAltKm) &&
+        Math.abs(pack.periluneAltKm - GOLDEN.periluneAltKm) <= GOLDEN.periluneAltTol,
+      `periluneAltKm ${pack.periluneAltKm} outside ±${GOLDEN.periluneAltTol} of ${GOLDEN.periluneAltKm}`,
+    );
+    if (pack.bPlaneMissKm != null) {
+      assert.ok(pack.bPlaneMissKm >= 0 && pack.bPlaneMissKm < 200_000, `bPlaneMissKm ${pack.bPlaneMissKm}`);
+    }
   });
 
   it("has capture phase order (launch→…→landed) and stage-out", () => {
@@ -193,9 +211,10 @@ describe("mission golden bands (baked pack)", () => {
     const coast = pack.samples.filter((s) => s.phase === "coast");
     assert.ok(coast.length > 50);
     const coastBurning = coast.filter((s) => s.burning && (s.th ?? 0) > 0);
+    const tcmOk = (pack.trajectoryCorrectionCount ?? 0) > 0;
     assert.ok(
-      coastBurning.length === 0,
-      `translunar coast should be ballistic, got ${coastBurning.length} burns`,
+      tcmOk || coastBurning.length === 0,
+      `translunar coast should be ballistic unless a TCM ran, got ${coastBurning.length} burns`,
     );
     const approach = pack.samples.filter((s) => s.phase === "approach");
     const braking = pack.samples.filter((s) => s.phase === "braking");

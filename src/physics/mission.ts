@@ -8,7 +8,7 @@
  *
  * Heavy lifting lives in focused modules:
  * - {@link flyMission} — ascent + dogleg + translunar injection + capture
- * - {@link searchBallisticTransfer} — epoch / phase / Δv search (close perilune)
+ * - {@link searchBallisticTransfer} — epoch / phase / Δv B-plane perilune search
  * - {@link runLunarCapture} — coast + LOI + LLO + descent
  * - {@link downsampleTrajectory} — pack thinning
  */
@@ -83,19 +83,33 @@ function rebuildAfterSearch(
 }
 
 /** Attach pack meta and log summary after fly + downsample. */
-function stampMeta(out: MissionResult, epoch: EphemerisEpoch, bestLandingT: number): MissionResult {
+function stampMeta(
+  out: MissionResult,
+  epoch: EphemerisEpoch,
+  bestLandingT: number,
+  search?: ReturnType<typeof searchBallisticTransfer>,
+): MissionResult {
   out.horizonsLandingT = bestLandingT;
   const meta = deriveTrajectoryMeta(out.samples, epoch);
   out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT;
+  if (search) {
+    out.periluneAltKm = search.bestAlt;
+    out.bPlaneMissKm = search.bestBPlaneMissKm;
+  }
   return out;
 }
 
-function finalizeMission(flown: MissionResult, epoch: EphemerisEpoch, bestLandingT: number): MissionResult {
+function finalizeMission(
+  flown: MissionResult,
+  epoch: EphemerisEpoch,
+  bestLandingT: number,
+  search?: ReturnType<typeof searchBallisticTransfer>,
+): MissionResult {
   console.info(
     `[tothemoon] ${flown.message} · duration=${(flown.durationS / 3600).toFixed(1)}h · samples=${flown.samples.length}`,
   );
-  return stampMeta(downsampleTrajectory(flown), epoch, bestLandingT);
+  return stampMeta(downsampleTrajectory(flown), epoch, bestLandingT, search);
 }
 
 /**
@@ -121,7 +135,7 @@ function runSearch(baseDv: number, T: number, epoch: EphemerisEpoch) {
 
 function flyAfterSearch(search: ReturnType<typeof searchBallisticTransfer>, useHorizons: boolean, lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null }, T: number): MissionResult {
   const epoch = rebuildAfterSearch(search, useHorizons, lowEarthOrbitRelative);
-  return finalizeMission(flyMission(epoch, search.bestDv, pickToa(search, T)), epoch, search.bestLandingT);
+  return finalizeMission(flyMission(epoch, search.bestDv, pickToa(search, T), search.needsTcm), epoch, search.bestLandingT, search);
 }
 
 export function runMission(): MissionResult {

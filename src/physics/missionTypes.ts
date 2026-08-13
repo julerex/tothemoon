@@ -70,6 +70,10 @@ export type MissionResult = {
   stageT?: number | null;
   /** Max |r_N-body − r_Kepler| (km) on the Translunar injection coast, if computed */
   keplerRefMaxDevKm?: number;
+  /** Ballistic (pre-LOI) closest-approach altitude above mean lunar radius (km) */
+  periluneAltKm?: number;
+  /** B-plane miss vs south-pole design at ballistic closest approach (km) */
+  bPlaneMissKm?: number;
   /** Discrete midcourse corrections executed during coast */
   trajectoryCorrectionCount?: number;
   /** Total trajectory correction |Δv| (km/s) */

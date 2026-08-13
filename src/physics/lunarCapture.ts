@@ -47,11 +47,19 @@ import {
   type PropState,
 } from "./propellant";
 import { orbitAfterTranslunarInjection, transferTimeEst } from "./translunarInjection";
+import { moonRelativeEncounter } from "./bplane";
+import {
+  TRAJECTORY_CORRECTION_APPROACH_FRAC,
+  TRAJECTORY_CORRECTION_MAX_DELTA_V,
+  runTrajectoryCorrectionBurn,
+  trajectoryCorrectionDeltaV,
+} from "./coast";
 import { len, scale, set, sub, v3, type V3 } from "./vec3";
 
 const _relP = v3();
 const _relV = v3();
 const _th = v3();
+const _tcmDv = v3();
 
 export type LunarCaptureArgs = {
   state: CraftState;
@@ -61,6 +69,8 @@ export type LunarCaptureArgs = {
   moonPhase0: number;
   translunarInjectionDeltaV: number;
   epoch?: EphemerisEpoch;
+  /** One approach TCM if B-plane search could not close ballistically. */
+  applyTcm?: boolean;
 };
 
 /** Mutable trackers shared across capture phases. */
@@ -69,6 +79,15 @@ type CaptureTrack = {
   periluneT: number;
   keplerRefMaxDevKm: number;
   phase: PhaseId;
+  ballisticPeriluneAltKm: number;
+  bPlaneMissKm: number;
+  caRelP: V3;
+  caRelV: V3;
+  haveCa: boolean;
+  tcmDone: boolean;
+  tcmCount: number;
+  tcmDv: number;
+  frozenPerilune: boolean;
 };
 
 function limitGuideThrust(prop: PropState, th: V3): V3 | null {
@@ -158,16 +177,30 @@ function isBallisticFlyby(
   );
 }
 
-/** Update min lunar altitude / perilune epoch. */
+/** Update min lunar altitude / perilune epoch; store Moon-relative CA state. */
 function noteMoonAlt(
   altM: number,
   stateT: number,
   track: CaptureTrack,
+  state: CraftState,
+  epoch: EphemerisEpoch,
 ): void {
-  if (altM < track.minMoonAlt) {
-    track.minMoonAlt = altM;
-    track.periluneT = stateT;
-  }
+  if (altM >= track.minMoonAlt) return;
+  track.minMoonAlt = altM;
+  track.periluneT = stateT;
+  const b = getBodies(stateT, epoch);
+  sub(track.caRelP, state.pos, b.moon);
+  set(track.caRelV, state.vel.x - b.moonVel.x, state.vel.y - b.moonVel.y, state.vel.z - b.moonVel.z);
+  track.haveCa = true;
+}
+
+function freezeBallisticPerilune(ctx: CaptureCtx): void {
+  if (ctx.track.frozenPerilune) return;
+  ctx.track.frozenPerilune = true;
+  ctx.track.ballisticPeriluneAltKm = ctx.track.minMoonAlt;
+  if (!ctx.track.haveCa) return;
+  const enc = moonRelativeEncounter(ctx.track.caRelP, ctx.track.caRelV);
+  ctx.track.bPlaneMissKm = enc.bPlaneMissKm;
 }
 
 type CaptureCtx = {
@@ -180,6 +213,7 @@ type CaptureCtx = {
   epoch: EphemerisEpoch;
   track: CaptureTrack;
   keplerRef: ReturnType<typeof orbitAfterTranslunarInjection>;
+  applyTcm: boolean;
 };
 
 /** Pack early-exit MissionResult (flyby / impact / Earth hit). */
@@ -190,14 +224,30 @@ function packResult(
   minMoonAlt: number,
   message: string,
   keplerRefMaxDevKm: number,
+  extra?: Partial<MissionResult>,
 ): MissionResult {
-  return { samples, durationS: samples[samples.length - 1]!.t, moonPhase0, translunarInjectionDeltaV, minMoonAlt, ok: true, message, keplerRefMaxDevKm, trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0 };
+  return {
+    samples, durationS: samples[samples.length - 1]!.t, moonPhase0, translunarInjectionDeltaV, minMoonAlt,
+    ok: true, message, keplerRefMaxDevKm, trajectoryCorrectionCount: extra?.trajectoryCorrectionCount ?? 0,
+    trajectoryCorrectionTotalDeltaV: extra?.trajectoryCorrectionTotalDeltaV ?? 0,
+    periluneAltKm: extra?.periluneAltKm, bPlaneMissKm: extra?.bPlaneMissKm,
+  };
+}
+
+function captureMeta(ctx: CaptureCtx): Partial<MissionResult> {
+  freezeBallisticPerilune(ctx);
+  return {
+    trajectoryCorrectionCount: ctx.track.tcmCount,
+    trajectoryCorrectionTotalDeltaV: ctx.track.tcmDv,
+    periluneAltKm: ctx.track.ballisticPeriluneAltKm,
+    bPlaneMissKm: ctx.track.bPlaneMissKm,
+  };
 }
 
 function packFromCtx(ctx: CaptureCtx, message: string, minAlt?: number): MissionResult {
   return packResult(
     ctx.samples, ctx.moonPhase0, ctx.translunarInjectionDeltaV,
-    minAlt ?? ctx.track.minMoonAlt, message, ctx.track.keplerRefMaxDevKm,
+    minAlt ?? ctx.track.minMoonAlt, message, ctx.track.keplerRefMaxDevKm, captureMeta(ctx),
   );
 }
 
@@ -227,11 +277,13 @@ function pushCoastSample(ctx: CaptureCtx, dMoon: number): void {
 
 /** Enter approach at LOI gate. */
 function enterLoiApproach(ctx: CaptureCtx, altM: number, dMoon: number, coastT: number): void {
+  freezeBallisticPerilune(ctx);
   ctx.track.phase = "approach";
   pushSample(ctx.samples, ctx.state, "approach", false, true, 0, ctx.lastT, ctx.prop, 0, "ship");
   console.info(
     `[tothemoon] LOI gate · alt=${altM.toFixed(0)} km · dMoon=${dMoon.toFixed(0)} km · ` +
-      `coastT=${(coastT / 3600).toFixed(1)} h`,
+      `coastT=${(coastT / 3600).toFixed(1)} h · ballistic perilune=${ctx.track.ballisticPeriluneAltKm.toFixed(0)} km · ` +
+      `Bmiss=${Number.isFinite(ctx.track.bPlaneMissKm) ? ctx.track.bPlaneMissKm.toFixed(0) : "∞"} km`,
   );
 }
 
@@ -268,13 +320,35 @@ function ballisticCoastOnce(
   ctx: CaptureCtx, tTli: number, Tcoast: number,
 ): MissionResult | null {
   const dMoon = distanceToMoon(ctx.state.t, ctx.state.pos, ctx.epoch); const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
-  noteMoonAlt(altM, ctx.state.t, ctx.track);
+  noteMoonAlt(altM, ctx.state.t, ctx.track, ctx.state, ctx.epoch);
   trackKeplerDev(ctx.state, ctx.keplerRef, ctx.epoch, ctx.track);
+  maybeApproachTcm(ctx, tTli, Tcoast);
   const early = coastLoopExit(ctx, altM, dMoon, ctx.state.t - tTli, Tcoast);
   if (early || ctx.track.phase !== "coast") return early;
   rk4Step(ctx.state, coastDt(dMoon), undefined, { epoch: ctx.epoch });
   pushCoastSample(ctx, dMoon);
   return null;
+}
+
+function maybeApproachTcm(ctx: CaptureCtx, tTli: number, Tcoast: number): void {
+  if (!ctx.applyTcm || ctx.track.tcmDone) return;
+  if (ctx.state.t - tTli < Tcoast * TRAJECTORY_CORRECTION_APPROACH_FRAC) return;
+  ctx.track.tcmDone = true;
+  const { dv, mag } = trajectoryCorrectionDeltaV(
+    ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.keplerRef,
+    TRAJECTORY_CORRECTION_MAX_DELTA_V, ctx.epoch,
+  );
+  if (mag < 1e-5) return;
+  set(_tcmDv, dv.x, dv.y, dv.z);
+  // Velocity-only finite burn (no Kepler position rejoin / teleport).
+  const delivered = runTrajectoryCorrectionBurn(
+    ctx.state, _tcmDv, ctx.samples, ctx.lastT, ctx.prop, undefined, ctx.epoch,
+  );
+  ctx.track.tcmCount += 1;
+  ctx.track.tcmDv += delivered;
+  console.info(
+    `[tothemoon] Approach TCM · Δv=${delivered.toFixed(3)} km/s (B-plane search did not close ballistically)`,
+  );
 }
 
 /** Ballistic coast until LOI gate, flyby, impact, or timeout. */
@@ -295,6 +369,7 @@ function runBallisticToLoi(
 function resolveCoastTimeout(ctx: CaptureCtx): MissionResult | null {
   if (ctx.track.phase !== "coast") return null;
   if (ctx.track.minMoonAlt < LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM) {
+    freezeBallisticPerilune(ctx);
     ctx.track.phase = "approach";
     pushSample(ctx.samples, ctx.state, "approach", false, true, 0, ctx.lastT, ctx.prop, 0, "ship");
     return null;
@@ -489,8 +564,16 @@ function makeCaptureCtx(args: LunarCaptureArgs): CaptureCtx {
   const epoch = args.epoch ?? DEFAULT_EPHEMERIS;
   const track: CaptureTrack = {
     minMoonAlt: Infinity, periluneT: args.state.t, keplerRefMaxDevKm: 0, phase: "coast",
+    ballisticPeriluneAltKm: Infinity, bPlaneMissKm: Infinity,
+    caRelP: v3(), caRelV: v3(), haveCa: false,
+    tcmDone: false, tcmCount: 0, tcmDv: 0, frozenPerilune: false,
   };
-  return { state: args.state, samples: args.samples, lastT: args.lastT, prop: args.prop, moonPhase0: args.moonPhase0, translunarInjectionDeltaV: args.translunarInjectionDeltaV, epoch, track, keplerRef: orbitAfterTranslunarInjection(args.state, epoch) };
+  return {
+    state: args.state, samples: args.samples, lastT: args.lastT, prop: args.prop,
+    moonPhase0: args.moonPhase0, translunarInjectionDeltaV: args.translunarInjectionDeltaV,
+    epoch, track, keplerRef: orbitAfterTranslunarInjection(args.state, epoch),
+    applyTcm: args.applyTcm === true,
+  };
 }
 
 function landWithMeta(ctx: CaptureCtx): MissionResult {
@@ -498,7 +581,7 @@ function landWithMeta(ctx: CaptureCtx): MissionResult {
     ctx.state, ctx.samples, ctx.moonPhase0, ctx.translunarInjectionDeltaV,
     ctx.track.minMoonAlt, ctx.prop, ctx.epoch,
   );
-  return { ...landed, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm, trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0 };
+  return { ...landed, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm, ...captureMeta(ctx) };
 }
 
 /**

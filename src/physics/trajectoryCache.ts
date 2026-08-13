@@ -94,6 +94,10 @@ export type PackedTrajectory = {
   stageT?: number | null;
   /** Peak |r_nbody − r_kepler| on translunar coast (km) */
   keplerRefMaxDevKm?: number;
+  /** Ballistic (pre-LOI) closest-approach altitude (km) */
+  periluneAltKm?: number;
+  /** B-plane miss vs south-pole design (km) */
+  bPlaneMissKm?: number;
   samples: Array<{
     t: number;
     p: number[];
@@ -175,6 +179,7 @@ function packToMissionResult(
     moonPhase0: packed.moonPhase0, translunarInjectionDeltaV: packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0,
     durationS: packed.durationS, horizonsLandingT: packed.horizonsLandingT, ok: packed.ok, message: packed.message,
     minMoonAlt: meta.minMoonAlt, peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, keplerRefMaxDevKm, samples,
+    periluneAltKm: packed.periluneAltKm, bPlaneMissKm: packed.bPlaneMissKm,
   };
 }
 

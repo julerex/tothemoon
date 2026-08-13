@@ -28,7 +28,8 @@ import { pushSample } from "./missionSample";
 import type { MissionResult, Sample } from "./missionTypes";
 import type { PropState } from "./propellant";
 import { orbitAfterTranslunarInjection, runFiniteTranslunarInjection, transferTimeEst } from "./translunarInjection";
-import { len, normalize, set, sub, v3, type V3 } from "./vec3";
+import { moonRelativeEncounter } from "./bplane";
+import { copy, len, normalize, set, sub, v3, type V3 } from "./vec3";
 
 const _relP = v3();
 const _relV = v3();
@@ -38,6 +39,10 @@ export type ProbeResult = {
   minAlt: number;
   periluneT: number;
   rEarth: number;
+  /** B-plane miss vs south-pole design (km); ∞ if no encounter */
+  bPlaneMissKm: number;
+  /** r̂_ca · lunar south at closest approach */
+  southDot: number;
 };
 
 /** Probe step size by Moon distance. */
@@ -68,19 +73,31 @@ type ProbeTrack = {
   minAlt: number;
   periluneT: number;
   rEarthAtMin: number;
+  caRelP: V3;
+  caRelV: V3;
+  haveCa: boolean;
 };
 
-/** Update probe closest-approach track. */
+const _caP = v3();
+const _caV = v3();
+
+/** Update probe closest-approach track (Moon-relative state at the event). */
 function noteProbeAlt(
   altM: number,
   stateT: number,
   rE: number,
   track: ProbeTrack,
+  state: CraftState,
+  epoch: EphemerisEpoch,
 ): void {
   if (altM >= track.minAlt) return;
   track.minAlt = altM;
   track.periluneT = stateT;
   track.rEarthAtMin = rE;
+  const b = getBodies(stateT, epoch);
+  sub(track.caRelP, state.pos, b.moon);
+  set(track.caRelV, state.vel.x - b.moonVel.x, state.vel.y - b.moonVel.y, state.vel.z - b.moonVel.z);
+  track.haveCa = true;
 }
 
 function earthHitProbe(coastT: number, T: number, epoch: EphemerisEpoch, state: CraftState): boolean {
@@ -99,9 +116,9 @@ function probeStepResult(
   const altM = altitudeMoon(state.t, state.pos, epoch);
   sub(_relP, state.pos, getBodies(state.t, epoch).earth);
   const rE = len(_relP);
-  noteProbeAlt(altM, state.t, rE, track);
+  noteProbeAlt(altM, state.t, rE, track, state, epoch);
   if (earthHitProbe(coastT, T, epoch, state)) return emptyProbe();
-  if (altM < 0) return { minAlt: Math.min(track.minAlt, 0), periluneT: state.t - tTli, rEarth: rE };
+  if (altM < 0) return probeFromTrack(track, tTli, Math.min(track.minAlt, 0), rE);
   return probePastPerilune(coastT, T, state.t, track.periluneT, altM, track.minAlt) ? "break" : "continue";
 }
 
@@ -110,11 +127,32 @@ function probeStepResult(
  * Matches {@link runBallisticCoast} so search scores the path the bake will fly.
  */
 function emptyProbe(): ProbeResult {
-  return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
+  return { minAlt: Infinity, periluneT: 0, rEarth: Infinity, bPlaneMissKm: Infinity, southDot: 0 };
+}
+
+function probeFromTrack(
+  track: ProbeTrack,
+  tTli: number,
+  minAlt = track.minAlt,
+  rEarth = track.rEarthAtMin,
+): ProbeResult {
+  if (!track.haveCa) {
+    return { minAlt, periluneT: track.periluneT - tTli, rEarth, bPlaneMissKm: Infinity, southDot: 0 };
+  }
+  copy(_caP, track.caRelP);
+  copy(_caV, track.caRelV);
+  const enc = moonRelativeEncounter(_caP, _caV);
+  return {
+    minAlt,
+    periluneT: track.periluneT - tTli,
+    rEarth,
+    bPlaneMissKm: enc.bPlaneMissKm,
+    southDot: enc.southDot,
+  };
 }
 
 function probeFinal(track: ProbeTrack, tTli: number): ProbeResult {
-  return { minAlt: track.minAlt, periluneT: track.periluneT - tTli, rEarth: track.rEarthAtMin };
+  return probeFromTrack(track, tTli);
 }
 
 function runProbeLoop(
@@ -140,7 +178,10 @@ export function probePerilune(
   const state = restoreLowEarthOrbitRelative(lowEarthOrbitRelativeTemplate, epoch);
   runFiniteTranslunarInjection(state, translunarInjectionDeltaV, null, null, null, epoch);
   const tTli = state.t;
-  const track: ProbeTrack = { minAlt: Infinity, periluneT: tTli, rEarthAtMin: Infinity };
+  const track: ProbeTrack = {
+    minAlt: Infinity, periluneT: tTli, rEarthAtMin: Infinity,
+    caRelP: v3(), caRelV: v3(), haveCa: false,
+  };
   return runProbeLoop(state, epoch, tTli, transferTimeEst(), track);
 }
 

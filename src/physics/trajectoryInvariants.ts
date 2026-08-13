@@ -52,6 +52,8 @@ export type TrajectoryLike = {
   minMoonAlt?: number;
   peakSpeedKmS?: number;
   stageT?: number | null;
+  periluneAltKm?: number;
+  bPlaneMissKm?: number;
 };
 
 export type InvariantIssue = {
@@ -418,12 +420,29 @@ function checkV2MetaRequired(traj: TrajectoryLike, issues: InvariantIssue[]): vo
   if (!("stageT" in traj)) pushIssue(issues, "missing_stage_t", "pack v2+ requires stageT (number | null)");
 }
 
+/** Optional pre-LOI perilune / B-plane miss (B2 targeting). */
+function checkBplaneMeta(traj: TrajectoryLike, issues: InvariantIssue[]): void {
+  if (traj.periluneAltKm != null) {
+    if (!Number.isFinite(traj.periluneAltKm)) {
+      pushIssue(issues, "bad_perilune_alt", `periluneAltKm must be finite, got ${traj.periluneAltKm}`);
+    } else if (traj.periluneAltKm < -R_MOON || traj.periluneAltKm > 500_000) {
+      pushIssue(issues, "perilune_alt_range", `periluneAltKm ${traj.periluneAltKm} km outside [-R_MOON, 500000]`);
+    }
+  }
+  if (traj.bPlaneMissKm != null) {
+    if (!Number.isFinite(traj.bPlaneMissKm) || traj.bPlaneMissKm < 0) {
+      pushIssue(issues, "bad_bplane_miss", `bPlaneMissKm must be finite ≥ 0, got ${traj.bPlaneMissKm}`);
+    }
+  }
+}
+
 /** Optional pack metadata (v2+ bands + required fields). */
 function checkPackMeta(traj: TrajectoryLike, issues: InvariantIssue[]): void {
   checkMinMoonAltMeta(traj, issues);
   checkPeakSpeedMeta(traj, issues);
   checkStageTMeta(traj, issues);
   checkV2MetaRequired(traj, issues);
+  checkBplaneMeta(traj, issues);
 }
 
 function checkSampleContinuity(
@@ -501,6 +520,8 @@ export function unpackPackedForInvariants(packed: {
   peakSpeedKmS?: number;
   stageT?: number | null;
   samples: PackedSampleRow[];
+  periluneAltKm?: number;
+  bPlaneMissKm?: number;
 }): TrajectoryLike {
-  return { ok: packed.ok, durationS: packed.durationS, message: packed.message, version: packed.version, minMoonAlt: packed.minMoonAlt, peakSpeedKmS: packed.peakSpeedKmS, stageT: packed.stageT, samples: packed.samples.map(unpackPackedSample) };
+  return { ok: packed.ok, durationS: packed.durationS, message: packed.message, version: packed.version, minMoonAlt: packed.minMoonAlt, peakSpeedKmS: packed.peakSpeedKmS, stageT: packed.stageT, periluneAltKm: packed.periluneAltKm, bPlaneMissKm: packed.bPlaneMissKm, samples: packed.samples.map(unpackPackedSample) };
 }
