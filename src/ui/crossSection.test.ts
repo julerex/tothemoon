@@ -14,6 +14,7 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
 import type { Sample } from "../physics/missionTypes.ts";
 import {
   buildCrossSectionModel,
+  drawCrossSection,
   fitView,
   liveCrossSection,
   planeAltitudeKm,
@@ -161,5 +162,66 @@ describe("view helpers", () => {
 describe("BOOSTER_VISIBLE_S sanity", () => {
   it("is long enough for return to launch site theater", () => {
     assert.ok(BOOSTER_VISIBLE_S > 300);
+  });
+});
+
+/** Minimal Canvas 2D mock for drawCrossSection smoke tests. */
+function mockCsCtx() {
+  const canvas = { width: 0, height: 0 };
+  let strokes = 0;
+  let texts = 0;
+  const ctx = {
+    canvas,
+    lineWidth: 1,
+    strokeStyle: "",
+    fillStyle: "",
+    font: "",
+    textAlign: "left" as CanvasTextAlign,
+    textBaseline: "alphabetic" as CanvasTextBaseline,
+    globalAlpha: 1,
+    lineJoin: "miter" as CanvasLineJoin,
+    lineCap: "butt" as CanvasLineCap,
+    save() {},
+    restore() {},
+    translate() {},
+    setTransform() {},
+    fillRect() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    arc() {},
+    closePath() {},
+    stroke() {
+      strokes++;
+    },
+    fill() {},
+    fillText() {
+      texts++;
+    },
+    get counts() {
+      return { strokes, texts };
+    },
+  };
+  return ctx;
+}
+
+describe("drawCrossSection", () => {
+  it("paints stacked launch glyph before stage-out", () => {
+    assert.ok(stage);
+    const ctx = mockCsCtx();
+    const live = liveCrossSection(model, samples, stage, stage!.t * 0.25);
+    assert.equal(live.staged, false);
+    drawCrossSection(
+      ctx as unknown as CanvasRenderingContext2D,
+      model,
+      live,
+      stage!.t * 0.25,
+      960,
+      540,
+      1,
+    );
+    assert.ok(ctx.counts.strokes > 20);
+    assert.ok(ctx.counts.texts >= 1);
   });
 });

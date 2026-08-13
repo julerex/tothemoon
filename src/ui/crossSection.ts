@@ -3,7 +3,9 @@
  * Starbase launch plane (mesh-local up × east).
  *
  * Black & white diagram for reading booster altitude vs downrange from liftoff
- * through chopsticks catch. Pure helpers are scrub-safe; canvas draw is live.
+ * through chopsticks catch. Live craft markers use the stacked launch
+ * silhouette until hot-stage, then separate Super Heavy / Starship glyphs.
+ * Pure helpers are scrub-safe; canvas draw is live.
  */
 
 import {
@@ -29,6 +31,11 @@ import {
 } from "../physics/boosterRecovery";
 import type { Sample } from "../physics/missionTypes";
 import { len, type V3, v3 } from "../physics/vec3";
+import {
+  drawBoosterIcon,
+  drawShipIcon,
+  drawStackLaunchIcon,
+} from "./craftSilhouettes";
 
 /** 2-D point in the launch plane (km): +x east of pad radial, +y pad-up. */
 export type PlanePoint = { x: number; y: number };
@@ -812,13 +819,15 @@ function drawLiveIcons(
   live: CrossSectionLive,
   view: ViewTransform,
 ): void {
+  if (!live.staged && live.ship) {
+    drawStackLaunchIcon(ctx, worldToCanvas(live.ship, view));
+    return;
+  }
   if (live.ship) {
-    drawShipIcon(ctx, worldToCanvas(live.ship, view), live.staged ? 0.55 : 1);
+    drawShipIcon(ctx, worldToCanvas(live.ship, view), 0.55);
   }
   if (live.booster && live.boosterFade > 0.02) {
-    const c = worldToCanvas(live.booster, view);
-    if (!live.staged && live.ship) c.x -= 5;
-    drawBoosterIcon(ctx, c, live.boosterFade);
+    drawBoosterIcon(ctx, worldToCanvas(live.booster, view), live.boosterFade);
   }
 }
 
@@ -928,74 +937,6 @@ function nearestTrailPoint(trail: TimedPlanePoint[], t: number): PlanePoint {
     if (d < bestD) { best = p; bestD = d; }
   }
   return best;
-}
-
-/** Super Heavy silhouette (taller rectangle + engines). */
-function drawBoosterIcon(
-  ctx: CanvasRenderingContext2D,
-  c: { x: number; y: number },
-  fade: number,
-): void {
-  ctx.save();
-  ctx.translate(c.x, c.y);
-  beginCraftIcon(ctx, Math.max(0.15, fade));
-  ctx.strokeRect(-3, -14, 6, 26);
-  strokeGridFinTicks(ctx);
-  labelCraftIcon(ctx, "B");
-  ctx.restore();
-}
-
-function beginCraftIcon(ctx: CanvasRenderingContext2D, alpha: number): void {
-  ctx.globalAlpha = alpha;
-  ctx.strokeStyle = "#fff";
-  ctx.fillStyle = "#fff";
-  ctx.lineWidth = 1.25;
-}
-
-function labelCraftIcon(ctx: CanvasRenderingContext2D, letter: string): void {
-  ctx.font = "9px ui-monospace, SF Mono, Menlo, monospace";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(letter, 8, 0);
-}
-
-function strokeGridFinTicks(ctx: CanvasRenderingContext2D): void {
-  ctx.beginPath();
-  tickH(ctx, -5, -3, -8);
-  tickH(ctx, 3, 5, -8);
-  tickH(ctx, -5, -3, 6);
-  tickH(ctx, 3, 5, 6);
-  ctx.stroke();
-}
-
-function tickH(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number): void {
-  ctx.moveTo(x0, y);
-  ctx.lineTo(x1, y);
-}
-
-/** Starship silhouette (nose cone + body). */
-function drawShipIcon(
-  ctx: CanvasRenderingContext2D,
-  c: { x: number; y: number },
-  alpha: number,
-): void {
-  ctx.save();
-  ctx.translate(c.x, c.y);
-  beginCraftIcon(ctx, alpha);
-  strokeShipSilhouette(ctx);
-  labelCraftIcon(ctx, "S");
-  ctx.restore();
-}
-
-function strokeShipSilhouette(ctx: CanvasRenderingContext2D): void {
-  ctx.beginPath();
-  ctx.moveTo(0, -12);
-  ctx.lineTo(3.5, -4);
-  ctx.lineTo(3.5, 10);
-  ctx.lineTo(-3.5, 10);
-  ctx.lineTo(-3.5, -4);
-  ctx.closePath();
-  ctx.stroke();
 }
 
 function drawScaleBar(
