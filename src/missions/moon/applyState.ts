@@ -6,7 +6,7 @@
 import type { Line2 } from "three/addons/lines/Line2.js";
 import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { bodyPositions } from "../../physics/bodies";
-import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
+import { R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
 import { starbasePadState } from "../../physics/earthFrame";
 import { formatMissionDateUtc } from "../../physics/epoch";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
@@ -82,7 +82,7 @@ function syncEarth(ctx: MoonCtx, simT: number): BodyState {
 
 function maybeClamp(ctx: MoonCtx, frame: SampleFrame, b: BodyState): void {
   if (!shouldClampAboveEarth(frame.phase)) return;
-  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
+  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
 }
 

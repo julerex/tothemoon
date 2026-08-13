@@ -105,7 +105,7 @@ export function starbasePlateYawRad(
 
 /** Unit mesh-local geocentric up at lat/lon. */
 function unitMeshUp(lat: number, lon: number): { x: number; y: number; z: number } {
-  const p = geodeticToMeshLocal(lat, lon, 1);
+  const p = geodeticToMeshLocal(lat, lon, 0);
   const len = Math.hypot(p.x, p.y, p.z) || 1;
   return { x: p.x / len, y: p.y / len, z: p.z / len };
 }

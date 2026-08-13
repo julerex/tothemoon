@@ -3,8 +3,20 @@
  * Standard textbook / IAU-ish values for visualization (not flight-ops grade).
  */
 
-/** Earth mean radius (km) */
+/** Earth mean radius (km) — LEO parking, cameras, schematic overlays. */
 export const R_EARTH = 6371.0;
+
+/**
+ * WGS84 semi-major axis (km). Physics pad/altitude/clamps and the visual
+ * globe share this ellipsoid; do not fork a second “visual radius”.
+ */
+export const WGS84_A_KM = 6378.137;
+
+/** WGS84 flattening. */
+export const WGS84_F = 1 / 298.257223563;
+
+/** WGS84 semi-minor axis (km) = a(1−f). */
+export const WGS84_B_KM = WGS84_A_KM * (1 - WGS84_F);
 
 /**
  * Earth dynamical form factor J₂ (unnormalized). Used for low Earth orbit nodal precession
@@ -135,22 +147,26 @@ export const STARBASE_LAT = (25.997 * Math.PI) / 180;
 export const STARBASE_LON = (-97.156 * Math.PI) / 180; // °W negative
 
 /**
- * Shared altitude above mean Earth radius (km).
+ * Shared ellipsoidal height (km) above the WGS84 theater ellipsoid.
  *
  * Physics pad, visual pad/stack, splash site, booster floor, and free-cam
- * exclusion all sit on this shell so trench / OLM / engines line up. 50 m
+ * clearance all use this height so trench / OLM / engines line up. 50 m
  * keeps pad local-Y (meshes extend ~10 m below origin) and the under-deck
- * trench cam (~11 m below the pad) outside the Earth sphere.
+ * trench cam (~11 m below the pad) outside the Earth mesh.
  */
 export const EARTH_SURFACE_ALT_KM = 0.05;
 
 /**
- * Pad altitude above mean radius (km). Same shell as {@link EARTH_SURFACE_ALT_KM}
+ * Pad ellipsoidal height (km). Same as {@link EARTH_SURFACE_ALT_KM}
  * — visuals must not override this with a separate clamp.
  */
 export const STARBASE_ALT = EARTH_SURFACE_ALT_KM;
 
-/** Earth-center radius of the shared surface shell (km). */
+/**
+ * Mean spherical surface radius (km) for schematic 2-D overlays.
+ * 3D pad / splash / clamps use the lat-dependent WGS84 ellipsoid
+ * (`geodeticToMeshLocal` / `earthSurfaceRadiusAlong`), not this constant.
+ */
 export const EARTH_SURFACE_RADIUS_KM = R_EARTH + EARTH_SURFACE_ALT_KM;
 
 /**

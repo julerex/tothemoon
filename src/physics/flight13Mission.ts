@@ -25,7 +25,6 @@
 
 import {
   BOOSTER_THRUST_N,
-  EARTH_SURFACE_RADIUS_KM,
   HOT_STAGE_S,
   MU_EARTH,
   R_EARTH,
@@ -38,6 +37,7 @@ import {
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame";
+import { earthSurfaceRadiusAlong, ellipsoidalHeightKm, ellipsoidRadiusAlong } from "./wgs84";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import {
   corridorAlongAt,
@@ -169,7 +169,7 @@ export function splashSurfaceInertial(
   geodeticToMeshLocal(
     FLIGHT13_SPLASH_LAT,
     FLIGHT13_SPLASH_LON,
-    1,
+    0,
     _splashLocal,
   );
   meshLocalToInertial(_splashLocal, t, out, epoch);
@@ -238,7 +238,7 @@ function fillSteerFrame(
 ): SteerGeo {
   const g = fillEarthRelGeo(t, pos, vel, epoch);
   return {
-    alt: g.r - R_EARTH,
+    alt: ellipsoidalHeightKm(_relP),
     vRad: g.vRad,
     vHoriz: g.vHoriz,
     vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)),
@@ -258,7 +258,7 @@ function aimToSurfPoint(pos: V3, earth: V3, surf: V3, rSurf: number, out: V3): n
 function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const bL = getBodies(t, epoch);
-  return aimToSurfPoint(pos, bL.earth, splash, EARTH_SURFACE_RADIUS_KM, _tmp3);
+  return aimToSurfPoint(pos, bL.earth, splash, earthSurfaceRadiusAlong(splash), _tmp3);
 }
 
 function steerLandBrake(out: V3, distSplash: number): void {
@@ -510,7 +510,7 @@ function fillEarthUpVel(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
   const rL = len(_relP) || 1;
   set(_up, _relP.x / rL, _relP.y / rL, _relP.z / rL);
   sub(_relV, vel, b.earthVel);
-  return { alt: rL - R_EARTH, vRel: len(_relV), vRad: dot(_relV, _up) };
+  return { alt: ellipsoidalHeightKm(_relP), vRel: len(_relV), vRad: dot(_relV, _up) };
 }
 
 function bellyAeroAccel(
@@ -536,7 +536,7 @@ function projectHorizOntoUp(vec: V3): boolean {
 function fillDesiredHorizHeading(t: number, pos: V3, alt: number, epoch: EphemerisEpoch): boolean {
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const earth = getBodies(t, epoch).earth;
-  const r = R_EARTH + alt;
+  const r = ellipsoidRadiusAlong(splash) + alt;
   set(_tmp3, earth.x + splash.x * r - pos.x, earth.y + splash.y * r - pos.y, earth.z + splash.z * r - pos.z);
   return projectHorizOntoUp(_tmp3);
 }
@@ -802,7 +802,7 @@ function surfaceClamp(loop: F13Loop): void {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
-  const floorR = EARTH_SURFACE_RADIUS_KM + SURFACE_CLAMP_ABOVE_PAD_KM;
+  const floorR = earthSurfaceRadiusAlong(_relP) + SURFACE_CLAMP_ABOVE_PAD_KM;
   if (!(L < floorR && loop.state.t < F13.SPLASH - 1)) return;
   placeOnSphere(loop.state.pos, b.earth, _relP, L, floorR);
   sub(_relP, loop.state.pos, b.earth);
@@ -832,13 +832,13 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
   const L = len(_relP) || 1;
   sub(_relV, loop.state.vel, b.earthVel);
   const ang = Math.acos(Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))));
-  return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
+  return { L, curAlt: ellipsoidalHeightKm(_relP), vRel: len(_relV), rangeKm: ang * R_EARTH };
 }
 
 /** Sub-km splash floor: never a 200 km-class lateral pull onto the theater buoy. */
 function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
   const b = getBodies(loop.state.t, loop.epoch);
-  const targetR = EARTH_SURFACE_RADIUS_KM;
+  const targetR = earthSurfaceRadiusAlong(rangeKm < 1 ? surf : _relP);
   if (rangeKm < 1) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
   else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
   sub(_relP, loop.state.pos, b.earth);

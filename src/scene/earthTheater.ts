@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import {
-  EARTH_SURFACE_RADIUS_KM,
-  R_EARTH,
+  EARTH_SURFACE_ALT_KM,
   STARBASE_LAT,
   STARBASE_LON,
 } from "../physics/constants";
@@ -9,6 +8,7 @@ import {
   geodeticToMeshLocal,
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
+import { ellipsoidRadiusAlong } from "../physics/wgs84";
 import {
   STARBASE_PLATE_HALF_KM,
   STARBASE_PLATE_INNER_KM,
@@ -64,7 +64,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * ## Parenting
  *
  * The returned group is parented under the spinning Earth mesh so it co-rotates.
- * Pad origin matches craft engines at t≈0 (`EARTH_SURFACE_RADIUS_KM`, the
+ * Pad origin matches craft engines at t≈0 (WGS84 ellipsoid + pad height, the
  * shared physics/visual shell). Local frame: **+Y up**, tower at **+X**,
  * scene unit = **1 km**.
  *
@@ -113,7 +113,7 @@ const GROUND_OFFSET = {
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 function placePadOnEarth(pad: THREE.Group): void {
-  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_RADIUS_KM);
+  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
   pad.position.set(local.x, local.y, local.z);
   const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
@@ -454,7 +454,8 @@ function makeStarbasePlateGeometry(): THREE.PlaneGeometry {
   );
   geo.rotateX(-Math.PI / 2);
   applyStarbasePlateUvs(geo, half);
-  drapeStarbasePlate(geo, EARTH_SURFACE_RADIUS_KM);
+  const pad = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
+  drapeStarbasePlate(geo, Math.hypot(pad.x, pad.y, pad.z));
   return geo;
 }
 
@@ -1383,7 +1384,7 @@ function applyChopstickArm(
  *
  * Built in **Earth mesh-local** coords so the line co-rotates with the surface
  * (same frame as the Starbase pad). Samples are projected to a thin shell just
- * above the ellipsoid (`R_EARTH + 1.5` km) and downsampled to ≤400 points.
+ * above the ellipsoid (geocentric radial + 1.5 km) and downsampled to ≤400 points.
  *
  * @param samples - Baked trajectory samples (mission time ascending)
  * @returns Fat line named `ascent-ground-track`, or `null` if too few points
@@ -1404,7 +1405,7 @@ function projectOntoShell(
   const ry = s.pos.y - b.earth.y;
   const rz = s.pos.z - b.earth.z;
   const r = Math.hypot(rx, ry, rz) || 1;
-  const shell = R_EARTH + 1.5;
+  const shell = ellipsoidRadiusAlong({ x: rx, y: ry, z: rz }) + 1.5;
   rel.x = (rx / r) * shell;
   rel.y = (ry / r) * shell;
   rel.z = (rz / r) * shell;

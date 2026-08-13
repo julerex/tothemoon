@@ -15,7 +15,7 @@
  * Scene unit = km. Pure + scrub-deterministic from (stage event, age).
  */
 
-import { EARTH_SURFACE_RADIUS_KM, MU_EARTH, R_EARTH } from "./constants";
+import { MU_EARTH } from "./constants";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
@@ -24,6 +24,7 @@ import {
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame";
+import { earthSurfaceRadiusAlong } from "./wgs84";
 import {
   add,
   copy,
@@ -302,7 +303,7 @@ function siteRelAt(
     madd(_tmp, pad.pos, pad.up, altKm);
     return sub(out, _tmp, bodyPositions(t, epoch).earth);
   }
-  geodeticToMeshLocal(lat, lon, R_EARTH + altKm, _tmp);
+  geodeticToMeshLocal(lat, lon, altKm, _tmp);
   return meshLocalToInertial(_tmp, t, out, epoch);
 }
 
@@ -585,7 +586,7 @@ function keyframeSegmentIndex(kfs: RelKeyframe[], ageClamped: number): number {
 
 function clampAboveEarth(): void {
   const r = len(_pRel);
-  const minR = EARTH_SURFACE_RADIUS_KM;
+  const minR = earthSurfaceRadiusAlong(_pRel);
   if (r < minR && r > 1e-6) scale(_pRel, _pRel, minR / r);
 }
 

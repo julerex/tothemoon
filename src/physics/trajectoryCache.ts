@@ -5,7 +5,8 @@
  * of (trajectory, t) + ephemeris epoch — no class instance methods required.
  */
 
-import { R_EARTH, R_MOON } from "./constants";
+import { R_MOON } from "./constants";
+import { ellipsoidalHeightKm } from "./wgs84";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { makeFlight13Epoch } from "./flight13Epoch";
@@ -352,8 +353,15 @@ function frameFromSample(s: Sample, epoch: EphemerisEpoch): FrameState {
 function frameAlts(t: number, pos: V3, epoch: EphemerisEpoch) {
   const b = bodyPositions(t, epoch);
   const distMoon = Math.hypot(pos.x - b.moon.x, pos.y - b.moon.y, pos.z - b.moon.z);
-  const distEarth = Math.hypot(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z);
-  return { distMoon, altMoon: distMoon - R_MOON, altEarth: distEarth - R_EARTH };
+  return {
+    distMoon,
+    altMoon: distMoon - R_MOON,
+    altEarth: ellipsoidalHeightKm({
+      x: pos.x - b.earth.x,
+      y: pos.y - b.earth.y,
+      z: pos.z - b.earth.z,
+    }),
+  };
 }
 
 function frameCore(

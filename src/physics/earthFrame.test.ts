@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 import {
   EARTH_OBLIQUITY,
   EARTH_SIDEREAL_DAY_S,
-  R_EARTH,
   STARBASE_ALT,
   STARBASE_LAT,
   STARBASE_LON,
+  WGS84_A_KM,
+  WGS84_B_KM,
 } from "./constants.ts";
 import { greenwichMeanSiderealTimeRad, LANDING_UTC_MS, missionUtcMs } from "./epoch.ts";
 import {
@@ -82,18 +83,18 @@ describe("earthFrame geometry", () => {
     );
   });
 
-  it("geodeticToMeshLocal places poles on ±Y and equator on the XZ plane", () => {
-    const north = geodeticToMeshLocal(Math.PI / 2, 0, R_EARTH);
+  it("geodeticToMeshLocal places poles on ±Y (b) and equator on XZ (a)", () => {
+    const north = geodeticToMeshLocal(Math.PI / 2, 0, 0);
     assert.ok(Math.abs(north.x) < 1e-6);
-    assert.ok(Math.abs(north.y - R_EARTH) < 1e-6);
+    assert.ok(Math.abs(north.y - WGS84_B_KM) < 1e-6);
     assert.ok(Math.abs(north.z) < 1e-6);
 
-    const south = geodeticToMeshLocal(-Math.PI / 2, 0, R_EARTH);
-    assert.ok(Math.abs(south.y + R_EARTH) < 1e-6);
+    const south = geodeticToMeshLocal(-Math.PI / 2, 0, 0);
+    assert.ok(Math.abs(south.y + WGS84_B_KM) < 1e-6);
 
-    const eq = geodeticToMeshLocal(0, 0, R_EARTH);
+    const eq = geodeticToMeshLocal(0, 0, 0);
     assert.ok(Math.abs(eq.y) < 1e-6);
-    assert.ok(Math.abs(len(eq) - R_EARTH) < 1e-6);
+    assert.ok(Math.abs(len(eq) - WGS84_A_KM) < 1e-6);
   });
 
   it("local up and east at Starbase are unit and nearly orthonormal", () => {
@@ -117,10 +118,10 @@ describe("earthFrame geometry", () => {
   });
 
   it("mesh-local radius is preserved under meshLocalToInertial", () => {
-    const local = v3(R_EARTH, 0, 0);
+    const local = v3(WGS84_A_KM, 0, 0);
     const inertial = meshLocalToInertial(local, 1234);
     // Position is Earth-center-relative in mesh, becomes inertial offset
     // of same length after rotation about north.
-    assert.ok(Math.abs(len(inertial) - R_EARTH) < 1e-6);
+    assert.ok(Math.abs(len(inertial) - WGS84_A_KM) < 1e-6);
   });
 });

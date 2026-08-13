@@ -14,26 +14,29 @@ import {
   sunElevAtPad,
   telemetryAltitudeKm,
 } from "./frameDerive.ts";
+import { WGS84_A_KM, EARTH_SURFACE_ALT_KM } from "../physics/constants.ts";
+import { earthSurfaceRadiusAlong } from "../physics/wgs84.ts";
 
 describe("clampCraftAboveEarth", () => {
   const earth = { x: 0, y: 0, z: 0 };
-  const minR = 6371;
 
-  it("leaves positions above the surface unchanged", () => {
-    const pos = { x: minR + 10, y: 0, z: 0 };
-    assert.equal(clampCraftAboveEarth(pos, earth, minR), pos);
+  it("leaves positions above the ellipsoid unchanged", () => {
+    const pos = { x: WGS84_A_KM + 10, y: 0, z: 0 };
+    assert.equal(clampCraftAboveEarth(pos, earth), pos);
   });
 
-  it("lifts under-surface samples to minR", () => {
-    const pos = { x: minR - 5, y: 0, z: 0 };
-    const out = clampCraftAboveEarth(pos, earth, minR);
-    assert.ok(Math.abs(Math.hypot(out.x, out.y, out.z) - minR) < 1e-9);
+  it("lifts under-surface equatorial samples to a + pad height", () => {
+    const pos = { x: WGS84_A_KM - 5, y: 0, z: 0 };
+    const out = clampCraftAboveEarth(pos, earth);
+    const want = earthSurfaceRadiusAlong(pos);
+    assert.ok(Math.abs(Math.hypot(out.x, out.y, out.z) - want) < 1e-9);
     assert.ok(out.x > 0);
+    assert.ok(Math.abs(want - (WGS84_A_KM + EARTH_SURFACE_ALT_KM)) < 1e-6);
   });
 
   it("returns original for zero-length relative vector", () => {
     const pos = { x: 0, y: 0, z: 0 };
-    assert.equal(clampCraftAboveEarth(pos, earth, minR), pos);
+    assert.equal(clampCraftAboveEarth(pos, earth), pos);
   });
 });
 

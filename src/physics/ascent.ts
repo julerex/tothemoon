@@ -35,6 +35,7 @@ import {
   type CraftState,
   type ThrustFn,
 } from "./integrator";
+import { ellipsoidalHeightKm } from "./wgs84";
 import {
   applyImpulsiveShipDv,
   burnForce,
@@ -178,7 +179,7 @@ function fillSteerGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): Steer
   const r = len(_relP);
   enuAtPosition(t, pos, b.earth, _up, _east, _north);
   sub(_relV, vel, b.earthVel);
-  return { alt: r - R_EARTH, vRad: dot(_relV, _up), vEast: dot(_relV, _east), vNorth: dot(_relV, _north), vCirc: Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50)) };
+  return { alt: ellipsoidalHeightKm(_relP), vRad: dot(_relV, _up), vEast: dot(_relV, _east), vNorth: dot(_relV, _north), vCirc: Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50)) };
 }
 
 function closedLoopTgtRad(geo: SteerGeo, speedFrac: number): number {
@@ -393,7 +394,7 @@ function insertionGeom(
   const r = len(_relP);
   sub(_relV, vel, b.earthVel);
   normalize(_up, _relP);
-  return { alt: r - R_EARTH, vRad: Math.abs(dot(_relV, _up)), v: len(_relV), vCirc: Math.sqrt(MU_EARTH / r) };
+  return { alt: ellipsoidalHeightKm(_relP), vRad: Math.abs(dot(_relV, _up)), v: len(_relV), vCirc: Math.sqrt(MU_EARTH / r) };
 }
 
 /**

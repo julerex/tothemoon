@@ -60,7 +60,7 @@ let _cachedPlane: Flight13CorridorPlane | null = null;
 
 /** Unit mesh-local radial for a geodetic site. */
 export function siteUnit(lat: number, lon: number, out: V3 = v3()): V3 {
-  geodeticToMeshLocal(lat, lon, 1, out);
+  geodeticToMeshLocal(lat, lon, 0, out);
   return normalize(out, out);
 }
 

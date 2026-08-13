@@ -9,7 +9,8 @@
  */
 
 import * as THREE from "three";
-import { R_EARTH } from "../physics/constants";
+import { WGS84_A_KM } from "../physics/constants";
+import { WGS84_MESH_Y_SCALE } from "../physics/wgs84";
 
 export type EarthAtmosphere = {
   group: THREE.Group;
@@ -70,7 +71,7 @@ type AtmoShellOpts = {
 
 /** Dense inner band — thick blue near horizon / LEO limb drama. */
 const INNER_ATMO: AtmoShellOpts = {
-  radius: R_EARTH * 1.018,
+  radius: WGS84_A_KM * 1.018,
   segments: 64,
   power: 3.2,
   density: 0.72,
@@ -83,7 +84,7 @@ const INNER_ATMO: AtmoShellOpts = {
 
 /** Mid Rayleigh shell — softer blue wrap. */
 const MID_ATMO: AtmoShellOpts = {
-  radius: R_EARTH * 1.035,
+  radius: WGS84_A_KM * 1.035,
   segments: 56,
   power: 2.4,
   density: 0.55,
@@ -96,7 +97,7 @@ const MID_ATMO: AtmoShellOpts = {
 
 /** Outer faint halo — extended scatter. */
 const OUTER_ATMO: AtmoShellOpts = {
-  radius: R_EARTH * 1.065,
+  radius: WGS84_A_KM * 1.065,
   segments: 48,
   power: 1.8,
   density: 0.4,
@@ -219,14 +220,29 @@ function configureAtmoMesh(mesh: THREE.Mesh): void {
   mesh.frustumCulled = true;
 }
 
-/** Sphere geometry for one atmosphere shell. */
+/**
+ * Squash a SphereGeometry(a) (mesh +Y = north) into the WGS84 ellipsoid
+ * by scaling vertex Y by b/a. Mutates geometry in place; does **not** set
+ * `mesh.scale` so pad children parented under the globe stay undistorted.
+ */
+export function applyWgs84Ellipsoid(geometry: THREE.BufferGeometry): void {
+  const pos = geometry.getAttribute("position") as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, pos.getY(i) * WGS84_MESH_Y_SCALE);
+  }
+  pos.needsUpdate = true;
+  geometry.computeVertexNormals();
+}
+
 function makeAtmoGeometry(opts: AtmoShellOpts): THREE.SphereGeometry {
   const segs = opts.segments;
-  return new THREE.SphereGeometry(
+  const geo = new THREE.SphereGeometry(
     opts.radius,
     segs,
     Math.max(24, (segs * 3) / 4),
   );
+  applyWgs84Ellipsoid(geo);
+  return geo;
 }
 
 /** Build sphere mesh + shader for one atmosphere shell. */

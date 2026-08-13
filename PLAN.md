@@ -38,6 +38,7 @@ code comments. HUD may label theater values explicitly when helpful.
 | **Coast** | Ballistic restricted n-body after TLI (live bake); Kepler corridor is overlay only | B-plane / perilune search picks TLI Δv; discrete TCM only if miss stays large |
 | **Lunar orbit insertion / land** | Discrete LOI → ~¾ rev LLO → PDI → south pole | Polar LLO floor only if leftover dr &lt; 250 km in the LLO band; PDI is PD-to-site |
 | **Propellant** | Mass-coupled a = F/m(t), pure rocket-equation ṁ | Theater loads / Isp; empty tanks cut engines |
+| **Earth figure** | One WGS84 ellipsoid (pad, altitude, clamps, visual globe, J₂ reference *a*) | Height is geocentric-radial, not geodetic-normal; LEO parking still uses mean `R_EARTH` |
 | **Flight 13** | RK4 n-body or Earth-only; belly-flop aero; corridor steering | Booster recovery is **kinematic**; splash is a sub-km radial floor; relight theater-lengthened vs public ~12 s |
 
 Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,propellant,constants,lunarCapture,flight13Mission,boosterRecovery}.ts`,
@@ -59,14 +60,14 @@ Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,pr
 ## Next steps (locked 2026-08-13)
 
 Phase A–C1, D1, the Horizons July 2027 table, pack v2 meta, and Flight 13
-Earth-only force check are **shipped**. Remaining work is targeting, leftover
-snaps, Earth figure, Flight 13 dynamics honesty, then numerics.
+Earth-only force check are **shipped**. Remaining work is Flight 13 dynamics
+honesty, then numerics.
 
 **Locked order for the next slices:**
 
 1. ~~**B2 — B-plane / perilune targeting**~~ **done**  
 2. ~~**H1 — Remaining snaps and kinematic burns**~~ **done**  
-3. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)  
+3. ~~**C3 — Earth figure & pad frame**~~ **done** — one WGS84 ellipsoid for pad / altitude / clamps / visual Earth  
 4. **F1 — Flight 13 booster recovery on the force model** — gulf landing currently kinematic in `boosterRecovery.ts`  
 5. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack  
 6. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch  
@@ -243,18 +244,13 @@ table coverage is the 2027 lunar window).
 | 3 | Keep Sun as ~1 AU circle / origin unless lighting/precision demands more | Keep |
 | 4 | Optional Horizons (or DE-lite) window for Flight 13 launch epoch | Later |
 
-### C3. Earth figure & pad frame — **next (shared)**
+### C3. Earth figure & pad frame — **done 2026-08-13**
 
-Pad, splash, and surface clamps sit on a **spherical** shell
-(`R_EARTH + EARTH_SURFACE_ALT_KM`). Lat/lon are labeled WGS84-ish; radius is
-mean Earth.
-
-**Target:**
-- WGS84 ellipsoid for pad geodetic height and low-altitude guidance (ascent,
-  Flight 13 entry/splash, booster recovery floor).
-- Keep sidereal rotation consistent with J2 (already GMST-locked).
-- Do not fork a second “visual radius” — one surface contract, as in
-  `earthSurface.test.ts`.
+Pad, splash, clamps, altitude, drag, and the visual globe share **one WGS84
+ellipsoid** (`a = 6378.137` km, `f = 1/298.257223563`). Parametric form matches
+Three.js `SphereGeometry` then Y-scale `b/a` so the pad sits on the mesh.
+Height is along the geocentric radial (50 m pad). J₂ uses equatorial `a`.
+LEO parking / cameras / 2-D overlays still use mean `R_EARTH`.
 
 ---
 
@@ -429,16 +425,16 @@ Shipped (2026-07 → 2026-08):
 8.     Horizons DE441 lunar table + pack v2 meta + Flight 13 theater
 9. B2  B-plane / perilune targeting
 10. H1  Remaining snaps (LOI residual floor, dogleg RK4, F13 splash floor)
+11. C3  WGS84 Earth figure (shared pad / entry / visual globe)
 ```
 
 **Next (locked 2026-08-13):**
 
 ```
-1. C3  WGS84 Earth figure (shared pad / entry)
-2. F1  Flight 13 booster recovery on RK4 / Earth-relative ballistic
-3. B3  Adaptive / smaller steps + energy residual
-4. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window
-5. F2  Entry aero (atmosphere layers, Cd(h), shorter relight)
+1. F1  Flight 13 booster recovery on RK4 / Earth-relative ballistic
+2. B3  Adaptive / smaller steps + energy residual
+3. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window
+4. F2  Entry aero (atmosphere layers, Cd(h), shorter relight)
 ```
 
 ### A3 implementation sketch (after D1) — **done 2026-07-23**
@@ -481,13 +477,14 @@ See “Definition of done (per slice)” above — precompute + tests + README +
 | 2026-08-13 | **Reassess:** next slices B2 → H1 snaps → C3 WGS84 → F1 F13 recovery → B3 integrator → C2 leftover → F2 entry aero |
 | 2026-08-13 | **Horizons DE441** July 2027 table is the lunar ephemeris; analytic Ω/ω rates and Flight 13 Horizons remain leftover |
 | 2026-08-13 | **B2 complete:** B-plane / perilune targeting (design 8000 km, golden-section Δv, optional TCM) |
-| 2026-08-13 | **H1 complete:** LOI residual floor (no hyperbolic polar teleport); RK4 dogleg at 0.9 km/s; F13 sub-km splash floor |
+| 2026-08-13 | **C3 complete:** one WGS84 ellipsoid for pad/altitude/clamps/visual Earth; J₂ uses equatorial *a* |
 | 2026-08-13 | **Live lunar coast** stays ballistic (A2 TCM helpers unused unless B2 reintroduces a small evented burn) |
 
 ## Changelog
 
 | Date | Note |
 |------|------|
+| 2026-08-13 | C3 WGS84 Earth figure: shared ellipsoid for pad/splash/clamps/globe; J₂ reference *a* |
 | 2026-08-13 | H1 leftover snaps: LOI residual floor, RK4 dogleg (0.9 km/s), F13 sub-km splash floor |
 | 2026-08-13 | B2 B-plane / perilune targeting shipped; pack periluneAltKm + bPlaneMissKm |
 | 2026-08-13 | Next-steps reassess: B-plane targeting, leftover snaps, WGS84, Flight 13 recovery/aero; baseline table brought current |

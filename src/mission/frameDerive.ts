@@ -8,6 +8,7 @@
  */
 
 import type { PhaseId } from "../physics/missionTypes";
+import { earthSurfaceRadiusAlong } from "../physics/wgs84";
 
 /** Minimal 3-vector (km or km/s). */
 export type Vec3Like = Readonly<{ x: number; y: number; z: number }>;
@@ -43,11 +44,11 @@ export const TRAIL_STYLE_LOI: TrailStyle = Object.freeze({
 });
 
 /**
- * Lift craft position onto the shared Earth surface shell when samples
- * dip slightly under that radius during ascent / low Earth orbit.
+ * Lift craft position onto the WGS84 surface shell when samples dip slightly
+ * under the ellipsoid during ascent / low Earth orbit.
  *
- * `minR` should be `EARTH_SURFACE_RADIUS_KM` so the visual stack matches the
- * physics pad — do not pass a separate visual clearance.
+ * Floor is lat-dependent (ellipsoid + pad height along the current
+ * geocentric radial) so Starbase is not lifted to equatorial `a`.
  *
  * @returns Clamped position, or the original `pos` when no lift is needed.
  */
@@ -58,13 +59,14 @@ function liftAboveSurface(earth: Vec3Like, dx: number, dy: number, dz: number, s
 export function clampCraftAboveEarth(
   pos: Vec3Like,
   earth: Vec3Like,
-  minR: number,
 ): Vec3Like {
   const dx = pos.x - earth.x;
   const dy = pos.y - earth.y;
   const dz = pos.z - earth.z;
   const r = Math.hypot(dx, dy, dz);
-  if (!(r > 1e-6) || r >= minR) return pos;
+  if (!(r > 1e-6)) return pos;
+  const minR = earthSurfaceRadiusAlong({ x: dx, y: dy, z: dz });
+  if (r >= minR) return pos;
   return liftAboveSurface(earth, dx, dy, dz, minR / r);
 }
 

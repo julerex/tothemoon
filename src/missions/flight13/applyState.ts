@@ -4,7 +4,7 @@
  */
 
 import { bodyPositions } from "../../physics/bodies";
-import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
+import { EARTH_SURFACE_ALT_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
 import {
   geodeticToMeshLocal,
   meshLocalToInertial,
@@ -84,7 +84,7 @@ function syncEarth(ctx: F13Ctx, simT: number): BodyState {
 }
 
 function clampCraft(ctx: F13Ctx, b: BodyState): void {
-  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
+  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
   ctx.craft.position.copy(ctx.craftPos);
 }
@@ -278,7 +278,7 @@ function splashWorldPoint(ctx: F13Ctx, simT: number): void {
   geodeticToMeshLocal(
     FLIGHT13_SPLASH_LAT,
     FLIGHT13_SPLASH_LON,
-    EARTH_SURFACE_RADIUS_KM,
+    EARTH_SURFACE_ALT_KM,
     ctx.splashMesh,
   );
   meshLocalToInertial(ctx.splashMesh, simT, ctx.splashWorld);

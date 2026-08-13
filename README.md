@@ -13,6 +13,7 @@ Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `
 
 ## Physics
 
+- **WGS84 Earth figure** — pad, splash, surface clamps, Earth altitude, drag, and the visual globe share one ellipsoid (`a = 6378.137` km). Height is along the geocentric radial (50 m pad). J₂ uses equatorial *a*. LEO parking and schematic overlays still use mean Earth radius (6371 km)
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
 - **Restricted n-body + Earth J₂** — craft integrated with **RK4** under **Earth + Moon** point-mass gravity, **solar tide** (residual about Earth), Earth **J₂**, and simple **exponential atmosphere / quadratic drag** below ~120 km
 - **Staged ascent (A5)** — booster throttle schedule (Maximum dynamic pressure dip + main engine cutoff ramp), **hot-stage** (booster throttle-down → ship ignition → separation), short ship upper burn, then **residual circularize** (path-smoothed low Earth orbit insert with capped rocket-equation Δv — theater, not a free teleport). Not flight-ops tables

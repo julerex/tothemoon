@@ -5,6 +5,7 @@ import {
   R_EARTH,
   R_MOON,
   R_SUN,
+  WGS84_A_KM,
 } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
@@ -20,6 +21,7 @@ import {
 } from "./textures";
 import {
   applySoftTerminator,
+  applyWgs84Ellipsoid,
   createEarthAtmosphere,
   updateEarthAtmosphere,
   type EarthAtmosphere,
@@ -288,9 +290,11 @@ function makeEarthMaterial(
   return mat;
 }
 
-/** Earth surface sphere mesh. */
+/** Earth surface ellipsoid mesh (SphereGeometry(a) then WGS84 Y-scale). */
 function makeEarthMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
-  return new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 96, 64), mat);
+  const geo = new THREE.SphereGeometry(WGS84_A_KM, 96, 64);
+  applyWgs84Ellipsoid(geo);
+  return new THREE.Mesh(geo, mat);
 }
 
 /** Earth surface mesh with albedo / roughness / night maps. */

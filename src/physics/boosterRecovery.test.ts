@@ -24,7 +24,7 @@ import {
   sampleBoosterRecovery,
   type StageState,
 } from "./boosterRecovery.ts";
-import { R_EARTH } from "./constants.ts";
+import { ellipsoidalHeightKm } from "./wgs84.ts";
 import {
   geodeticToMeshLocal,
   meshLocalToInertial,
@@ -54,10 +54,11 @@ function syntheticStage(t = 140): StageState {
 
 function earthAlt(t: number, pos: { x: number; y: number; z: number }): number {
   const b = bodyPositions(t);
-  return (
-    Math.hypot(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z) -
-    R_EARTH
-  );
+  return ellipsoidalHeightKm({
+    x: pos.x - b.earth.x,
+    y: pos.y - b.earth.y,
+    z: pos.z - b.earth.z,
+  });
 }
 
 function distToPad(t: number, pos: { x: number; y: number; z: number }): number {
@@ -87,7 +88,7 @@ describe("buildBoosterKeyframes", () => {
       assert.ok(kfs[i]!.age > kfs[i - 1]!.age);
     }
     for (const k of kfs) {
-      const alt = Math.hypot(k.p.x, k.p.y, k.p.z) - R_EARTH;
+      const alt = ellipsoidalHeightKm(k.p);
       assert.ok(alt > -1, `alt ${alt} at age ${k.age}`);
       assert.ok(Number.isFinite(k.v.x) && Number.isFinite(k.v.y));
     }
@@ -198,7 +199,7 @@ describe("gulf recovery profile", () => {
     geodeticToMeshLocal(
       GULF_LAND_LAT,
       GULF_LAND_LON,
-      R_EARTH + GULF_SCHEDULE.landAltKm,
+      GULF_SCHEDULE.landAltKm,
       local,
     );
     const siteRel = v3();

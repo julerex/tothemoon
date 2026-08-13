@@ -11,10 +11,11 @@
 import {
   EARTH_OBLIQUITY,
   EARTH_SIDEREAL_DAY_S,
-  R_EARTH,
   STARBASE_ALT,
   STARBASE_LAT,
   STARBASE_LON,
+  WGS84_A_KM,
+  WGS84_B_KM,
 } from "./constants";
 import { bodyPositions } from "./bodies";
 import {
@@ -71,22 +72,32 @@ export function starbaseSunElev(
 }
 
 /**
- * Geodetic → position in Earth mesh/local frame (before axis tilt + spin),
- * matching Three.js SphereGeometry + our equirectangular textures.
+ * Geodetic → position in Earth mesh/local frame (before axis tilt + spin).
+ *
+ * Matches Three.js SphereGeometry UVs then the WGS84 Y-scale (x,z = a, y = b)
+ * so the pad sits on the visual globe. `heightKm` is **ellipsoidal height**
+ * along the geocentric radial — pass 0 for the ellipsoid surface, then
+ * normalize if you need a unit direction (do not pass 1 as a radius).
  */
 export function geodeticToMeshLocal(
   lat: number,
   lon: number,
-  radius: number,
+  heightKm: number,
   out: V3 = v3(),
 ): V3 {
   const phi = Math.PI / 2 - lat; // colatitude
   const theta = lon + Math.PI; // lon 0 → π → mesh +X
   const sphi = Math.sin(phi);
-  // SphereGeometry: x = -r cosθ sinφ, y = r cosφ, z = r sinθ sinφ
-  out.x = -radius * Math.cos(theta) * sphi;
-  out.y = radius * Math.cos(phi);
-  out.z = radius * Math.sin(theta) * sphi;
+  // SphereGeometry(a) then y *= b/a: x = -a cosθ sinφ, y = b cosφ, z = a sinθ sinφ
+  out.x = -WGS84_A_KM * Math.cos(theta) * sphi;
+  out.y = WGS84_B_KM * Math.cos(phi);
+  out.z = WGS84_A_KM * Math.sin(theta) * sphi;
+  if (heightKm === 0) return out;
+  const r = Math.hypot(out.x, out.y, out.z) || 1;
+  const s = (r + heightKm) / r;
+  out.x *= s;
+  out.y *= s;
+  out.z *= s;
   return out;
 }
 
@@ -179,18 +190,17 @@ export function localEastInertial(
   out: V3 = v3(),
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  // East = ∂position/∂lon direction
-  const r = R_EARTH;
+  // East = ∂position/∂lon direction (ellipsoid surface)
   const dLon = 1e-5;
-  geodeticToMeshLocal(lat, lon + dLon, r, _local);
+  geodeticToMeshLocal(lat, lon + dLon, 0, _local);
   meshLocalToInertial(_local, t, _tmp, epoch);
-  geodeticToMeshLocal(lat, lon, r, _local);
+  geodeticToMeshLocal(lat, lon, 0, _local);
   meshLocalToInertial(_local, t, _tmp2, epoch);
   set(out, _tmp.x - _tmp2.x, _tmp.y - _tmp2.y, _tmp.z - _tmp2.z);
   return normalize(out, out);
 }
 
-/** Unit local up (geocentric) in inertial frame at lat/lon. */
+/** Unit local up (geocentric radial) in inertial frame at lat/lon. */
 export function localUpInertial(
   t: number,
   lat: number,
@@ -198,7 +208,7 @@ export function localUpInertial(
   out: V3 = v3(),
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  geodeticToMeshLocal(lat, lon, 1, _local);
+  geodeticToMeshLocal(lat, lon, 0, _local);
   meshLocalToInertial(_local, t, out, epoch);
   return normalize(out, out);
 }
@@ -212,11 +222,11 @@ export type SurfaceState = {
 
 /**
  * Inertial position & velocity of a ground site (incl. Earth rotation).
- * `alt` is height above mean spherical Earth (km).
+ * `alt` is ellipsoidal height above the WGS84 theater ellipsoid (km).
  */
 function surfacePos(lat: number, lon: number, alt: number, t: number, outPos: V3, epoch: EphemerisEpoch): ReturnType<typeof bodyPositions> {
   const b = bodyPositions(t, epoch);
-  geodeticToMeshLocal(lat, lon, R_EARTH + alt, _local);
+  geodeticToMeshLocal(lat, lon, alt, _local);
   meshLocalToInertial(_local, t, outPos, epoch);
   outPos.x += b.earth.x; outPos.y += b.earth.y; outPos.z += b.earth.z;
   return b;

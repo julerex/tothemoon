@@ -101,16 +101,16 @@ export function launchPlaneBasis(): LaunchPlaneBasis {
 
 function padUpUnit(): V3 {
   const pad = v3();
-  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, R_EARTH, pad);
+  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 0, pad);
   const L = len(pad) || 1;
   return v3(pad.x / L, pad.y / L, pad.z / L);
 }
 
 function padEastUnit(up: V3): V3 {
   const pad = v3();
-  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, R_EARTH, pad);
+  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 0, pad);
   const pad2 = v3();
-  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON + 1e-4, R_EARTH, pad2);
+  geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON + 1e-4, 0, pad2);
   const east = v3(pad2.x - pad.x, pad2.y - pad.y, pad2.z - pad.z);
   normalizeInPlace(east);
   reorthogonalizeEast(east, up);

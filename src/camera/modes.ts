@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
+import { AU, R_EARTH, R_MOON, R_SUN, WGS84_A_KM } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
@@ -596,7 +596,7 @@ export class CameraDirector {
 
   private minDistanceForFocus(): number {
     if (this.focus === "sun") return SUN_MIN_DIST;
-    if (this.focus === "earth") return R_EARTH + SURFACE_CLEARANCE_KM;
+    if (this.focus === "earth") return WGS84_A_KM + SURFACE_CLEARANCE_KM;
     if (this.focus === "moon") return R_MOON + SURFACE_CLEARANCE_KM;
     return 0.05;
   }
@@ -632,7 +632,7 @@ export class CameraDirector {
     const b = bodyPositions(this.simTime, this.epoch);
     return solarSystemExclusionSpheres(b.sun, b.earth, b.moon, {
       sun: R_SUN,
-      earth: R_EARTH,
+      earth: WGS84_A_KM,
       moon: R_MOON,
     });
   }

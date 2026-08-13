@@ -118,7 +118,7 @@ describe("starbasePlateYawRad", () => {
 
   it("yaws plate +Z onto geographic north in mesh-local", () => {
     const yaw = starbasePlateYawRad(STARBASE_LAT, STARBASE_LON);
-    const pad = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
+    const pad = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 0);
     const up = new THREE.Vector3(pad.x, pad.y, pad.z).normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 1, 0),
@@ -130,7 +130,7 @@ describe("starbasePlateYawRad", () => {
       Math.cos(yaw),
     ).applyQuaternion(q);
 
-    const north = geodeticToMeshLocal(STARBASE_LAT + 1e-4, STARBASE_LON, 1);
+    const north = geodeticToMeshLocal(STARBASE_LAT + 1e-4, STARBASE_LON, 0);
     const geoNorth = new THREE.Vector3(
       north.x - pad.x,
       north.y - pad.y,
