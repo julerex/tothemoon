@@ -60,6 +60,7 @@ function renderFrame(ctx: F13Ctx): void {
     camAltKm,
     burning: ctx.cinemaState.burning,
     brownout,
+    phase: ctx.cinemaState.phase,
   });
 }
 

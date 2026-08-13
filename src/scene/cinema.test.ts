@@ -71,6 +71,13 @@ describe("cinemaBloom", () => {
     assert.ok(cinemaBloomThreshold(5) > 0.75);
     assert.ok(cinemaBloomThreshold(10_000) > cinemaBloomThreshold(5));
   });
+
+  it("punches bloom slightly during LOI approach burn", () => {
+    const spaceBurn = cinemaBloomStrength(200_000, true);
+    const loi = cinemaBloomStrength(200_000, true, "approach");
+    assert.ok(loi > spaceBurn);
+    assert.ok(loi - spaceBurn > 0.05);
+  });
 });
 
 describe("starDomeOpacity", () => {

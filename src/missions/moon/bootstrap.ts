@@ -35,7 +35,7 @@ import {
   createScene,
 } from "../../scene/createScene";
 import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
-import { createCoastCorridorOverlay } from "../../scene/coastCorridor";
+import { createCoastBeatsOverlay, createCoastCorridorOverlay } from "../../scene/coastCorridor";
 import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
 import { LandingFx } from "../../scene/landingFx";
@@ -220,12 +220,14 @@ function mountPadTrail(
 
 function mountCorridor(orbitGroup: THREE.Group, cache: Trajectory): void {
   const coastCorridor = trajectoryCoastCorridor(cache);
-  if (!coastCorridor) return;
-  orbitGroup.add(createCoastCorridorOverlay(coastCorridor));
-  console.info(
-    `[tothemoon] Coast corridor: Kepler max|Δr|=${cache.keplerRefMaxDevKm.toFixed(0)} km ` +
-      `(t=${(coastCorridor.t0 / 3600).toFixed(1)}–${(coastCorridor.t1 / 3600).toFixed(1)} h)`,
-  );
+  if (coastCorridor) {
+    orbitGroup.add(createCoastCorridorOverlay(coastCorridor));
+    console.info(
+      `[tothemoon] Coast corridor: Kepler max|Δr|=${cache.keplerRefMaxDevKm.toFixed(0)} km ` +
+        `(t=${(coastCorridor.t0 / 3600).toFixed(1)}–${(coastCorridor.t1 / 3600).toFixed(1)} h)`,
+    );
+  }
+  orbitGroup.add(createCoastBeatsOverlay());
 }
 
 function mountOrbits(

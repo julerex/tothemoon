@@ -37,6 +37,7 @@ import {
 } from "../../scene/craft";
 import { updateBodies } from "../../scene/bodies";
 import { updateMoonRelativeOrbit } from "../../scene/createScene";
+import { updateCoastBeatsOverlay } from "../../scene/coastCorridor";
 import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
 import { deriveChopstickPose } from "../../scene/padRecoveryFx";
 import type { PhaseId } from "../../physics/missionTypes";
@@ -175,6 +176,10 @@ function updateLights(ctx: MoonCtx, simT: number, b: BodyState): void {
   updateBodies(simT, ctx.bodies, ctx.epoch);
   if (ctx.flags.orbitsVisible) {
     updateMoonRelativeOrbit(ctx.moonRelOrbit, simT, ctx.epoch);
+    const beats = ctx.orbitGroup.getObjectByName("coast-beats");
+    if (beats) {
+      updateCoastBeatsOverlay(beats, b.earth, b.moon, b.sun, ctx.craftPos);
+    }
   }
   const sunUnit = applySunLight(ctx.sunLight, b.sun, b.earth, ctx.skySun);
   applyFillLight(ctx.fillLight, sunUnit, b.earth);

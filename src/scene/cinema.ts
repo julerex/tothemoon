@@ -71,12 +71,19 @@ export function cinemaExposure(camAltKm: number): number {
 /**
  * Mild bloom strength: a touch stronger near the pad (plumes + floods),
  * restrained in deep space so the Sun does not wash the frame.
+ * Optional `phase` adds a small LOI punch during `approach` burn (V10) —
+ * theater exposure, not a physical radiance model.
  */
-export function cinemaBloomStrength(camAltKm: number, burning: boolean): number {
+export function cinemaBloomStrength(
+  camAltKm: number,
+  burning: boolean,
+  phase?: string,
+): number {
   const near = altitudeFade(camAltKm, 5, 200);
   const base = 0.22 + 0.14 * near;
   const burnBoost = burning ? 0.08 * Math.max(near, 0.25) : 0;
-  return base + burnBoost;
+  const loiBoost = burning && phase === "approach" ? 0.06 : 0;
+  return base + burnBoost + loiBoost;
 }
 
 /**
@@ -446,10 +453,11 @@ export function renderCinema(
     camAltKm: number;
     burning: boolean;
     brownout: number;
+    phase?: string;
   },
 ): void {
   renderer.toneMappingExposure = cinemaExposure(opts.camAltKm);
-  bundle.bloom.strength = cinemaBloomStrength(opts.camAltKm, opts.burning);
+  bundle.bloom.strength = cinemaBloomStrength(opts.camAltKm, opts.burning, opts.phase);
   bundle.bloom.threshold = cinemaBloomThreshold(opts.camAltKm);
   updateStarDomeCinema(scene, opts.camAltKm, opts.brownout);
   bundle.composer.render();

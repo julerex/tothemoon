@@ -56,6 +56,7 @@ function renderFrame(ctx: MoonCtx): void {
     camAltKm,
     burning: ctx.cinemaState.burning,
     brownout,
+    phase: ctx.cinemaState.phase,
   });
 }
 
