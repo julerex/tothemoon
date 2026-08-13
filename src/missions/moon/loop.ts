@@ -6,8 +6,10 @@
 import {
   atmosphereBrownout,
   cameraAltitudeEarthKm,
+  cameraAltitudeMoonKm,
   renderCinema,
   resizeCinema,
+  shadowAltitudeKm,
   updateSunShadowFocus,
 } from "../../scene/cinema";
 import { updateFatLineResolutions } from "../../scene/fatLines";
@@ -44,7 +46,9 @@ function updateDirector(ctx: MoonCtx, dt: number): void {
 }
 
 function renderFrame(ctx: MoonCtx): void {
-  const camAltKm = cameraAltitudeEarthKm(ctx.camera.position, ctx.skyEarth);
+  const camAltEarth = cameraAltitudeEarthKm(ctx.camera.position, ctx.skyEarth);
+  const camAltMoon = cameraAltitudeMoonKm(ctx.camera.position, ctx.moonPosV);
+  const camAltKm = shadowAltitudeKm(camAltEarth, camAltMoon);
   const brownout = atmosphereBrownout(ctx.cinemaState.phase, camAltKm);
   updateGroundSky(ctx.groundSky, ctx.camera, ctx.skyEarth, ctx.skySun, brownout);
   updateSunShadowFocus(ctx.sunLight, ctx.craftPos, ctx.skySun, camAltKm);

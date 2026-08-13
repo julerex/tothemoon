@@ -10,6 +10,7 @@ import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { createNameLabel } from "./zoomLabels";
 import {
   deriveLunarDust,
+  landingWashStrength,
   type ContactCuePose,
   type TerminalLayerPose,
 } from "./terminalFx";
@@ -19,11 +20,11 @@ import {
  * sheet) for powered descent / touchdown. Poses are scrub-deterministic from
  * mission time and the final land state.
  *
- * Site plate uses the theater selenographic name (Malapert Massif / south pole).
- * Dust layers are theater-grade sprites/discs — not CFD.
+ * Site plate uses the theater selenographic name (Malapert Massif / south pole)
+ * plus a local canvas massif (V9) — not DEM. Dust layers are theater-grade.
  *
  * @see terminalFx.ts — pure strength / pose helpers
- * @see docs/VISUAL_REALISM.md — V6 terminal FX
+ * @see docs/VISUAL_REALISM.md — V6 terminal FX, V9 lunar site
  */
 
 function makeBasicMat(color: number, opacity: number, doubleSide = false): THREE.MeshBasicMaterial {
@@ -71,6 +72,73 @@ function makeDustDisc(mat: THREE.MeshBasicMaterial, name: string): THREE.Mesh {
   dust.rotation.x = -Math.PI / 2;
   dust.visible = false;
   return dust;
+}
+
+function paintMalapertPlate(ctx: CanvasRenderingContext2D, size: number): void {
+  ctx.fillStyle = "#6a6358";
+  ctx.fillRect(0, 0, size, size);
+  const cx = size * 0.5;
+  const cy = size * 0.52;
+  // Polar shadow wedge (south-ish)
+  ctx.fillStyle = "rgba(12, 14, 22, 0.55)";
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, size * 0.48, 0.35 * Math.PI, 0.95 * Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  // Massif rim rings
+  ctx.strokeStyle = "rgba(210, 200, 180, 0.45)";
+  ctx.lineWidth = size * 0.018;
+  ctx.beginPath();
+  ctx.arc(cx, cy * 0.92, size * 0.28, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(40, 36, 30, 0.55)";
+  ctx.lineWidth = size * 0.03;
+  ctx.beginPath();
+  ctx.arc(cx * 0.72, cy * 1.08, size * 0.16, 0, Math.PI * 2);
+  ctx.stroke();
+  // Darker floors
+  ctx.fillStyle = "rgba(28, 26, 22, 0.5)";
+  ctx.beginPath();
+  ctx.ellipse(cx * 0.72, cy * 1.08, size * 0.12, size * 0.09, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx * 1.22, cy * 0.78, size * 0.08, size * 0.06, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  // Highland shoulder
+  ctx.fillStyle = "rgba(180, 170, 150, 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(cx * 1.15, cy * 0.42, size * 0.22, size * 0.1, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function makeMalapertPlate(): THREE.Mesh {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  paintMalapertPlate(canvas.getContext("2d")!, 256);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    roughness: 0.96,
+    metalness: 0,
+    color: 0x9a9488,
+  });
+  const plate = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), mat);
+  plate.name = "malapert-plate";
+  plate.rotation.x = -Math.PI / 2;
+  plate.position.y = 0.04;
+  plate.receiveShadow = true;
+  plate.castShadow = false;
+  return plate;
+}
+
+function makeWashLight(): THREE.PointLight {
+  const light = new THREE.PointLight(0xffc898, 0, 12, 2);
+  light.name = "landing-wash-light";
+  light.position.set(0, 0.55, 0);
+  return light;
 }
 
 /** Three crossed vertical planes for the brief contact sheet. */
@@ -129,6 +197,7 @@ export class LandingFx {
   private readonly contact: THREE.Mesh;
   private readonly sheet: THREE.Group;
   private readonly sheetMats: THREE.MeshBasicMaterial[];
+  private readonly washLight: THREE.PointLight;
   private readonly landPos = new THREE.Vector3();
   private readonly moonPos = new THREE.Vector3();
   private readonly radial = new THREE.Vector3();
@@ -140,7 +209,8 @@ export class LandingFx {
     this.group.name = "landing-fx";
     this.ring = makeRingMesh();
     this.beacon = makeBeaconMesh();
-    this.site.add(this.ring, this.beacon, makeDiscMesh(), makeSiteLabel());
+    this.washLight = makeWashLight();
+    this.site.add(makeMalapertPlate(), this.ring, this.beacon, makeDiscMesh(), makeSiteLabel(), this.washLight);
     this.group.add(this.site);
 
     this.innerMat = makeBasicMat(0xc8b89a, 0, true);
@@ -192,6 +262,7 @@ export class LandingFx {
   private applyDustLook(
     surface: THREE.Vector3,
     derived: ReturnType<typeof deriveLunarDust>,
+    wash: number,
   ): void {
     this.dustGroup.position.copy(surface);
     this.dustGroup.quaternion.copy(this.site.quaternion);
@@ -203,6 +274,14 @@ export class LandingFx {
     applyDiscPose(this.outer, this.outerMat, derived.outer);
     applySheetPose(this.sheet, this.sheetMats, derived.sheet);
     applyContactPose(this.contact, this.contactMat, derived.contact);
+    const boost = 1 + 0.45 * wash;
+    this.innerMat.opacity *= boost;
+    this.outerMat.opacity *= boost;
+  }
+
+  private applyWashLight(wash: number): void {
+    this.washLight.intensity = 2.4 * wash;
+    this.washLight.visible = wash > 0.02;
   }
 
   private pulseBeacon(craftPos: THREE.Vector3, surface: THREE.Vector3): void {
@@ -219,6 +298,7 @@ export class LandingFx {
     if (!this.hasLand) {
       this.site.visible = false;
       this.hideDust();
+      this.applyWashLight(0);
       return;
     }
     const surface = this.placeSiteOnMoon();
@@ -229,8 +309,10 @@ export class LandingFx {
       burning: opts.burning,
       altMoon: opts.altMoon,
     });
+    const wash = landingWashStrength(opts.phase, opts.burning, opts.altMoon);
     this.site.visible = derived.siteVisible;
-    this.applyDustLook(surface, derived);
+    this.applyDustLook(surface, derived, wash);
+    this.applyWashLight(derived.siteVisible ? wash : 0);
     this.pulseBeacon(craftPos, surface);
   }
 }

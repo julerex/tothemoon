@@ -19,6 +19,7 @@ import {
   dustActive,
   dustExpandOpacity,
   landedDust,
+  landingWashStrength,
   nearMoonPhase,
   nearSplash,
   sheetLayerPose,
@@ -174,6 +175,18 @@ describe("contactCue", () => {
     assert.equal(contactCueOpacity(CONTACT_FADE_ALT_KM + 0.1), 0);
     assert.ok(contactCueOpacity(0) > contactCueOpacity(1.5));
     assert.ok(contactCueExpand(0) > contactCueExpand(CONTACT_FADE_ALT_KM));
+  });
+});
+
+describe("landingWashStrength", () => {
+  it("is on only during a low descent burn", () => {
+    assert.equal(landingWashStrength("descent", false, 2), 0);
+    assert.equal(landingWashStrength("landed", true, 0.1), 0);
+    assert.equal(landingWashStrength("descent", true, 40), 0);
+    const low = landingWashStrength("descent", true, 2);
+    const high = landingWashStrength("descent", true, 20);
+    assert.ok(low > high);
+    assert.ok(low > 0.8);
   });
 });
 

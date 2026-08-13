@@ -6,7 +6,8 @@
  * camera altitude). Scene unit = 1 km.
  *
  * Shadows: directional sun with a tight orthographic frustum re-centered on
- * the craft/pad each frame. Disabled far from Earth so AU-scale views stay cheap.
+ * the craft/pad each frame. Disabled far from Earth **and** the Moon so
+ * AU-scale views stay cheap. Lunar landing uses Moon-relative camera altitude.
  */
 
 import * as THREE from "three";
@@ -14,7 +15,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { R_EARTH } from "../physics/constants";
+import { R_EARTH, R_MOON } from "../physics/constants";
 
 /** Full soft shadows below this camera altitude (km above mean surface). */
 export const SHADOW_FULL_ALT_KM = 12;
@@ -369,6 +370,29 @@ export function cameraAltitudeEarthKm(
   const dy = cameraPos.y - earthPos.y;
   const dz = cameraPos.z - earthPos.z;
   return Math.hypot(dx, dy, dz) - R_EARTH;
+}
+
+/**
+ * Camera altitude (km) above mean Moon surface from world positions.
+ */
+export function cameraAltitudeMoonKm(
+  cameraPos: Vec3Like,
+  moonPos: Vec3Like,
+): number {
+  const dx = cameraPos.x - moonPos.x;
+  const dy = cameraPos.y - moonPos.y;
+  const dz = cameraPos.z - moonPos.z;
+  return Math.hypot(dx, dy, dz) - R_MOON;
+}
+
+/**
+ * Shadow / near-surface cinema altitude: the nearer of Earth and Moon AGL.
+ * Pad shots use Earth; lunar landing uses the Moon; cislunar stays huge.
+ */
+export function shadowAltitudeKm(earthAltKm: number, moonAltKm: number): number {
+  const e = Number.isFinite(earthAltKm) ? earthAltKm : Number.POSITIVE_INFINITY;
+  const m = Number.isFinite(moonAltKm) ? moonAltKm : Number.POSITIVE_INFINITY;
+  return Math.min(e, m);
 }
 
 /**

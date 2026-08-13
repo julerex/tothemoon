@@ -266,6 +266,20 @@ export function contactCueExpand(altKm: number): number {
   return 0.28 + 0.55 * clamp01(1 - altKm / CONTACT_FADE_ALT_KM);
 }
 
+/**
+ * Descent-burn engine wash on the lunar surface [0, 1].
+ * Brightens dust and a local point light — theater, not a radiance model.
+ */
+export function landingWashStrength(
+  phase: string,
+  burning: boolean,
+  altMoon: number,
+): number {
+  if (!(phase === "descent" && burning)) return 0;
+  if (!Number.isFinite(altMoon) || altMoon > 25) return 0;
+  return clamp01((25 - altMoon) / 25);
+}
+
 function discLayerPose(
   base: ExpandOpacity,
   active: boolean,
