@@ -233,6 +233,12 @@ export const SHIP_PROP_KG = 5_000_000;
 export const UPPER_BURN_MAX_S = 18;
 
 /**
+ * Booked LEO dogleg plane-change class (km/s). Full ~26° into the lunar plane
+ * would be ~3 km/s and starve TLI/LOI; leftover plane error is absorbed by TLI search.
+ */
+export const DOGLEG_DV_CAP_KM_S = 0.9;
+
+/**
  * Cap on residual circularization Δv (km/s) booked via rocket equation after
  * the integrated upper burn. Theater: path is smoothed to circular low Earth orbit; prop
  * cost is real but not the full multi-km/s gravity-loss insert.
@@ -296,8 +302,12 @@ export const LOW_LUNAR_ORBIT_COAST_REVS = 0.75;
 /** Peak accel for lunar orbit insertion capture burn (km/s²) ~1 g */
 export const LUNAR_ORBIT_INSERTION_ACCEL = 0.01;
 
-/** Begin lunar orbit insertion capture burn when lunar altitude falls below this (km) */
-export const LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM = 45_000;
+/** Begin lunar orbit insertion capture burn when lunar altitude falls below this (km).
+ * Near the B2 design perilune (~8000 km) so capture Δv stays mass-coupled. */
+export const LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM = 16_000;
+
+/** Max position residual (km) for a post-LOI polar LLO bridge — not a hyperbolic teleport. */
+export const LOI_SNAP_RESIDUAL_KM = 250;
 
 /** lunar orbit insertion complete: |v − v_circ| and |v_rad| thresholds (km/s) */
 export const LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK = 0.15;

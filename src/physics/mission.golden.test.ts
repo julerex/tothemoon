@@ -15,7 +15,7 @@ import type { PhaseId } from "./missionTypes.ts";
 
 /** Bands after staged ascent + hot translunar injection + LOI + LLO + land. */
 const GOLDEN = {
-  durationS: 220_000, // ~60 h class with LOI + LLO + land
+  durationS: 486_000, // ~135 h class with LOI + LLO + land (H1 RK4 dogleg)
   durationTolFrac: 0.55,
   translunarInjectionDeltaV: 3.154,
   translunarInjectionDeltaVTol: 0.2,

@@ -21,6 +21,7 @@ import {
 } from "./constants";
 import {
   finishLanding,
+  loiResidualAllowsSnap,
   lowLunarOrbitPeriodS,
   lunarOrbitInsertionComplete,
   lunarOrbitInsertionThrust,
@@ -461,11 +462,10 @@ function runLoiBurn(ctx: CaptureCtx): MissionResult | null {
 
 function shouldSnapLoi(ctx: CaptureCtx): boolean {
   if (lunarOrbitInsertionComplete(ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.epoch)) return false;
-  const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
-  return altM > 0 && altM < 80_000;
+  return loiResidualAllowsSnap(ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.epoch);
 }
 
-/** Theater snap to polar circular low lunar orbit if still unbound/high. */
+/** Residual floor to polar circular LLO — only when leftover dr is tiny. */
 function maybeSnapLoi(ctx: CaptureCtx): void {
   if (!shouldSnapLoi(ctx)) return;
   snapPolarLowLunarOrbit(ctx.state.t, ctx.state, ctx.samples, ctx.lastT, ctx.prop, ctx.epoch);

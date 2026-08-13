@@ -18,7 +18,7 @@
  * - In-space relight is a real retrograde deorbit burn (theater-lengthened
  *   vs the public ~12 s demo so periapsis drops before the entry mark)
  * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
- * - Landing burn brakes near the splash fix; soft snap only in the last ~1 s
+ * - Landing burn brakes near the splash fix; snap only as a sub-km radial floor
  *
  * Splash coordinates are theater (west of Australia), not a surveyed buoy.
  */
@@ -835,12 +835,15 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
   return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
 }
 
+/** Sub-km splash floor: never a 200 km-class lateral pull onto the theater buoy. */
 function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
   const b = getBodies(loop.state.t, loop.epoch);
   const targetR = EARTH_SURFACE_RADIUS_KM;
-  if (rangeKm < 200) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
+  if (rangeKm < 1) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
   else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
-  set(loop.state.vel, b.earthVel.x, b.earthVel.y, b.earthVel.z);
+  sub(_relP, loop.state.pos, b.earth);
+  surfaceFrameVel(b.earthVel, _relP, _tmp);
+  set(loop.state.vel, _tmp.x, _tmp.y, _tmp.z);
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
@@ -848,7 +851,6 @@ function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>)
     loop.mode === "land" &&
     geo.curAlt < 2.5 &&
     geo.vRel < 0.35 &&
-    geo.rangeKm < 180 &&
     loop.state.t >= F13.ENTRY
   );
 }
@@ -856,7 +858,8 @@ function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>)
 function trySplashdown(loop: F13Loop): boolean {
   const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
   const geo = splashRangeKm(loop, surf);
-  if (!(naturalSplashDone(loop, geo) || loop.state.t >= F13.SPLASH - 0.1)) return false;
+  const clockDue = loop.state.t >= F13.SPLASH - 0.1 && geo.curAlt < 5;
+  if (!(naturalSplashDone(loop, geo) || clockDue)) return false;
   snapSplash(loop, surf, geo.L, geo.rangeKm);
   pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
   return true;

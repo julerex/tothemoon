@@ -221,4 +221,22 @@ describe("runFlight13Mission", () => {
       `early |v_east| ${maxAbsEast} km/s — expected near-zero before gravity turn`,
     );
   });
+
+  it("splash is a surface floor, not a 200 km lateral pull onto the theater buoy", () => {
+    const splash = result.samples[result.samples.length - 1]!;
+    assert.equal(splash.phase, "splashdown");
+    const pre = result.samples[result.samples.length - 2]!;
+    const step = Math.hypot(
+      splash.pos.x - pre.pos.x,
+      splash.pos.y - pre.pos.y,
+      splash.pos.z - pre.pos.z,
+    );
+    const dt = splash.t - pre.t;
+    assert.ok(
+      step < 30,
+      `splash jump ${step} km over ${dt.toFixed(2)}s — expected radial floor, not a 200 km-class pull`,
+    );
+    const splashAlt = altitudeEarth(splash.t, splash.pos, epoch);
+    assert.ok(Math.abs(splashAlt) < 2, `splash alt ${splashAlt} km`);
+  });
 });

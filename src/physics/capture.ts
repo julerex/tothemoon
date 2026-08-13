@@ -15,6 +15,7 @@ import {
   LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM,
   LUNAR_ORBIT_INSERTION_VELOCITY_ERROR_OK,
   LUNAR_ORBIT_INSERTION_RADIAL_VELOCITY_OK,
+  LOI_SNAP_RESIDUAL_KM,
   MU_MOON,
   R_MOON,
 } from "./constants";
@@ -288,9 +289,44 @@ function snapFinalState(state: CraftState, rFinal: number, vCirc: number, epoch:
 }
 
 /**
+ * Distance (km) from the current Moon-relative state to polar circular LLO
+ * at {@link LOW_LUNAR_ORBIT_ALTITUDE_KM}. Tiny values mean a residual bridge
+ * is honest; tens of thousands mean a teleport.
+ */
+export function polarLowLunarOrbitResidualKm(
+  t: number,
+  pos: V3,
+  vel: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const b0 = getBodies(t, epoch);
+  const fake: CraftState = { t, pos, vel };
+  initSnapFromState(fake, b0);
+  const rFinal = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
+  const end = snapEndState(b0, rFinal);
+  return Math.hypot(end.endPos.x - pos.x, end.endPos.y - pos.y, end.endPos.z - pos.z);
+}
+
+/**
+ * True when a post-LOI polar LLO floor is a tiny leftover, not a teleport:
+ * already in the LLO altitude band and within {@link LOI_SNAP_RESIDUAL_KM}.
+ */
+export function loiResidualAllowsSnap(
+  t: number,
+  pos: V3,
+  vel: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): boolean {
+  const r = fillMoonRel(t, pos, vel, epoch);
+  const alt = r - R_MOON;
+  if (alt < 50 || alt > 2_500) return false;
+  return polarLowLunarOrbitResidualKm(t, pos, vel, epoch) < LOI_SNAP_RESIDUAL_KM;
+}
+
+/**
  * Theater capture into polar circular lunar orbit (≤2000 km alt).
  * Bridges the trail with short samples so invariants don't see a teleport.
- * Used when lunar orbit insertion is "close enough" so the Low lunar orbit coast stays bound and polar.
+ * Used when lunar orbit insertion leftover is a tiny residual (not a hyperbolic teleport).
  */
 function applySnapEnd(state: CraftState, end: ReturnType<typeof snapEndState>): void {
   state.pos.x = end.endPos.x; state.pos.y = end.endPos.y; state.pos.z = end.endPos.z;

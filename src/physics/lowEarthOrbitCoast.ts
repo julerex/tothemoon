@@ -1,14 +1,31 @@
-import { LOW_EARTH_ORBIT_COAST_S, LOW_EARTH_ORBIT_RADIUS, MU_EARTH } from "./constants";
+/**
+ * After ascent: circular-ish LEO parking with an integrated out-of-plane dogleg
+ * toward the south-biased transfer plane, then ballistic coast until TLI.
+ *
+ * Geometry is RK4 (same path for search probes and the bake). Plane-change Δv
+ * is the booked theater class {@link DOGLEG_DV_CAP_KM_S} — not a full ~26°
+ * combined plane change, which would starve TLI / LOI. Leftover plane error is
+ * absorbed by the TLI Δv search.
+ */
+
+import {
+  DOGLEG_DV_CAP_KM_S,
+  LOW_EARTH_ORBIT_COAST_S,
+  LOW_EARTH_ORBIT_RADIUS,
+  MU_EARTH,
+} from "./constants";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { getAscent } from "./ascentCache";
-import { getBodies, type CraftState } from "./integrator";
+import { getBodies, rk4Step, type CraftState, type ThrustFn } from "./integrator";
 import { pushSample } from "./missionSample";
 import type { Sample } from "./missionTypes";
 import {
-  applyImpulsiveShipDv,
+  burnForce,
   createPropState,
+  hasPropellant,
+  wetMassKg,
   type PropState,
 } from "./propellant";
 import { moonArrivalDirection, transferPlaneNormal } from "./translunarInjection";
@@ -31,71 +48,46 @@ export type LowEarthOrbitRelative = { t: number; relPos: V3; relVel: V3 };
 /** Chosen low Earth orbit coast duration (s). */
 let _leoCoastS = LOW_EARTH_ORBIT_COAST_S;
 
-/** Last dogleg plane-change Δv booked (km/s) — diagnostic / precompute log. */
+/** Last dogleg plane-change Δv delivered (km/s) — diagnostic / precompute log. */
 let _lastDoglegDvKmS = 0;
+
+/** RK4 step during LEO dogleg / parking (s). Search rebuilds LEO often. */
+const DOGLEG_DT_S = 5;
+
+/**
+ * Commanded dogleg accel (km/s²). Matches ship vacuum T/W class so probes
+ * (no propellant) and the bake share the same inertial path.
+ */
+const DOGLEG_ACCEL_KM_S2 = 0.012;
+
+/** Sample interval while coasting / burning (s). */
+const DOGLEG_SAMPLE_S = 10;
 
 export function setLowEarthOrbitCoastS(s: number): void {
   _leoCoastS = s;
+  _leoRelCache = null;
 }
 
 export function getLowEarthOrbitCoastS(): number {
   return _leoCoastS;
 }
 
-/** Total plane-change class Δv booked on the last low Earth orbit dogleg (km/s). */
+/** Total plane-change class Δv delivered on the last low Earth orbit dogleg (km/s). */
 export function getLastDoglegDvKmS(): number {
   return _lastDoglegDvKmS;
 }
 
 const _n0 = v3();
 const _n1 = v3();
-const _nPrev = v3();
-const _rHat = v3();
-const _rHat0 = v3();
-const _periHat = v3();
-const _axis = v3();
+const _nNow = v3();
 const _relP = v3();
 const _relV = v3();
+const _rHat = v3();
+const _periHat = v3();
 const _tangent = v3();
-const _tmp = v3();
+const _vGo = v3();
+const _thrust = v3();
 const _up = v3(0, 0, 1);
-
-function clamp1(x: number): number {
-  return Math.max(-1, Math.min(1, x));
-}
-
-/** Spherical linear interpolation of unit vectors (shortest arc). */
-function slerpFlip(b: V3, cosom: number): { cosom: number; bx: number; by: number; bz: number } {
-  if (cosom >= 0) return { cosom, bx: b.x, by: b.y, bz: b.z };
-  return { cosom: -cosom, bx: -b.x, by: -b.y, bz: -b.z };
-}
-
-function slerpNlerp(a: V3, bx: number, by: number, bz: number, t: number, out: V3): V3 {
-  out.x = a.x + t * (bx - a.x); out.y = a.y + t * (by - a.y); out.z = a.z + t * (bz - a.z);
-  return normalize(out, out);
-}
-
-function slerpUnit(a: V3, b: V3, t: number, out: V3): V3 {
-  const f = slerpFlip(b, clamp1(dot(a, b)));
-  if (f.cosom > 0.9995) return slerpNlerp(a, f.bx, f.by, f.bz, t, out);
-  const omega = Math.acos(f.cosom), sinom = Math.sin(omega);
-  const s0 = Math.sin((1 - t) * omega) / sinom, s1 = Math.sin(t * omega) / sinom;
-  out.x = s0 * a.x + s1 * f.bx; out.y = s0 * a.y + s1 * f.by; out.z = s0 * a.z + s1 * f.bz;
-  return out;
-}
-
-/** Rotate unit vector `v` about unit axis `k` by angle (rad). */
-function rotateAbout(v: V3, k: V3, angle: number, out: V3): V3 {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  // Rodrigues: v c + (k×v) s + k (k·v) (1−c)
-  cross(_axis, k, v);
-  const kdot = dot(k, v);
-  out.x = v.x * c + _axis.x * s + k.x * kdot * (1 - c);
-  out.y = v.y * c + _axis.y * s + k.y * kdot * (1 - c);
-  out.z = v.z * c + _axis.z * s + k.z * kdot * (1 - c);
-  return normalize(out, out);
-}
 
 /** Project vector onto plane with unit normal n, then normalize (or fallback). */
 function projectToPlaneUnit(v: V3, n: V3, out: V3): V3 {
@@ -108,18 +100,6 @@ function projectToPlaneUnit(v: V3, n: V3, out: V3): V3 {
     if (len(out) < 1e-10) set(out, 1, 0, 0);
   }
   return normalize(out, out);
-}
-
-/**
- * Circular low Earth orbit state: position along rHat, velocity n×rHat · v_circ
- * (prograde about normal n — co-rotating if n matches the Moon).
- */
-function setCircularLeo(state: CraftState, t: number, rHat: V3, n: V3, epoch: EphemerisEpoch): void {
-  const b = bodyPositions(t, epoch), vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
-  cross(_tangent, n, rHat); normalize(_tangent, _tangent);
-  state.t = t;
-  set(state.pos, b.earth.x + rHat.x * LOW_EARTH_ORBIT_RADIUS, b.earth.y + rHat.y * LOW_EARTH_ORBIT_RADIUS, b.earth.z + rHat.z * LOW_EARTH_ORBIT_RADIUS);
-  set(state.vel, b.earthVel.x + _tangent.x * vCirc, b.earthVel.y + _tangent.y * vCirc, b.earthVel.z + _tangent.z * vCirc);
 }
 
 export function cloneState(s: CraftState): CraftState {
@@ -148,25 +128,6 @@ export function restoreLowEarthOrbitRelative(
   };
 }
 
-/**
- * Plane-change Δv (km/s) for an instantaneous change of orbital plane by
- * angle di (rad) at circular speed v: classic 2 v sin(Δi/2).
- */
-function planeChangeDv(vCirc: number, diRad: number): number {
-  if (diRad < 1e-12) return 0;
-  return 2 * vCirc * Math.sin(Math.min(diRad, Math.PI) * 0.5);
-}
-
-/**
- * After ascent: **continuous** circular low Earth orbit that doglegs into the
- * **south-biased transfer plane** (same as translunar injection), ~1.25 revs, ending at the
- * transfer periapsis direction.
- *
- * Geometry is kinematic (smooth trail / translunar injection aim). Plane-change cost is
- * booked as ship thrust + propellant: each step pays 2 v sin(di/2) for the
- * normal rotation that step (smoothstep concentrates burn mid-coast).
- * In-plane prograde motion is free (orbital). No free plane slerp.
- */
 function leoAscentNormal(state: CraftState, t0: number, epoch: EphemerisEpoch): void {
   const b0 = bodyPositions(t0, epoch);
   sub(_relP, state.pos, b0.earth); sub(_relV, state.vel, b0.earthVel);
@@ -175,89 +136,174 @@ function leoAscentNormal(state: CraftState, t0: number, epoch: EphemerisEpoch): 
   normalize(_n0, _n0);
 }
 
-function leoCoastGeom(state: CraftState, t0: number, coastS: number, epoch: EphemerisEpoch): number {
+function leoTargetPlane(state: CraftState, t0: number, coastS: number, epoch: EphemerisEpoch): void {
   leoAscentNormal(state, t0, epoch);
   transferPlaneNormal(t0 + coastS, _n1, epoch);
   if (dot(_n0, _n1) < 0) scale(_n1, _n1, -1);
-  projectToPlaneUnit(_relP, _n0, _rHat0);
-  moonArrivalDirection(t0 + coastS, _periHat, epoch);
+}
+
+function leoCoastS(): number {
+  if (_leoCoastS > 0) return _leoCoastS;
+  return 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH) * 1.25;
+}
+
+/**
+ * Theater circular hold in the current plane (replaces the old per-step
+ * circular snap) plus a |v|-preserving rotation toward transfer-plane prograde.
+ * Only the out-of-plane part is billed against {@link DOGLEG_DV_CAP_KM_S}.
+ * Returns billed accel (km/s²); total thrust is written to `_thrust`.
+ */
+function doglegGuideAccel(state: CraftState, vCirc: number, epoch: EphemerisEpoch): number {
+  const b = getBodies(state.t, epoch);
+  sub(_relP, state.pos, b.earth);
+  sub(_relV, state.vel, b.earthVel);
+  const r = len(_relP);
+  const v = len(_relV);
+  if (r < 1e-6) return 0;
+  normalize(_rHat, _relP);
+  cross(_nNow, _relP, _relV);
+  if (len(_nNow) < 1e-12) set(_nNow, _n1.x, _n1.y, _n1.z);
+  normalize(_nNow, _nNow);
+  cross(_tangent, _nNow, _rHat);
+  if (len(_tangent) < 1e-10) return 0;
+  normalize(_tangent, _tangent);
+  const vr = dot(_relV, _rHat);
+  const vt = dot(_relV, _tangent);
+  const aHoldR = 0.0005 * (LOW_EARTH_ORBIT_RADIUS - r) - 0.12 * vr;
+  const aHoldT = 0.12 * (vCirc - vt);
+  set(
+    _thrust,
+    _rHat.x * aHoldR + _tangent.x * aHoldT,
+    _rHat.y * aHoldR + _tangent.y * aHoldT,
+    _rHat.z * aHoldR + _tangent.z * aHoldT,
+  );
+  const aHold = len(_thrust);
+  if (aHold > 0.008) scale(_thrust, _thrust, 0.008 / aHold);
+  if (v < 1e-6) { set(_vGo, 0, 0, 0); return 0; }
+  cross(_vGo, _n1, _rHat);
+  if (len(_vGo) < 1e-10) { set(_vGo, 0, 0, 0); return 0; }
+  normalize(_vGo, _vGo);
+  const vHatX = _relV.x / v, vHatY = _relV.y / v, vHatZ = _relV.z / v;
+  const along = _vGo.x * vHatX + _vGo.y * vHatY + _vGo.z * vHatZ;
+  _vGo.x -= vHatX * along; _vGo.y -= vHatY * along; _vGo.z -= vHatZ * along;
+  const go = len(_vGo);
+  if (go < 0.004) { set(_vGo, 0, 0, 0); return 0; }
+  normalize(_vGo, _vGo);
+  return go * v;
+}
+
+function doglegStepAccel(remainDv: number, go: number, dt: number): number {
+  if (remainDv < 1e-6 || go < 0.008) return 0;
+  return Math.min(DOGLEG_ACCEL_KM_S2, remainDv / Math.max(dt, 1e-6), Math.max(go / dt, 0.002));
+}
+
+function doglegThrustFn(ax: number, ay: number, az: number): ThrustFn {
+  return () => set(_thrust, ax, ay, az);
+}
+
+type DoglegLoop = {
+  state: CraftState;
+  samples: Sample[] | null;
+  lastT: { t: number } | null;
+  prop: PropState | null;
+  epoch: EphemerisEpoch;
+  tMin: number;
+  tMax: number;
+  vCirc: number;
+  dvSpent: number;
+  prevAlign: number;
+};
+
+function periapsisAlign(state: CraftState, epoch: EphemerisEpoch): number {
+  const b = getBodies(state.t, epoch);
+  sub(_relP, state.pos, b.earth);
+  sub(_relV, state.vel, b.earthVel);
+  cross(_nNow, _relP, _relV);
+  if (len(_nNow) < 1e-12) set(_nNow, _n1.x, _n1.y, _n1.z);
+  normalize(_nNow, _nNow);
+  projectToPlaneUnit(_relP, _nNow, _rHat);
+  moonArrivalDirection(state.t, _periHat, epoch);
   set(_periHat, -_periHat.x, -_periHat.y, -_periHat.z);
-  projectToPlaneUnit(_periHat, _n1, _periHat);
-  return Math.acos(clamp1(dot(_n0, _n1)));
+  projectToPlaneUnit(_periHat, _nNow, _periHat);
+  return dot(_rHat, _periHat);
 }
 
-function leoInPlaneAngle(period: number, coastS: number): number {
-  projectToPlaneUnit(_rHat0, _n1, _rHat);
-  let angInPlane = Math.atan2(dot(cross(_tmp, _rHat, _periHat), _n1), dot(_rHat, _periHat));
-  if (angInPlane < 0) angInPlane += 2 * Math.PI;
-  const targetAngle = (coastS / period) * 2 * Math.PI;
-  while (angInPlane < targetAngle * 0.85) angInPlane += 2 * Math.PI;
-  return angInPlane;
-}
-
-function leoStepDir(u: number, angInPlane: number): void {
-  slerpUnit(_rHat0, _periHat, u, _rHat);
-  projectToPlaneUnit(_rHat, _tmp, _rHat);
-  const extra = Math.max(0, angInPlane - Math.acos(clamp1(dot(_rHat0, _periHat)))) * u;
-  if (extra > 1e-6) rotateAbout(_rHat, _tmp, extra, _rHat);
-  projectToPlaneUnit(_rHat, _tmp, _rHat);
-}
-
-function leoPushStep(
-  samples: Sample[] | null, lastT: { t: number } | null, state: CraftState, prop: PropState | null,
-  aKmS2: number, force: boolean,
+function doglegPush(
+  loop: DoglegLoop, burning: boolean, aStep: number, force: boolean,
 ): void {
-  if (samples && lastT) pushSample(samples, state, "lowEarthOrbit", aKmS2 >= 1e-4, force, 0, lastT, prop, aKmS2, "ship", false);
+  if (!loop.samples || !loop.lastT) return;
+  pushSample(
+    loop.samples, loop.state, "lowEarthOrbit", burning, force, DOGLEG_SAMPLE_S,
+    loop.lastT, loop.prop, aStep, "ship", false,
+  );
 }
 
-function leoCoastStep(
-  state: CraftState, i: number, steps: number, t0: number, coastS: number, dt: number, vCirc: number,
-  angInPlane: number, samples: Sample[] | null, lastT: { t: number } | null, prop: PropState | null, epoch: EphemerisEpoch,
-): number {
-  const u = i / steps;
-  slerpUnit(_n0, _n1, u * u * (3 - 2 * u), _tmp);
-  const dvPlane = planeChangeDv(vCirc, Math.acos(clamp1(dot(_nPrev, _tmp))));
-  leoStepDir(u, angInPlane);
-  setCircularLeo(state, t0 + coastS * u, _rHat, _tmp, epoch);
-  leoPushStep(samples, lastT, state, prop, dvPlane / Math.max(dt, 1e-6), i === steps);
-  set(_nPrev, _tmp.x, _tmp.y, _tmp.z);
-  return dvPlane;
+function doglegShouldStop(loop: DoglegLoop, align: number): boolean {
+  if (loop.state.t >= loop.tMax - 1e-9) return true;
+  if (loop.state.t < loop.tMin) return false;
+  return align > 0.97 && align + 1e-6 < loop.prevAlign;
 }
 
-function bookDogleg(prop: PropState | null, doglegDv: number, state: CraftState, coastS: number): void {
-  if (prop && doglegDv > 1e-6) applyImpulsiveShipDv(prop, state.t, Math.min(doglegDv, 0.9), Math.max(coastS * 0.4, 400));
-}
-
-function leoCoastTiming(): { t0: number; period: number; coastS: number; steps: number; dt: number; vCirc: number } {
-  const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
-  const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
-  const steps = Math.max(180, Math.ceil(coastS / 10));
-  return { t0: 0, period, coastS, steps, dt: coastS / steps, vCirc: Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS) };
-}
-
-function runLeoDoglegLoop(
-  state: CraftState, t0: number, coastS: number, steps: number, dt: number, vCirc: number, angInPlane: number,
-  samples: Sample[] | null, lastT: { t: number } | null, prop: PropState | null, epoch: EphemerisEpoch,
-): number {
-  set(_nPrev, _n0.x, _n0.y, _n0.z);
-  let doglegDv = 0;
-  for (let i = 1; i <= steps; i++) {
-    doglegDv += leoCoastStep(state, i, steps, t0, coastS, dt, vCirc, angInPlane, samples, lastT, prop, epoch);
+function doglegIntegrateOnce(loop: DoglegLoop): boolean {
+  const dt = Math.min(DOGLEG_DT_S, loop.tMax - loop.state.t);
+  if (dt <= 1e-9) return false;
+  const remain = DOGLEG_DV_CAP_KM_S - loop.dvSpent;
+  const go = doglegGuideAccel(loop.state, loop.vCirc, loop.epoch);
+  const canBurn = remain > 1e-6 && (!loop.prop || hasPropellant(loop.prop, "ship"));
+  const aStep = canBurn ? doglegStepAccel(remain, go, dt) : 0;
+  const ax = _thrust.x + _vGo.x * aStep;
+  const ay = _thrust.y + _vGo.y * aStep;
+  const az = _thrust.z + _vGo.z * aStep;
+  const thrustFn = (Math.abs(ax) + Math.abs(ay) + Math.abs(az) > 1e-8)
+    ? doglegThrustFn(ax, ay, az)
+    : undefined;
+  const tBefore = loop.state.t;
+  rk4Step(loop.state, dt, thrustFn, { epoch: loop.epoch });
+  if (loop.prop && aStep > 0) {
+    const forceN = wetMassKg(loop.prop) * aStep * 1000;
+    loop.prop.lastT = tBefore;
+    burnForce(loop.prop, loop.state.t, forceN, "ship");
   }
-  return doglegDv;
+  loop.dvSpent = Math.min(DOGLEG_DV_CAP_KM_S, loop.dvSpent + aStep * dt);
+  const align = periapsisAlign(loop.state, loop.epoch);
+  const stop = doglegShouldStop(loop, align);
+  loop.prevAlign = align;
+  doglegPush(loop, aStep > 0, aStep, stop);
+  return !stop;
 }
 
+/**
+ * After ascent: **integrated** circular-ish low Earth orbit that doglegs toward
+ * the **south-biased transfer plane** (same as translunar injection), ~1.25 revs.
+ *
+ * Out-of-plane Δv is RK4 thrust at the booked class (thrust ⟂ v so parking
+ * |v| stays circular). In-plane, the coast continues until the radius vector
+ * lines up with TLI periapsis (Kepler phasing — not a position slerp). Search
+ * probes pass `prop=null` but the same accel so TLI start state matches.
+ */
 export function runLunarPlaneLowEarthOrbitCoast(
   state: CraftState, samples: Sample[] | null, lastT: { t: number } | null,
   prop: PropState | null = null, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): void {
-  const t0 = state.t, timing = leoCoastTiming();
-  const totalDi = leoCoastGeom(state, t0, timing.coastS, epoch);
-  const angInPlane = leoInPlaneAngle(timing.period, timing.coastS);
+  const t0 = state.t;
+  const coastS = leoCoastS();
+  leoTargetPlane(state, t0, coastS, epoch);
+  const vCirc = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
   if (samples && lastT) pushSample(samples, state, "lowEarthOrbit", false, true, 0, lastT, prop, 0, "ship");
-  _lastDoglegDvKmS = runLeoDoglegLoop(state, t0, timing.coastS, timing.steps, timing.dt, timing.vCirc, angInPlane, samples, lastT, prop, epoch);
-  bookDogleg(prop, _lastDoglegDvKmS, state, timing.coastS);
-  void totalDi;
+  const loop: DoglegLoop = {
+    state, samples, lastT, prop, epoch,
+    tMin: t0 + coastS * 0.85, tMax: t0 + coastS * 1.45, vCirc, dvSpent: 0,
+    prevAlign: periapsisAlign(state, epoch),
+  };
+  while (doglegIntegrateOnce(loop)) { /* RK4 until periapsis phase or tMax */ }
+  _lastDoglegDvKmS = loop.dvSpent;
+}
+
+type LeoRelCache = { key: string; rel: LowEarthOrbitRelative };
+let _leoRelCache: LeoRelCache | null = null;
+
+function epochCacheKey(epoch: EphemerisEpoch): string {
+  return `${epoch.moonPhase0}|${epoch.horizonsLandingT}|${epoch.useHorizons}|${epoch.sunPhase0}|${epoch.clockUtcMsAtT0}|${_leoCoastS}`;
 }
 
 /** Ascent end → continuous low Earth orbit coast → low Earth orbit-rel state for probes. */
@@ -266,10 +312,25 @@ export function computeLowEarthOrbitRelative(
   _coastS?: number,
 ): LowEarthOrbitRelative {
   void _coastS;
+  const key = epochCacheKey(epoch);
+  if (_leoRelCache && _leoRelCache.key === key) {
+    const c = _leoRelCache.rel;
+    return {
+      t: c.t,
+      relPos: { x: c.relPos.x, y: c.relPos.y, z: c.relPos.z },
+      relVel: { x: c.relVel.x, y: c.relVel.y, z: c.relVel.z },
+    };
+  }
   const ascent = getAscent();
   const state = cloneState(ascent.state);
   runLunarPlaneLowEarthOrbitCoast(state, null, null, null, epoch);
-  return captureLowEarthOrbitRelative(state, epoch);
+  const rel = captureLowEarthOrbitRelative(state, epoch);
+  _leoRelCache = { key, rel };
+  return {
+    t: rel.t,
+    relPos: { x: rel.relPos.x, y: rel.relPos.y, z: rel.relPos.z },
+    relVel: { x: rel.relVel.x, y: rel.relVel.y, z: rel.relVel.z },
+  };
 }
 
 /** Append ascent samples, then low Earth orbit dogleg into the lunar plane (paid ship Δv). */
