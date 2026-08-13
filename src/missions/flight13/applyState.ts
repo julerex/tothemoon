@@ -11,10 +11,7 @@ import {
   starbasePadState,
 } from "../../physics/earthFrame";
 import { formatMissionDateUtc } from "../../physics/epoch";
-import {
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
-} from "../../physics/flight13Mission";
+import { boosterPhaseAt } from "../../physics/boosterRecovery";
 import {
   entryPlasmaStrength,
   entryVisualBank,
@@ -41,7 +38,8 @@ import {
 } from "../../scene/craft";
 import { updateBodies } from "../../scene/bodies";
 import { updateMoonRelativeOrbit } from "../../scene/createScene";
-import { updateStarbaseLaunchFx } from "../../scene/earthTheater";
+import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
+import { deriveChopstickPose } from "../../scene/padRecoveryFx";
 import type { F13Ctx } from "./bootstrap";
 import { orientCraft } from "./orientCraft";
 
@@ -162,6 +160,10 @@ function updatePadFx(
     altEarth: d.displayAltEarth,
     sunElev,
   });
+  updateMechazillaRecovery(ctx.starbasePad, deriveChopstickPose({
+    age: ctx.stageT == null ? -1 : physicsT - ctx.stageT,
+    profile: "gulf",
+  }));
 }
 
 function updateStageSplash(
@@ -174,6 +176,9 @@ function updateStageSplash(
   ctx.splashFx.update(t, ctx.craftPos, {
     phase: d.displayPhase,
     altEarth: d.displayAltEarth,
+  });
+  ctx.gulfLandFx.update(t, ctx.craftPos, {
+    recoveryPhase: ctx.stageT == null ? "sep" : boosterPhaseAt(t - ctx.stageT, "gulf"),
   });
 }
 

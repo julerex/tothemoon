@@ -17,8 +17,10 @@ import {
   GULF_LAND_LAT,
   GULF_LAND_LON,
   GULF_SCHEDULE,
+  LANDING_CONTACT_FLASH_S,
   LANDING_END_S,
   LANDING_START_S,
+  landingContactFlashStrength,
   sampleBoosterRecovery,
   type StageState,
 } from "./boosterRecovery.ts";
@@ -262,5 +264,26 @@ describe("boostbackFlashStrength", () => {
     assert.ok(mid < peak);
     assert.ok(end < mid);
     assert.ok(end > 0);
+  });
+});
+
+describe("landingContactFlashStrength", () => {
+  it("is zero outside the catch window", () => {
+    assert.equal(landingContactFlashStrength(0), 0);
+    assert.equal(landingContactFlashStrength(LANDING_END_S - 1), 0);
+    assert.equal(
+      landingContactFlashStrength(LANDING_END_S + LANDING_CONTACT_FLASH_S + 0.05),
+      0,
+    );
+  });
+
+  it("peaks near landingEnd then decays, gulf uses gulf schedule", () => {
+    const peak = landingContactFlashStrength(LANDING_END_S);
+    const late = landingContactFlashStrength(LANDING_END_S + 1.5);
+    assert.ok(peak > 0.5);
+    assert.ok(late < peak);
+    const gulfPeak = landingContactFlashStrength(GULF_SCHEDULE.landingEndS, GULF_SCHEDULE);
+    assert.ok(gulfPeak > 0.5);
+    assert.equal(landingContactFlashStrength(GULF_SCHEDULE.landingEndS), 0);
   });
 });

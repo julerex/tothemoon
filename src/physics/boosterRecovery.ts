@@ -158,6 +158,11 @@ export const BOOSTER_LOCATOR_FADE_IN_S = 0.5;
  * Theater cue so the reverse burn reads at range; not physical plume scale.
  */
 export const BOOSTBACK_FLASH_S = 2.8;
+/**
+ * Brief landing / catch contact flash duration (s from landingEndS).
+ * Theater cue so the booster does not vanish into the ocean / chopsticks.
+ */
+export const LANDING_CONTACT_FLASH_S = 2.2;
 
 export type BoosterRecoveryPhase =
   | "sep"
@@ -687,5 +692,24 @@ export function boostbackFlashStrength(age: number): number {
   // Fast rise (~0.25 s), quadratic falloff for a soft flash
   const rise = clamp01(u / 0.25);
   const fall = 1 - u / BOOSTBACK_FLASH_S;
+  return rise * fall * fall;
+}
+
+/**
+ * Theater landing / catch contact flash in [0, 1].
+ * Lights ~0.4 s before `landingEndS` and decays over {@link LANDING_CONTACT_FLASH_S}.
+ *
+ * @param age - Seconds after stage-out
+ * @param sched - Recovery schedule (chopsticks or gulf)
+ */
+export function landingContactFlashStrength(
+  age: number,
+  sched: RecoverySchedule = CHOPSTICKS_SCHEDULE,
+): number {
+  const u = age - sched.landingEndS;
+  if (u < -0.4 || u > LANDING_CONTACT_FLASH_S) return 0;
+  const t = u + 0.4;
+  const rise = clamp01(t / 0.2);
+  const fall = 1 - Math.max(0, u) / LANDING_CONTACT_FLASH_S;
   return rise * fall * fall;
 }

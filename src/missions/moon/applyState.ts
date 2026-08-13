@@ -37,7 +37,8 @@ import {
 } from "../../scene/craft";
 import { updateBodies } from "../../scene/bodies";
 import { updateMoonRelativeOrbit } from "../../scene/createScene";
-import { updateStarbaseLaunchFx } from "../../scene/earthTheater";
+import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
+import { deriveChopstickPose } from "../../scene/padRecoveryFx";
 import type { PhaseId } from "../../physics/missionTypes";
 import type { MoonCtx } from "./bootstrap";
 import { orientCraft } from "./orientCraft";
@@ -149,6 +150,10 @@ function updatePadFx(
     altEarth: d.displayAltEarth,
     sunElev,
   });
+  updateMechazillaRecovery(ctx.starbasePad, deriveChopstickPose({
+    age: ctx.stageT == null ? -1 : physicsT - ctx.stageT,
+    profile: "chopsticks",
+  }));
 }
 
 function updateLandingFx(

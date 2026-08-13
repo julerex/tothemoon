@@ -38,6 +38,7 @@ import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
 import { EntryFx } from "../../scene/entryFx";
 import { SplashFx } from "../../scene/splashFx";
+import { GulfLandFx } from "../../scene/gulfLandFx";
 import {
   createStarbasePad,
 } from "../../scene/earthTheater";
@@ -103,6 +104,7 @@ export type F13Ctx = {
   stagingFx: StagingFx;
   stageT: number | null;
   splashFx: SplashFx;
+  gulfLandFx: GulfLandFx;
   entryFx: EntryFx;
   clock: MissionClock;
   physicsDurationS: number;
@@ -298,9 +300,13 @@ function mountSplashEntry(
   const splashFx = new SplashFx();
   splashFx.setSplashTime(cache.samples[cache.samples.length - 1]!.t);
   bodies.earth.add(splashFx.group);
+  const gulfLandFx = new GulfLandFx();
+  const stageT = staging.stageT;
+  if (stageT != null) gulfLandFx.setLandTime(stageT);
+  bodies.earth.add(gulfLandFx.group);
   const entryFx = new EntryFx();
   craft.add(entryFx.group);
-  return { ...staging, splashFx, entryFx };
+  return { ...staging, splashFx, gulfLandFx, entryFx };
 }
 
 function mountFx(
@@ -669,6 +675,7 @@ function craftSliceB(world: ReturnType<typeof assembleWorld>) {
     stagingFx: world.fx.stagingFx,
     stageT: world.fx.stageT,
     splashFx: world.fx.splashFx,
+    gulfLandFx: world.fx.gulfLandFx,
     entryFx: world.fx.entryFx,
   };
 }

@@ -1346,6 +1346,39 @@ export function updateStarbaseLaunchFx(
 }
 
 /**
+ * Scrub-driven chopsticks close + carriage settle (visual V8).
+ * Rest poses are stored on `userData` at build time. Gulf profile poses are
+ * identity (close = 0) so Flight 13 leaves the arms open.
+ *
+ * @param pad - Root from {@link createStarbasePad}
+ * @param pose - From `deriveChopstickPose`
+ */
+export function updateMechazillaRecovery(
+  pad: THREE.Object3D,
+  pose: { close: number; yawInRad: number; pitchRad: number; carriageDy: number },
+): void {
+  applyChopstickArm(pad.getObjectByName("pad-chopstick-L"), pose);
+  applyChopstickArm(pad.getObjectByName("pad-chopstick-R"), pose);
+  const carriage = pad.getObjectByName("pad-chopstick-carriage");
+  if (carriage) {
+    const restY = (carriage.userData.restY as number | undefined) ?? carriage.position.y;
+    carriage.position.y = restY + pose.carriageDy;
+  }
+}
+
+function applyChopstickArm(
+  arm: THREE.Object3D | undefined,
+  pose: { yawInRad: number; pitchRad: number },
+): void {
+  if (!arm) return;
+  const restY = (arm.userData.restRotY as number | undefined) ?? arm.rotation.y;
+  const restZ = (arm.userData.restRotZ as number | undefined) ?? arm.rotation.z;
+  const sign = restY === 0 ? 1 : Math.sign(restY);
+  arm.rotation.y = restY - sign * pose.yawInRad;
+  arm.rotation.z = restZ + pose.pitchRad;
+}
+
+/**
  * Sub-satellite ground track for launch → early low Earth orbit.
  *
  * Built in **Earth mesh-local** coords so the line co-rotates with the surface
@@ -1552,6 +1585,7 @@ function addChopstickCarriage(g: THREE.Group, mats: TowerMats, carryY: number): 
   const carriage = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 1.35, 0.012, TOWER_FACE * 1.55), mats.steelDark);
   carriage.position.set(TOWER_OX, carryY, 0);
   carriage.name = "pad-chopstick-carriage";
+  carriage.userData.restY = carryY;
   g.add(carriage);
   addChopstickCheeks(g, mats, carryY, half);
 }
@@ -1594,6 +1628,8 @@ function addChopsticks(g: THREE.Group, mats: TowerMats, carryY: number): void {
     stick.position.set(TOWER_OX - half, carryY + 0.005, side * 0.013);
     stick.rotation.y = side * 0.05;
     stick.rotation.z = -0.03;
+    stick.userData.restRotY = stick.rotation.y;
+    stick.userData.restRotZ = stick.rotation.z;
     g.add(stick);
   }
 }
