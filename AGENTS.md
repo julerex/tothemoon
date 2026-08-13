@@ -2,17 +2,20 @@
 
 Instructions for LLM agents working in this repository.
 
-## Git: commit and push when finished
+## Git: commit and push to main (no pull requests)
 
-**Always commit and push when you finish a unit of work** — after implementing a feature, fix, or other requested change that leaves a meaningful git diff. Do not leave completed work uncommitted unless the user explicitly says not to commit, or the change is only exploratory/scratch.
+**Always commit and push directly to `main` when you finish a unit of work** — after implementing a feature, fix, or other requested change that leaves a meaningful git diff. Do not leave completed work uncommitted unless the user explicitly says not to commit, or the change is only exploratory/scratch.
+
+**Do not open a pull request.** Do not create a feature branch, draft PR, or review request unless the user explicitly asks for one. Land the change on `main` and push it.
 
 When committing and pushing:
 
-1. Follow the usual safety rules: never update git config; never force-push to `main`/`master`; never skip hooks; never push secrets.
-2. Use a clear commit message (why the change exists, complete sentences).
-3. Prefer a single logical commit per finished task; push to the current branch’s remote (`origin HEAD` is fine when tracking is set).
-4. If the working tree is clean (nothing to commit), say so briefly and do not create an empty commit.
-5. After push, mention the commit hash (and that it was pushed) in the final reply.
+1. Work on `main`. If you are on another branch, check out `main` and bring it up to date before committing.
+2. Follow the usual safety rules: never update git config; never force-push; never skip hooks; never push secrets.
+3. Use a clear commit message (why the change exists, complete sentences).
+4. Prefer a single logical commit per finished task; push to `origin main` (`git push origin HEAD:main` or `git push origin main`).
+5. If the working tree is clean (nothing to commit), say so briefly and do not create an empty commit.
+6. After push, mention the commit hash (and that it was pushed to `main`) in the final reply. Do not open or update a pull request.
 
 ## Project notes
 
