@@ -11,6 +11,14 @@ import {
   solarSystemExclusionSpheres,
   SURFACE_CLEARANCE_KM,
 } from "./surfaceClamp";
+import {
+  isHardLockedMount,
+  isMountFocus,
+  mountLockAfterUserControl,
+  mountLockOnEnter,
+  type MountFocus,
+  type MountLock,
+} from "./mountLock";
 import { trenchCamWorldPose } from "./trenchCam";
 
 /**
@@ -18,9 +26,9 @@ import { trenchCamWorldPose } from "./trenchCam";
  * `"free"` is internal (no subject co-motion); not shown in the UI.
  * Pan / orbit / zoom keep the current focus and ride along with it, preserving
  * any look-target offset from the subject center.
- * `"fin"` is a locked mount on the Starship forward fin (aft-looking).
- * `"gridfin"` is a locked mount on a Super Heavy top grid fin (aft-looking).
- * `"trench"` is a locked under-pad / flame-trench angle on the booster engines.
+ * `"fin"` / `"gridfin"` / `"trench"` start as locked mounts (onboard / webcast).
+ * The first mouse or orbit/pan/zoom key leaves the lock and tracks the look-at
+ * like other focuses, so Flight 13 and the lunar mission share the same controls.
  */
 export type CameraMode =
   | "free"
@@ -144,6 +152,11 @@ export class CameraDirector {
   private distEaseU = 1;
   private distEaseFrom = 0;
   private distEaseTo = 0;
+  /**
+   * Onboard / webcast mounts reseat every frame while `"hard"`.
+   * First mouse or orbit/pan/zoom key switches to `"orbit"` tracking.
+   */
+  private mountLock: MountLock = "orbit";
   /** Fired when the user starts mouse orbit / pan / zoom on the canvas. */
   private onUserControl: (() => void) | null = null;
 
@@ -174,6 +187,7 @@ export class CameraDirector {
     this.syncOrbitControlsUp();
     this.controls.addEventListener("start", () => {
       this.cancelDistanceEase();
+      this.unlockMount();
       this.onUserControl?.();
     });
   }
@@ -398,7 +412,7 @@ export class CameraDirector {
       this.enterFreeFocus();
       return true;
     }
-    if (mode === "fin" || mode === "gridfin" || mode === "trench") {
+    if (isMountFocus(mode)) {
       this.enterLockedMount(mode);
       return true;
     }
@@ -412,14 +426,13 @@ export class CameraDirector {
     this.applyClipPlanes();
   }
 
-  private enterLockedMount(mode: "fin" | "gridfin" | "trench"): void {
+  private enterLockedMount(mode: MountFocus): void {
     this.focus = mode;
+    this.mountLock = mountLockOnEnter();
     this.trackAnchorValid = false;
-    this.controls.enabled = false;
+    this.controls.enabled = true;
     this.applyClipPlanes();
-    if (mode === "fin") this.applyFinCam();
-    else if (mode === "gridfin") this.applyGridFinCam();
-    else this.applyTrenchCam();
+    this.applyLockedMountPose();
   }
 
   private clampedFocusDistance(): number {
@@ -523,6 +536,7 @@ export class CameraDirector {
     else if (key === "f") this.orbitF = down;
     else if (key === "c") this.orbitC = down;
     else this.orbitV = down;
+    if (down) this.unlockMount();
     return this.focus;
   }
 
@@ -535,6 +549,7 @@ export class CameraDirector {
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
     else this.panD = down;
+    if (down) this.unlockMount();
     return this.focus;
   }
 
@@ -542,6 +557,7 @@ export class CameraDirector {
   setZoomKey(key: "z" | "x", down: boolean): CameraMode {
     if (key === "z") this.zoomZ = down;
     else this.zoomX = down;
+    if (down) this.unlockMount();
     return this.focus;
   }
 
@@ -572,7 +588,8 @@ export class CameraDirector {
 
   /**
    * Push the camera outside Sun / Earth / Moon meshes. Call after any free
-   * orbit, pan, zoom, or track step. Fin mounts stay on the craft and skip this.
+   * orbit, pan, zoom, or track step. Hard-locked mounts skip this (they reseat
+   * on the craft / pad); unlocked mounts clamp like other focuses.
    */
   private clampOutsideBodies(): void {
     this.surfaceClampPos.copy(this.camera.position);
@@ -596,7 +613,8 @@ export class CameraDirector {
   }
 
   private computeTarget(mode: CameraMode, outTarget: THREE.Vector3): void {
-    if (mode === "free" || mode === "fin" || mode === "gridfin") return;
+    if (mode === "free") return;
+    if (isMountFocus(mode)) { this.copyMountLook(mode, outTarget); return; }
     if (mode === "chase") { this.chaseTarget(outTarget); return; }
     if (mode === "starbase") { this.starbaseTarget(outTarget); return; }
     this.bodyTarget(mode, outTarget);
@@ -605,6 +623,54 @@ export class CameraDirector {
   private starbaseTarget(outTarget: THREE.Vector3): void {
     const pad = starbasePadState(this.simTime, this.epoch);
     outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
+  }
+
+  /** Look-at for an unlocked mount so tracking co-moves with pad / craft. */
+  private copyMountLook(mode: MountFocus, out: THREE.Vector3): boolean {
+    if (mode === "fin") return this.copyFinLook(out);
+    if (mode === "gridfin") return this.copyGridFinLook(out);
+    return this.copyTrenchLook(out);
+  }
+
+  private copyFinLook(out: THREE.Vector3): boolean {
+    const look = this.craft?.getObjectByName("fin-cam-look");
+    if (!this.craft || !look) return false;
+    this.craft.updateMatrixWorld(true);
+    look.getWorldPosition(out);
+    return true;
+  }
+
+  private copyGridFinLook(out: THREE.Vector3): boolean {
+    const host = this.resolveGridFinHost();
+    const look = host?.getObjectByName("grid-fin-cam-look");
+    if (!host || !look) return false;
+    this.craft?.updateMatrixWorld(true);
+    this.detachedBooster?.updateMatrixWorld(true);
+    look.getWorldPosition(out);
+    return true;
+  }
+
+  private copyTrenchLook(out: THREE.Vector3): boolean {
+    if (this.copyTrenchLookFromPad(out)) return true;
+    return this.copyTrenchLookFromEnu(out);
+  }
+
+  private copyTrenchLookFromPad(out: THREE.Vector3): boolean {
+    const look = this.pad?.getObjectByName("trench-cam-look");
+    if (!this.pad || !look) return false;
+    this.pad.updateMatrixWorld(true);
+    look.getWorldPosition(out);
+    return true;
+  }
+
+  private copyTrenchLookFromEnu(out: THREE.Vector3): boolean {
+    const pad = starbasePadState(this.simTime, this.epoch);
+    this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
+    this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
+    this.buildTrenchNorth();
+    const pose = trenchCamWorldPose(pad.pos, this.padEast, this.padUp, this.tmp);
+    out.set(pose.look.x, pose.look.y, pose.look.z);
+    return true;
   }
 
   private bodyTarget(mode: CameraMode, outTarget: THREE.Vector3): void {
@@ -818,12 +884,7 @@ export class CameraDirector {
   }
 
   private isNonTrackingFocus(): boolean {
-    return (
-      this.focus === "free" ||
-      this.focus === "fin" ||
-      this.focus === "gridfin" ||
-      this.focus === "trench"
-    );
+    return this.focus === "free" || isHardLockedMount(this.focus, this.mountLock);
   }
 
   private applyTrackDelta(): void {
@@ -989,15 +1050,63 @@ export class CameraDirector {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
     this.craftVel.copy(craftVel);
-    if (this.updateLockedMount()) return;
+    if (this.holdHardLockMount()) return;
     this.updateFreeCamera(dt);
   }
 
-  private updateLockedMount(): boolean {
-    if (this.focus === "fin") { this.applyFinCam(); return true; }
-    if (this.focus === "gridfin") { this.applyGridFinCam(); return true; }
-    if (this.focus === "trench") { this.applyTrenchCam(); return true; }
-    return false;
+  /** Reseat a hard-locked mount, or unlock if orbit/pan/zoom keys are held. */
+  private holdHardLockMount(): boolean {
+    if (!isHardLockedMount(this.focus, this.mountLock)) return false;
+    if (this.hasCameraHold()) {
+      this.unlockMount();
+      return false;
+    }
+    this.applyLockedMountPose();
+    return true;
+  }
+
+  private applyLockedMountPose(): void {
+    if (this.focus === "fin") { this.applyFinCam(); return; }
+    if (this.focus === "gridfin") { this.applyGridFinCam(); return; }
+    if (this.focus === "trench") this.applyTrenchCam();
+  }
+
+  /**
+   * Leave a hard lock: keep the current view as a sticky offset around the
+   * mount look-at so WASD / QERF / mouse match Starbase / chase.
+   */
+  private unlockMount(): void {
+    if (!isHardLockedMount(this.focus, this.mountLock)) return;
+    this.mountLock = mountLockAfterUserControl(this.mountLock);
+    this.seedMountTrackAnchor();
+  }
+
+  private seedMountTrackAnchor(): void {
+    if (!this.trySeedMountLook()) this.desiredTarget.copy(this.controls.target);
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
+  }
+
+  private trySeedMountLook(): boolean {
+    return isMountFocus(this.focus) &&
+      this.copyMountLook(this.focus, this.desiredTarget);
+  }
+
+  private hasCameraHold(): boolean {
+    return this.orbitHeld() || this.panHeld() || this.zoomHeld();
+  }
+
+  private orbitHeld(): boolean {
+    return this.orbitQ || this.orbitE || this.orbitR || this.orbitF ||
+      this.orbitC || this.orbitV;
+  }
+
+  private panHeld(): boolean {
+    return this.panW || this.panA || this.panS || this.panD;
+  }
+
+  private zoomHeld(): boolean {
+    return this.zoomZ || this.zoomX;
   }
 
   private updateFreeCamera(dt: number): void {
