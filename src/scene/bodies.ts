@@ -11,7 +11,6 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthSpinAngle } from "../physics/earthFrame";
 import {
-  makeEarthCloudTexture,
   makeEarthNightLightsTexture,
   makeEarthRoughnessMap,
   makeEarthTexture,
@@ -30,7 +29,6 @@ import { createNameLabel, markZoomLabel } from "./zoomLabels";
 
 export type Bodies = {
   earth: THREE.Mesh;
-  earthClouds: THREE.Mesh;
   moon: THREE.Mesh;
   /** Orientation node: axial tilt + tidal lock (child of moonGroup). */
   moonAxis: THREE.Group;
@@ -290,27 +288,6 @@ function makeEarthMaterial(
   return mat;
 }
 
-/** Cloud deck material (transparent, no depth write). */
-function makeCloudMaterial(cloudMap: THREE.CanvasTexture): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
-    map: cloudMap,
-    transparent: true,
-    opacity: 0.72,
-    depthWrite: false,
-    roughness: 0.92,
-    metalness: 0,
-  });
-}
-
-/** Cloud deck mesh (slightly above surface). */
-function makeEarthClouds(texSize: number): THREE.Mesh {
-  const cloudMap = canvasMap(makeEarthCloudTexture(texSize), 4);
-  return new THREE.Mesh(
-    new THREE.SphereGeometry(R_EARTH * 1.008, 64, 48),
-    makeCloudMaterial(cloudMap),
-  );
-}
-
 /** Earth surface sphere mesh. */
 function makeEarthMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
   return new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 96, 64), mat);
@@ -380,37 +357,29 @@ function loadEarthPhotoAlbedo(earth: THREE.Mesh): void {
   );
 }
 
-/** Attach clouds + atmosphere shells + polar axis visual. */
-function addEarthDecor(
-  earthAxis: THREE.Group,
-  texSize: number,
-): { earthClouds: THREE.Mesh; earthAtmo: EarthAtmosphere } {
-  const earthClouds = makeEarthClouds(texSize);
-  earthAxis.add(earthClouds);
+/** Attach atmosphere shells + polar axis visual. */
+function addEarthDecor(earthAxis: THREE.Group): EarthAtmosphere {
   const earthAtmo = createEarthAtmosphere();
   earthAxis.add(earthAtmo.group);
   earthAxis.add(createEarthAxisVisual());
-  return { earthClouds, earthAtmo };
+  return earthAtmo;
 }
 
-/** Populate earthAxis with globe, clouds, atmo, axis visual. */
+/** Populate earthAxis with globe, atmo, axis visual. */
 function populateEarthAxis(earthAxis: THREE.Group): {
   earth: THREE.Mesh;
-  earthClouds: THREE.Mesh;
   earthAtmo: EarthAtmosphere;
 } {
   const texSize = 1536;
   const earth = makeTexturedEarth(texSize);
   earthAxis.add(earth);
-  const decor = addEarthDecor(earthAxis, texSize);
-  return { earth, ...decor };
+  return { earth, earthAtmo: addEarthDecor(earthAxis) };
 }
 
-/** Build Earth mesh + clouds + atmo + axis under earthGroup. */
+/** Build Earth mesh + atmo + axis under earthGroup. */
 function buildEarthBundle(): {
   earthGroup: THREE.Group;
   earth: THREE.Mesh;
-  earthClouds: THREE.Mesh;
   earthAtmo: EarthAtmosphere;
 } {
   const earthGroup = new THREE.Group();
@@ -532,11 +501,10 @@ function earthBodyFields(
   earthLocator: THREE.Sprite,
 ): Pick<
   Bodies,
-  "earth" | "earthClouds" | "earthGroup" | "earthAtmo" | "earthLocator"
+  "earth" | "earthGroup" | "earthAtmo" | "earthLocator"
 > {
   return {
     earth: earth.earth,
-    earthClouds: earth.earthClouds,
     earthGroup: earth.earthGroup,
     earthAtmo: earth.earthAtmo,
     earthLocator,
@@ -696,10 +664,9 @@ function placeBodyGroups(
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 }
 
-/** Apply Earth spin + cloud drift. */
+/** Apply Earth spin. */
 function spinEarthSurface(bodies: Bodies, spin: number): void {
   bodies.earth.rotation.y = spin;
-  bodies.earthClouds.rotation.y = spin * 1.03 + 0.35;
 }
 
 export function updateBodies(

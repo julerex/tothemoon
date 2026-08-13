@@ -20,7 +20,7 @@ Related:
 
 | Area | In place |
 |------|----------|
-| **Bodies** | NASA Blue Marble albedo (procedural fallback) + canvas clouds/atmo limb + Moon (albedo/roughness); true radii |
+| **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + Moon (albedo/roughness); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
 | **Pad** | OLP-2-inspired hardstand, tanks, Mechazilla, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
@@ -269,7 +269,7 @@ Photo plate instead of procedural coastline glints:
 
 - **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north, draped onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
 - Procedural scrub + Earth-cam landmark rings remain the fallback if the JPEG is missing.
-- **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights + clouds stay procedural).
+- **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights stay procedural).
 
 **Files:** `starbasePlate.ts` (+ tests), `earthTheater.ts`, `bodies.ts`, `public/textures/{earth_bluemarble_4k,starbase_surrounds}.jpg`.
 
