@@ -81,6 +81,7 @@ function applyMainPlayButton(dom: HudDom, m: MainTelemetryLabels): void {
 
 function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.phaseEl.textContent = m.phase;
+  if (dom.camModeEl) dom.camModeEl.textContent = m.cameraMode;
   if (dom.missionClockEl) dom.missionClockEl.textContent = m.missionClock;
   if (dom.missionClockRateEl) {
     dom.missionClockRateEl.textContent = formatRate(m.playbackSpeed);

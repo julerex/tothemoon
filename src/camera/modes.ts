@@ -20,6 +20,7 @@ import {
   type MountLock,
 } from "./mountLock";
 import { trenchCamWorldPose } from "./trenchCam";
+import { yawAxisForMode } from "./yawAxis";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -398,6 +399,7 @@ export class CameraDirector {
     this.placeCameraAlongView(
       this.resolveFocusDistance(mode, frame, frameScale, prevDist),
     );
+    this.snapYawUpIfNeeded();
     this.syncOrbitControlsUp();
     this.controls.update();
     this.clampOutsideBodies();
@@ -522,7 +524,7 @@ export class CameraDirector {
 
   /**
    * Orbit hold keys around the focus:
-   * - Q/E — yaw about camera.up (view-relative; elevation vs local up fixed)
+   * - Q/E — yaw about the mode axis (ecliptic / Earth pole / pad up; else camera.up)
    * - R/F — pitch about camera-right, tumbling up (allows upside-down)
    * - C/V — roll about the view axis (camera → focus), tumbling up
    */
@@ -921,13 +923,37 @@ export class CameraDirector {
   }
 
   private applyOrbitYaw(camYaw: number, dt: number): void {
-    this.tmp.copy(this.camera.up);
+    if (!yawAxisForMode(this.focus, this.simTime, this.tmp, this.epoch)) {
+      this.tmp.copy(this.camera.up);
+    }
     if (this.tmp.lengthSq() <= 1e-12) return;
     this.tmp.normalize();
     this.orbitQuat.setFromAxisAngle(this.tmp, camYaw * ORBIT_RAD_PER_S * dt);
     this.orbitOffset.applyQuaternion(this.orbitQuat);
     this.camera.up.applyQuaternion(this.orbitQuat).normalize();
     this.syncOrbitControlsUp();
+  }
+
+  /**
+   * Level the horizon to the mode yaw axis on sun / earth / starbase focus
+   * so a switch from pad-up does not leave a tilted view. Projects off the
+   * look axis when the two are nearly parallel so lookAt does not flip.
+   */
+  private snapYawUpIfNeeded(): void {
+    if (!yawAxisForMode(this.focus, this.simTime, this.tmp, this.epoch)) return;
+    if (this.tmp.lengthSq() <= 1e-12) return;
+    this.tmp.normalize();
+    this.chaseLook.copy(this.controls.target).sub(this.camera.position);
+    if (this.chaseLook.lengthSq() > 1e-12) {
+      this.chaseLook.normalize();
+      if (Math.abs(this.tmp.dot(this.chaseLook)) > 0.999) {
+        this.projectVectorOntoLookPerp(this.tmp, this.tmp);
+        if (this.tmp.lengthSq() <= 1e-12) return;
+        this.tmp.normalize();
+      }
+    }
+    this.camera.up.copy(this.tmp);
+    this.camera.lookAt(this.controls.target);
   }
 
   private applyOrbitPitch(pitch: number, dt: number): void {
