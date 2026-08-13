@@ -267,7 +267,7 @@ Longest scrub stretch; corridor already exists — add punctuation, not new phys
 
 Photo plate instead of procedural coastline glints:
 
-- **Sentinel-2 cloudless** disc (~8 km radius, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north. Soft radial alpha vs the globe.
+- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north, draped onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
 - Procedural scrub + Earth-cam landmark rings remain the fallback if the JPEG is missing.
 - **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights + clouds stay procedural).
 
@@ -311,3 +311,4 @@ Multiplies terminal FX; alone does not fix thin discs.
 | 2026-08-11 | V5 shipped: pad/craft shadows, mild bloom + exposure, star fade, entry brownout |
 | 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V12 finale cams |
 | 2026-08-12 | V11 shipped: NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate |
+| 2026-08-13 | Starbase plate: wider ~80 km square (full JPEG, not a circular crop) |

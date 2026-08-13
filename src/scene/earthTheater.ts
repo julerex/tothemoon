@@ -10,9 +10,11 @@ import {
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
 import {
+  STARBASE_PLATE_HALF_KM,
   STARBASE_PLATE_INNER_KM,
-  STARBASE_PLATE_OUTER_KM,
+  STARBASE_PLATE_SEGS,
   STARBASE_PLATE_Y_KM,
+  drapePlatePoint,
   starbasePlateUv,
   starbasePlateYawRad,
 } from "./starbasePlate";
@@ -70,9 +72,9 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  *
  * - **True-scale** OLM + Mechazilla + OLP-2 hardstand / tank farm / GSE for
  *   Ship / pad / trench cams (satellite footprint: tower SW, tanks E/NE,
- *   warehouse + Boca Chica Blvd north). Sentinel-2 surrounds plate (~8 km)
- *   replaces tan scrub when `starbase_surrounds.jpg` loads; procedural scrub
- *   remains the fallback.
+ *   warehouse + Boca Chica Blvd north). Sentinel-2 surrounds plate (~80 km
+ *   square) replaces tan scrub when `starbase_surrounds.jpg` loads; procedural
+ *   scrub remains the fallback.
  * - **Landmark rings** for Earth cam (thin annuli — never a solid disc that
  *   would z-fight the stack). Hidden once the photo plate is on.
  *
@@ -94,7 +96,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * | `pad-flood-*` / `pad-fill` / `pad-plume-light` | Lighting |
  * | `pad-ground-bloom` | Tight under-plume bloom |
  * | `pad-beacon` | Tower peak (wall-clock pulse) |
- * | `pad-satellite-plate` | Sentinel-2 surrounds disc (hidden until JPEG loads) |
+ * | `pad-satellite-plate` | Sentinel-2 surrounds square (hidden until JPEG loads) |
  * | `mechazilla` / `pad-chopstick-*` / `pad-qd-arm` / `pad-olm` | Tower stack |
  * | `trench-cam` / `trench-cam-look` | Flame-trench camera mount (under OLM) |
  *
@@ -391,14 +393,22 @@ const STARBASE_PLATE_HIDE = [
   "pad-scrub-terrain",
 ] as const;
 
-/** Radial alpha: opaque through most of the disc, fade at the outer rim. */
+/** Square-rim alpha: full JPEG including corners, short fade at the edge. */
 function paintPlateAlpha(ctx: CanvasRenderingContext2D, size: number): void {
-  const cx = size * 0.5;
-  const g = ctx.createRadialGradient(cx, cx, cx * 0.78, cx, cx, cx);
-  g.addColorStop(0, "#ffffff");
-  g.addColorStop(1, "#000000");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
+  const img = ctx.createImageData(size, size);
+  const fade = 0.08;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const nx = Math.abs(x / (size - 1) - 0.5) * 2;
+      const nz = Math.abs(y / (size - 1) - 0.5) * 2;
+      const rim = Math.max(nx, nz);
+      const a = rim <= 1 - fade ? 255 : Math.round(255 * (1 - rim) / fade);
+      const i = (y * size + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = a;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
 }
 
 function makePlateAlphaTexture(): THREE.CanvasTexture {
@@ -407,32 +417,64 @@ function makePlateAlphaTexture(): THREE.CanvasTexture {
   return map;
 }
 
-/** Planar UVs on an XZ ring so the north-up JPEG maps +X east / +Z north. */
-function applyStarbasePlateUvs(geo: THREE.BufferGeometry, outerKm: number): void {
+/** Planar UVs on an XZ square so the north-up JPEG maps +X east / +Z north. */
+function applyStarbasePlateUvs(geo: THREE.BufferGeometry, halfKm: number): void {
   const pos = geo.getAttribute("position");
   const uv = geo.getAttribute("uv");
   if (!pos || !uv) return;
   for (let i = 0; i < pos.count; i++) {
-    const [u, v] = starbasePlateUv(pos.getX(i), pos.getZ(i), outerKm);
+    const [u, v] = starbasePlateUv(pos.getX(i), pos.getZ(i), halfKm);
     uv.setXY(i, u, v);
   }
   uv.needsUpdate = true;
 }
 
-function makeStarbasePlateGeometry(): THREE.RingGeometry {
-  const geo = new THREE.RingGeometry(
-    STARBASE_PLATE_INNER_KM,
-    STARBASE_PLATE_OUTER_KM,
-    96,
-    1,
+/** Sink tangent-plane verts onto the Earth sphere (pad-local, km). */
+function drapeStarbasePlate(
+  geo: THREE.BufferGeometry,
+  radiusKm: number,
+): void {
+  const pos = geo.getAttribute("position");
+  if (!pos) return;
+  for (let i = 0; i < pos.count; i++) {
+    const p = drapePlatePoint(pos.getX(i), pos.getZ(i), radiusKm);
+    pos.setXYZ(i, p.x, p.y, p.z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
+function makeStarbasePlateGeometry(): THREE.PlaneGeometry {
+  const half = STARBASE_PLATE_HALF_KM;
+  const geo = new THREE.PlaneGeometry(
+    half * 2,
+    half * 2,
+    STARBASE_PLATE_SEGS,
+    STARBASE_PLATE_SEGS,
   );
   geo.rotateX(-Math.PI / 2);
-  applyStarbasePlateUvs(geo, STARBASE_PLATE_OUTER_KM);
+  applyStarbasePlateUvs(geo, half);
+  drapeStarbasePlate(geo, EARTH_SURFACE_RADIUS_KM);
   return geo;
 }
 
+function punchPlateOlmHole(mat: THREE.MeshStandardMaterial): void {
+  const half = STARBASE_PLATE_HALF_KM.toFixed(4);
+  const inner2 = (STARBASE_PLATE_INNER_KM * STARBASE_PLATE_INNER_KM).toFixed(6);
+  mat.customProgramCacheKey = () => "starbase-plate-olm-hole";
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <map_fragment>",
+      `#include <map_fragment>
+       vec2 plateKm = (vMapUv - 0.5) * (2.0 * ${half});
+       if (dot(plateKm, plateKm) < ${inner2}) discard;
+      `,
+    );
+  };
+}
+
 function makeStarbasePlateMaterial(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     metalness: 0.04,
     roughness: 0.95,
@@ -441,6 +483,8 @@ function makeStarbasePlateMaterial(): THREE.MeshStandardMaterial {
     alphaMap: makePlateAlphaTexture(),
     ...GROUND_OFFSET,
   });
+  punchPlateOlmHole(mat);
+  return mat;
 }
 
 function hideProceduralPadGround(pad: THREE.Group): void {
@@ -484,8 +528,9 @@ function loadStarbasePlateTexture(pad: THREE.Group, plate: THREE.Mesh): void {
 }
 
 /**
- * North-up Sentinel-2 disc around the pad. Hidden until the JPEG loads so
- * procedural scrub / landmark rings remain the fallback.
+ * North-up Sentinel-2 square around the pad (full JPEG, draped on the globe).
+ * Hidden until the JPEG loads so procedural scrub / landmark rings remain
+ * the fallback.
  */
 function addStarbaseSatellitePlate(pad: THREE.Group): void {
   const plate = new THREE.Mesh(makeStarbasePlateGeometry(), makeStarbasePlateMaterial());

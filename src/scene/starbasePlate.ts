@@ -1,25 +1,33 @@
 /**
- * Starbase satellite ground plate — geographic yaw + planar UVs.
+ * Starbase satellite ground plate — geographic yaw, planar UVs, sphere drape.
  *
- * The photo is a north-up square (~16 km) centered on the pad. The 3D pad
- * group only aligns +Y to local up (`setFromUnitVectors`), so this module
- * yaws **the plate only** until plate +Z = geographic north. Scene unit = 1 km.
+ * The photo is a north-up square centered on the pad (full JPEG, not a circular
+ * crop). The 3D pad group only aligns +Y to local up (`setFromUnitVectors`), so
+ * this module yaws **the plate only** until plate +Z = geographic north.
+ * Vertices are draped onto the Earth sphere so a wide plate stays on the globe.
+ * Scene unit = 1 km.
  */
 
-import { STARBASE_LAT, STARBASE_LON } from "../physics/constants";
+import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
 
 /** Inner hole so the photo’s real OLM is not drawn under Mechazilla (km). */
 export const STARBASE_PLATE_INNER_KM = 0.12;
 
-/** Outer radius — Gulf + South Bay around the pad (km). */
-export const STARBASE_PLATE_OUTER_KM = 8;
+/**
+ * Half-extent of the square plate (km). ±this in east and north; the JPEG
+ * covers the full square (Gulf, South Bay, Brownsville, South Padre Island).
+ */
+export const STARBASE_PLATE_HALF_KM = 40;
 
 /** Pad-local Y of the plate, slightly below hardstand slabs (km). */
 export const STARBASE_PLATE_Y_KM = -0.008;
 
+/** Grid density for draping the square onto the sphere. */
+export const STARBASE_PLATE_SEGS = 48;
+
 /**
- * Planar UV for a north-up square photo covering ±`outerKm`.
+ * Planar UV for a north-up square photo covering ±`halfKm`.
  * Plate local: +X east, +Z north (after {@link starbasePlateYawRad}).
  *
  * @returns `[u, v]` in 0…1 (v=1 is north / top of the JPEG)
@@ -27,10 +35,47 @@ export const STARBASE_PLATE_Y_KM = -0.008;
 export function starbasePlateUv(
   xKm: number,
   zKm: number,
-  outerKm = STARBASE_PLATE_OUTER_KM,
+  halfKm = STARBASE_PLATE_HALF_KM,
 ): [number, number] {
-  const s = 1 / (2 * outerKm);
+  const s = 1 / (2 * halfKm);
   return [0.5 + xKm * s, 0.5 + zKm * s];
+}
+
+/**
+ * Drop a tangent-plane point `(x, 0, z)` onto the Earth sphere of `radiusKm`.
+ * Earth center is pad-local `(0, −R, 0)`. Center stays at y≈0; edges sink.
+ */
+export function drapePlatePoint(
+  xKm: number,
+  zKm: number,
+  radiusKm: number,
+): { x: number; y: number; z: number } {
+  const len = Math.hypot(xKm, radiusKm, zKm) || 1;
+  return {
+    x: (radiusKm * xKm) / len,
+    y: -radiusKm + (radiusKm * radiusKm) / len,
+    z: (radiusKm * zKm) / len,
+  };
+}
+
+/**
+ * WMS 1.1.1 EPSG:4326 bbox (degrees) for the km-square plate, tangent-plane
+ * east/north extents converted with mean-radius small-angle mapping.
+ */
+export function starbasePlateWmsBboxDeg(
+  halfKm = STARBASE_PLATE_HALF_KM,
+  lat = STARBASE_LAT,
+  lon = STARBASE_LON,
+  radiusKm = R_EARTH,
+): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
+  const dlat = halfKm / radiusKm;
+  const dlon = halfKm / (radiusKm * Math.cos(lat));
+  return {
+    minLon: (lon - dlon) * (180 / Math.PI),
+    maxLon: (lon + dlon) * (180 / Math.PI),
+    minLat: (lat - dlat) * (180 / Math.PI),
+    maxLat: (lat + dlat) * (180 / Math.PI),
+  };
 }
 
 /**

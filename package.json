@@ -9,6 +9,7 @@
     "precompute:moon": "tsx scripts/precompute-trajectory.ts",
     "precompute:flight13": "tsx scripts/precompute-flight13.ts",
     "horizons": "tsx scripts/fetch-horizons-epoch.ts",
+    "starbase-surrounds": "tsx scripts/fetch-starbase-surrounds.ts",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts --max-warnings 0",
