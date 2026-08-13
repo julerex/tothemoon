@@ -117,7 +117,7 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 ### 9. Booster recovery silhouette — done (theater)
 
-Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Optional follow-ups: dim free-flyer locator, chopsticks close animation.
+Kinematic return to launch site path after stage-out: flip → boostback plume → coast/entry → landing burn → chopsticks catch at Starbase (`boosterRecovery.ts` + `StagingFx`). Non-authoritative; scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate instead. Optional follow-up: dim free-flyer locator.
 
 ### 10. Epoch & lighting polish — **done**
 
