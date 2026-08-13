@@ -1,8 +1,14 @@
 /**
- * Indian Ocean splashdown site + water spray theater FX for Flight 13.
+ * Indian Ocean splashdown site + multi-layer water spray theater FX for Flight 13.
  *
  * Earth-fixed site (lat/lon → mesh-local on the Earth body) so the beacon
  * co-rotates. Spray expands near terminal splash — scrub-deterministic.
+ *
+ * Layers follow the pad-deluge tier pattern: inner spray, outer mist, brief
+ * vertical sheet. Theater-grade, not CFD.
+ *
+ * @see terminalFx.ts — pure strength / pose helpers
+ * @see docs/VISUAL_REALISM.md — V6 terminal FX
  */
 
 import * as THREE from "three";
@@ -13,6 +19,11 @@ import {
 } from "../physics/flight13Mission";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
 import { createNameLabel } from "./zoomLabels";
+import {
+  deriveSplashSpray,
+  type ContactCuePose,
+  type TerminalLayerPose,
+} from "./terminalFx";
 
 export const SPLASH_SITE_LABEL = "Indian Ocean";
 export const SPLASH_SITE_DETAIL = "Theater splash · west of Australia";
@@ -56,11 +67,53 @@ function makeSiteLabel(): THREE.Object3D {
   return siteLabel;
 }
 
-function makeSpray(mat: THREE.MeshBasicMaterial): THREE.Mesh {
+function makeSprayDisc(mat: THREE.MeshBasicMaterial, name: string): THREE.Mesh {
   const spray = new THREE.Mesh(new THREE.CircleGeometry(1, 48), mat);
+  spray.name = name;
   spray.rotation.x = -Math.PI / 2;
   spray.visible = false;
   return spray;
+}
+
+function makeSheetGroup(color: number): { group: THREE.Group; mats: THREE.MeshBasicMaterial[] } {
+  const group = new THREE.Group();
+  group.name = "splash-spray-sheet";
+  const mats: THREE.MeshBasicMaterial[] = [];
+  for (let i = 0; i < 3; i++) {
+    const mat = makeBasicMat(color, 0, true);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+    plane.rotation.y = (i * Math.PI) / 3;
+    plane.position.y = 0.5;
+    group.add(plane);
+    mats.push(mat);
+  }
+  group.visible = false;
+  return { group, mats };
+}
+
+function applyDiscPose(mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, pose: TerminalLayerPose): void {
+  mesh.visible = pose.visible;
+  if (!pose.visible) return;
+  mesh.scale.setScalar(pose.expand);
+  mat.opacity = pose.opacity;
+}
+
+function applySheetPose(
+  group: THREE.Group,
+  mats: THREE.MeshBasicMaterial[],
+  pose: TerminalLayerPose,
+): void {
+  group.visible = pose.visible;
+  if (!pose.visible) return;
+  group.scale.set(pose.expand, pose.height, pose.expand);
+  for (const mat of mats) mat.opacity = pose.opacity;
+}
+
+function applyContactPose(mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, pose: ContactCuePose): void {
+  mesh.visible = pose.visible;
+  if (!pose.visible) return;
+  mesh.scale.setScalar(pose.expand);
+  mat.opacity = pose.opacity;
 }
 
 function placeSiteOnEarth(site: THREE.Group): void {
@@ -71,46 +124,8 @@ function placeSiteOnEarth(site: THREE.Group): void {
   site.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), radial);
 }
 
-function splashdownSpray(missionT: number, landT: number): { expand: number; opacity: number } {
-  const age = Math.max(0, missionT - landT);
-  const u = Math.min(1, age / 80);
-  return { expand: 12 + u * 50, opacity: 0.55 * Math.exp(-age / 150) };
-}
-
-function descentSpray(altEarth: number): { expand: number; opacity: number } {
-  return {
-    expand: THREE.MathUtils.clamp(6 + (20 - altEarth) * 1.2, 4, 30),
-    opacity: THREE.MathUtils.clamp(0.12 + (15 - altEarth) * 0.025, 0.08, 0.5),
-  };
-}
-
-function sprayExpandOpacity(
-  missionT: number,
-  landT: number,
-  phase: string,
-  altEarth: number,
-): { expand: number; opacity: number } {
-  if (phase === "splashdown" || missionT >= landT) return splashdownSpray(missionT, landT);
-  if (phase === "descent") return descentSpray(altEarth);
-  return { expand: 5, opacity: 0.1 };
-}
-
-function shouldShowSite(phase: string, missionT: number, landT: number): boolean {
-  return (
-    phase === "entry" || phase === "descent" || phase === "splashdown" ||
-    missionT >= landT - 2400
-  );
-}
-
-function nearSplash(phase: string, altEarth: number): boolean {
-  return (
-    phase === "descent" || phase === "splashdown" ||
-    (phase === "entry" && altEarth < 25)
-  );
-}
-
 /**
- * Splashdown site beacon + spray ring, parented under the Earth mesh so it
+ * Splashdown site beacon + spray layers, parented under the Earth mesh so it
  * co-rotates with the ground track.
  */
 export class SplashFx {
@@ -118,8 +133,14 @@ export class SplashFx {
   private readonly site = new THREE.Group();
   private readonly beacon: THREE.Mesh;
   private readonly ring: THREE.Mesh;
-  private readonly spray: THREE.Mesh;
-  private readonly sprayMat: THREE.MeshBasicMaterial;
+  private readonly innerMat: THREE.MeshBasicMaterial;
+  private readonly outerMat: THREE.MeshBasicMaterial;
+  private readonly contactMat: THREE.MeshBasicMaterial;
+  private readonly inner: THREE.Mesh;
+  private readonly outer: THREE.Mesh;
+  private readonly contact: THREE.Mesh;
+  private readonly sheet: THREE.Group;
+  private readonly sheetMats: THREE.MeshBasicMaterial[];
   private landT = 0;
   private hasLand = false;
 
@@ -127,13 +148,30 @@ export class SplashFx {
     this.group.name = "splash-fx";
     this.ring = makeRingMesh();
     this.beacon = makeBeaconMesh();
-    this.sprayMat = makeBasicMat(0xc8eefc, 0, true);
-    this.spray = makeSpray(this.sprayMat);
+    this.innerMat = makeBasicMat(0xc8eefc, 0, true);
+    this.outerMat = makeBasicMat(0xa8d8f0, 0, true);
+    this.contactMat = makeBasicMat(0x0a2030, 0, true);
+    this.inner = makeSprayDisc(this.innerMat, "splash-spray-inner");
+    this.outer = makeSprayDisc(this.outerMat, "splash-spray-outer");
+    this.contact = makeSprayDisc(this.contactMat, "splash-spray-contact");
+    this.contact.position.y = 0.02;
+    const sheet = makeSheetGroup(0xe8f6ff);
+    this.sheet = sheet.group;
+    this.sheetMats = sheet.mats;
     this.assembleSite();
   }
 
   private assembleSite(): void {
-    this.site.add(this.ring, this.beacon, makeDiscMesh(), makeSiteLabel(), this.spray);
+    this.site.add(
+      this.ring,
+      this.beacon,
+      makeDiscMesh(),
+      makeSiteLabel(),
+      this.outer,
+      this.inner,
+      this.sheet,
+      this.contact,
+    );
     placeSiteOnEarth(this.site);
     this.group.add(this.site);
     this.site.visible = false;
@@ -153,15 +191,25 @@ export class SplashFx {
     (this.beacon.material as THREE.MeshBasicMaterial).opacity = dist < 800 ? pulse : 0.4;
   }
 
+  private hideSpray(): void {
+    this.inner.visible = false;
+    this.outer.visible = false;
+    this.sheet.visible = false;
+    this.contact.visible = false;
+  }
+
   private updateSpray(missionT: number, phase: string, altEarth: number): void {
-    if (!(nearSplash(phase, altEarth) && altEarth < 40)) {
-      this.spray.visible = false;
+    const derived = deriveSplashSpray({
+      missionT, landT: this.landT, phase, altEarth,
+    });
+    if (!derived.active) {
+      this.hideSpray();
       return;
     }
-    this.spray.visible = true;
-    const { expand, opacity } = sprayExpandOpacity(missionT, this.landT, phase, altEarth);
-    this.spray.scale.setScalar(expand);
-    this.sprayMat.opacity = opacity;
+    applyDiscPose(this.inner, this.innerMat, derived.inner);
+    applyDiscPose(this.outer, this.outerMat, derived.outer);
+    applySheetPose(this.sheet, this.sheetMats, derived.sheet);
+    applyContactPose(this.contact, this.contactMat, derived.contact);
   }
 
   update(
@@ -173,9 +221,11 @@ export class SplashFx {
       this.site.visible = false;
       return;
     }
-    const show = shouldShowSite(opts.phase, missionT, this.landT);
-    this.site.visible = show;
-    if (!show) return;
+    const derived = deriveSplashSpray({
+      missionT, landT: this.landT, phase: opts.phase, altEarth: opts.altEarth,
+    });
+    this.site.visible = derived.siteVisible;
+    if (!derived.siteVisible) return;
     this.pulseBeacon(craftPos);
     this.updateSpray(missionT, opts.phase, opts.altEarth);
   }
