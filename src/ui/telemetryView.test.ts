@@ -29,6 +29,7 @@ function baseTel(over: Partial<Telemetry> = {}): Telemetry {
     translunarInjectionDeltaV: 3.1,
     minMoonAlt: 200,
     focusDistance: 50,
+    cameraMode: "earth",
     altEarth: 40,
     altMoon: 200_000,
     distMoon: 380_000,
@@ -74,6 +75,7 @@ describe("buildTelemetryView", () => {
       skyLine: () => "sky-test",
     });
     assert.equal(v.main.phase, "Ascent");
+    assert.equal(v.main.cameraMode, "Earth");
     assert.equal(v.main.missionClock, "T+00:02:00");
     assert.equal(v.main.progress, "12%");
     assert.equal(v.main.playLabel, "Pause");
@@ -86,6 +88,19 @@ describe("buildTelemetryView", () => {
     assert.equal(v.metrics.sky, "sky-test");
     assert.match(v.metrics.playback, /10×/);
     assert.equal(v.metrics.forceCheckVisible, false);
+  });
+
+  it("maps cameraMode to the HUD Cam title", () => {
+    const sky = { skyLine: () => "sky-test" };
+    assert.equal(buildTelemetryView(baseTel(), sky).main.cameraMode, "Earth");
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "starbase" }), sky).main.cameraMode,
+      "Starbase",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "sun" }), sky).main.cameraMode,
+      "Sun",
+    );
   });
 
   it("builds complete card when missionComplete", () => {

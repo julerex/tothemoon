@@ -387,6 +387,7 @@ function hudPackMeta(ctx: F13Ctx) {
     stageT: ctx.cache.stageT,
     keplerRefMaxDevKm: ctx.cache.keplerRefMaxDevKm,
     focusDistance: ctx.director.getFocusDistance(),
+    cameraMode: ctx.director.getMode(),
     forceCompareLine: ctx.forceCompareLine,
   };
 }

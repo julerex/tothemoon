@@ -21,6 +21,7 @@ export type HudTransport = {
 
 export type HudTelStrip = {
   phaseEl: HTMLElement;
+  camModeEl: HTMLElement | null;
   missionClockEl: HTMLElement | null;
   missionClockRateEl: HTMLElement | null;
   newsTickerEl: HTMLElement | null;
@@ -153,6 +154,7 @@ function collectTransport(): HudTransport {
 function collectTelStripA(): Pick<
   HudTelStrip,
   | "phaseEl"
+  | "camModeEl"
   | "missionClockEl"
   | "missionClockRateEl"
   | "newsTickerEl"
@@ -165,6 +167,7 @@ function collectTelStripA(): Pick<
 > {
   return {
     phaseEl: el("#phase"),
+    camModeEl: q("#tel-cam-mode"),
     missionClockEl: q("#mission-clock-value"),
     missionClockRateEl: q("#mission-clock-rate"),
     newsTickerEl: q("#news-ticker"), newsTextEl: q("#news-ticker-text"),

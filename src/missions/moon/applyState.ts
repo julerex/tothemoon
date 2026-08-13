@@ -306,6 +306,7 @@ function hudPackMeta(ctx: MoonCtx) {
     minMoonAlt: ctx.cache.minMoonAlt, peakSpeedKmS: ctx.cache.peakSpeedKmS,
     stageT: ctx.cache.stageT, keplerRefMaxDevKm: ctx.cache.keplerRefMaxDevKm,
     focusDistance: ctx.director.getFocusDistance(),
+    cameraMode: ctx.director.getMode(),
   };
 }
 

@@ -5,6 +5,7 @@
  * optional formatter so tests stay free of Horizons / body geometry.
  */
 
+import type { CameraMode } from "../camera/modes";
 import {
   landingBeatCompleteSubtitle,
   type LandingBeatKind,
@@ -21,6 +22,7 @@ import {
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { formatSkyPhaseLine } from "../physics/skyPhase";
+import { CAMERA_LABELS } from "./hudCameraLabels";
 import {
   clamp01,
   formatAccelG,
@@ -84,6 +86,8 @@ export type Telemetry = {
   keplerRefMaxDevKm?: number;
   /** Camera distance to focus target (km) */
   focusDistance: number;
+  /** Active CameraDirector focus (HUD Cam row) */
+  cameraMode: CameraMode;
   /** Detailed metrics (M overlay) */
   altEarth: number;
   altMoon: number;
@@ -102,6 +106,7 @@ export type Telemetry = {
 /** Main chrome telemetry strip. */
 export type MainTelemetryLabels = Readonly<{
   phase: string;
+  cameraMode: string;
   missionClock: string;
   dateUtc: string;
   distance: string;
@@ -281,6 +286,7 @@ function buildMainLabels(
 function mainClockFields(tel: Telemetry) {
   return {
     phase: tel.phase,
+    cameraMode: CAMERA_LABELS[tel.cameraMode].title,
     missionClock: formatWebcastMissionTime(tel.t),
     dateUtc: tel.dateUtc,
     distance: formatDistance(tel.distanceToMoon),

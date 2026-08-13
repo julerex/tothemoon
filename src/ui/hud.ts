@@ -91,7 +91,7 @@ export type HudHandlers = {
    * Falls back to onCamera when omitted.
    */
   onCameraFrame?: (mode: CameraMode) => void;
-  /** Q/E ecliptic-azimuth orbit, R/F pitch, C/V view-axis roll (hold) */
+  /** Q/E yaw about the mode axis, R/F pitch, C/V view-axis roll (hold) */
   onOrbitKey: (
     key: "q" | "e" | "r" | "f" | "c" | "v",
     down: boolean,
