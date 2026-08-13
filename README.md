@@ -22,6 +22,7 @@ Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `
 - Heliocentric theater (Sun ≈ origin): **JPL Horizons DE441** samples for Earth/Moon over July 2027 (`npm run horizons`); analytic circular Earth + Keplerian Moon as fallback
 - Mission: **Starbase pad** → staged ascent → low Earth orbit dogleg → finite translunar injection → **n-body coast** → **LOI** → **LLO** → **powered descent** → south-pole land
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through translunar injection; empty tanks cut engines
+- **Flight 13 gulf booster** — Super Heavy recovery integrates on RK4 (Earth μ + J₂ + drag) with mass-coupled leftover booster prop for boostback / landing; chopsticks RTLS stays kinematic. Timing follows the public Flight 13 cadence (theater)
 - **Flight 13 splash** — natural surface intercept; snap only as a **sub-km radial floor** onto the co-rotating Earth surface (no 200 km lateral pull)
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread). Pack **v2** also stores `minMoonAlt`, peak inertial speed, stage-out time, and (when present) ballistic **perilune** / **B-plane miss** so the complete card never re-scans samples at load
 

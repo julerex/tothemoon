@@ -216,6 +216,44 @@ describe("gulf recovery profile", () => {
     assert.ok(dPad > 30, `should be offshore, pad dist ${dPad} km`);
   });
 
+  it("arrives near the gulf on the RK4 coast, not only via the contact snap", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const gate = sampleBoosterRecovery(
+      stage,
+      GULF_SCHEDULE.landingStartS,
+      kfs,
+      "gulf",
+    );
+    const t = stage.t + GULF_SCHEDULE.landingStartS;
+    const local = v3();
+    geodeticToMeshLocal(
+      GULF_LAND_LAT,
+      GULF_LAND_LON,
+      GULF_SCHEDULE.landAltKm,
+      local,
+    );
+    const siteRel = v3();
+    meshLocalToInertial(local, t, siteRel);
+    const b = bodyPos(t);
+    const dGulf = Math.hypot(
+      gate.pos.x - (b.earth.x + siteRel.x),
+      gate.pos.y - (b.earth.y + siteRel.y),
+      gate.pos.z - (b.earth.z + siteRel.z),
+    );
+    assert.ok(dGulf < 15, `landing-gate miss ${dGulf} km — boostback should set up the coast`);
+  });
+
+  it("books leftover booster prop on boostback and landing (mass-coupled)", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    assert.ok(kfs.length > 20, `dense RK4 cache, got ${kfs.length}`);
+    const p0 = kfs[0]!.propKg;
+    const pEnd = kfs[kfs.length - 1]!.propKg;
+    assert.ok(p0 != null && pEnd != null);
+    assert.ok(p0 > pEnd + 1_000, `prop ${p0} → ${pEnd} — expected a real burn`);
+  });
+
   it("stays above the surface for the gulf visible window", () => {
     const stage = syntheticStage(141);
     const kfs = buildBoosterKeyframes(stage, "gulf");

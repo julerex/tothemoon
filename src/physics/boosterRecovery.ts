@@ -1,22 +1,28 @@
 /**
  * Theater Super Heavy recovery after stage-out.
  *
- * Kinematic (not N-body authoritative): flip → boostback burn → coast/entry →
- * landing burn → soft land. Two profiles:
- * - **chopsticks** — return to launch site / tower catch at Starbase
- * - **gulf** — Flight 13 offshore soft landing in the Gulf of America
+ * Two profiles:
+ * - **chopsticks** — kinematic Hermite RTLS / tower catch at Starbase
+ * - **gulf** — Flight 13 offshore soft landing: RK4 under Earth μ + J₂ + drag
+ *   with mass-coupled boostback / landing burns (booster leftover prop).
  *
  * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence
- * (~4–5 min from stage-out to landing burn).
- *
- * All path math is **Earth-relative** (heliocentric body motion is added back
- * at sample time) so multi-minute coasts stay near the planet.
+ * (~4–5 min from stage-out to landing burn). Gulf samples are dense and
+ * scrub-cached as Earth-relative keyframes.
  *
  * Scene unit = km. Pure + scrub-deterministic from (stage event, age).
  */
 
-import { MU_EARTH } from "./constants";
+import {
+  BOOSTER_DRY_KG,
+  BOOSTER_PROP_KG,
+  G0,
+  MU_EARTH,
+  SPECIFIC_IMPULSE_BOOSTER,
+  STAGE_PROP_ARM,
+} from "./constants";
 import { bodyPositions } from "./bodies";
+import { rk4Step, type CraftState } from "./integrator";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
@@ -206,6 +212,8 @@ type RelKeyframe = {
   p: V3;
   /** Velocity relative to Earth center velocity (km/s). */
   v: V3;
+  /** Remaining booster propellant (kg) — gulf RK4 path only. */
+  propKg?: number;
 };
 
 const _tmp = v3();
@@ -495,11 +503,206 @@ function packBoosterKeyframes(
   ];
 }
 
+const _gThrust = v3();
+const _gStepThrust = v3();
+const _gRelP = v3();
+const _gRelV = v3();
+const _gTgt = v3();
+const _gUp = v3();
+const _gSite = v3();
+const _gSiteV = v3();
+
+/** Leftover booster prop at stage-out (theater: staging arm fraction). */
+function gulfLeftoverPropKg(): number {
+  return STAGE_PROP_ARM * BOOSTER_PROP_KG;
+}
+
+function gulfWetKg(propKg: number): number {
+  return BOOSTER_DRY_KG + Math.max(0, propKg);
+}
+
+/** Boostback ~5.1 g; landing ~1.2 g at leftover mass. */
+const GULF_BOOSTBACK_ACCEL = 0.05;
+const GULF_LAND_ACCEL = 0.012;
+const GULF_DT_BURN = 0.5;
+const GULF_DT_COAST = 1;
+const GULF_SAMPLE_S = 1;
+
+function gulfDrainProp(propKg: number, dt: number, forceN: number): number {
+  if (forceN < 1e-6 || dt <= 0 || propKg <= 1e-3) return propKg;
+  const dm = (forceN / (SPECIFIC_IMPULSE_BOOSTER * G0)) * dt;
+  return Math.max(0, propKg - dm);
+}
+
+function pushGulfKf(
+  kfs: RelKeyframe[],
+  age: number,
+  state: CraftState,
+  epoch: EphemerisEpoch,
+  propKg: number,
+): void {
+  const b = bodyPositions(state.t, epoch);
+  kfs.push({
+    age,
+    p: v3(state.pos.x - b.earth.x, state.pos.y - b.earth.y, state.pos.z - b.earth.z),
+    v: v3(
+      state.vel.x - b.earthVel.x,
+      state.vel.y - b.earthVel.y,
+      state.vel.z - b.earthVel.z,
+    ),
+    propKg,
+  });
+}
+
+function gulfRel(state: CraftState, epoch: EphemerisEpoch): { r: number } {
+  const b = bodyPositions(state.t, epoch);
+  sub(_gRelP, state.pos, b.earth);
+  sub(_gRelV, state.vel, b.earthVel);
+  const r = len(_gRelP) || 1;
+  set(_gUp, _gRelP.x / r, _gRelP.y / r, _gRelP.z / r);
+  return { r };
+}
+
+/** Target Earth-relative velocity that coasts `_gRelP` → `pGate` in `dt`. */
+function gulfCoastTargetV(pGate: V3, dt: number, out: V3): void {
+  gravityRel(_gRelP, _acc);
+  sub(out, pGate, _gRelP);
+  madd(out, out, _acc, -0.5 * dt * dt);
+  scale(out, out, 1 / Math.max(dt, 1e-6));
+}
+
+function gulfBoostbackThrust(pGate: V3, dtToGate: number, propKg: number): V3 | null {
+  if (propKg <= 1e-3) return null;
+  gulfCoastTargetV(pGate, dtToGate, _gTgt);
+  set(_gThrust, _gTgt.x - _gRelV.x, _gTgt.y - _gRelV.y, _gTgt.z - _gRelV.z);
+  const err = len(_gThrust);
+  if (err < 0.02) return null;
+  const a = Math.min(GULF_BOOSTBACK_ACCEL, err * 0.8);
+  scale(_gThrust, _gThrust, a / err);
+  return _gThrust;
+}
+
+function gulfLandingThrust(
+  t: number,
+  sched: RecoverySchedule,
+  propKg: number,
+  epoch: EphemerisEpoch,
+): V3 | null {
+  if (propKg <= 1e-3) return null;
+  landRelAt(t, sched, _gSite, epoch);
+  landSiteVelRel(t, sched, _gSiteV, epoch);
+  // Kill site-relative velocity first; a light position term homes in.
+  set(
+    _gThrust,
+    (_gSiteV.x - _gRelV.x) * 0.9 + (_gSite.x - _gRelP.x) * 0.025,
+    (_gSiteV.y - _gRelV.y) * 0.9 + (_gSite.y - _gRelP.y) * 0.025,
+    (_gSiteV.z - _gRelV.z) * 0.9 + (_gSite.z - _gRelP.z) * 0.025,
+  );
+  const err = len(_gThrust);
+  if (err < 0.005) return null;
+  const a = Math.min(GULF_LAND_ACCEL, err);
+  scale(_gThrust, _gThrust, a / err);
+  return _gThrust;
+}
+
+function gulfThrustAt(
+  t: number,
+  t0: number,
+  sched: RecoverySchedule,
+  pGate: V3,
+  propKg: number,
+  epoch: EphemerisEpoch,
+): V3 | null {
+  const age = t - t0;
+  if (age >= sched.boostbackStartS && age < sched.boostbackEndS) {
+    return gulfBoostbackThrust(pGate, sched.landingStartS - age, propKg);
+  }
+  if (age >= sched.landingStartS && age < sched.landingEndS) {
+    return gulfLandingThrust(t, sched, propKg, epoch);
+  }
+  return null;
+}
+
+function gulfStepDt(age: number, sched: RecoverySchedule): number {
+  if (
+    (age >= sched.boostbackStartS && age < sched.boostbackEndS) ||
+    (age >= sched.landingStartS && age < sched.landingEndS)
+  ) {
+    return GULF_DT_BURN;
+  }
+  return GULF_DT_COAST;
+}
+
+function snapGulfToSite(
+  state: CraftState,
+  t: number,
+  sched: RecoverySchedule,
+  epoch: EphemerisEpoch,
+): void {
+  const b = bodyPositions(t, epoch);
+  landRelAt(t, sched, _gSite, epoch);
+  landSiteVelRel(t, sched, _gSiteV, epoch);
+  set(state.pos, b.earth.x + _gSite.x, b.earth.y + _gSite.y, b.earth.z + _gSite.z);
+  set(state.vel, b.earthVel.x + _gSiteV.x, b.earthVel.y + _gSiteV.y, b.earthVel.z + _gSiteV.z);
+  state.t = t;
+}
+
+/**
+ * RK4 gulf recovery: Earth μ+J₂+drag, mass-coupled leftover booster prop.
+ * Returns dense Earth-relative keyframes for scrub sampling.
+ */
+function integrateGulfRecovery(
+  stage: StageState,
+  epoch: EphemerisEpoch,
+): RelKeyframe[] {
+  const sched = GULF_SCHEDULE;
+  const t0 = stage.t;
+  const vis = boosterVisibleS(sched);
+  const p0 = v3();
+  const v0 = v3();
+  applySepKicksRel(stage, p0, v0, epoch);
+  const b0 = bodyPositions(t0, epoch);
+  const state: CraftState = {
+    t: t0,
+    pos: v3(b0.earth.x + p0.x, b0.earth.y + p0.y, b0.earth.z + p0.z),
+    vel: v3(b0.earthVel.x + v0.x, b0.earthVel.y + v0.y, b0.earthVel.z + v0.z),
+  };
+  let propKg = gulfLeftoverPropKg();
+  const pGate = gateRelAt(t0 + sched.landingStartS, sched, v3(), epoch);
+  const kfs: RelKeyframe[] = [];
+  pushGulfKf(kfs, 0, state, epoch, propKg);
+  let lastSample = 0;
+  const accelOpts = { gravity: "earth" as const, epoch };
+  while (state.t - t0 < sched.landingEndS - 1e-9) {
+    const age = state.t - t0;
+    gulfRel(state, epoch);
+    const thrust = gulfThrustAt(state.t, t0, sched, pGate, propKg, epoch);
+    const dt = Math.min(gulfStepDt(age, sched), sched.landingEndS - age);
+    const forceN = thrust ? gulfWetKg(propKg) * len(thrust) * 1000 : 0;
+    if (thrust) copy(_gStepThrust, thrust);
+    rk4Step(state, dt, thrust ? () => _gStepThrust : undefined, accelOpts);
+    propKg = gulfDrainProp(propKg, dt, forceN);
+    const ageNow = state.t - t0;
+    if (ageNow >= sched.landingEndS - 1e-9) break;
+    if (ageNow - lastSample >= GULF_SAMPLE_S - 1e-9) {
+      pushGulfKf(kfs, ageNow, state, epoch, propKg);
+      lastSample = ageNow;
+    }
+  }
+  snapGulfToSite(state, t0 + sched.landingEndS, sched, epoch);
+  pushGulfKf(kfs, sched.landingEndS, state, epoch, propKg);
+  const tHold = t0 + sched.landingEndS + sched.holdS;
+  snapGulfToSite(state, tHold, sched, epoch);
+  pushGulfKf(kfs, vis > sched.landingEndS + sched.holdS ? sched.landingEndS + sched.holdS : vis, state, epoch, propKg);
+  return kfs;
+}
+
 export function buildBoosterKeyframes(
   stage: StageState,
   profile: RecoveryProfile = "chopsticks",
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): RelKeyframe[] {
+  if (profile === "gulf") return integrateGulfRecovery(stage, epoch);
   const sched = recoverySchedule(profile); const p0 = v3(); const v0 = v3();
   applySepKicksRel(stage, p0, v0, epoch);
   const pGate = gateRelAt(stage.t + sched.landingStartS, sched, undefined, epoch);
