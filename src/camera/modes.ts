@@ -19,6 +19,7 @@ import {
   type MountFocus,
   type MountLock,
 } from "./mountLock";
+import { panAxesFromHeld } from "./panAxes";
 import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
 
@@ -1020,12 +1021,16 @@ export class CameraDirector {
 
   /**
    * Slide camera + target in the camera's view plane (screen-space style).
-   * W/S along look projected ⟂ camera.up; A/D along camera-right.
+   * W/S along look projected ⟂ camera.up; A pans screen-right, D pans screen-left.
    * Matches what you see at Starbase (pad-up) rather than the ecliptic plane.
    */
   private applyPan(dt: number): void {
-    const fwd = (this.panW ? 1 : 0) - (this.panS ? 1 : 0);
-    const right = (this.panD ? 1 : 0) - (this.panA ? 1 : 0);
+    const { fwd, right } = panAxesFromHeld({
+      w: this.panW,
+      a: this.panA,
+      s: this.panS,
+      d: this.panD,
+    });
     if ((fwd === 0 && right === 0) || dt <= 0) return;
     this.cancelDistanceEase();
     this.buildPanAxes();

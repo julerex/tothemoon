@@ -71,6 +71,8 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("8"), "Fin cam");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
+    assert.equal(actions.get("A"), "Pan →");
+    assert.equal(actions.get("D"), "Pan ←");
     assert.equal(actions.get("C"), "Roll ←");
     assert.equal(actions.get("V"), "Roll →");
     assert.equal(actions.get("G"), "Auto-cam");
