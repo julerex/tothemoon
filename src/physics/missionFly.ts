@@ -3,12 +3,10 @@
  * n-body coast → lunar orbit insertion → low lunar orbit → powered descent → land.
  */
 
-import { getAscent } from "./ascentCache";
+import type { AscentResult } from "./ascent";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
-import {
-  appendAscentAndLowEarthOrbitCoast,
-  getLastDoglegDvKmS,
-} from "./lowEarthOrbitCoast";
+import type { CraftState } from "./integrator";
+import { appendAscentAndLowEarthOrbitCoast } from "./lowEarthOrbitCoast";
 import { runLunarCapture } from "./lunarCapture";
 import type { MissionResult, Sample } from "./missionTypes";
 import { createPropState, fuelShipFrac } from "./propellant";
@@ -21,9 +19,9 @@ function ascentFailResult(moonPhase0: number, translunarInjectionDeltaV: number)
   };
 }
 
-function logLeoDogleg(prop: ReturnType<typeof createPropState>): void {
+function logLeoDogleg(doglegDvKmS: number, prop: ReturnType<typeof createPropState>): void {
   console.info(
-    `[tothemoon] low Earth orbit dogleg Δv=${getLastDoglegDvKmS().toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
+    `[tothemoon] low Earth orbit dogleg Δv=${doglegDvKmS.toFixed(3)} km/s · ship fuel=${(fuelShipFrac(prop) * 100).toFixed(1)}%`,
   );
 }
 
@@ -39,7 +37,7 @@ function logTliBurn(
 }
 
 function captureArgs(
-  state: ReturnType<typeof appendAscentAndLowEarthOrbitCoast>,
+  state: CraftState,
   samples: Sample[], lastT: { t: number }, prop: ReturnType<typeof createPropState>,
   epoch: EphemerisEpoch, translunarInjectionDeltaV: number,
 ) {
@@ -47,11 +45,11 @@ function captureArgs(
 }
 
 function flyThroughCapture(
-  epoch: EphemerisEpoch, translunarInjectionDeltaV: number,
+  ascent: AscentResult, epoch: EphemerisEpoch, translunarInjectionDeltaV: number,
   samples: Sample[], lastT: { t: number }, prop: ReturnType<typeof createPropState>,
 ): MissionResult {
-  const state = appendAscentAndLowEarthOrbitCoast(samples, lastT, prop, epoch);
-  logLeoDogleg(prop);
+  const { state, doglegDvKmS } = appendAscentAndLowEarthOrbitCoast(ascent, samples, lastT, prop, epoch);
+  logLeoDogleg(doglegDvKmS, prop);
   const burn = runFiniteTranslunarInjection(state, translunarInjectionDeltaV, samples, lastT, prop, epoch);
   logTliBurn(burn, prop);
   return runLunarCapture(captureArgs(state, samples, lastT, prop, epoch, translunarInjectionDeltaV));
@@ -62,14 +60,15 @@ function flyThroughCapture(
  * `toa` is reserved for callers that still pass design perilune time.
  */
 export function flyMission(
+  ascent: AscentResult,
   epoch: EphemerisEpoch,
   translunarInjectionDeltaV: number,
   toa?: number,
 ): MissionResult {
   void toa;
-  if (!getAscent().ok) return ascentFailResult(epoch.moonPhase0, translunarInjectionDeltaV);
+  if (!ascent.ok) return ascentFailResult(epoch.moonPhase0, translunarInjectionDeltaV);
   const samples: Sample[] = [];
   const lastT = { t: -Infinity };
   const prop = createPropState(0);
-  return flyThroughCapture(epoch, translunarInjectionDeltaV, samples, lastT, prop);
+  return flyThroughCapture(ascent, epoch, translunarInjectionDeltaV, samples, lastT, prop);
 }

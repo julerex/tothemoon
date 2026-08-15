@@ -12,7 +12,8 @@ import {
   R_MOON,
   MOON_SPHERE_OF_INFLUENCE_KM,
 } from "./constants";
-import { ensureAscent } from "./ascentCache";
+import type { AscentResult } from "./ascent";
+import type { AscentCache } from "./ascentCache";
 import { probePerilune } from "./ballisticCoast";
 import { starbaseSunElev } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
@@ -160,13 +161,16 @@ type SearchCtx = {
   T: number;
   lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
   epoch: EphemerisEpoch;
+  ascentCache: AscentCache;
+  /** Ascent the low Earth orbit template is currently built on. */
+  ascent: AscentResult;
 };
 
 /** Rebuild ascent + LEO template under epoch. */
 function rebuildLeo(ctx: SearchCtx, epoch: EphemerisEpoch): void {
   ctx.epoch = epoch;
-  ensureAscent(epoch);
-  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
+  ctx.ascent = ctx.ascentCache.ensure(epoch);
+  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ctx.ascent, epoch);
 }
 
 /** Score a (Δv, moon-phase) pair; optionally rebuild LEO. */
@@ -178,8 +182,8 @@ function evalCandidate(
   reAscent: boolean,
 ): CandidateEval {
   ctx.epoch = makeLunarEpoch(ph, landT, ctx.useHorizons);
-  if (reAscent) ensureAscent(ctx.epoch);
-  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ctx.epoch);
+  if (reAscent) ctx.ascent = ctx.ascentCache.ensure(ctx.epoch);
+  ctx.lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ctx.ascent, ctx.epoch);
   const pr = probePerilune(dv, ctx.lowEarthOrbitRelative.current, ctx.epoch);
   return { sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(ctx.epoch), alt: pr.minAlt, t: pr.periluneT, rE: pr.rEarth };
 }
@@ -329,15 +333,14 @@ function emptySearchBest(guess: number, baseDv: number, T: number): SearchBest {
  * Rebuilds ascent + low Earth orbit under explicit {@link EphemerisEpoch} candidates.
  * Updates `lowEarthOrbitRelative.current` whenever low Earth orbit is rebuilt.
  */
-function initSearch(opts: {
-  baseDv: number; designTof: number; tTli0: number;
-  lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
-}): { ctx: SearchCtx; best: SearchBest; grids: ReturnType<typeof buildSearchGrids>; guess: number } {
-  const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative } = opts;
+function initSearch(opts: SearchOpts): {
+  ctx: SearchCtx; best: SearchBest; grids: ReturnType<typeof buildSearchGrids>; guess: number;
+} {
+  const { baseDv, designTof: T, tTli0, lowEarthOrbitRelative, ascentCache, ascent } = opts;
   const useHorizons = hasHorizonsTable(); const dvMax = maxTranslunarInjectionDeltaV();
   const guess = Math.PI - N_MOON * (72 * 3600 + tTli0);
   const ctx: SearchCtx = {
-    useHorizons, baseDv, dvMax, T, lowEarthOrbitRelative,
+    useHorizons, baseDv, dvMax, T, lowEarthOrbitRelative, ascentCache, ascent,
     epoch: makeLunarEpoch(useHorizons ? 0 : guess, T, useHorizons),
   };
   return { ctx, best: emptySearchBest(guess, baseDv, T), grids: buildSearchGrids(useHorizons, baseDv, dvMax), guess };
@@ -347,12 +350,18 @@ function toSearchResult(best: SearchBest, found: boolean): TransferSearchResult 
   return { bestPhase: best.bestPhase, bestDv: best.bestDv, bestLandingT: best.bestLandingT, bestAlt: best.bestAlt, bestPeriluneT: best.bestPeriluneT, bestREarth: best.bestREarth, found };
 }
 
-export function searchBallisticTransfer(opts: {
+export type SearchOpts = {
   baseDv: number;
   designTof: number;
   tTli0: number;
   lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null };
-}): TransferSearchResult {
+  /** Ascent memo reused across candidate epochs. */
+  ascentCache: AscentCache;
+  /** Ascent `lowEarthOrbitRelative` was seeded from. */
+  ascent: AscentResult;
+};
+
+export function searchBallisticTransfer(opts: SearchOpts): TransferSearchResult {
   const { ctx, best, grids, guess } = initSearch(opts);
   runCoarseGrid(ctx, best, grids, guess);
   if (ctx.useHorizons) mediumPassHorizons(ctx, best);

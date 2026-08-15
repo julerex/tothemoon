@@ -5,8 +5,6 @@
 
 export type ShellView = "main" | "missions" | "glossary" | "theater";
 
-let currentView: ShellView = "main";
-
 function el(id: string): HTMLElement | null {
   return document.getElementById(id);
 }
@@ -55,13 +53,17 @@ function showMenuShell(view: Exclude<ShellView, "theater">): void {
  * starts) theater. Does not start mission code — only DOM visibility.
  */
 export function setShellView(view: ShellView): void {
-  currentView = view;
   if (view === "theater") showTheaterShell();
   else showMenuShell(view);
 }
 
+/**
+ * Active surface, derived from the hash rather than mirrored in module state:
+ * every view transition goes through a route (`#/mission/<path>` → theater).
+ */
 export function getShellView(): ShellView {
-  return currentView;
+  const route = parseRoute();
+  return route.kind === "mission" ? "theater" : route.kind;
 }
 
 /** Navigate via hash so refresh / share links restore the screen. */

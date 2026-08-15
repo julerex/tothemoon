@@ -13,12 +13,10 @@
  * - {@link downsampleTrajectory} — pack thinning
  */
 
-import { LOW_EARTH_ORBIT_COAST_S } from "./constants";
-import { ensureAscent, resetAscentCache } from "./ascentCache";
+import { createAscentCache, type AscentCache } from "./ascentCache";
 import { hasHorizonsTable, horizonsSource } from "./horizonsEpoch";
 import {
   computeLowEarthOrbitRelative,
-  setLowEarthOrbitCoastS,
   type LowEarthOrbitRelative,
 } from "./lowEarthOrbitCoast";
 import { downsampleTrajectory } from "./missionDownsample";
@@ -69,17 +67,20 @@ function initMissionEpoch(T: number, useHorizons: boolean): EphemerisEpoch {
   return epoch;
 }
 
-/** Rebuild LEO template under chosen search result. */
+/**
+ * Rebuild LEO template under chosen search result.
+ * A fresh ascent memo guarantees the baked ascent is re-flown for the winning
+ * epoch rather than reused from a scoring candidate.
+ */
 function rebuildAfterSearch(
   search: ReturnType<typeof searchBallisticTransfer>,
   useHorizons: boolean,
   lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null },
-): EphemerisEpoch {
+): { epoch: EphemerisEpoch; ascent: AscentResult } {
   const epoch = makeLunarEpoch(search.bestPhase, search.bestLandingT, useHorizons);
-  resetAscentCache();
-  ensureAscent(epoch);
-  lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(epoch);
-  return epoch;
+  const ascent = createAscentCache().ensure(epoch);
+  lowEarthOrbitRelative.current = computeLowEarthOrbitRelative(ascent, epoch);
+  return { epoch, ascent };
 }
 
 /** Attach pack meta and log summary after fly + downsample. */
@@ -108,29 +109,32 @@ function pickToa(search: ReturnType<typeof searchBallisticTransfer>, T: number):
     : T;
 }
 
-function runSearch(baseDv: number, T: number, epoch: EphemerisEpoch) {
-  setLowEarthOrbitCoastS(LOW_EARTH_ORBIT_COAST_S);
+function runSearch(
+  baseDv: number, T: number, epoch: EphemerisEpoch,
+  ascentCache: AscentCache, ascent: AscentResult,
+) {
   const lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null } = {
-    current: computeLowEarthOrbitRelative(epoch),
+    current: computeLowEarthOrbitRelative(ascent, epoch),
   };
   const search = searchBallisticTransfer({
     baseDv, designTof: T, tTli0: lowEarthOrbitRelative.current!.t, lowEarthOrbitRelative,
+    ascentCache, ascent,
   });
   return { search, lowEarthOrbitRelative };
 }
 
 function flyAfterSearch(search: ReturnType<typeof searchBallisticTransfer>, useHorizons: boolean, lowEarthOrbitRelative: { current: LowEarthOrbitRelative | null }, T: number): MissionResult {
-  const epoch = rebuildAfterSearch(search, useHorizons, lowEarthOrbitRelative);
-  return finalizeMission(flyMission(epoch, search.bestDv, pickToa(search, T)), epoch, search.bestLandingT);
+  const { epoch, ascent } = rebuildAfterSearch(search, useHorizons, lowEarthOrbitRelative);
+  return finalizeMission(flyMission(ascent, epoch, search.bestDv, pickToa(search, T)), epoch, search.bestLandingT);
 }
 
 export function runMission(): MissionResult {
   const { baseDv, T } = designTransferParams();
   const useHorizons = hasHorizonsTable();
   const epoch = initMissionEpoch(T, useHorizons);
-  resetAscentCache();
-  const ascent0 = ensureAscent(epoch);
+  const ascentCache = createAscentCache();
+  const ascent0 = ascentCache.ensure(epoch);
   if (!ascent0.ok) return ascentFailureResult(ascent0);
-  const { search, lowEarthOrbitRelative } = runSearch(baseDv, T, epoch);
+  const { search, lowEarthOrbitRelative } = runSearch(baseDv, T, epoch, ascentCache, ascent0);
   return flyAfterSearch(search, useHorizons, lowEarthOrbitRelative, T);
 }
