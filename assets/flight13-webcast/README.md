@@ -11,6 +11,8 @@ Development **reference frames** from the official SpaceX Flight 13 replay. Not 
 
 Capture SOP: [docs/STARSHIP_13.md](../../docs/STARSHIP_13.md). Filenames use the on-screen HUD clock when readable (`tplus-HHMMSS` / `tminus-HHMMSS`).
 
+Motion source for later landing/splash refinement (not captured into this folder yet): https://x.com/SpaceX/status/2082186658162626898 — see [Motion sources](#motion-sources-not-captured-yet).
+
 Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Starbase**, **Launchpad / trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
 
 ## Catalog
@@ -64,3 +66,17 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 - Hot-stage is a **split** beat: engine-bay glow + hull-cam over the Earth limb (matches Auto-cam gridfin cut).
 - Entry plasma is magenta/violet on flaps and tiles, not a uniform orange shell.
 - Landing is belly-flop until ~1 km, then engines-down with a pink plume and missing-tile wear before Indian Ocean splash.
+
+## Motion sources (not captured yet)
+
+Official @SpaceX highlight clips for later visual refinement. Watch on X; do **not** copy into `public/` / `src/` or treat as runtime theater video.
+
+| Field | Value |
+| --- | --- |
+| Post | https://x.com/SpaceX/status/2082186658162626898 |
+| Caption | Landing burn and splashdown of Starship on Flight 13 |
+| Posted | 2026-07-28 |
+| Media | Two 4K (3840×2160) videos (~51 s, ~59 s) plus a still |
+| Theater use | [VISUAL_REALISM.md](../../docs/VISUAL_REALISM.md) **V17** splash steam / ocean glitter; landing-plume motion |
+
+The stills catalog above is from the full webcast. Use this post when you need **motion** of the Indian Ocean landing burn, flip, and splash steam — the webcast stills already cover single frames of the same beat (`tplus-010502` through `tplus-010524` and `heatshield-tiles-post-splash`).

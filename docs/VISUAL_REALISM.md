@@ -10,7 +10,7 @@ Related:
 
 - [NEXT.md](./NEXT.md) — overall product roadmap (watchability, physics, architecture)
 - [PLAN.md](../PLAN.md) — physics fidelity track
-- [STARSHIP_13.md](./STARSHIP_13.md) — Flight 13 recap + webcast still SOP (photorealism look target)
+- [STARSHIP_13.md](./STARSHIP_13.md) — Flight 13 recap + webcast still SOP + highlight-clip sources (photorealism look target)
 - [AGENTS.md](../AGENTS.md) — agent commit/hygiene rules
 
 **Live:** https://julerex.github.io/tothemoon/
@@ -322,6 +322,11 @@ do not copy frames into `public/` or `src/`. Capture SOP:
 [STARSHIP_13.md](./STARSHIP_13.md). If the pack is not in the tree yet, use the
 replay URL in that SOP.
 
+**Motion source (landing / splash):** official @SpaceX highlight post
+https://x.com/SpaceX/status/2082186658162626898 — two 4K clips of landing
+burn and splashdown (posted 2026-07-28). Recorded for later refinement
+(especially **V17**); do not ship as runtime video.
+
 Hull-cam / fin-cam stills are the majority of the broadcast. **V13 first** so
 later FX sit on a hull that already reads as S40.
 
@@ -489,6 +494,10 @@ T+1:05:20–24 are a **white volumetric contact cloud** swallowing the aft, with
 engine glow in the steam and a choppy dark ocean. Super Heavy T+6:40 is an
 ocean **glitter path**, not a disc.
 
+**Video look target:** the two 4K clips in
+https://x.com/SpaceX/status/2082186658162626898 (landing burn + splash).
+Use these when stills are not enough for steam evolution, flip, or plume flicker.
+
 - Denser, whiter splash layers (reuse pad-deluge tiers); warm core from
   landing-plume light. Fade on the same `missionT − landT` curve.
 - Cheap ocean sun-glint on the splash / Gulf plates (anisotropic sparkle
@@ -593,3 +602,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-13 | V6–V10 + V12 shipped: terminal dust/splash, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast whiskers/LOI bloom |
 | 2026-08-15 | Photorealism track V13–V20 from Flight 13 webcast stills: hex TPS/S40, pink plumes, magenta plasma, Pez deploy, splash steam, engine-bay, gated LEO clouds |
 | 2026-08-15 | V14 shipped (launch scene): pink-magenta atmo/landing plumes, Super Heavy frost + ice shed, denser pad steam with engine-warm core |
+| 2026-08-15 | Recorded official Flight 13 landing/splash highlight videos (X post 2082186658162626898) as a future visual-refinement source |

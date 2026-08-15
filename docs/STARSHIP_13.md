@@ -4,6 +4,7 @@ Captured from the official mission page on **2026-08-15** (post-flight recap).
 
 - Page: https://www.spacex.com/launches/starship-flight-13
 - Official replay (use this, not the page embed): https://x.com/i/broadcasts/1AJEmmYdMDnJL
+- Official landing/splash highlight clips (motion look target): https://x.com/SpaceX/status/2082186658162626898
 
 SpaceX page copy below is transcribed for reference. Theater notes at the end are this repo’s Flight 13 mission, not SpaceX ops data.
 
@@ -184,6 +185,25 @@ Liftoff in this replay is about **35:04** (pad at `T−00:00:42` was at **34:22*
 | Landing (`T+01:05:21`) | 1:40:25 |
 
 Formula used: webcast seconds ≈ mission `T+` seconds + **2104** (35:04). Treat as approximate; the stream HUD `T+` is the ground truth on a given frame.
+
+---
+
+## Official highlight clips (for later visual refinement)
+
+Posted **2026-07-28** by @SpaceX. These are **4K highlight videos** of the Indian Ocean landing sequence, not the full webcast. Recorded here so later photorealism work can use **motion** (plume flicker, flip, steam evolution) when the stills in [`assets/flight13-webcast/`](../assets/flight13-webcast/) are not enough. Do **not** ship the clips as runtime textures or theater video.
+
+| Field | Value |
+| --- | --- |
+| Post | https://x.com/SpaceX/status/2082186658162626898 |
+| Account | @SpaceX (verified) |
+| Caption | Landing burn and splashdown of Starship on Flight 13 |
+| Posted | 2026-07-28 |
+| Media | Two 3840×2160 clips (~51 s and ~59 s) plus a still |
+| Theater use | [VISUAL_REALISM.md](./VISUAL_REALISM.md) **V17** (splash steam / ocean glitter); landing-plume motion in **V14** |
+
+Prefer this post over the long webcast when you only need the landing burn → flip → 3→2→1 → soft splash → intact hull in steam. The archived broadcast remains the source for pad, ascent, staging, payload, relight, and entry.
+
+Watch on X (same player-fullscreen habit as the replay SOP if you grab frames). Do not download the MP4s into `public/` or `src/`.
 
 ---
 
