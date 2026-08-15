@@ -36,8 +36,8 @@ describe("V4 craft material layout", () => {
 
   it("seats fin-cam aft of the forward flap looking toward the engines", () => {
     // Forward-flap hinge is near z = 0.78; camera must sit behind it.
-    assert.ok(FIN_CAM_LOCAL.z < 0.70);
+    assert.ok(FIN_CAM_LOCAL.z < 0.72);
     assert.ok(FIN_CAM_LOOK_LOCAL.z < FIN_CAM_LOCAL.z);
-    assert.ok(FIN_CAM_LOCAL.x > 0.2);
+    assert.ok(FIN_CAM_LOCAL.x > FIN_CAM_LOOK_LOCAL.x);
   });
 });

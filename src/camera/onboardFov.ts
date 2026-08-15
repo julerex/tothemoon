@@ -11,7 +11,7 @@
 export const DEFAULT_CAM_FOV_DEG = 50;
 
 /** Fin + grid-fin mounts — webcast hull-cam class. */
-export const ONBOARD_CAM_FOV_DEG = 84;
+export const ONBOARD_CAM_FOV_DEG = 72;
 
 /**
  * Vertical FOV (degrees) for a camera focus.
