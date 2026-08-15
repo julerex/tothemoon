@@ -2,7 +2,7 @@
  * Shared open/close for the Earth-centric ecliptic-plane trajectory overlay.
  */
 
-import type { Sample } from "../physics/missionTypes";
+import type { ReadonlySample } from "../physics/missionTypes";
 import {
   buildPolarTrajectoryModel,
   drawPolarTrajectories,
@@ -11,7 +11,7 @@ import {
 } from "./polarTrajectories";
 
 let model: PolarTrajectoryModel | null = null;
-let samplesRef: Sample[] = [];
+let samplesRef: readonly ReadonlySample[] = [];
 let missionT = 0;
 let bound = false;
 
@@ -32,7 +32,7 @@ function els(): {
 }
 
 /** Provide trajectory samples (from HUD bind). Rebuilds the polar model. */
-export function setPolarOverlaySamples(samples: Sample[]): void {
+export function setPolarOverlaySamples(samples: readonly ReadonlySample[]): void {
   samplesRef = samples;
   model = samples.length > 0 ? buildPolarTrajectoryModel(samples) : null;
 }

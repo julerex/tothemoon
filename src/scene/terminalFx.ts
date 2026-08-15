@@ -166,24 +166,29 @@ export function dustExpandOpacity(
   return { expand: 6, opacity: 0.12 };
 }
 
+/** Phases that show the lunar site plate outright. */
+const LUNAR_SITE_PHASES: ReadonlySet<string> = new Set([
+  "approach", "braking", "descent", "landed",
+]);
+
+/** Phases whose low-altitude passes raise dust. */
+const LUNAR_DUST_PHASES: ReadonlySet<string> = new Set(["descent", "landed"]);
+
+/** Site plate also appears this long before landing, whatever the phase (s). */
+const LUNAR_SITE_LEAD_S = 3600;
+
 /**
  * Site plate visible from ~1 h before landing through terminal phases.
  */
 export function nearMoonPhase(phase: string, missionT: number, landT: number): boolean {
-  return (
-    phase === "approach" ||
-    phase === "braking" ||
-    phase === "descent" ||
-    phase === "landed" ||
-    missionT >= landT - 3600
-  );
+  return LUNAR_SITE_PHASES.has(phase) || missionT >= landT - LUNAR_SITE_LEAD_S;
 }
 
 /**
  * Dust layers on during low-alt descent/landed, or any time after `"landed"`.
  */
 export function dustActive(phase: string, altMoon: number): boolean {
-  const low = (phase === "descent" || phase === "landed") && altMoon < TERMINAL_ALT_GATE_KM;
+  const low = LUNAR_DUST_PHASES.has(phase) && altMoon < TERMINAL_ALT_GATE_KM;
   return low || phase === "landed";
 }
 
@@ -224,16 +229,25 @@ export function sprayExpandOpacity(
   return { expand: 5, opacity: 0.1 };
 }
 
+/** Phases that show the splash site outright. */
+const SPLASH_SITE_PHASES: ReadonlySet<string> = new Set([
+  "entry", "descent", "splashdown",
+]);
+
+/** Phases whose spray is on regardless of altitude. */
+const SPLASH_SPRAY_PHASES: ReadonlySet<string> = new Set(["descent", "splashdown"]);
+
+/** Splash site also appears this long before splash, whatever the phase (s). */
+const SPLASH_SITE_LEAD_S = 2400;
+
+/** Late entry raises spray only below this altitude (km). */
+const ENTRY_SPRAY_ALT_KM = 25;
+
 /**
  * Splash site visible from ~40 min before splash through terminal phases.
  */
 export function shouldShowSplashSite(phase: string, missionT: number, landT: number): boolean {
-  return (
-    phase === "entry" ||
-    phase === "descent" ||
-    phase === "splashdown" ||
-    missionT >= landT - 2400
-  );
+  return SPLASH_SITE_PHASES.has(phase) || missionT >= landT - SPLASH_SITE_LEAD_S;
 }
 
 /**
@@ -241,9 +255,8 @@ export function shouldShowSplashSite(phase: string, missionT: number, landT: num
  */
 export function nearSplash(phase: string, altEarth: number): boolean {
   return (
-    phase === "descent" ||
-    phase === "splashdown" ||
-    (phase === "entry" && altEarth < 25)
+    SPLASH_SPRAY_PHASES.has(phase) ||
+    (phase === "entry" && altEarth < ENTRY_SPRAY_ALT_KM)
   );
 }
 
@@ -278,6 +291,32 @@ export function landingWashStrength(
   if (!(phase === "descent" && burning)) return 0;
   if (!Number.isFinite(altMoon) || altMoon > 25) return 0;
   return clamp01((25 - altMoon) / 25);
+}
+
+/** Beacon pulse angular rate (rad per wall millisecond). */
+export const BEACON_PULSE_RATE = 0.004;
+
+/**
+ * Site-beacon opacity: breathes while the craft is within `nearKm`, otherwise
+ * holds `idleOpacity`.
+ *
+ * Driven by wall clock rather than mission time on purpose — the beacon keeps
+ * pulsing while playback is paused, so it is the one terminal cue that is not
+ * scrub-deterministic.
+ *
+ * @param wallMs - Wall clock (ms), e.g. `performance.now()`
+ * @param distKm - Craft distance to the site (km)
+ * @param nearKm - Pulse only inside this range (km)
+ * @param idleOpacity - Steady opacity when far away
+ */
+export function beaconPulseOpacity(
+  wallMs: number,
+  distKm: number,
+  nearKm: number,
+  idleOpacity: number,
+): number {
+  if (!(distKm < nearKm)) return idleOpacity;
+  return 0.55 + 0.35 * Math.sin(wallMs * BEACON_PULSE_RATE);
 }
 
 function discLayerPose(

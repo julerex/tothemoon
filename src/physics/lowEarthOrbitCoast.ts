@@ -2,7 +2,7 @@ import { LOW_EARTH_ORBIT_COAST_S, LOW_EARTH_ORBIT_RADIUS, MU_EARTH } from "./con
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
-import { getAscent } from "./ascentCache";
+import type { AscentResult } from "./ascent";
 import { getBodies, type CraftState } from "./integrator";
 import { pushSample } from "./missionSample";
 import type { Sample } from "./missionTypes";
@@ -27,25 +27,6 @@ import {
 
 /** Earth-relative low Earth orbit state at translunar injection epoch (survives Moon-phase ephemeris changes). */
 export type LowEarthOrbitRelative = { t: number; relPos: V3; relVel: V3 };
-
-/** Chosen low Earth orbit coast duration (s). */
-let _leoCoastS = LOW_EARTH_ORBIT_COAST_S;
-
-/** Last dogleg plane-change Δv booked (km/s) — diagnostic / precompute log. */
-let _lastDoglegDvKmS = 0;
-
-export function setLowEarthOrbitCoastS(s: number): void {
-  _leoCoastS = s;
-}
-
-export function getLowEarthOrbitCoastS(): number {
-  return _leoCoastS;
-}
-
-/** Total plane-change class Δv booked on the last low Earth orbit dogleg (km/s). */
-export function getLastDoglegDvKmS(): number {
-  return _lastDoglegDvKmS;
-}
 
 const _n0 = v3();
 const _n1 = v3();
@@ -230,7 +211,7 @@ function bookDogleg(prop: PropState | null, doglegDv: number, state: CraftState,
 
 function leoCoastTiming(): { t0: number; period: number; coastS: number; steps: number; dt: number; vCirc: number } {
   const period = 2 * Math.PI * Math.sqrt(LOW_EARTH_ORBIT_RADIUS ** 3 / MU_EARTH);
-  const coastS = _leoCoastS > 0 ? _leoCoastS : period * 1.25;
+  const coastS = LOW_EARTH_ORBIT_COAST_S > 0 ? LOW_EARTH_ORBIT_COAST_S : period * 1.25;
   const steps = Math.max(180, Math.ceil(coastS / 10));
   return { t0: 0, period, coastS, steps, dt: coastS / steps, vCirc: Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS) };
 }
@@ -247,33 +228,36 @@ function runLeoDoglegLoop(
   return doglegDv;
 }
 
+/**
+ * Run the dogleg coast in place on `state`.
+ * @returns Total plane-change class Δv booked (km/s) — precompute diagnostic.
+ */
 export function runLunarPlaneLowEarthOrbitCoast(
   state: CraftState, samples: Sample[] | null, lastT: { t: number } | null,
   prop: PropState | null = null, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): void {
+): number {
   const t0 = state.t, timing = leoCoastTiming();
   const totalDi = leoCoastGeom(state, t0, timing.coastS, epoch);
   const angInPlane = leoInPlaneAngle(timing.period, timing.coastS);
   if (samples && lastT) pushSample(samples, state, "lowEarthOrbit", false, true, 0, lastT, prop, 0, "ship");
-  _lastDoglegDvKmS = runLeoDoglegLoop(state, t0, timing.coastS, timing.steps, timing.dt, timing.vCirc, angInPlane, samples, lastT, prop, epoch);
-  bookDogleg(prop, _lastDoglegDvKmS, state, timing.coastS);
+  const doglegDvKmS = runLeoDoglegLoop(state, t0, timing.coastS, timing.steps, timing.dt, timing.vCirc, angInPlane, samples, lastT, prop, epoch);
+  bookDogleg(prop, doglegDvKmS, state, timing.coastS);
   void totalDi;
+  return doglegDvKmS;
 }
 
 /** Ascent end → continuous low Earth orbit coast → low Earth orbit-rel state for probes. */
 export function computeLowEarthOrbitRelative(
+  ascent: AscentResult,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-  _coastS?: number,
 ): LowEarthOrbitRelative {
-  void _coastS;
-  const ascent = getAscent();
   const state = cloneState(ascent.state);
   runLunarPlaneLowEarthOrbitCoast(state, null, null, null, epoch);
   return captureLowEarthOrbitRelative(state, epoch);
 }
 
 /** Append ascent samples, then low Earth orbit dogleg into the lunar plane (paid ship Δv). */
-function copyAscentProp(prop: PropState, ascent: ReturnType<typeof getAscent>): void {
+function copyAscentProp(prop: PropState, ascent: AscentResult): void {
   const ap = ascent.prop ?? createPropState(ascent.state.t);
   prop.boosterPropKg = ap.boosterPropKg;
   prop.shipPropKg = ap.shipPropKg;
@@ -281,7 +265,7 @@ function copyAscentProp(prop: PropState, ascent: ReturnType<typeof getAscent>): 
   prop.staged = ap.staged;
 }
 
-function appendAscentSamples(samples: Sample[], lastT: { t: number }, ascent: ReturnType<typeof getAscent>): void {
+function appendAscentSamples(samples: Sample[], lastT: { t: number }, ascent: AscentResult): void {
   for (const s of ascent.samples) {
     samples.push({
       t: s.t, pos: clone(s.pos), vel: clone(s.vel), phase: s.phase, burning: s.burning,
@@ -291,15 +275,16 @@ function appendAscentSamples(samples: Sample[], lastT: { t: number }, ascent: Re
   }
 }
 
+/**
+ * @returns Post-coast craft state plus the dogleg Δv booked (km/s).
+ */
 export function appendAscentAndLowEarthOrbitCoast(
-  samples: Sample[], lastT: { t: number }, prop: PropState,
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS, _coastS?: number,
-): CraftState {
-  void _coastS;
-  const ascent = getAscent();
+  ascent: AscentResult, samples: Sample[], lastT: { t: number }, prop: PropState,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): { state: CraftState; doglegDvKmS: number } {
   copyAscentProp(prop, ascent);
   appendAscentSamples(samples, lastT, ascent);
   const state = cloneState(ascent.state);
-  runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop, epoch);
-  return state;
+  const doglegDvKmS = runLunarPlaneLowEarthOrbitCoast(state, samples, lastT, prop, epoch);
+  return { state, doglegDvKmS };
 }

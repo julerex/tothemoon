@@ -14,7 +14,7 @@ import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import { MU_EARTH } from "./constants";
 import { keplerRvAt, rvToKepler, type KeplerOrbit } from "./kepler";
-import type { Sample } from "./missionTypes";
+import type { ReadonlySample } from "./missionTypes";
 import { type V3, v3 } from "./vec3";
 
 const _relP = v3();
@@ -45,8 +45,8 @@ function isCoastPhase(phase: string): boolean {
  * Inject sample for the Kepler reference: last translunar injection sample if present,
  * otherwise first coast sample (already post-inject).
  */
-export function findTranslunarInjectionInjectSample(samples: Sample[]): Sample | null {
-  let lastTli: Sample | null = null;
+export function findTranslunarInjectionInjectSample(samples: readonly ReadonlySample[]): ReadonlySample | null {
+  let lastTli: ReadonlySample | null = null;
   for (const s of samples) {
     if (s.phase === "translunarInjection") lastTli = s;
   }
@@ -59,7 +59,7 @@ export function findTranslunarInjectionInjectSample(samples: Sample[]): Sample |
 
 /** Osculating Earth-centered Kepler orbit at a sample (heliocentric r,v). */
 export function orbitFromSample(
-  s: Sample,
+  s: ReadonlySample,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): KeplerOrbit {
   const b = bodyPositions(s.t, epoch);
@@ -87,8 +87,8 @@ export function keplerHeliocentricAt(
   return out;
 }
 
-function collectCoastSamples(samples: Sample[]): Sample[] {
-  const coast: Sample[] = [];
+function collectCoastSamples(samples: readonly ReadonlySample[]): ReadonlySample[] {
+  const coast: ReadonlySample[] = [];
   let seenCoast = false;
   for (const s of samples) {
     if (isCoastPhase(s.phase)) {
@@ -104,7 +104,7 @@ function orbitOk(orb: KeplerOrbit): boolean {
 }
 
 function resolveCorridorOrbit(
-  inject: Sample, coast: Sample[], epoch: EphemerisEpoch,
+  inject: ReadonlySample, coast: readonly ReadonlySample[], epoch: EphemerisEpoch,
 ): KeplerOrbit | null {
   try {
     let orb = orbitFromSample(inject, epoch);
@@ -116,7 +116,7 @@ function resolveCorridorOrbit(
 }
 
 function pushCorridorPair(
-  s: Sample, orb: KeplerOrbit, kPos: V3, epoch: EphemerisEpoch,
+  s: ReadonlySample, orb: KeplerOrbit, kPos: V3, epoch: EphemerisEpoch,
   nbodyPts: V3[], keplerPts: V3[],
 ): number {
   nbodyPts.push({ x: s.pos.x, y: s.pos.y, z: s.pos.z });
@@ -126,7 +126,7 @@ function pushCorridorPair(
 }
 
 function thinCorridorPts(
-  coast: Sample[], orb: KeplerOrbit, maxPts: number, epoch: EphemerisEpoch,
+  coast: readonly ReadonlySample[], orb: KeplerOrbit, maxPts: number, epoch: EphemerisEpoch,
 ): { nbodyPts: V3[]; keplerPts: V3[]; maxDevKm: number } {
   const n = Math.min(maxPts, coast.length); const step = (coast.length - 1) / Math.max(1, n - 1);
   const nbodyPts: V3[] = [], keplerPts: V3[] = [], kPos = v3();
@@ -144,7 +144,7 @@ function thinCorridorPts(
  * Returns null when the pack has no coast samples or inject state.
  */
 export function buildCoastCorridor(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   maxPts = 480,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): CoastCorridor | null {
@@ -163,7 +163,7 @@ export function buildCoastCorridor(
  * Used at bake and as a pack-meta fallback.
  */
 export function computeKeplerRefMaxDevKm(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
   const c = buildCoastCorridor(samples, 800, epoch);

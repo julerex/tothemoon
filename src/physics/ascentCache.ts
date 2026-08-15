@@ -1,51 +1,51 @@
+/**
+ * Ascent memo keyed by the ephemeris fields the baked ascent depends on.
+ *
+ * The memo is a value the caller owns rather than module state: `runMission`
+ * and the transfer search thread one explicitly, so a scoring pass cannot leak
+ * a stale ascent into a later run and tests need no reset hook. Discard the
+ * cache (create a new one) to force a fresh ascent.
+ */
+
 import { flyAscent, type AscentResult } from "./ascent";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 
-/** Cached Starbase → low Earth orbit under a fixed ephemeris epoch. */
-let _ascentCache: AscentResult | null = null;
-let _ascentPhaseKey = NaN;
-/** Horizons map t_land used when the cache was baked (absolute Earth motion). */
-let _ascentLandTKey = NaN;
-let _ascentUseHorizons: boolean | null = null;
-let _ascentSunPhase0 = NaN;
-let _ascentClockUtc: number | null | undefined = undefined;
+/**
+ * Epoch fields the ascent depends on. `horizonsLandingT` / sun / horizons flag
+ * are part of the key because craft absolute positions sit on a moving Earth.
+ */
+type AscentKey = Readonly<{
+  moonPhase0: number;
+  horizonsLandingT: number;
+  useHorizons: boolean;
+  sunPhase0: number;
+  clockUtcMsAtT0: number | null;
+}>;
 
-export function getAscent(): AscentResult {
-  if (!_ascentCache) {
-    throw new Error(
-      "getAscent: cache empty — call ensureAscent(epoch) first",
-    );
-  }
-  return _ascentCache;
+/** Memoized Starbase → low Earth orbit ascent under a fixed ephemeris epoch. */
+export type AscentCache = Readonly<{
+  /** Ascent for `epoch`, reusing the memo when the epoch key is unchanged. */
+  ensure: (epoch: EphemerisEpoch) => AscentResult;
+}>;
+
+function ascentKey(epoch: EphemerisEpoch): AscentKey {
+  return {
+    moonPhase0: epoch.moonPhase0,
+    horizonsLandingT: epoch.horizonsLandingT,
+    useHorizons: epoch.useHorizons,
+    sunPhase0: epoch.sunPhase0,
+    clockUtcMsAtT0: epoch.clockUtcMsAtT0,
+  };
 }
 
-/** Force a fresh ascent on the next ensureAscent. */
-export function resetAscentCache(): void {
-  _ascentCache = null;
-  _ascentPhaseKey = NaN;
-  _ascentLandTKey = NaN;
-  _ascentUseHorizons = null;
-  _ascentSunPhase0 = NaN;
-  _ascentClockUtc = undefined;
-}
-
-function ascentCacheHit(epoch: EphemerisEpoch): boolean {
-  return !!(
-    _ascentCache &&
-    _ascentPhaseKey === epoch.moonPhase0 &&
-    _ascentLandTKey === epoch.horizonsLandingT &&
-    _ascentUseHorizons === epoch.useHorizons &&
-    _ascentSunPhase0 === epoch.sunPhase0 &&
-    _ascentClockUtc === epoch.clockUtcMsAtT0
+function sameAscentKey(a: AscentKey, b: AscentKey): boolean {
+  return (
+    a.moonPhase0 === b.moonPhase0 &&
+    a.horizonsLandingT === b.horizonsLandingT &&
+    a.useHorizons === b.useHorizons &&
+    a.sunPhase0 === b.sunPhase0 &&
+    a.clockUtcMsAtT0 === b.clockUtcMsAtT0
   );
-}
-
-function storeAscentKeys(epoch: EphemerisEpoch): void {
-  _ascentPhaseKey = epoch.moonPhase0;
-  _ascentLandTKey = epoch.horizonsLandingT;
-  _ascentUseHorizons = epoch.useHorizons;
-  _ascentSunPhase0 = epoch.sunPhase0;
-  _ascentClockUtc = epoch.clockUtcMsAtT0;
 }
 
 function logAscent(a: AscentResult): void {
@@ -56,15 +56,17 @@ function logAscent(a: AscentResult): void {
   );
 }
 
-/**
- * Ensure ascent matches the given ephemeris (moon phase + Horizons landing map).
- * landT / sun / horizons flag are part of the key: craft absolute positions sit
- * on moving Earth.
- */
-export function ensureAscent(epoch: EphemerisEpoch): AscentResult {
-  if (ascentCacheHit(epoch)) return _ascentCache!;
-  storeAscentKeys(epoch);
-  _ascentCache = flyAscent(epoch);
-  logAscent(_ascentCache);
-  return _ascentCache;
+/** Fresh ascent memo; the first `ensure` always flies. */
+export function createAscentCache(): AscentCache {
+  let entry: { key: AscentKey; ascent: AscentResult } | null = null;
+  return Object.freeze({
+    ensure(epoch: EphemerisEpoch): AscentResult {
+      const key = ascentKey(epoch);
+      if (entry && sameAscentKey(entry.key, key)) return entry.ascent;
+      const ascent = flyAscent(epoch);
+      logAscent(ascent);
+      entry = { key, ascent };
+      return ascent;
+    },
+  });
 }

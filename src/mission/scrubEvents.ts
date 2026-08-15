@@ -33,7 +33,7 @@ export type ScrubEventTick = {
  * Preserves event order; one tick per event id already deduped by timeline.
  */
 export function buildScrubEventTicks(
-  events: MissionEvent[],
+  events: readonly MissionEvent[],
 ): ScrubEventTick[] {
   return events.map((event) => ({
     event,

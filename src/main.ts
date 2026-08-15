@@ -9,13 +9,28 @@
  */
 import "./style.css";
 import { bindMenus } from "./app/menus";
-import { missionByPath, type MissionDef } from "./app/missionCatalog";
+import { missionByPath, type MissionDef, type MissionId } from "./app/missionCatalog";
 import { navigate, parseRoute, setShellView } from "./app/shell";
 
 /** Once a full theater is running we avoid double-start without reload. */
 let theaterStarted = false;
 
 bindMenus();
+
+/** Lazy theater entry point per mission — keeps physics packs out of the shell bundle. */
+const MISSION_THEATERS: Readonly<Record<MissionId, () => Promise<() => void>>> = {
+  "to-the-moon": () =>
+    import("./missions/toTheMoon").then((m) => m.startToTheMoonMission),
+  "flight-13": () =>
+    import("./missions/flight13").then((m) => m.startFlight13Mission),
+};
+
+/** Document title per menu surface. */
+const MENU_TITLES: Readonly<Record<"main" | "missions" | "glossary", string>> = {
+  main: "tothemoon",
+  missions: "tothemoon — Mission Menu",
+  glossary: "tothemoon — Glossary",
+};
 
 function hideBriefing(): void {
   const briefing = document.getElementById("flight13-briefing");
@@ -29,40 +44,23 @@ function leaveTheaterIfNeeded(): boolean {
   return true;
 }
 
-function showMenuView(
-  view: "main" | "missions" | "glossary",
-  title: string,
-): void {
+function showMenuView(view: "main" | "missions" | "glossary"): void {
   if (leaveTheaterIfNeeded()) return;
   hideBriefing();
   setShellView(view);
-  document.title = title;
-}
-
-async function startToTheMoonTheater(): Promise<void> {
-  theaterStarted = true;
-  setShellView("theater");
-  const { startToTheMoonMission } = await import("./missions/toTheMoon");
-  startToTheMoonMission();
-}
-
-async function startFlight13TheaterRoute(): Promise<void> {
-  theaterStarted = true;
-  setShellView("theater");
-  const { startFlight13Mission } = await import("./missions/flight13");
-  startFlight13Mission();
+  document.title = MENU_TITLES[view];
 }
 
 async function launchMissionTheater(def: MissionDef): Promise<void> {
-  if (def.id === "to-the-moon") {
-    await startToTheMoonTheater();
+  const loadTheater = MISSION_THEATERS[def.id];
+  if (!loadTheater) {
+    navigate("/missions");
     return;
   }
-  if (def.id === "flight-13") {
-    await startFlight13TheaterRoute();
-    return;
-  }
-  navigate("/missions");
+  theaterStarted = true;
+  setShellView("theater");
+  const startMission = await loadTheater();
+  startMission();
 }
 
 async function enterTheater(def: MissionDef): Promise<void> {
@@ -83,21 +81,13 @@ async function startMission(path: string): Promise<void> {
   await enterTheater(def);
 }
 
-function applyMenuRoute(kind: "main" | "missions" | "glossary"): void {
-  if (kind === "main") showMenuView("main", "tothemoon");
-  else if (kind === "missions") showMenuView("missions", "tothemoon — Mission Menu");
-  else showMenuView("glossary", "tothemoon — Glossary");
-}
-
 function applyRoute(): void {
   const route = parseRoute();
-  if (route.kind === "main" || route.kind === "missions" || route.kind === "glossary") {
-    applyMenuRoute(route.kind);
+  if (route.kind === "mission") {
+    if (route.missionPath) void startMission(route.missionPath);
     return;
   }
-  if (route.kind === "mission" && route.missionPath) {
-    void startMission(route.missionPath);
-  }
+  showMenuView(route.kind);
 }
 
 window.addEventListener("hashchange", () => {

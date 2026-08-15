@@ -4,14 +4,14 @@
 
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
-import { TrajectoryCache } from "../physics/trajectoryCache.ts";
+import { loadPrecomputedTrajectory } from "../physics/trajectoryCache.ts";
 import { ATM_H_MAX_KM, R_EARTH } from "../physics/constants.ts";
 import {
   BOOSTER_VISIBLE_S,
   type StageState,
 } from "../physics/boosterRecovery.ts";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
-import type { Sample } from "../physics/missionTypes.ts";
+import type { ReadonlySample } from "../physics/missionTypes.ts";
 import {
   buildCrossSectionModel,
   drawCrossSection,
@@ -28,14 +28,14 @@ import {
   type CrossSectionModel,
 } from "./crossSection.ts";
 
-let samples: Sample[];
+let samples: readonly ReadonlySample[];
 let stage: StageState | null;
 let model: CrossSectionModel;
 
 let epoch: EphemerisEpoch;
 
 before(() => {
-  const cache = TrajectoryCache.loadPrecomputed();
+  const cache = loadPrecomputedTrajectory();
   epoch = cache.epoch;
   samples = cache.samples;
   stage = stageStateFromSamples(samples);

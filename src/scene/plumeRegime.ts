@@ -288,6 +288,19 @@ export function plumeThrustLag(
 }
 
 /**
+ * Combustion shimmer around ~0.9, deterministic in mission time so scrubbing
+ * reproduces the same frame. Shared by the live stack and the detached booster.
+ */
+export function thrustFlicker(missionT: number): number {
+  return (
+    0.9 +
+    0.06 * Math.sin(missionT * 53.1) +
+    0.04 * Math.sin(missionT * 91.7 + 1.3) +
+    0.03 * Math.sin(missionT * 137.2 + 0.4)
+  );
+}
+
+/**
  * Tiny deterministic gimbal wobble (radians-ish xy in mesh units).
  * Outer plume layers use a larger mult so the stack feels mechanical.
  */

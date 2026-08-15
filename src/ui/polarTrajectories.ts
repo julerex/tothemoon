@@ -11,7 +11,7 @@ import { R_EARTH, R_MOON, A_EM } from "../physics/constants";
 import { bodyPositions, osculatingMoonOrbitPoints } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
-import type { Sample } from "../physics/missionTypes";
+import type { ReadonlySample } from "../physics/missionTypes";
 import { dot, type V3, v3 } from "../physics/vec3";
 
 /** 2-D point in the ecliptic plane (km), looking from ecliptic north. */
@@ -101,7 +101,7 @@ export function projectEarthCentricPolar(
  * Earth-relative craft position at a sample (heliocentric sample − Earth).
  */
 export function craftEarthRel(
-  sample: Sample,
+  sample: ReadonlySample,
   out: V3 = v3(),
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
@@ -130,7 +130,7 @@ export function moonEarthRel(
  * while keeping first/last and phase edges.
  */
 export function buildPolarTrajectoryModel(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   maxPoints = 1800,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PolarTrajectoryModel | null {
@@ -160,7 +160,7 @@ function finishPolarModel(
 }
 
 function fillPolarTrails(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   basis: PolarBasis,
   shipTrail: TimedPolarPoint[],
   moonTrail: TimedPolarPoint[],
@@ -172,7 +172,7 @@ function fillPolarTrails(
 }
 
 function samplePolarLoop(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   basis: PolarBasis,
   shipTrail: TimedPolarPoint[],
   moonTrail: TimedPolarPoint[],
@@ -190,7 +190,7 @@ function samplePolarLoop(
 }
 
 function shouldKeepPolarSample(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   i: number,
   n: number,
   stride: number,
@@ -200,7 +200,7 @@ function shouldKeepPolarSample(
 }
 
 function pushPolarSample(
-  s: Sample,
+  s: ReadonlySample,
   basis: PolarBasis,
   shipTrail: TimedPolarPoint[],
   moonTrail: TimedPolarPoint[],
@@ -216,7 +216,7 @@ function pushPolarSample(
 }
 
 function expandMaxRForMoonOrbit(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   basis: PolarBasis,
   epoch: EphemerisEpoch,
 ): number {
@@ -244,7 +244,7 @@ function polarBoundsFromMaxR(maxR: number): PolarBounds {
 /** Live ship/moon equatorial positions at mission time t. */
 export function livePolar(
   model: PolarTrajectoryModel,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   t: number,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): PolarLive {
@@ -268,7 +268,7 @@ function packPolarLive(
 
 function liveShipPolar(
   model: PolarTrajectoryModel,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   t: number,
   epoch: EphemerisEpoch,
 ): PolarPoint | null {
@@ -279,7 +279,7 @@ function liveShipPolar(
   return projectEarthCentricPolar(_rel, model.basis);
 }
 
-function sampleAtTime(samples: Sample[], t: number): Sample | null {
+function sampleAtTime(samples: readonly ReadonlySample[], t: number): ReadonlySample | null {
   if (samples.length === 0) return null;
   if (t <= samples[0]!.t) return samples[0]!;
   const last = samples[samples.length - 1]!;
@@ -287,7 +287,7 @@ function sampleAtTime(samples: Sample[], t: number): Sample | null {
   return interpolateSample(samples, t);
 }
 
-function interpolateSample(samples: Sample[], t: number): Sample {
+function interpolateSample(samples: readonly ReadonlySample[], t: number): ReadonlySample {
   const { lo, hi } = binarySearchTime(samples, t, (s) => s.t);
   const a = samples[lo]!;
   const b = samples[hi]!;
@@ -307,7 +307,7 @@ function lerpPos(
 }
 
 function binarySearchTime<T>(
-  arr: T[],
+  arr: readonly T[],
   t: number,
   getT: (x: T) => number,
 ): { lo: number; hi: number } {

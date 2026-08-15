@@ -10,7 +10,7 @@ import type { CameraMode } from "../camera/modes";
 import type { MissionEvent, MissionTimeline, PhaseSegment } from "./timeline";
 
 /** One-shot jump: mission time + guided focus framing. */
-export type CinematicBookmark = {
+export type CinematicBookmark = Readonly<{
   id: string;
   /** Full label for tooltips / toasts */
   label: string;
@@ -28,7 +28,7 @@ export type CinematicBookmark = {
    * Same convention as Auto-cam.
    */
   frameScale?: number;
-};
+}>;
 
 /** Preset id order for UI buttons and Shift+1… keys. */
 export const BOOKMARK_IDS = [
@@ -172,7 +172,7 @@ export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
  * Returns null when the key index is out of range.
  */
 export function bookmarkForShiftDigit(
-  bookmarks: CinematicBookmark[],
+  bookmarks: readonly CinematicBookmark[],
   digit: number,
 ): CinematicBookmark | null {
   if (!Number.isInteger(digit) || digit < 1) return null;
@@ -184,7 +184,7 @@ function eventT(tl: MissionTimeline, id: string): number | null {
   return ev ? ev.t : null;
 }
 
-function findEvent(events: MissionEvent[], id: string): MissionEvent | null {
+function findEvent(events: readonly MissionEvent[], id: string): MissionEvent | null {
   return events.find((e) => e.id === id) ?? null;
 }
 
@@ -194,7 +194,7 @@ function segmentT0(tl: MissionTimeline, phase: string): number | null {
 }
 
 function findSegment(
-  segments: PhaseSegment[],
+  segments: readonly PhaseSegment[],
   phase: string,
 ): PhaseSegment | null {
   return segments.find((s) => s.phase === phase) ?? null;

@@ -21,14 +21,14 @@ import type { V3 } from "./vec3";
 export const TRAJECTORY_PACK_VERSION = 2 as const;
 
 /** Mission-summary stats stored beside samples in trajectory.json. */
-export type TrajectoryPackMeta = {
+export type TrajectoryPackMeta = Readonly<{
   /** Minimum altitude above mean lunar radius (km); ≤0 on impact/land */
   minMoonAlt: number;
   /** Peak |v| over samples (km/s, inertial / heliocentric theater frame) */
   peakSpeedKmS: number;
   /** Mission time (s) of first staged sample, or null if never staged */
   stageT: number | null;
-};
+}>;
 
 export type SampleLikeForMeta = {
   t: number;
@@ -55,22 +55,19 @@ function moonAltAt(s: SampleLikeForMeta, epoch: EphemerisEpoch): number | null {
 export function computeMinMoonAlt(
   samples: SampleLikeForMeta[], epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
-  let minAlt = Infinity;
-  for (const s of samples) {
-    const a = moonAltAt(s, epoch);
-    if (a != null) minAlt = Math.min(minAlt, a);
-  }
+  const minAlt = samples.reduce((lowest, s) => {
+    const alt = moonAltAt(s, epoch);
+    return alt == null ? lowest : Math.min(lowest, alt);
+  }, Infinity);
   return Number.isFinite(minAlt) ? minAlt : 0;
 }
 
 /** Peak inertial speed (km/s) over the sample series. */
 export function computePeakSpeedKmS(samples: SampleLikeForMeta[]): number {
-  let peak = 0;
-  for (const s of samples) {
-    const sp = Math.hypot(s.vel.x, s.vel.y, s.vel.z);
-    if (Number.isFinite(sp) && sp > peak) peak = sp;
-  }
-  return peak;
+  return samples.reduce((peak, s) => {
+    const speed = Math.hypot(s.vel.x, s.vel.y, s.vel.z);
+    return Number.isFinite(speed) && speed > peak ? speed : peak;
+  }, 0);
 }
 
 /**
@@ -78,10 +75,7 @@ export function computePeakSpeedKmS(samples: SampleLikeForMeta[]): number {
  * Returns null when the stack never stages.
  */
 export function computeStageT(samples: SampleLikeForMeta[]): number | null {
-  for (const s of samples) {
-    if (s.staged && Number.isFinite(s.t)) return s.t;
-  }
-  return null;
+  return samples.find((s) => s.staged && Number.isFinite(s.t))?.t ?? null;
 }
 
 /** Derive all pack meta fields from samples (precompute + v1 fallback). */

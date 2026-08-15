@@ -29,6 +29,7 @@ import {
 } from "../../mission/prelaunch";
 import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
+import { applyLandingBeatEffects } from "../theaterHandlers";
 import { nextAutoCamCut, finaleChaseBias } from "../../camera/autoCam";
 import {
   applyEarthshine,
@@ -357,31 +358,20 @@ function completeRaw(frame: SampleFrame, u: number): boolean {
   );
 }
 
-function setAutoCamPhase(ctx: F13Ctx, phase: PhaseId, staged: boolean): void {
-  ctx.autoCam.phase = phase;
-  ctx.autoCam.staged = staged;
-}
-
-function landingBeatHooks(ctx: F13Ctx) {
-  return {
-    setSpeed: (rate: number) => ctx.clock.setSpeed(rate),
-    setAutoCamPhase: (phase: PhaseId, staged: boolean) => setAutoCamPhase(ctx, phase, staged),
-    easeToMode: ctx.director.easeToMode.bind(ctx.director),
-    notifyAutoCamera: ctx.notifyAutoCamera,
-  };
-}
-
 function runLandingBeat(
   ctx: F13Ctx,
   frame: SampleFrame,
   u: number,
 ): boolean {
-  return stepLandingBeat(ctx.landingBeat, {
+  const step = stepLandingBeat(ctx.landingBeat, {
     completeRaw: completeRaw(frame, u), phase: frame.phase,
     classifyPhase: frame.phase === "splashdown" ? "landed" : frame.phase,
     playing: ctx.clock.playing, nowMs: performance.now(),
-    clockSpeed: ctx.clock.speed, staged: frame.staged, ...landingBeatHooks(ctx),
+    clockSpeed: ctx.clock.speed, staged: frame.staged,
   });
+  ctx.landingBeat = step.state;
+  applyLandingBeatEffects(step.effects, ctx);
+  return step.showCompleteCard;
 }
 
 function hudCore(

@@ -1,8 +1,9 @@
 /**
  * Baked / runtime mission trajectory: pure load, sample, and trail helpers.
  *
- * Packs are immutable after {@link makeTrajectory}. Sampling is a pure function
- * of (trajectory, t) + ephemeris epoch — no class instance methods required.
+ * Packs are frozen by {@link makeTrajectory}. Everything here is a free function
+ * of (trajectory, t) + ephemeris epoch, so a trajectory is plain data that
+ * callers pass around rather than an object with behavior.
  */
 
 import { R_EARTH, R_MOON } from "./constants";
@@ -16,8 +17,8 @@ import {
   runMission,
   type MissionResult,
   type PhaseId,
-  type Sample,
 } from "./mission";
+import type { ReadonlySample, Sample } from "./missionTypes";
 import {
   buildCoastCorridor,
   computeKeplerRefMaxDevKm,
@@ -55,7 +56,7 @@ export type FrameState = {
  * Prefer free functions: {@link sampleAtTime}, {@link trailPoints}, etc.
  */
 export type Trajectory = Readonly<{
-  samples: Sample[];
+  samples: readonly ReadonlySample[];
   durationS: number;
   ok: boolean;
   message: string;
@@ -149,7 +150,7 @@ function inferStaged(s: PackedTrajectory["samples"][number]): boolean {
   return s.st ?? (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6);
 }
 
-function unpackSample(s: PackedTrajectory["samples"][number]): Sample {
+function unpackSample(s: PackedTrajectory["samples"][number]): ReadonlySample {
   return {
     t: s.t, pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! }, vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
     phase: normalizePhaseId(s.phase), burning: s.burning, fuelBooster: s.fb ?? 0, fuelShip: s.fs ?? 1,
@@ -159,7 +160,7 @@ function unpackSample(s: PackedTrajectory["samples"][number]): Sample {
 
 function resolveKeplerDev(
   packed: number | undefined,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   epoch: EphemerisEpoch,
 ): number {
   return packed != null && Number.isFinite(packed)
@@ -283,7 +284,7 @@ export function sampleAtProgress(traj: Trajectory, u: number): FrameState {
   return sampleAtTime(traj, t);
 }
 
-function findSampleBracket(s: Sample[], t: number): { a: Sample; b: Sample; f: number } {
+function findSampleBracket(s: readonly ReadonlySample[], t: number): { a: ReadonlySample; b: ReadonlySample; f: number } {
   let lo = 0, hi = s.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -297,7 +298,7 @@ function lerpV3(a: V3, b: V3, f: number): V3 {
   return v3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, a.z + (b.z - a.z) * f);
 }
 
-function interpFrameFields(a: Sample, b: Sample, f: number) {
+function interpFrameFields(a: ReadonlySample, b: ReadonlySample, f: number) {
   return {
     phase: f < 0.5 ? a.phase : b.phase,
     burning: a.burning || b.burning,
@@ -340,7 +341,7 @@ function emptyFrame(): FrameState {
   };
 }
 
-function frameFromSample(s: Sample, epoch: EphemerisEpoch): FrameState {
+function frameFromSample(s: ReadonlySample, epoch: EphemerisEpoch): FrameState {
   return makeFrame(s.t, s.pos, s.vel, s.phase, s.burning, s.fuelBooster, s.fuelShip, s.thrustN, s.staged, epoch);
 }
 
@@ -370,111 +371,4 @@ function makeFrame(
   epoch: EphemerisEpoch,
 ): FrameState {
   return frameCore(t, pos, vel, phase, burning, fuelBooster, fuelShip, thrustN, staged, frameAlts(t, pos, epoch));
-}
-
-function isTrajectory(value: MissionResult | Trajectory): value is Trajectory {
-  return (
-    typeof value === "object" &&
-    value != null &&
-    "epoch" in value &&
-    (value as Trajectory).epoch != null &&
-    typeof (value as Trajectory).epoch === "object"
-  );
-}
-
-type CacheFields = {
-  samples: Sample[]; durationS: number; ok: boolean; message: string;
-  moonPhase0: number; translunarInjectionDeltaV: number; minMoonAlt: number;
-  peakSpeedKmS: number; stageT: number | null; keplerRefMaxDevKm: number;
-  horizonsLandingT: number; epoch: EphemerisEpoch;
-};
-
-function copyCoreFields(target: CacheFields, t: Trajectory): void {
-  target.samples = t.samples;
-  target.durationS = t.durationS;
-  target.ok = t.ok;
-  target.message = t.message;
-  target.moonPhase0 = t.moonPhase0;
-  target.translunarInjectionDeltaV = t.translunarInjectionDeltaV;
-}
-
-function copyMetaFields(target: CacheFields, t: Trajectory): void {
-  target.minMoonAlt = t.minMoonAlt;
-  target.peakSpeedKmS = t.peakSpeedKmS;
-  target.stageT = t.stageT;
-  target.keplerRefMaxDevKm = t.keplerRefMaxDevKm;
-  target.horizonsLandingT = t.horizonsLandingT;
-  target.epoch = t.epoch;
-}
-
-function copyTrajectoryFields(target: CacheFields, t: Trajectory): void {
-  copyCoreFields(target, t);
-  copyMetaFields(target, t);
-}
-
-/**
- * Thin object facade over pure trajectory helpers (same call shape as the old class).
- * Prefer free functions + {@link Trajectory} for new code.
- */
-export class TrajectoryCache {
-  readonly samples!: Sample[];
-  readonly durationS!: number;
-  readonly ok!: boolean;
-  readonly message!: string;
-  readonly moonPhase0!: number;
-  readonly translunarInjectionDeltaV!: number;
-  readonly minMoonAlt!: number;
-  readonly peakSpeedKmS!: number;
-  readonly stageT!: number | null;
-  readonly keplerRefMaxDevKm!: number;
-  readonly horizonsLandingT!: number;
-  readonly epoch!: EphemerisEpoch;
-  private readonly traj: Trajectory;
-  private _corridor: CoastCorridor | null | undefined;
-
-  constructor(result: MissionResult | Trajectory) {
-    const t = isTrajectory(result) ? result : makeTrajectory(result);
-    this.traj = t;
-    copyTrajectoryFields(this, t);
-  }
-
-  /** Underlying pure trajectory data. */
-  asTrajectory(): Trajectory {
-    return this.traj;
-  }
-
-  getCoastCorridor(): CoastCorridor | null {
-    if (this._corridor === undefined) {
-      this._corridor = trajectoryCoastCorridor(this.traj);
-    }
-    return this._corridor;
-  }
-
-  static loadPrecomputed(): TrajectoryCache {
-    return new TrajectoryCache(loadPrecomputedTrajectory());
-  }
-
-  static loadFlight13(): TrajectoryCache {
-    return new TrajectoryCache(loadFlight13Trajectory());
-  }
-
-  static compute(): TrajectoryCache {
-    return new TrajectoryCache(computeLunarTrajectory());
-  }
-
-  static computeFlight13(): TrajectoryCache {
-    return new TrajectoryCache(computeFlight13Trajectory());
-  }
-
-  sampleAtProgress(u: number): FrameState {
-    return sampleAtProgress(this.traj, u);
-  }
-
-  sampleAtTime(t: number): FrameState {
-    return sampleAtTime(this.traj, t);
-  }
-
-  trailPoints(max = 1200): V3[] {
-    return trailPoints(this.traj, max);
-  }
 }

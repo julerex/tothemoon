@@ -4,8 +4,9 @@
  * Progress `t` is in [0, 1]. At |speed| = 1, wall-clock duration equals the
  * mission duration; higher |speed| compresses playback. Negative speed rewinds.
  *
- * Pure transitions operate on {@link ClockState}. {@link MissionClock} is a thin
- * shell that holds state and notifies subscribers (seek / tick only).
+ * Pure transitions operate on {@link ClockState}. {@link createMissionClock}
+ * returns a thin shell that holds state and notifies subscribers (seek / tick
+ * only) — all transport logic stays in the pure reducers above it.
  */
 
 /** Listener called with normalized progress after seek/tick. */
@@ -100,83 +101,86 @@ export function clockTick(
  * Mission clock: thin shell over pure {@link ClockState} transitions.
  * Subscribe notifies on seek / tick (not play/pause/speed alone).
  */
-export class MissionClock {
-  private state: ClockState = initialClockState();
-  private listeners = new Set<ClockListener>();
-
+export type MissionClock = Readonly<{
   /** Normalized progress in [0, 1]. */
-  get t(): number {
-    return this.state.t;
-  }
-
+  readonly t: number;
   /** True while the clock is advancing on `tick`. */
-  get playing(): boolean {
-    return this.state.playing;
-  }
-
+  readonly playing: boolean;
   /** Signed playback rate (mission-duration multiples per wall second). */
-  get speed(): number {
-    return this.state.speed;
-  }
-
+  readonly speed: number;
   /** Snapshot of pure transport state. */
-  getState(): ClockState {
-    return this.state;
-  }
-
+  getState: () => ClockState;
   /** Replace entire state (e.g. restore); does not notify. */
-  setState(next: ClockState): void {
-    this.state = next;
-  }
-
+  setState: (next: ClockState) => void;
   /** Signed rate; |speed| ≥ 0.1. Negative rewinds. Non-finite / zero → 1. */
-  setSpeed(speed: number): void {
-    this.state = clockSetSpeed(this.state, speed);
-  }
-
+  setSpeed: (speed: number) => void;
   /** Start advancing on subsequent `tick` calls. */
-  play(): void {
-    this.state = clockPlay(this.state);
-  }
-
+  play: () => void;
   /** Stop advancing (keeps current `t`). */
-  pause(): void {
-    this.state = clockPause(this.state);
-  }
-
+  pause: () => void;
   /** Toggle play/pause. */
-  toggle(): void {
-    this.state = clockToggle(this.state);
-  }
-
+  toggle: () => void;
   /** Scrub to absolute normalized time and notify listeners. */
-  seek(t: number): void {
-    this.state = clockSeek(this.state, t);
-    // Always notify (matches historical scrubber/HUD coupling).
-    this.emit();
-  }
-
+  seek: (t: number) => void;
   /**
    * Advance by real delta seconds.
-   * At |speed| 1, full mission takes MISSION_DURATION_S real seconds.
+   * At |speed| 1, full mission takes `missionDurationS` real seconds.
    * Negative speed rewinds; clamps and pauses at 0 / 1.
    */
-  tick(dtSec: number, missionDurationS: number): void {
-    if (!this.state.playing) return;
-    this.state = clockTick(this.state, dtSec, missionDurationS);
-    this.emit();
-  }
-
+  tick: (dtSec: number, missionDurationS: number) => void;
   /**
    * Subscribe to progress changes (seek / tick).
    * @returns Unsubscribe function.
    */
-  subscribe(fn: ClockListener): () => void {
-    this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
-  }
+  subscribe: (fn: ClockListener) => () => void;
+}>;
 
-  private emit(): void {
-    for (const fn of this.listeners) fn(this.state.t);
-  }
+export function createMissionClock(): MissionClock {
+  let state = initialClockState();
+  const listeners = new Set<ClockListener>();
+  const emit = (): void => {
+    for (const fn of listeners) fn(state.t);
+  };
+
+  return Object.freeze({
+    get t() {
+      return state.t;
+    },
+    get playing() {
+      return state.playing;
+    },
+    get speed() {
+      return state.speed;
+    },
+    getState: () => state,
+    setState(next) {
+      state = next;
+    },
+    setSpeed(speed) {
+      state = clockSetSpeed(state, speed);
+    },
+    play() {
+      state = clockPlay(state);
+    },
+    pause() {
+      state = clockPause(state);
+    },
+    toggle() {
+      state = clockToggle(state);
+    },
+    seek(t) {
+      state = clockSeek(state, t);
+      // Always notify (matches historical scrubber/HUD coupling).
+      emit();
+    },
+    tick(dtSec, missionDurationS) {
+      if (!state.playing) return;
+      state = clockTick(state, dtSec, missionDurationS);
+      emit();
+    },
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  });
 }

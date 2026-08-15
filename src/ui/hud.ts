@@ -19,7 +19,7 @@ import {
 } from "../mission/newsTicker";
 import type { MissionEvent, MissionTimeline } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
-import type { Sample } from "../physics/missionTypes";
+import type { ReadonlySample } from "../physics/missionTypes";
 import {
   buildBoosterKeyframes,
   type RecoveryProfile,
@@ -141,7 +141,7 @@ type HudFlags = {
 type HudData = {
   timeline: MissionTimeline;
   handlers: HudHandlers;
-  samples: Sample[];
+  samples: readonly ReadonlySample[];
   recoveryProfile: RecoveryProfile;
   bookmarks: CinematicBookmark[];
   scrubEventTicks: ReturnType<typeof buildScrubEventTicks>;
@@ -210,7 +210,7 @@ function createHudFlags(): HudFlags {
   return { ...createHudFlagsA(), ...createHudFlagsB(), ...createHudFlagsC() };
 }
 
-function stageDerived(samples: Sample[], recoveryProfile: RecoveryProfile) {
+function stageDerived(samples: readonly ReadonlySample[], recoveryProfile: RecoveryProfile) {
   const stageState = stageStateFromSamples(samples);
   const crossModel =
     samples.length > 0 ? buildCrossSectionModel(samples, stageState, recoveryProfile) : null;
@@ -222,7 +222,7 @@ function stageDerived(samples: Sample[], recoveryProfile: RecoveryProfile) {
 function buildHudData(
   timeline: MissionTimeline,
   handlers: HudHandlers,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
 ): HudData {
   const derived = stageDerived(samples, recoveryProfile);
@@ -236,7 +236,7 @@ function buildHudData(
 function createHudRuntime(
   timeline: MissionTimeline,
   handlers: HudHandlers,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
 ): HudRuntime {
   ensureEarthGcOverlayBound();
@@ -1094,7 +1094,7 @@ export function bindHud(
   _clock: MissionClock,
   timeline: MissionTimeline,
   handlers: HudHandlers,
-  samples: Sample[] = [],
+  samples: readonly ReadonlySample[] = [],
   recoveryProfile: RecoveryProfile = "chopsticks",
 ): {
   update: (tel: Telemetry) => void;

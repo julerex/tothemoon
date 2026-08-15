@@ -16,7 +16,7 @@ import {
   type Flight13MissionOptions,
 } from "./flight13Mission";
 import { altitudeEarth } from "./integrator";
-import type { Sample } from "./missionTypes";
+import type { ReadonlySample } from "./missionTypes";
 import { len, sub, v3 } from "./vec3";
 
 const _d = v3();
@@ -53,7 +53,7 @@ export type Flight13ForceCompare = {
  * Interpolate sample trail at mission time t (linear in pos/vel).
  * Clamps to first/last sample.
  */
-function findBracket(samples: Sample[], t: number): { a: Sample; b: Sample; u: number } {
+function findBracket(samples: readonly ReadonlySample[], t: number): { a: ReadonlySample; b: ReadonlySample; u: number } {
   let lo = 0, hi = samples.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -64,7 +64,7 @@ function findBracket(samples: Sample[], t: number): { a: Sample; b: Sample; u: n
   return { a, b, u: dt > 1e-12 ? (t - a.t) / dt : 0 };
 }
 
-function lerpSample(a: Sample, b: Sample, t: number, u: number): Sample {
+function lerpSample(a: ReadonlySample, b: ReadonlySample, t: number, u: number): ReadonlySample {
   return {
     ...a, t,
     pos: { x: a.pos.x + (b.pos.x - a.pos.x) * u, y: a.pos.y + (b.pos.y - a.pos.y) * u, z: a.pos.z + (b.pos.z - a.pos.z) * u },
@@ -72,7 +72,7 @@ function lerpSample(a: Sample, b: Sample, t: number, u: number): Sample {
   };
 }
 
-export function sampleAtTime(samples: Sample[], t: number): Sample {
+export function sampleAtTime(samples: readonly ReadonlySample[], t: number): ReadonlySample {
   if (samples.length === 0) throw new Error("sampleAtTime: empty samples");
   if (t <= samples[0]!.t) return samples[0]!;
   const last = samples[samples.length - 1]!;
@@ -81,7 +81,7 @@ export function sampleAtTime(samples: Sample[], t: number): Sample {
   return lerpSample(a, b, t, u);
 }
 
-function peakAltKm(samples: Sample[]): number {
+function peakAltKm(samples: readonly ReadonlySample[]): number {
   let maxA = 0;
   for (const s of samples) {
     const a = altitudeEarth(s.t, s.pos);
@@ -102,7 +102,7 @@ function emptyDevAcc(): DevAcc {
   return { maxPos: 0, maxVel: 0, maxAlt: 0, sumSq: 0, n: 0, coastMaxPos: 0, coastMaxVel: 0, coastSumSq: 0, coastN: 0 };
 }
 
-function pairDev(s: Sample, e: Sample): { dPos: number; dVel: number; dAlt: number } {
+function pairDev(s: ReadonlySample, e: ReadonlySample): { dPos: number; dVel: number; dAlt: number } {
   sub(_d, s.pos, e.pos);
   const dPos = len(_d);
   sub(_d, s.vel, e.vel);
@@ -117,7 +117,7 @@ function bumpMax(acc: DevAcc, d: { dPos: number; dVel: number; dAlt: number }): 
   acc.n++;
 }
 
-function accumulatePair(acc: DevAcc, s: Sample, d: { dPos: number; dVel: number; dAlt: number }): void {
+function accumulatePair(acc: DevAcc, s: ReadonlySample, d: { dPos: number; dVel: number; dAlt: number }): void {
   bumpMax(acc, d);
   if (s.t < F13.SECO + 30 || s.t > F13.RELIGHT - 30) return;
   if (d.dPos > acc.coastMaxPos) acc.coastMaxPos = d.dPos;
@@ -126,7 +126,7 @@ function accumulatePair(acc: DevAcc, s: Sample, d: { dPos: number; dVel: number;
   acc.coastN++;
 }
 
-function scanDeviations(nbodySamples: Sample[], earthSamples: Sample[]): DevAcc {
+function scanDeviations(nbodySamples: readonly ReadonlySample[], earthSamples: readonly ReadonlySample[]): DevAcc {
   const tEnd = Math.min(nbodySamples[nbodySamples.length - 1]!.t, earthSamples[earthSamples.length - 1]!.t);
   const acc = emptyDevAcc();
   for (const s of nbodySamples) {
@@ -137,7 +137,7 @@ function scanDeviations(nbodySamples: Sample[], earthSamples: Sample[]): DevAcc 
 }
 
 function emptyCompare(
-  nbodySamples: Sample[], earthSamples: Sample[],
+  nbodySamples: readonly ReadonlySample[], earthSamples: readonly ReadonlySample[],
   meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
 ): Flight13ForceCompare {
   return {
@@ -157,7 +157,7 @@ function coastFields(acc: DevAcc) {
 }
 
 function packCompare(
-  acc: DevAcc, nbodySamples: Sample[], earthSamples: Sample[],
+  acc: DevAcc, nbodySamples: readonly ReadonlySample[], earthSamples: readonly ReadonlySample[],
   meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
 ): Flight13ForceCompare {
   return {
@@ -171,7 +171,7 @@ function packCompare(
 }
 
 export function summarizeForceDeviation(
-  nbodySamples: Sample[], earthSamples: Sample[],
+  nbodySamples: readonly ReadonlySample[], earthSamples: readonly ReadonlySample[],
   meta?: { durationNbodyS?: number; durationEarthS?: number; stageTNbody?: number | null; stageTEarth?: number | null },
 ): Flight13ForceCompare {
   if (nbodySamples.length < 2 || earthSamples.length < 2) return emptyCompare(nbodySamples, earthSamples, meta);
@@ -184,7 +184,7 @@ export function summarizeForceDeviation(
  * the n-body profile at metrics open.
  */
 export function compareFlight13ToEarthOnly(
-  nbodySamples: Sample[],
+  nbodySamples: readonly ReadonlySample[],
   meta?: { durationS?: number; stageT?: number | null },
   earthOpts?: Flight13MissionOptions,
 ): Flight13ForceCompare {

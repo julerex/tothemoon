@@ -56,8 +56,6 @@ const _up = v3();
 const _east = v3();
 const _north = v3();
 
-let _cachedPlane: Flight13CorridorPlane | null = null;
-
 /** Unit mesh-local radial for a geodetic site. */
 export function siteUnit(lat: number, lon: number, out: V3 = v3()): V3 {
   geodeticToMeshLocal(lat, lon, 1, out);
@@ -130,24 +128,32 @@ function unwrapSplashAngle(splash: V3, u: V3, v: V3, g: V3): number {
   return splashAngleRad;
 }
 
-/**
- * Best-fit great-circle plane through Starbase, Gauteng, and splashdown
- * (mesh-local, Earth-fixed). Oriented Starbase → Gauteng → landing.
- */
-export function flight13GreatCirclePlane(): Flight13CorridorPlane {
-  if (_cachedPlane) return _cachedPlane;
+function computeGreatCirclePlane(): Flight13CorridorPlane {
   const s = siteUnit(STARBASE_LAT, STARBASE_LON, v3());
   const g = siteUnit(GAUTENG_LAT, GAUTENG_LON, v3());
   const splash = siteUnit(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, v3());
   let { u, v, n } = planeBasisFromSites(s, g, splash);
   ({ u, v, n } = orientPlaneTowardGauteng(u, v, n, g));
-  _cachedPlane = {
-    u,
-    v,
-    n,
+  return {
+    u: Object.freeze(u),
+    v: Object.freeze(v),
+    n: Object.freeze(n),
     splashAngleRad: unwrapSplashAngle(splash, u, v, g),
   };
-  return _cachedPlane;
+}
+
+/**
+ * Corridor geometry is fixed by site constants, so it is derived once at module
+ * load and frozen rather than memoized behind mutable state.
+ */
+const GREAT_CIRCLE_PLANE: Flight13CorridorPlane = Object.freeze(computeGreatCirclePlane());
+
+/**
+ * Best-fit great-circle plane through Starbase, Gauteng, and splashdown
+ * (mesh-local, Earth-fixed). Oriented Starbase → Gauteng → landing.
+ */
+export function flight13GreatCirclePlane(): Flight13CorridorPlane {
+  return GREAT_CIRCLE_PLANE;
 }
 
 function projectHoriz(vec: V3, up: V3, out: V3): boolean {
