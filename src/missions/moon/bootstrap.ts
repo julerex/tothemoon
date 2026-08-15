@@ -18,7 +18,6 @@ import {
 import {
   computeLunarTrajectory,
   loadPrecomputedTrajectory,
-  sampleAtProgress,
   trailPoints,
   trajectoryCoastCorridor,
   type Trajectory,
@@ -52,12 +51,14 @@ import {
 import { createVectorArrows } from "../../scene/vectorArrows";
 import { createBodies } from "../../scene/bodies";
 import { CameraDirector, type CameraMode } from "../../camera/modes";
-import type { CinematicBookmark } from "../../mission/bookmarks";
 import type { PhaseId } from "../../physics/missionTypes";
-import { bindHud, type HudHandlers } from "../../ui/hud";
-import { nudgePlaybackSpeed } from "../../ui/hudFormat";
+import { bindHud } from "../../ui/hud";
 import { setTheaterVisible } from "../../app/shell";
-import { toggleZoomLabels } from "../../scene/zoomLabels";
+import {
+  makeTheaterHudHandlers,
+  wireCanvasPointer,
+  type TheaterHudWire,
+} from "../theaterHandlers";
 import type { MoonOrientScratch } from "./orientCraft";
 
 export type MoonAutoCam = {
@@ -337,92 +338,6 @@ function makeClock(cache: Trajectory) {
   return { clock, physicsDurationS, transportS, timeline };
 }
 
-type HudWire = {
-  clock: MissionClock;
-  director: CameraDirector;
-  autoCam: MoonAutoCam;
-  cache: Trajectory;
-  disableAutoCam: () => void;
-  toggleOrbits: () => void;
-};
-
-function onSpeedNudge(w: HudWire, dir: Parameters<HudHandlers["onSpeedNudge"]>[0]): number {
-  const next = nudgePlaybackSpeed(w.clock.speed, dir);
-  w.clock.setSpeed(next);
-  return next;
-}
-
-function transportH(w: HudWire): Pick<
-  HudHandlers,
-  "onPlayToggle" | "onSpeedMode" | "onSpeedNudge" | "onScrub"
-> {
-  return {
-    onPlayToggle: () => w.clock.toggle(),
-    onSpeedMode: (rate) => w.clock.setSpeed(rate),
-    onSpeedNudge: (dir) => onSpeedNudge(w, dir),
-    onScrub: (t) => w.clock.seek(t),
-  };
-}
-
-function onCamera(w: HudWire, mode: CameraMode): void {
-  w.disableAutoCam();
-  w.director.setMode(mode);
-}
-
-function onCameraFrame(w: HudWire, mode: CameraMode): void {
-  w.disableAutoCam();
-  w.director.frameMode(mode);
-}
-
-function onPanKey(w: HudWire, key: "w" | "a" | "s" | "d", down: boolean) {
-  const mode = w.director.setPanKey(key, down);
-  if (down) w.disableAutoCam();
-  return mode;
-}
-
-function cameraH(w: HudWire): Pick<
-  HudHandlers,
-  "onCamera" | "onCameraFrame" | "onOrbitKey" | "onPanKey" | "onZoomKey"
-> {
-  return {
-    onCamera: (mode) => onCamera(w, mode),
-    onCameraFrame: (mode) => onCameraFrame(w, mode),
-    onOrbitKey: (key, down) => w.director.setOrbitKey(key, down),
-    onPanKey: (key, down) => onPanKey(w, key, down),
-    onZoomKey: (key, down) => w.director.setZoomKey(key, down),
-  };
-}
-
-function onBookmark(w: HudWire, bm: CinematicBookmark): void {
-  w.clock.seek(bm.u);
-  const frame = sampleAtProgress(w.cache, bm.u);
-  w.autoCam.phase = frame.phase;
-  w.autoCam.staged = frame.staged;
-  w.director.easeToMode(bm.mode, { frame: bm.frame, frameScale: bm.frameScale });
-}
-
-function onAutoCamToggle(w: HudWire): boolean {
-  w.autoCam.enabled = !w.autoCam.enabled;
-  if (w.autoCam.enabled) w.autoCam.phase = null;
-  return w.autoCam.enabled;
-}
-
-function toggleH(w: HudWire): Pick<
-  HudHandlers,
-  "onToggleLabels" | "onToggleOrbits" | "onAutoCamToggle" | "onBookmark"
-> {
-  return {
-    onToggleLabels: () => toggleZoomLabels(),
-    onToggleOrbits: () => w.toggleOrbits(),
-    onAutoCamToggle: () => onAutoCamToggle(w),
-    onBookmark: (bm) => onBookmark(w, bm),
-  };
-}
-
-function makeHudHandlers(w: HudWire): HudHandlers {
-  return { ...transportH(w), ...cameraH(w), ...toggleH(w) };
-}
-
 function assemblePadOrbits(
   core: ReturnType<typeof mountCore>,
   cache: Trajectory,
@@ -488,7 +403,7 @@ function makeMoonHudWire(
   cache: Trajectory,
   disableAutoCam: () => void,
   toggleOrbits: () => void,
-): HudWire {
+): TheaterHudWire {
   return { clock, director, autoCam, cache, disableAutoCam, toggleOrbits };
 }
 
@@ -503,7 +418,7 @@ function bindHudPack(
   const disableAutoCam = makeDisableAutoCam(autoCam, () => setAutoCamUi);
   const setOrbits = makeSetOrbitsVisible(flags, world.sceneParts.orbitGroup, world.orbits.orbitExtras);
   const wire = makeMoonHudWire(clockPack.clock, world.director, autoCam, cache, disableAutoCam, () => setOrbits(!flags.orbitsVisible));
-  const hud = bindHud(clockPack.clock, clockPack.timeline, makeHudHandlers(wire), cache.samples);
+  const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());
   return { hud, notifyAutoCamera: hud.notifyAutoCamera };
@@ -533,19 +448,6 @@ function fillVecsB(craft: THREE.Group, craftPos: THREE.Vector3) {
 
 function fillVecs(craft: THREE.Group, craftPos: THREE.Vector3) {
   return { ...fillVecsA(craftPos), ...fillVecsB(craft, craftPos) };
-}
-
-function wirePointer(
-  canvas: HTMLCanvasElement,
-  camera: THREE.PerspectiveCamera,
-  arrows: ReturnType<typeof createVectorArrows>,
-): void {
-  canvas.addEventListener("pointermove", (e) => {
-    arrows.setPointer(e, camera, canvas);
-  });
-  canvas.addEventListener("pointerleave", () => {
-    arrows.setPointer(null, camera, canvas);
-  });
 }
 
 function worldFieldsA(world: ReturnType<typeof assembleWorld>) {
@@ -635,6 +537,6 @@ export function bootstrapToTheMoon(): MoonCtx {
   logBoot(cache);
   const world = assembleWorld(canvas, cache);
   const rt = runtimePack(world, cache);
-  wirePointer(canvas, world.camera, world.vectorArrows);
+  wireCanvasPointer(canvas, world.camera, world.vectorArrows);
   return finishMoon(canvas, cache, world, rt.clockPack, rt.autoCam, rt.flags, rt.hudPack);
 }
