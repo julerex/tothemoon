@@ -24,7 +24,7 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     const track = webcastShotAt(-2);
     assert.equal(track.mode, "starbase");
     assert.equal(track.padTrack, true);
-    assert.equal(webcastShotAt(16).key, track.key);
+    assert.equal(webcastShotAt(16).key, "ascent-track");
   });
 
   it("uses booster hull-down at max-Q (left-analog onboard)", () => {

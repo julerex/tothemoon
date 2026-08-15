@@ -338,8 +338,8 @@ function addHullCam(ship: THREE.Group): void {
     ship,
     "hull-cam",
     "hull-cam-look",
-    [R + 0.16, 0.03, SHIP_H * 0.58],
-    [R * 0.2, -0.05, 0.12],
+    [R + 0.42, 0.08, SHIP_H * 0.64],
+    [R * 0.12, -0.04, 0.04],
   );
 }
 
@@ -582,8 +582,8 @@ function addBoosterHullCam(booster: THREE.Group): void {
     booster,
     "booster-hull-cam",
     "booster-hull-cam-look",
-    [R + 0.16, 0.03, BOOST_H * 0.58],
-    [R * 0.2, -0.06, 0.14],
+    [R + 0.42, 0.08, BOOST_H * 0.62],
+    [R * 0.12, -0.06, -0.02],
   );
 }
 

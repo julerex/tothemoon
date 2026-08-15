@@ -43,7 +43,7 @@ export type WebcastShot = {
 };
 
 /** Wider FOV for webcast hull / engine-bay stills. */
-export const WEBCAST_ONBOARD_FOV = 72;
+export const WEBCAST_ONBOARD_FOV = 80;
 /** Default theater PerspectiveCamera FOV. */
 export const THEATER_DEFAULT_FOV = 50;
 
@@ -71,14 +71,25 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     t0: -8,
     mode: "starbase",
     frame: true,
-    frameScale: 1.18,
+    frameScale: 0.95,
     azimuthDeg: 198,
-    elevationDeg: 8,
+    elevationDeg: 5,
     padTrack: true,
   },
   {
+    key: "ascent-track",
+    t0: 8,
+    mode: "starbase",
+    frame: true,
+    frameScale: 1.55,
+    azimuthDeg: 188,
+    elevationDeg: 16,
+    padTrack: true,
+    fov: 42,
+  },
+  {
     key: "maxq-hull",
-    t0: 48,
+    t0: 22,
     mode: "gridfin",
     frame: true,
     mount: "boosterHull",

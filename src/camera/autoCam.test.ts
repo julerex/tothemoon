@@ -168,7 +168,7 @@ describe("nextAutoCamCut", () => {
       false,
       { phase: "ascent", staged: false, shotKey: track.shotKey },
       "flight13",
-      60,
+      30,
     );
     assert.ok(hull.suggestion);
     assert.equal(hull.suggestion!.mount, "boosterHull");
