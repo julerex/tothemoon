@@ -381,13 +381,14 @@ function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
 
 /**
  * Fin-cam mesh-local pose (before {@link CRAFT_MESH_SCALE}).
- * Sits just aft of the starboard forward flap so an 84° lens sees the barrel
- * (tiles | steel | S40), not the flap mesh the camera is “bolted” to.
+ * Nose-ward and outboard of the starboard forward flap (flap occupies
+ * ~z 0.55–0.81) so the locked lens looks aft along the barrel instead of
+ * into a flap face.
  */
-export const FIN_CAM_LOCAL = { x: R + 0.16, y: 0.07, z: 0.68 } as const;
+export const FIN_CAM_LOCAL = { x: R + 0.20, y: 0.06, z: 0.90 } as const;
 
-/** Fin-cam look — along the TPS/steel chine, not through the aft elevon. */
-export const FIN_CAM_LOOK_LOCAL = { x: R * 0.75, y: 0.01, z: 0.18 } as const;
+/** Fin-cam look — aft along the TPS/steel chine toward the engines. */
+export const FIN_CAM_LOOK_LOCAL = { x: R + 0.05, y: 0.02, z: 0.22 } as const;
 
 /** Fin-cam mount + look target on ship. */
 function addFinCam(ship: THREE.Group): void {
