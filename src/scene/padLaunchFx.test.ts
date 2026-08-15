@@ -16,6 +16,8 @@ import {
   floodFixtureEmissive,
   floodSpotDistance,
   floodSpotIntensity,
+  GROUND_SHEETS,
+  groundSheetPose,
   hazeBaseZs,
   hazeSpritePose,
   olmLampColorHex,
@@ -35,6 +37,8 @@ import {
   sheetSpritePose,
   smoothstep,
   steamSpritePose,
+  steamTintRgb,
+  steamWarmth,
   STEAM_TIERS,
   tongueVisual,
   ventSpritePose,
@@ -202,6 +206,24 @@ describe("sprite poses", () => {
     assert.ok(Number.isFinite(a.position.x));
   });
 
+  it("steam punch is opaque enough for T+0 (V14)", () => {
+    const inner = steamSpritePose(
+      {
+        baseAng: 0,
+        baseR: 0.03,
+        baseY: 0.008,
+        baseScale: 0.1,
+        phase: 0,
+        tier: 0,
+      },
+      1,
+      0,
+      0,
+    );
+    assert.ok(inner.opacity > 0.3);
+    assert.ok(inner.position.y < 0.04, "steam hugs the apron");
+  });
+
   it("outer steam tier is thinner", () => {
     const inner = steamSpritePose(
       {
@@ -258,6 +280,22 @@ describe("sprite poses", () => {
       assert.ok(Number.isFinite(p.scale.x) && Number.isFinite(p.position.y));
     }
   });
+
+  it("ground sheets stay low and denser than lofted curtains", () => {
+    const base = {
+      baseX: 0,
+      baseY: 0.005,
+      baseZ: 0,
+      baseSx: 0.09,
+      baseSy: 0.026,
+      phase: 0,
+    };
+    const ground = groundSheetPose(base, 1, 0, 0);
+    const sheet = sheetSpritePose({ ...base, baseY: 0.018, baseSy: 0.04 }, 1, 0, 0);
+    assert.ok(ground.opacity > 0.35);
+    assert.ok(ground.position.y < sheet.position.y);
+    assert.equal(GROUND_SHEETS.length, 5);
+  });
 });
 
 describe("mesh / light scalars", () => {
@@ -281,12 +319,22 @@ describe("mesh / light scalars", () => {
     assert.equal(padFillColorHex(0.2), 0xffe0c8);
     assert.equal(padFillColorHex(0), 0xdde6f4);
     assert.ok(padFillDistance(1) > padFillDistance(0));
-    assert.equal(plumeLightIntensity(0.5), 1.1);
+    assert.equal(plumeLightIntensity(0.5), 0.825);
     assert.equal(plumeLightDistance(0.5), 0.19);
     const rgb = plumeLightRgb(1);
     assert.equal(rgb[0], 1);
     assert.ok(rgb[1]! > 0.55);
     assert.ok(floodFixtureEmissive(1) > floodFixtureEmissive(0));
+  });
+
+  it("warms steam toward engine-lit orange-pink", () => {
+    assert.equal(steamWarmth(0), 0);
+    assert.ok(steamWarmth(1) > 0.6 && steamWarmth(1) <= 1);
+    const cool = steamTintRgb(0, 0);
+    const hot = steamTintRgb(1, 0);
+    assert.ok(hot[0]! >= cool[0]!);
+    assert.ok(hot[1]! < cool[1]!, "green drops toward orange-pink");
+    assert.ok(hot[2]! < cool[2]!, "blue drops toward engine glow");
   });
 
   it("olm lamps brighten at night when pad ops", () => {

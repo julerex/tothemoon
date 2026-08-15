@@ -114,12 +114,22 @@ describe("plumeLook", () => {
     assert.ok(atmo.radial < vac.radial);
   });
 
-  it("uses blue-ish ship light vs orange booster", () => {
-    const ship = plumeLook("vacuum", "ship");
-    const boost = plumeLook("atmosphere", "booster");
-    // Ship light is cooler (more blue)
-    assert.ok(ship.light[2]! > ship.light[0]!);
-    assert.ok(boost.light[0]! > boost.light[2]!);
+  it("uses pink-magenta atmosphere rims vs cooler vacuum ship", () => {
+    const atmo = plumeLook("atmosphere", "booster");
+    const land = plumeLook("landing", "booster");
+    const shipAtmo = plumeLook("atmosphere", "ship");
+    const shipVac = plumeLook("vacuum", "ship");
+    const shipLand = plumeLook("landing", "ship");
+    for (const look of [atmo, land, shipAtmo, shipLand]) {
+      // Near-white core (all channels high)
+      assert.ok(look.core[0]! > 0.9 && look.core[1]! > 0.7 && look.core[2]! > 0.8);
+      // Magenta rim: red high, blue > green (not orange)
+      assert.ok(look.rim[0]! > 0.85);
+      assert.ok(look.rim[2]! > look.rim[1]!);
+      assert.ok(look.rim[2]! > 0.55);
+    }
+    // Vacuum ship stays cooler (more blue than red)
+    assert.ok(shipVac.light[2]! > shipVac.light[0]!);
   });
 
   it("covers booster boostback / landing / fallback regimes", () => {
