@@ -35,7 +35,7 @@ import {
 import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
 import { meshLocalTrailFromSamples } from "../../physics/earthTrail";
 import { createTrailFromPoints } from "../../scene/trail";
-import { StagingFx, findStageEvent } from "../../scene/stagingFx";
+import { createStagingFx, findStageEvent, type StagingFx } from "../../scene/stagingFx";
 import { createEntryFx, type EntryFx } from "../../scene/entryFx";
 import { createSplashFx, type SplashFx } from "../../scene/splashFx";
 import { createGulfLandFx, type GulfLandFx } from "../../scene/gulfLandFx";
@@ -282,7 +282,7 @@ function mountStaging(
   cache: Trajectory,
 ) {
   const boosterProto = craft.getObjectByName("booster");
-  const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
+  const stagingFx = createStagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
   const stageEvent = findStageEvent(cache.samples);
   stagingFx.setStageEvent(stageEvent, "gulf");
   scene.add(stagingFx.group);

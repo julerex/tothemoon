@@ -9,6 +9,7 @@ import {
   plumeLook,
   plumeRegimeFor,
   plumeThrustLag,
+  thrustFlicker,
   type PlumeLook,
 } from "./plumeRegime";
 import { createNameLabel } from "./zoomLabels";
@@ -1549,16 +1550,6 @@ const BOOSTER_THRUST_REF = 1.4e8;
 const SHIP_THRUST_REF = 8e6;
 const HOT_STAGE_PRE_S = 4.0;
 const HOT_STAGE_POST_S = 1.2;
-
-function thrustFlicker(missionT: number): number {
-  const t = missionT;
-  return (
-    0.9 +
-    0.06 * Math.sin(t * 53.1) +
-    0.04 * Math.sin(t * 91.7 + 1.3) +
-    0.03 * Math.sin(t * 137.2 + 0.4)
-  );
-}
 
 /**
  * Theater maximum dynamic pressure condensation strength in [0,1].

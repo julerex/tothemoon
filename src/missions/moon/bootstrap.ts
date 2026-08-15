@@ -37,7 +37,7 @@ import {
 import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
 import { createCoastBeatsOverlay, createCoastCorridorOverlay } from "../../scene/coastCorridor";
 import { createTrailFromPoints } from "../../scene/trail";
-import { StagingFx, findStageEvent } from "../../scene/stagingFx";
+import { createStagingFx, findStageEvent, type StagingFx } from "../../scene/stagingFx";
 import { createLandingFx, type LandingFx } from "../../scene/landingFx";
 import {
   createStarbasePad,
@@ -258,7 +258,7 @@ function mountStagingFx(
   cache: Trajectory,
 ) {
   const boosterProto = craft.getObjectByName("booster");
-  const stagingFx = new StagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
+  const stagingFx = createStagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
   const stageEvent = findStageEvent(cache.samples);
   stagingFx.setStageEvent(stageEvent);
   scene.add(stagingFx.group);

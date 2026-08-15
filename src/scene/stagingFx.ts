@@ -1,12 +1,18 @@
+/**
+ * Detached Super Heavy after stage-out: flip → boostback → coast → landing burn
+ * → tower catch at Starbase. Fully deterministic in mission time so scrubbing works.
+ *
+ * Path is kinematic theater (see `boosterRecovery.ts`), not the mission integrator.
+ * Far-range dim locator (~30 s) + brief boostback ignition flash for readability.
+ *
+ * Every scalar comes from the pure helpers in `stagingVisual.ts`; this module
+ * only builds the mesh graph and writes poses onto it.
+ */
+
 import * as THREE from "three";
 import {
-  boosterLocatorStrength,
-  boostbackFlashStrength,
-  boosterVisibleS,
-  buildBoosterKeyframes,
-  landingContactFlashStrength,
-  recoverySchedule,
   sampleBoosterRecovery,
+  buildBoosterKeyframes,
   type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
@@ -17,20 +23,27 @@ import {
   createLocatorSprite,
   updateLocatorVisibility,
 } from "./craft";
-import { plumeLook, plumeRegimeFor, plumeThrustLag } from "./plumeRegime";
-
-/** Staging flash lifetime (mission s). */
-const FLASH_S = 3.5;
-
-/**
- * Peak material opacity for the free-flyer locator vs ship red (~1.0).
- * Dimmer so the ship remains the primary subject in system views.
- */
-const LOCATOR_OPACITY = 0.55;
-
-/** Reference thrust (N) for detached-booster plume sizing. */
-const BOOSTBACK_THRUST_REF = 7e7; // ~half of ascent field, multi-engine boostback
-const LANDING_THRUST_REF = 2.5e7; // fewer engines into the catch
+import {
+  plumeLook,
+  plumeRegimeFor,
+  plumeThrustLag,
+  thrustFlicker,
+  type PlumeLook,
+} from "./plumeRegime";
+import {
+  boosterFadeScale,
+  boosterMeshVisible,
+  boosterUpAxis,
+  deriveStagingVisual,
+  legacyPlumePose,
+  LOCATOR_OPACITY,
+  recoveryAge,
+  recoveryLightPose,
+  recoveryPlumeTarget,
+  stageFlashPose,
+  type FlashPose,
+  type StageFlashPose,
+} from "./stagingVisual";
 
 /** Clone Super Heavy mesh for free-flyer recovery path. */
 function initDetachedBooster(proto: THREE.Object3D, meshScale: number): THREE.Group {
@@ -70,31 +83,29 @@ function makeStageFlashMat(color: number, opacity: number): THREE.MeshBasicMater
   });
 }
 
-function makeStageFlashMesh(
-  r: number,
-  w: number,
-  h: number,
-  mat: THREE.MeshBasicMaterial,
+/** One additive flash sphere plus its material, ready for a {@link FlashPose}. */
+type FlashMesh = { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial };
+
+function makeFlash(
   name: string,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, w, h), mat);
+  radius: number,
+  widthSeg: number,
+  heightSeg: number,
+  color: number,
+  opacity: number,
+): FlashMesh {
+  const mat = makeStageFlashMat(color, opacity);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, widthSeg, heightSeg), mat);
   mesh.name = name;
   mesh.visible = false;
-  return mesh;
+  return { mesh, mat };
 }
 
-function makeStageFlashPair() {
-  const flashMat = makeStageFlashMat(0xffcc88, 0.85);
-  const boostbackFlashMat = makeStageFlashMat(0xffa060, 0);
-  const landingFlashMat = makeStageFlashMat(0xffe0a0, 0);
-  return {
-    flashMat,
-    flash: makeStageFlashMesh(0.08, 12, 10, flashMat, "stage-flash"),
-    boostbackFlashMat,
-    boostbackFlash: makeStageFlashMesh(0.05, 10, 8, boostbackFlashMat, "boostback-flash"),
-    landingFlashMat,
-    landingFlash: makeStageFlashMesh(0.06, 10, 8, landingFlashMat, "landing-flash"),
-  };
+function applyFlashPose(flash: FlashMesh, pose: FlashPose): void {
+  flash.mesh.visible = pose.visible;
+  if (!pose.visible) return;
+  flash.mesh.scale.setScalar(pose.scale);
+  flash.mat.opacity = pose.opacity;
 }
 
 function makeBoosterLocator() {
@@ -110,282 +121,226 @@ export type StageEvent = {
   vel: THREE.Vector3;
 };
 
-/**
- * Detached Super Heavy after stage-out: flip → boostback → coast → landing burn
- * → tower catch at Starbase. Fully deterministic in mission time so scrubbing works.
- *
- * Path is kinematic theater (see `boosterRecovery.ts`), not the mission integrator.
- * Far-range dim locator (~30 s) + brief boostback ignition flash for readability.
- */
-export class StagingFx {
-  readonly group = new THREE.Group();
-  private readonly booster: THREE.Group;
+export type StagingFx = Readonly<{
+  group: THREE.Group;
   /** Detached Super Heavy mesh (grid-fin cam host after stage-out). */
-  get detachedBooster(): THREE.Group {
-    return this.booster;
-  }
-  private readonly flash: THREE.Mesh;
-  private readonly flashMat: THREE.MeshBasicMaterial;
-  private readonly boostbackFlash: THREE.Mesh;
-  private readonly boostbackFlashMat: THREE.MeshBasicMaterial;
-  private readonly landingFlash: THREE.Mesh;
-  private readonly landingFlashMat: THREE.MeshBasicMaterial;
-  /** Dim free-flyer locator (amber; dimmer than ship red). */
-  private readonly locator: THREE.Sprite;
-  private readonly locatorMat: THREE.SpriteMaterial;
-  private readonly boostPlume: THREE.Object3D | null = null;
-  private readonly exhaustLight: THREE.PointLight;
-  private readonly look = new THREE.Matrix4();
-  private readonly quat = new THREE.Quaternion();
-  private readonly up = new THREE.Vector3(0, 1, 0);
-  private readonly lookTarget = new THREE.Vector3();
-  private readonly nose = new THREE.Vector3();
-  private stage: StageEvent | null = null;
-  private stageState: StageState | null = null;
-  private keyframes: ReturnType<typeof buildBoosterKeyframes> | null = null;
-  private recoveryProfile: RecoveryProfile = "chopsticks";
-  private plumeLagU = 0;
-  private plumeLagT = 0;
-
-  constructor(boosterPrototype: THREE.Object3D, meshScale = CRAFT_MESH_SCALE) {
-    this.booster = initDetachedBooster(boosterPrototype, meshScale);
-    this.boostPlume = findBoostPlume(this.booster);
-    this.exhaustLight = makeBoosterExhaustLight();
-    this.booster.add(this.exhaustLight);
-    ({ flashMat: this.flashMat, flash: this.flash,
-      boostbackFlashMat: this.boostbackFlashMat, boostbackFlash: this.boostbackFlash,
-      landingFlashMat: this.landingFlashMat, landingFlash: this.landingFlash } = makeStageFlashPair());
-    ({ sprite: this.locator, mat: this.locatorMat } = makeBoosterLocator());
-    this.group.add(this.booster, this.flash, this.boostbackFlash, this.landingFlash, this.locator);
-  }
-
+  detachedBooster: THREE.Group;
   /**
    * @param recovery chopsticks (RTLS / tower) or gulf (Flight 13 offshore)
    */
-  setStageEvent(
-    ev: StageEvent | null,
-    recovery: RecoveryProfile = "chopsticks",
-  ): void {
-    this.stage = ev;
-    this.recoveryProfile = recovery;
-    if (!ev) {
-      this.stageState = null;
-      this.keyframes = null;
-      return;
-    }
-    this.applyStageEvent(ev, recovery);
-  }
-
-  private applyStageEvent(ev: StageEvent, recovery: RecoveryProfile): void {
-    this.stageState = {
-      t: ev.t,
-      pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
-      vel: { x: ev.vel.x, y: ev.vel.y, z: ev.vel.z },
-    };
-    this.keyframes = buildBoosterKeyframes(this.stageState, recovery);
-  }
-
+  setStageEvent: (ev: StageEvent | null, recovery?: RecoveryProfile) => void;
   /**
    * @param craftPos ship position (flash sticks near craft at t=0+)
    * @param craftQuat unused (kept for call-site compatibility)
    * @param camera optional — when set, drives far-range free-flyer locator
    */
-  private hideAllFx(): void {
-    this.booster.visible = false;
-    this.flash.visible = false;
-    this.boostbackFlash.visible = false;
-    this.landingFlash.visible = false;
-    this.locator.visible = false;
-    this.exhaustLight.intensity = 0;
-    this.hidePlume();
+  update: (
+    missionT: number,
+    craftPos: THREE.Vector3,
+    craftQuat: THREE.Quaternion,
+    camera?: THREE.Camera,
+  ) => void;
+}>;
+
+export function createStagingFx(
+  boosterPrototype: THREE.Object3D,
+  meshScale = CRAFT_MESH_SCALE,
+): StagingFx {
+  const group = new THREE.Group();
+  const booster = initDetachedBooster(boosterPrototype, meshScale);
+  const boostPlume = findBoostPlume(booster);
+  const exhaustLight = makeBoosterExhaustLight();
+  booster.add(exhaustLight);
+  const flash = makeFlash("stage-flash", 0.08, 12, 10, 0xffcc88, 0.85);
+  const boostbackFlash = makeFlash("boostback-flash", 0.05, 10, 8, 0xffa060, 0);
+  const landingFlash = makeFlash("landing-flash", 0.06, 10, 8, 0xffe0a0, 0);
+  const { sprite: locator, mat: locatorMat } = makeBoosterLocator();
+  group.add(booster, flash.mesh, boostbackFlash.mesh, landingFlash.mesh, locator);
+
+  const look = new THREE.Matrix4();
+  const quat = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  const lookTarget = new THREE.Vector3();
+  const nose = new THREE.Vector3();
+
+  let stage: StageEvent | null = null;
+  let stageState: StageState | null = null;
+  let keyframes: ReturnType<typeof buildBoosterKeyframes> | null = null;
+  let recoveryProfile: RecoveryProfile = "chopsticks";
+  // Frame-to-frame plume lag: mechanical spin-up that survives scrub jumps.
+  let plumeLagU = 0;
+  let plumeLagT = 0;
+
+  function hidePlume(): void {
+    if (boostPlume) {
+      boostPlume.visible = false;
+      for (const c of boostPlume.children) c.visible = false;
+    }
+    plumeLagU = 0;
   }
 
-  private orientBooster(sample: ReturnType<typeof sampleBoosterRecovery>): void {
-    this.nose.set(sample.nose.x, sample.nose.y, sample.nose.z);
-    if (this.nose.lengthSq() <= 1e-12) return;
-    this.nose.normalize();
-    this.lookTarget.copy(this.booster.position).add(this.nose);
-    this.up.set(0, 1, 0);
-    if (Math.abs(this.nose.dot(this.up)) > 0.95) this.up.set(1, 0, 0);
-    this.look.lookAt(this.lookTarget, this.booster.position, this.up);
-    this.quat.setFromRotationMatrix(this.look);
-    this.booster.quaternion.copy(this.quat);
+  function hideAllFx(): void {
+    booster.visible = false;
+    flash.mesh.visible = false;
+    boostbackFlash.mesh.visible = false;
+    landingFlash.mesh.visible = false;
+    locator.visible = false;
+    exhaustLight.intensity = 0;
+    hidePlume();
   }
 
-  private applyRecoverySample(
+  /** Pin the separation flash to the ship for the first frames, then the pad-side booster. */
+  function applyStageFlash(pose: StageFlashPose, craftPos: THREE.Vector3): void {
+    if (!stage) {
+      flash.mesh.visible = false;
+      return;
+    }
+    applyFlashPose(flash, pose);
+    if (!pose.visible) return;
+    flash.mesh.position.copy(pose.atCraft ? craftPos : stage.pos);
+  }
+
+  function applyLegacyPlumeSprite(
+    plume: THREE.Object3D, u: number, plumeLookNow: PlumeLook, flicker: number,
+  ): void {
+    const pose = legacyPlumePose(u, plumeLookNow, flicker);
+    plume.visible = true;
+    plume.scale.set(pose.scaleX, pose.scaleY, 1);
+    ((plume as THREE.Sprite).material as THREE.SpriteMaterial).opacity = pose.opacity;
+    plume.position.z = pose.z;
+  }
+
+  function applyExhaustLight(u: number, plumeLookNow: PlumeLook, flicker: number): void {
+    const light = recoveryLightPose(u, plumeLookNow, flicker);
+    exhaustLight.intensity = light.intensity;
+    exhaustLight.color.setRGB(plumeLookNow.light[0]!, plumeLookNow.light[1]!, plumeLookNow.light[2]!);
+    exhaustLight.distance = light.distance;
+    exhaustLight.position.set(0, 0, -0.05);
+  }
+
+  function updatePlume(
+    missionT: number, burning: boolean, throttle: number, phase: string,
+  ): void {
+    if (!burning || throttle < 0.02) {
+      hidePlume();
+      exhaustLight.intensity = 0;
+      plumeLagT = missionT;
+      return;
+    }
+    const u = plumeThrustLag(plumeLagU, recoveryPlumeTarget(throttle), plumeLagT, missionT);
+    plumeLagU = u;
+    plumeLagT = missionT;
+    const flicker = thrustFlicker(missionT);
+    const plumeLookNow = plumeLook(
+      plumeRegimeFor(undefined, "booster", { recoveryPhase: phase }),
+      "booster",
+    );
+    if (boostPlume?.name === "plume-booster") {
+      applyPlumeLayers(boostPlume, u, plumeLookNow, flicker, missionT);
+    } else if (boostPlume) {
+      applyLegacyPlumeSprite(boostPlume, u, plumeLookNow, flicker);
+    }
+    applyExhaustLight(u, plumeLookNow, flicker);
+  }
+
+  function orientBooster(sample: ReturnType<typeof sampleBoosterRecovery>): void {
+    nose.set(sample.nose.x, sample.nose.y, sample.nose.z);
+    if (nose.lengthSq() <= 1e-12) return;
+    nose.normalize();
+    lookTarget.copy(booster.position).add(nose);
+    const axis = boosterUpAxis(nose);
+    up.set(axis.x, axis.y, axis.z);
+    look.lookAt(lookTarget, booster.position, up);
+    quat.setFromRotationMatrix(look);
+    booster.quaternion.copy(quat);
+  }
+
+  function applyBoostbackFlash(pose: ReturnType<typeof deriveStagingVisual>["boostbackFlash"]): void {
+    applyFlashPose(boostbackFlash, pose);
+    if (!pose.visible) return;
+    boostbackFlash.mesh.position.copy(booster.position);
+    nose.set(0, 0, -1).applyQuaternion(booster.quaternion);
+    boostbackFlash.mesh.position.addScaledVector(nose, pose.noseOffset);
+  }
+
+  function applyLandingFlash(pose: FlashPose): void {
+    applyFlashPose(landingFlash, pose);
+    if (pose.visible) landingFlash.mesh.position.copy(booster.position);
+  }
+
+  /** Pixel sizing matches the ship red locator so both read the same on screen. */
+  function applyLocator(opacity: number, camera?: THREE.Camera): void {
+    if (opacity <= 0 || !camera) {
+      locator.visible = false;
+      return;
+    }
+    locator.position.copy(booster.position);
+    updateLocatorVisibility(locator, camera, booster.position, { sizeKm: boosterLengthKm() });
+    if (locator.visible) locatorMat.opacity = opacity;
+  }
+
+  function applyRecoverySample(
     missionT: number,
     craftPos: THREE.Vector3,
     age: number,
     sample: ReturnType<typeof sampleBoosterRecovery>,
     camera?: THREE.Camera,
   ): void {
-    this.booster.visible = true;
-    this.booster.position.set(sample.pos.x, sample.pos.y, sample.pos.z);
-    this.orientBooster(sample);
-    const baseScale = this.booster.userData.baseScale as number;
-    this.booster.scale.setScalar(baseScale * Math.max(sample.fade, 0.001));
-    this.updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
-    this.updateFlash(age, craftPos);
-    this.updateBoostbackFlash(age);
-    this.updateLandingFlash(age);
-    this.updateLocator(age, camera);
+    booster.visible = true;
+    booster.position.set(sample.pos.x, sample.pos.y, sample.pos.z);
+    orientBooster(sample);
+    const baseScale = booster.userData.baseScale as number;
+    booster.scale.setScalar(baseScale * boosterFadeScale(sample.fade));
+    updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
+    const visual = deriveStagingVisual(age, recoveryProfile);
+    applyStageFlash(visual.flash, craftPos);
+    applyBoostbackFlash(visual.boostbackFlash);
+    applyLandingFlash(visual.landingFlash);
+    applyLocator(visual.locatorOpacity, camera);
   }
 
-  private recoveryAge(missionT: number): number | null {
-    if (!this.stage || !this.stageState || !this.keyframes) return null;
-    const age = missionT - this.stage.t;
-    if (age < 0 || age > boosterVisibleS(recoverySchedule(this.recoveryProfile))) return null;
-    return age;
+  /** Past fade-out only the separation flash may linger. */
+  function fadeOut(age: number, craftPos: THREE.Vector3): void {
+    hideAllFx();
+    applyStageFlash(stageFlashPose(age), craftPos);
   }
 
-  private finishOrHide(
-    age: number, craftPos: THREE.Vector3, sample: ReturnType<typeof sampleBoosterRecovery>,
-  ): boolean {
-    if (sample.fade >= 0.02 && sample.phase !== "done") return false;
-    this.hideAllFx();
-    this.flash.visible = age >= 0 && age <= FLASH_S;
-    if (this.flash.visible) this.updateFlash(age, craftPos);
-    return true;
-  }
-
-  update(
-    missionT: number, craftPos: THREE.Vector3, _craftQuat: THREE.Quaternion, camera?: THREE.Camera,
-  ): void {
-    const age = this.recoveryAge(missionT);
-    if (age == null) { this.hideAllFx(); return; }
-    const sample = sampleBoosterRecovery(this.stageState!, age, this.keyframes!, this.recoveryProfile);
-    if (this.finishOrHide(age, craftPos, sample)) return;
-    this.applyRecoverySample(missionT, craftPos, age, sample, camera);
-  }
-
-  private hidePlume(): void {
-    if (this.boostPlume) {
-      this.boostPlume.visible = false;
-      for (const c of this.boostPlume.children) c.visible = false;
-    }
-    this.plumeLagU = 0;
-  }
-
-  private recoveryFlicker(missionT: number): number {
-    return (
-      0.9 +
-      0.06 * Math.sin(missionT * 53.1) +
-      0.04 * Math.sin(missionT * 91.7 + 1.3) +
-      0.03 * Math.sin(missionT * 137.2 + 0.4)
-    );
-  }
-
-  private lagRecoveryThrust(
-    missionT: number, throttle: number, phase: string,
-  ): number {
-    const isLanding = phase === "landing";
-    const thrN = throttle * (isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF);
-    const ref = isLanding ? LANDING_THRUST_REF : BOOSTBACK_THRUST_REF;
-    const uTarget = Math.min(1, thrN / ref) * throttle;
-    const u = plumeThrustLag(this.plumeLagU, uTarget, this.plumeLagT, missionT);
-    this.plumeLagU = u;
-    this.plumeLagT = missionT;
-    return u;
-  }
-
-  private applyRecoveryPlumeVisual(
-    u: number, look: ReturnType<typeof plumeLook>, flicker: number, missionT: number,
-  ): void {
-    if (this.boostPlume && this.boostPlume.name === "plume-booster") {
-      applyPlumeLayers(this.boostPlume, u, look, flicker, missionT);
-    } else if (this.boostPlume) {
-      this.applyLegacyPlumeSprite(u, look, flicker);
-    }
-    this.exhaustLight.intensity = (1.2 + 2.0 * u) * look.lightI * flicker;
-    this.exhaustLight.color.setRGB(look.light[0]!, look.light[1]!, look.light[2]!);
-    this.exhaustLight.distance = (0.14 + 0.16 * u) * look.lightDist;
-    this.exhaustLight.position.set(0, 0, -0.05);
-  }
-
-  private applyLegacyPlumeSprite(
-    u: number, look: ReturnType<typeof plumeLook>, flicker: number,
-  ): void {
-    if (!this.boostPlume) return;
-    this.boostPlume.visible = true;
-    const s = (0.3 + 0.4 * u) * look.radial * flicker;
-    this.boostPlume.scale.set(s, s * look.length, 1);
-    const mat = (this.boostPlume as THREE.Sprite).material as THREE.SpriteMaterial;
-    mat.opacity = (0.3 + 0.35 * u) * look.opacity * flicker;
-    this.boostPlume.position.z = -0.1 - 0.05 * u;
-  }
-
-  private updatePlume(
-    missionT: number, burning: boolean, throttle: number, phase: string,
-  ): void {
-    if (!burning || throttle < 0.02) {
-      this.hidePlume();
-      this.exhaustLight.intensity = 0;
-      this.plumeLagT = missionT;
-      return;
-    }
-    const u = this.lagRecoveryThrust(missionT, throttle, phase);
-    const look = plumeLook(plumeRegimeFor(undefined, "booster", { recoveryPhase: phase }), "booster");
-    this.applyRecoveryPlumeVisual(u, look, this.recoveryFlicker(missionT), missionT);
-  }
-
-  private updateFlash(age: number, craftPos: THREE.Vector3): void {
-    if (!this.stage || age < 0 || age > FLASH_S) {
-      this.flash.visible = false;
-      return;
-    }
-    const u = age / FLASH_S;
-    this.flash.visible = true;
-    this.flash.position.copy(age < 0.05 ? craftPos : this.stage.pos);
-    this.flash.scale.setScalar(0.15 + u * 2.2);
-    this.flashMat.opacity = 0.9 * (1 - u) * (1 - u);
-  }
-
-  /** Tiny theater flash when boostback lights — readable at ship/Earth range. */
-  private placeBoostbackFlash(strength: number): void {
-    this.boostbackFlash.visible = true;
-    this.boostbackFlash.position.copy(this.booster.position);
-    this.nose.set(0, 0, -1).applyQuaternion(this.booster.quaternion);
-    this.boostbackFlash.position.addScaledVector(this.nose, 0.04);
-    this.boostbackFlash.scale.setScalar(0.06 + strength * 0.55);
-    this.boostbackFlashMat.opacity = 0.75 * strength;
-  }
-
-  private updateBoostbackFlash(age: number): void {
-    const strength = boostbackFlashStrength(age);
-    if (strength < 0.02) {
-      this.boostbackFlash.visible = false;
-      return;
-    }
-    this.placeBoostbackFlash(strength);
-  }
-
-  /** Brief contact flash at chopsticks catch / gulf soft-land. */
-  private updateLandingFlash(age: number): void {
-    const strength = landingContactFlashStrength(age, recoverySchedule(this.recoveryProfile));
-    if (strength < 0.02) {
-      this.landingFlash.visible = false;
-      return;
-    }
-    this.landingFlash.visible = true;
-    this.landingFlash.position.copy(this.booster.position);
-    this.landingFlash.scale.setScalar(0.07 + strength * 0.7);
-    this.landingFlashMat.opacity = 0.8 * strength;
-  }
-
-  /**
-   * Dim amber locator for ~30 s after stage when the mesh is sub-pixel.
-   * Strength from pure age helper; pixel sizing matches ship red locator.
-   */
-  private updateLocator(age: number, camera?: THREE.Camera): void {
-    const strength = boosterLocatorStrength(age);
-    if (strength < 0.02 || !camera) {
-      this.locator.visible = false;
-      return;
-    }
-    this.locator.position.copy(this.booster.position);
-    updateLocatorVisibility(this.locator, camera, this.booster.position, { sizeKm: boosterLengthKm() });
-    if (this.locator.visible) this.locatorMat.opacity = LOCATOR_OPACITY * strength;
-  }
+  return Object.freeze({
+    group,
+    detachedBooster: booster,
+    setStageEvent(ev, recovery: RecoveryProfile = "chopsticks") {
+      stage = ev;
+      recoveryProfile = recovery;
+      if (!ev) {
+        stageState = null;
+        keyframes = null;
+        return;
+      }
+      stageState = {
+        t: ev.t,
+        pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
+        vel: { x: ev.vel.x, y: ev.vel.y, z: ev.vel.z },
+      };
+      keyframes = buildBoosterKeyframes(stageState, recovery);
+    },
+    update(missionT, craftPos, _craftQuat, camera) {
+      if (!stage || !stageState || !keyframes) {
+        hideAllFx();
+        return;
+      }
+      const age = recoveryAge(missionT, stage.t, recoveryProfile);
+      if (age == null) {
+        hideAllFx();
+        return;
+      }
+      const sample = sampleBoosterRecovery(stageState, age, keyframes, recoveryProfile);
+      if (!boosterMeshVisible(sample)) {
+        fadeOut(age, craftPos);
+        return;
+      }
+      applyRecoverySample(missionT, craftPos, age, sample, camera);
+    },
+  });
 }
 
 /** Find first staged sample → stage event. */
