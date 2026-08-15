@@ -1,5 +1,6 @@
 /**
- * Visual V4 craft material layout contracts (fin / gridfin cams).
+ * Visual V4 + V13 craft material layout contracts (fin / gridfin cams).
+ * Hex TPS / S40 / oil-canning live in `craftHullMaps.test.ts`.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

@@ -22,6 +22,7 @@ import {
 import { panAxesFromHeld } from "./panAxes";
 import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
+import { cameraFovForFocus } from "./onboardFov";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -592,6 +593,8 @@ export class CameraDirector {
     this.controls.minDistance = this.minDistanceForFocus();
     this.camera.near = this.nearForFocus();
     this.camera.far = FAR_SOLAR;
+    // Wide onboard FOV on fin / gridfin (Flight 13 hull-cam stills).
+    this.camera.fov = cameraFovForFocus(this.focus);
     this.camera.updateProjectionMatrix();
   }
 
