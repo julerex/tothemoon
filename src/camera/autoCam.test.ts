@@ -66,15 +66,15 @@ describe("autoCamForPhaseFlight13", () => {
     }
   });
 
-  it("uses trench at launch, ship on ascent, ship on coast, ship on entry", () => {
-    assert.equal(autoCamForPhaseFlight13("launch").mode, "trench");
-    assert.equal(autoCamForPhaseFlight13("ascent").mode, "chase");
-    assert.equal(autoCamForPhaseFlight13("coast").mode, "chase");
-    assert.equal(autoCamForPhaseFlight13("entry").mode, "chase");
-    assert.equal(autoCamForPhaseFlight13("descent").mode, "chase");
+  it("uses pad aerial at launch, ground-track on ascent, hull on coast, chase on splash", () => {
+    assert.equal(autoCamForPhaseFlight13("launch").mode, "starbase");
+    assert.equal(autoCamForPhaseFlight13("ascent").padTrack, true);
+    assert.equal(autoCamForPhaseFlight13("coast").mode, "hull");
+    assert.equal(autoCamForPhaseFlight13("entry").mode, "hull");
+    assert.equal(autoCamForPhaseFlight13("descent").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("splashdown").mode, "chase");
     assert.ok((autoCamForPhaseFlight13("splashdown").frameScale ?? 1) > 1.3);
-    assert.ok((autoCamForPhaseFlight13("descent").frameScale ?? 1) > 1);
+    assert.ok((autoCamForPhaseFlight13("splashdown").elevationDeg ?? 0) > 40);
   });
 });
 
@@ -85,9 +85,10 @@ describe("autoCamForStaging", () => {
     assert.equal(s.frame, true);
   });
 
-  it("cuts to booster grid-fin cam on Flight 13 profile", () => {
+  it("cuts to booster engine-bay cam on Flight 13 profile", () => {
     const s = autoCamForStaging("flight13");
     assert.equal(s.mode, "gridfin");
+    assert.equal(s.mount, "engines");
     assert.equal(s.frame, true);
   });
 });
@@ -114,7 +115,7 @@ describe("nextAutoCamCut", () => {
     assert.equal(r.suggestion!.mode, "starbase");
   });
 
-  it("suggests trench on first Flight 13 launch tick", () => {
+  it("suggests trench on first Flight 13 launch tick without a clock", () => {
     const r = nextAutoCamCut(
       true,
       "launch",
@@ -123,7 +124,54 @@ describe("nextAutoCamCut", () => {
       "flight13",
     );
     assert.ok(r.suggestion);
-    assert.equal(r.suggestion!.mode, "trench");
+    assert.equal(r.suggestion!.mode, "starbase");
+  });
+
+  it("follows webcast shot keys when mission time is provided", () => {
+    const first = nextAutoCamCut(
+      true,
+      "launch",
+      false,
+      { phase: null, staged: false, shotKey: null },
+      "flight13",
+      -40,
+    );
+    assert.ok(first.suggestion);
+    assert.equal(first.suggestion!.mode, "starbase");
+    assert.equal(first.shotKey, "pad-wide");
+
+    const same = nextAutoCamCut(
+      true,
+      "launch",
+      false,
+      { phase: "launch", staged: false, shotKey: first.shotKey },
+      "flight13",
+      -20,
+    );
+    assert.equal(same.suggestion, null);
+
+    const track = nextAutoCamCut(
+      true,
+      "launch",
+      false,
+      { phase: "launch", staged: false, shotKey: first.shotKey },
+      "flight13",
+      0,
+    );
+    assert.ok(track.suggestion);
+    assert.equal(track.suggestion!.padTrack, true);
+    assert.equal(track.shotKey, "pad-track");
+
+    const hull = nextAutoCamCut(
+      true,
+      "ascent",
+      false,
+      { phase: "ascent", staged: false, shotKey: track.shotKey },
+      "flight13",
+      60,
+    );
+    assert.ok(hull.suggestion);
+    assert.equal(hull.suggestion!.mount, "boosterHull");
   });
 
   it("suggests only when phase changes", () => {
@@ -156,7 +204,7 @@ describe("nextAutoCamCut", () => {
     assert.equal(r.suggestion!.mode, "chase");
   });
 
-  it("suggests gridfin on Flight 13 staging rising edge", () => {
+  it("suggests engine-bay on Flight 13 staging rising edge without a clock", () => {
     const r = nextAutoCamCut(
       true,
       "ascent",
@@ -166,6 +214,7 @@ describe("nextAutoCamCut", () => {
     );
     assert.ok(r.suggestion);
     assert.equal(r.suggestion!.mode, "gridfin");
+    assert.equal(r.suggestion!.mount, "engines");
   });
 
   it("does not re-fire staging while already staged", () => {

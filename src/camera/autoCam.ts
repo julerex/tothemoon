@@ -1,17 +1,25 @@
 /**
  * Guided phase cameras (Auto-cam): map mission phase → default focus framing.
  *
- * Applied only on phase (or staging) transitions while Auto-cam is enabled.
- * Manual camera picks, WASD pan, and mouse orbit disable Auto-cam so guided
- * cuts do not fight user framing mid-drag (tracking of the current focus stays).
+ * Applied only on phase (or staging) transitions while Auto-cam is enabled,
+ * except Flight 13 which follows a time-keyed webcast shot list (left pane
+ * when the replay is split). Manual camera picks, WASD pan, and mouse orbit
+ * disable Auto-cam so guided cuts do not fight user framing mid-drag
+ * (tracking of the current focus stays).
  *
  * Profiles:
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)
- * - **flight13** — webcast-style flight test (trench → ship → booster at sep → entry chase)
+ * - **flight13** — official Flight 13 X-replay cuts (pad aerial → ground
+ *   track → onboard hull / engine-bay → booster hull-down → splash chase)
  */
 
 import type { CameraMode } from "./modes";
 import type { PhaseId } from "../physics/missionTypes";
+import {
+  webcastShotAt,
+  type WebcastMount,
+  type WebcastShot,
+} from "./webcastShots";
 
 /** Which mission’s Auto-cam table to use. */
 export type AutoCamProfile = "lunar" | "flight13";
@@ -26,6 +34,16 @@ export type AutoCamSuggestion = {
    * coast so both bodies can sit in frame).
    */
   frameScale?: number;
+  /** ENU azimuth from east toward north (pad / chase pose). */
+  azimuthDeg?: number;
+  /** Elevation above the local horizon (pad / chase pose). */
+  elevationDeg?: number;
+  /** Earth-fixed pad camera that looks at the climbing stack. */
+  padTrack?: boolean;
+  /** Onboard mount override (hull / engine-bay / booster hull). */
+  mount?: WebcastMount;
+  chaseSubject?: "ship" | "booster";
+  fov?: number;
 };
 
 type PhaseTable = Partial<Record<PhaseId, AutoCamSuggestion>>;
@@ -119,35 +137,49 @@ export function autoCamForPhaseLunar(phase: PhaseId): AutoCamSuggestion {
 }
 
 const FLIGHT13_PHASE: PhaseTable = {
-  launch: { mode: "trench", frame: true },
-  ascent: CHASE,
-  lowEarthOrbit: CHASE,
-  translunarInjection: CHASE,
-  coast: { mode: "chase", frame: true, frameScale: 1.35 },
-  entry: CHASE,
-  descent: { mode: "chase", frame: true, frameScale: 1.22 },
-  splashdown: { mode: "chase", frame: true, frameScale: 1.55 },
-  landed: { mode: "chase", frame: true, frameScale: 1.55 },
-  approach: CHASE,
-  braking: CHASE,
-  impact: CHASE,
+  launch: { mode: "starbase", frame: true, frameScale: 2.85, azimuthDeg: 255, elevationDeg: 18 },
+  ascent: { mode: "starbase", frame: true, frameScale: 1.18, azimuthDeg: 198, elevationDeg: 8, padTrack: true },
+  lowEarthOrbit: { mode: "hull", frame: true },
+  translunarInjection: { mode: "hull", frame: true },
+  coast: { mode: "hull", frame: true },
+  entry: { mode: "hull", frame: true },
+  descent: { mode: "hull", frame: true },
+  splashdown: { mode: "chase", frame: true, frameScale: 1.7, azimuthDeg: 145, elevationDeg: 55 },
+  landed: { mode: "chase", frame: true, frameScale: 1.7, azimuthDeg: 145, elevationDeg: 55 },
+  approach: { mode: "hull", frame: true },
+  braking: { mode: "hull", frame: true },
+  impact: { mode: "hull", frame: true },
 };
 
 /**
- * Flight 13 / suborbital flight-test Auto-cam table (webcast beats).
+ * Fallback Flight 13 phase table when no mission clock is available.
+ * Live Auto-cam uses {@link webcastShotAt} instead (replay left-pane cuts).
  *
  * | Phase / beat | Framing |
  * |--------------|---------|
- * | Launch (incl. T− countdown) | Flame trench (engines) |
- * | Ascent | Starship chase |
- * | Staging | Booster grid-fin cam |
- * | Coast | Ship chase (suborbital; stay with stack) |
- * | Entry | Starship chase |
- * | Descent | Slightly wider chase (ocean horizon) |
- * | Splash | Wider / lower chase |
+ * | Launch (incl. T− countdown) | Wide pad aerial |
+ * | Ascent | Ground track, then onboard hull |
+ * | Staging | Engine-bay (left of hot-stage split) |
+ * | Coast / entry / descent | Ship hull-cam |
+ * | Splash | Aerial chase |
  */
 export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {
   return FLIGHT13_PHASE[phase] ?? CHASE;
+}
+
+/** Map a webcast still cut onto an Auto-cam suggestion. */
+export function autoCamFromWebcastShot(shot: WebcastShot): AutoCamSuggestion {
+  return {
+    mode: shot.mode,
+    frame: shot.frame,
+    frameScale: shot.frameScale,
+    azimuthDeg: shot.azimuthDeg,
+    elevationDeg: shot.elevationDeg,
+    padTrack: shot.padTrack,
+    mount: shot.mount,
+    chaseSubject: shot.chaseSubject,
+    fov: shot.fov,
+  };
 }
 
 /** Default framing for a mission phase under the given profile. */
@@ -165,9 +197,9 @@ export function autoCamForStagingLunar(): AutoCamSuggestion {
   return { mode: "chase", frame: true };
 }
 
-/** Booster grid-fin cam on stage-out (Flight 13 webcast beat). */
+/** Engine-bay (left of hot-stage split) on stage-out (Flight 13 webcast beat). */
 export function autoCamForStagingFlight13(): AutoCamSuggestion {
-  return { mode: "gridfin", frame: true };
+  return { mode: "gridfin", frame: true, mount: "engines", fov: 72 };
 }
 
 /** Staging rising-edge cut for the active profile. */
@@ -179,28 +211,49 @@ export function autoCamForStaging(
     : autoCamForStagingLunar();
 }
 
+/** Previous Auto-cam markers (phase edge + Flight 13 webcast shot). */
+export type AutoCamPrev = {
+  phase: PhaseId | null;
+  staged: boolean;
+  shotKey?: string | null;
+};
+
 /**
  * Decide whether Auto-cam should cut on this tick.
- * Tracks last phase / staged edge so callers stay stateless about “what changed”.
+ * Lunar: phase / staging edges. Flight 13 with `missionT`: webcast shot key.
  */
 export function nextAutoCamCut(
   enabled: boolean,
   phase: PhaseId,
   staged: boolean,
-  prev: { phase: PhaseId | null; staged: boolean },
+  prev: AutoCamPrev,
   profile: AutoCamProfile = "lunar",
-): { suggestion: AutoCamSuggestion | null; phase: PhaseId; staged: boolean } {
-  if (!enabled) return { suggestion: null, phase, staged };
-  const suggestion = cutSuggestion(phase, staged, prev, profile);
-  return { suggestion, phase, staged };
+  missionT?: number,
+): {
+  suggestion: AutoCamSuggestion | null;
+  phase: PhaseId;
+  staged: boolean;
+  shotKey: string | null;
+} {
+  const shotKey =
+    profile === "flight13" && missionT != null ? webcastShotAt(missionT).key : null;
+  if (!enabled) return { suggestion: null, phase, staged, shotKey };
+  const suggestion = cutSuggestion(phase, staged, prev, profile, missionT, shotKey);
+  return { suggestion, phase, staged, shotKey };
 }
 
 function cutSuggestion(
   phase: PhaseId,
   staged: boolean,
-  prev: { phase: PhaseId | null; staged: boolean },
+  prev: AutoCamPrev,
   profile: AutoCamProfile,
+  missionT: number | undefined,
+  shotKey: string | null,
 ): AutoCamSuggestion | null {
+  if (profile === "flight13" && missionT != null && shotKey) {
+    if (shotKey === prev.shotKey) return null;
+    return autoCamFromWebcastShot(webcastShotAt(missionT));
+  }
   if (prev.phase === null || phase !== prev.phase) {
     return autoCamForPhase(phase, profile);
   }

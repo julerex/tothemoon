@@ -7,11 +7,11 @@ import {
   mountLockOnEnter,
 } from "./mountLock.ts";
 
-const MOUNTS = ["fin", "gridfin", "trench"] as const;
+const MOUNTS = ["fin", "gridfin", "trench", "hull"] as const;
 const TRACKED = ["sun", "moon", "earth", "starbase", "chase", "free"] as const;
 
 describe("mount lock contract", () => {
-  it("treats fin / gridfin / trench as mount focuses", () => {
+  it("treats fin / gridfin / trench / hull as mount focuses", () => {
     for (const mode of MOUNTS) assert.equal(isMountFocus(mode), true);
     for (const mode of TRACKED) assert.equal(isMountFocus(mode), false);
   });

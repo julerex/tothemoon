@@ -581,7 +581,7 @@ function toastAutoCam(rt: HudRuntime, mode: CameraMode): void {
     rt.dom.camToastTitle,
     rt.dom.camToastDetail,
     `Auto · ${CAMERA_LABELS[mode].title}`,
-    "Guided phase camera",
+    "Guided camera",
     rt.camToastTimer,
     CAM_TOAST_MS,
   );
@@ -913,6 +913,7 @@ const CAM_DIGIT_MODES: Record<string, CameraMode> = {
   "6": "gridfin",
   "7": "chase",
   "8": "fin",
+  "9": "hull",
 };
 
 function handleShiftBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {

@@ -25,6 +25,8 @@ export type TheaterAutoCam = {
   enabled: boolean;
   phase: PhaseId | null;
   staged: boolean;
+  /** Flight 13 webcast shot key; ignored on the lunar profile. */
+  shotKey?: string | null;
 };
 
 /** The slice of a mission context the HUD handlers need. */
@@ -96,7 +98,10 @@ function onBookmark(w: TheaterHudWire, bm: CinematicBookmark): void {
 
 function onAutoCamToggle(w: TheaterHudWire): boolean {
   w.autoCam.enabled = !w.autoCam.enabled;
-  if (w.autoCam.enabled) w.autoCam.phase = null;
+  if (w.autoCam.enabled) {
+    w.autoCam.phase = null;
+    w.autoCam.shotKey = null;
+  }
   return w.autoCam.enabled;
 }
 
