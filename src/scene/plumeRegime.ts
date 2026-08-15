@@ -13,8 +13,9 @@
  *                    craft.applyPlumeLayers  (THREE)
  * ```
  *
- * Not CFD: opacity/scale tables for watchability. Atmosphere = denser/tighter;
- * vacuum = wider/sparser; LOI and landing get distinct ship beats.
+ * Not CFD: opacity/scale tables for watchability. Atmosphere = denser/tighter
+ * **pink–magenta** methane look (Flight 13 webcast); vacuum = wider/sparser
+ * and cooler; LOI and landing get distinct ship beats.
  *
  * @see padLaunchFx — same pure-FX style for Starbase pad
  */
@@ -135,45 +136,45 @@ export function plumeRegimeFor(
 const BOOSTER_ATMO: PlumeLook = {
   radial: 0.85,
   length: 0.9,
-  opacity: 1.15,
-  core: [1.0, 0.88, 0.72],
-  rim: [1.0, 0.45, 0.18],
+  opacity: 1.22,
+  core: [1.0, 0.93, 0.96],
+  rim: [1.0, 0.32, 0.72],
   lightI: 1.05,
   lightDist: 0.9,
-  light: [1.0, 0.58, 0.32],
+  light: [1.0, 0.52, 0.74],
 };
 
 const BOOSTER_VACUUM: PlumeLook = {
   radial: 1.35,
   length: 1.45,
   opacity: 0.72,
-  core: [1.0, 0.82, 0.65],
-  rim: [1.0, 0.4, 0.22],
+  core: [1.0, 0.88, 0.9],
+  rim: [0.92, 0.48, 0.62],
   lightI: 0.85,
   lightDist: 1.15,
-  light: [1.0, 0.55, 0.35],
+  light: [1.0, 0.58, 0.68],
 };
 
 const BOOSTER_BOOSTBACK: PlumeLook = {
   radial: 1.05,
   length: 1.1,
   opacity: 0.95,
-  core: [1.0, 0.85, 0.7],
-  rim: [1.0, 0.5, 0.22],
+  core: [1.0, 0.92, 0.95],
+  rim: [0.98, 0.34, 0.7],
   lightI: 0.95,
   lightDist: 1.0,
-  light: [1.0, 0.6, 0.35],
+  light: [1.0, 0.5, 0.72],
 };
 
 const BOOSTER_LANDING: PlumeLook = {
   radial: 0.75,
   length: 0.7,
   opacity: 1.05,
-  core: [1.0, 0.9, 0.78],
-  rim: [1.0, 0.55, 0.28],
+  core: [1.0, 0.94, 0.97],
+  rim: [1.0, 0.36, 0.74],
   lightI: 0.9,
   lightDist: 0.85,
-  light: [1.0, 0.63, 0.38],
+  light: [1.0, 0.55, 0.76],
 };
 
 const SHIP_VACUUM: PlumeLook = {
@@ -191,11 +192,11 @@ const SHIP_ATMO: PlumeLook = {
   radial: 0.9,
   length: 0.95,
   opacity: 1.05,
-  core: [0.95, 0.98, 1.0],
-  rim: [0.45, 0.75, 1.0],
+  core: [1.0, 0.94, 0.97],
+  rim: [0.96, 0.38, 0.78],
   lightI: 1.0,
   lightDist: 0.95,
-  light: [0.55, 0.82, 1.0],
+  light: [1.0, 0.55, 0.8],
 };
 
 const SHIP_LOI: PlumeLook = {
@@ -214,27 +215,27 @@ const SHIP_LANDING: PlumeLook = {
   radial: 0.8,
   length: 0.75,
   opacity: 1.1,
-  core: [1.0, 0.95, 0.88],
-  rim: [0.7, 0.85, 1.0],
+  core: [1.0, 0.94, 0.96],
+  rim: [0.98, 0.4, 0.76],
   lightI: 1.05,
   lightDist: 0.9,
-  light: [0.75, 0.88, 1.0],
+  light: [1.0, 0.58, 0.78],
 };
 
 const SHIP_HOT: PlumeLook = {
   radial: 1.05,
   length: 1.15,
   opacity: 0.9,
-  core: [0.9, 0.96, 1.0],
-  rim: [0.4, 0.72, 1.0],
+  core: [0.98, 0.93, 0.98],
+  rim: [0.88, 0.42, 0.82],
   lightI: 1.1,
   lightDist: 1.05,
-  light: [0.53, 0.8, 1.0],
+  light: [0.95, 0.55, 0.88],
 };
 
 /**
- * Regime → look table. Booster and ship palettes differ (methane orange vs
- * blue-white Raptor vacuum).
+ * Regime → look table. Atmosphere / landing / boostback are pink–magenta
+ * (methane in air). Vacuum / LOI stay cooler blue-white on the ship.
  *
  * @param regime - From {@link plumeRegimeFor}
  * @param kind - Selects booster vs ship constant tables

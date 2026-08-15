@@ -24,7 +24,7 @@
  * and scale tables favor watchability over physical fidelity.
  *
  * @see earthTheater.updateStarbaseLaunchFx — impure applicator
- * @see docs/VISUAL_REALISM.md — V3 pad close-up backlog item
+ * @see docs/VISUAL_REALISM.md — V3 pad close-up; V14 steam punch
  */
 
 // ---------------------------------------------------------------------------
@@ -146,9 +146,9 @@ export type SteamTierSpec = Readonly<{
  * Outer tiers get lower opacity via `steamSpritePose` (`tier` index).
  */
 export const STEAM_TIERS: readonly SteamTierSpec[] = [
-  { n: 10, r0: 0.028, y0: 0.012, scale: 0.07, color: 0xe0e6ec },
-  { n: 8, r0: 0.045, y0: 0.028, scale: 0.11, color: 0xd0d6de },
-  { n: 6, r0: 0.062, y0: 0.05, scale: 0.15, color: 0xc4cad2 },
+  { n: 10, r0: 0.024, y0: 0.007, scale: 0.085, color: 0xe8eef4 },
+  { n: 8, r0: 0.04, y0: 0.016, scale: 0.13, color: 0xdce4ec },
+  { n: 6, r0: 0.056, y0: 0.028, scale: 0.17, color: 0xd0d8e0 },
 ];
 
 /**
@@ -171,12 +171,25 @@ export type DelugeSheetSpec = Readonly<{
  * Paired with the multi-tier ring for denser steam under trench cam.
  */
 export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
-  { pos: [0.012, 0.018, 0], sx: 0.055, sy: 0.04, phase: 0.2 },
-  { pos: [-0.012, 0.016, 0], sx: 0.05, sy: 0.038, phase: 1.1 },
-  { pos: [0, 0.022, 0.022], sx: 0.04, sy: 0.045, phase: 2.0 },
-  { pos: [0, 0.02, -0.022], sx: 0.042, sy: 0.042, phase: 2.8 },
-  { pos: [0.008, 0.03, 0.01], sx: 0.06, sy: 0.05, phase: 3.5 },
-  { pos: [-0.006, 0.032, -0.008], sx: 0.058, sy: 0.048, phase: 4.2 },
+  { pos: [0.012, 0.014, 0], sx: 0.062, sy: 0.038, phase: 0.2 },
+  { pos: [-0.012, 0.012, 0], sx: 0.058, sy: 0.036, phase: 1.1 },
+  { pos: [0, 0.016, 0.022], sx: 0.048, sy: 0.042, phase: 2.0 },
+  { pos: [0, 0.015, -0.022], sx: 0.05, sy: 0.04, phase: 2.8 },
+  { pos: [0.008, 0.022, 0.01], sx: 0.068, sy: 0.048, phase: 3.5 },
+  { pos: [-0.006, 0.024, -0.008], sx: 0.065, sy: 0.046, phase: 4.2 },
+];
+
+/**
+ * Extra ground-hugging steam sheets (visual V14.3).
+ * Sit lower and wider than {@link DELUGE_SHEETS} so T+0 reads as an opaque
+ * volume around the OLM, not a floating ring.
+ */
+export const GROUND_SHEETS: readonly DelugeSheetSpec[] = [
+  { pos: [0, 0.005, 0], sx: 0.095, sy: 0.026, phase: 0.4 },
+  { pos: [0.02, 0.006, 0.012], sx: 0.072, sy: 0.022, phase: 1.3 },
+  { pos: [-0.018, 0.006, -0.014], sx: 0.07, sy: 0.02, phase: 2.2 },
+  { pos: [0.004, 0.007, 0.032], sx: 0.062, sy: 0.02, phase: 3.0 },
+  { pos: [-0.004, 0.007, -0.03], sx: 0.06, sy: 0.02, phase: 3.9 },
 ];
 
 /**
@@ -526,21 +539,21 @@ export type SteamSpriteBase = Readonly<{
  * @param animT - Mission-time clock
  */
 function steamOpacity(base: SteamSpriteBase, steamStr: number, night: number, animT: number): number {
-  const tierOp = 1 - base.tier * 0.18;
-  const wobble = 0.85 + 0.15 * Math.sin(animT * 3.1 + base.phase);
-  return (0.26 + 0.14 * night) * steamStr * wobble * tierOp;
+  const tierOp = 1 - base.tier * 0.14;
+  const wobble = 0.88 + 0.12 * Math.sin(animT * 3.1 + base.phase);
+  return (0.52 + 0.16 * night) * steamStr * wobble * tierOp;
 }
 
 function steamGrow(base: SteamSpriteBase, steamStr: number, animT: number): number {
-  return base.baseScale * (0.85 + steamStr * 0.9) + 0.015 * Math.sin(animT * 2.2 + base.phase);
+  return base.baseScale * (1.05 + steamStr * 1.05) + 0.012 * Math.sin(animT * 2.2 + base.phase);
 }
 
 function steamPosition(base: SteamSpriteBase, steamStr: number, animT: number): Vec3 {
-  const r = base.baseR + steamStr * (0.04 + base.tier * 0.02) + 0.008 * Math.sin(animT * 1.7 + base.phase);
-  const ang = base.baseAng + animT * 0.05;
+  const r = base.baseR + steamStr * (0.022 + base.tier * 0.012) + 0.006 * Math.sin(animT * 1.7 + base.phase);
+  const ang = base.baseAng + animT * 0.04;
   return {
     x: Math.cos(ang) * r,
-    y: base.baseY + steamStr * (0.04 + base.tier * 0.025) + 0.01 * Math.sin(animT * 2.5 + base.phase),
+    y: base.baseY + steamStr * (0.018 + base.tier * 0.014) + 0.006 * Math.sin(animT * 2.5 + base.phase),
     z: Math.sin(ang) * r,
   };
 }
@@ -576,16 +589,16 @@ export type SheetSpriteBase = Readonly<{
  * Vertical scale pulses harder than horizontal so curtains “breathe.”
  */
 function sheetScale(base: SheetSpriteBase, steamStr: number, animT: number): Scale2 {
-  const sx = base.baseSx * (0.9 + steamStr * 0.55);
-  const sy = base.baseSy * (0.85 + steamStr * 0.7 + 0.08 * Math.sin(animT * 3.3 + base.phase));
+  const sx = base.baseSx * (1.0 + steamStr * 0.65);
+  const sy = base.baseSy * (0.9 + steamStr * 0.55 + 0.06 * Math.sin(animT * 3.3 + base.phase));
   return { x: sx, y: sy };
 }
 
 function sheetPosition(base: SheetSpriteBase, steamStr: number, animT: number): Vec3 {
   return {
-    x: base.baseX + 0.004 * Math.sin(animT * 2.1 + base.phase),
-    y: base.baseY + steamStr * 0.025 + 0.006 * Math.sin(animT * 2.8 + base.phase),
-    z: base.baseZ + 0.003 * Math.cos(animT * 1.9 + base.phase),
+    x: base.baseX + 0.003 * Math.sin(animT * 2.1 + base.phase),
+    y: base.baseY + steamStr * 0.014 + 0.004 * Math.sin(animT * 2.8 + base.phase),
+    z: base.baseZ + 0.002 * Math.cos(animT * 1.9 + base.phase),
   };
 }
 
@@ -595,11 +608,35 @@ export function sheetSpritePose(
   night: number,
   animT: number,
 ): SpritePose {
-  const wobble = 0.8 + 0.2 * Math.sin(animT * 4.2 + base.phase);
+  const wobble = 0.85 + 0.15 * Math.sin(animT * 4.2 + base.phase);
   return {
-    opacity: (0.32 + 0.12 * night) * steamStr * wobble,
+    opacity: (0.55 + 0.14 * night) * steamStr * wobble,
     scale: sheetScale(base, steamStr, animT),
     position: sheetPosition(base, steamStr, animT),
+  };
+}
+
+/**
+ * Pose for a ground-hugging steam sheet (visual V14.3).
+ * Wider than tall; loft is tiny so the cloud stays on the apron.
+ */
+export function groundSheetPose(
+  base: SheetSpriteBase,
+  steamStr: number,
+  night: number,
+  animT: number,
+): SpritePose {
+  const wobble = 0.86 + 0.14 * Math.sin(animT * 3.6 + base.phase);
+  const sx = base.baseSx * (1.1 + steamStr * 0.8);
+  const sy = base.baseSy * (0.95 + steamStr * 0.35 + 0.04 * Math.sin(animT * 2.4 + base.phase));
+  return {
+    opacity: (0.62 + 0.12 * night) * steamStr * wobble,
+    scale: { x: sx, y: sy },
+    position: {
+      x: base.baseX + 0.004 * Math.sin(animT * 1.8 + base.phase),
+      y: base.baseY + steamStr * 0.006 + 0.002 * Math.sin(animT * 2.2 + base.phase),
+      z: base.baseZ + 0.003 * Math.cos(animT * 1.6 + base.phase),
+    },
   };
 }
 
@@ -678,7 +715,7 @@ export function ventSpritePose(
   const wobble = 0.8 + 0.2 * Math.sin(animT * 1.8 + base.phase);
   const grow = 0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + base.phase);
   return {
-    opacity: (0.35 + 0.2 * night) * ventStr * wobble,
+    opacity: (0.52 + 0.18 * night) * ventStr * wobble,
     scale: { x: grow * 1.15, y: grow * 1.4 },
     position: ventPosition(base, ventStr, animT),
   };
@@ -705,7 +742,7 @@ export type FlameVisual = Readonly<{
 export function flameVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.02,
-    opacity: 0.4 * strength,
+    opacity: 0.55 * strength,
     scaleY: 0.7 + 0.5 * strength,
   };
 }
@@ -736,9 +773,38 @@ export type BloomVisual = Readonly<{
 export function bloomVisual(strength: number, flicker: number): BloomVisual {
   return {
     visible: strength > 0.04,
-    opacity: 0.35 * strength * flicker,
-    scale: 0.08 + 0.1 * strength,
+    opacity: 0.52 * strength * flicker,
+    scale: 0.11 + 0.14 * strength,
   };
+}
+
+/**
+ * How strongly 33 engines warm the deluge cloud (visual V14.3).
+ * 0 = cool gray steam; 1 = orange-pink core like T+0 webcast stills.
+ */
+export function steamWarmth(flameStrength: number): number {
+  return clamp01(flameStrength * 1.15);
+}
+
+/**
+ * Steam sprite RGB. Cool metal-white at rest; lerps toward engine-lit
+ * orange-pink as {@link steamWarmth} rises.
+ *
+ * @returns RGB in 0–1
+ */
+export function steamTintRgb(
+  warmth: number,
+  night: number,
+): readonly [number, number, number] {
+  const w = clamp01(warmth);
+  const coolR = 0.86 + 0.06 * night;
+  const coolG = 0.89 + 0.04 * night;
+  const coolB = 0.93;
+  return [
+    coolR + (1.0 - coolR) * w,
+    coolG + (0.68 - coolG) * w,
+    coolB + (0.52 - coolB) * w,
+  ];
 }
 
 /**
@@ -810,7 +876,8 @@ export function plumeLightDistance(strength: number): number {
 export function plumeLightRgb(
   flicker: number,
 ): Readonly<[number, number, number]> {
-  return [1, 0.55 + 0.1 * flicker, 0.28];
+  // Trench glow stays engine-orange inside the steam (webcast T+0)
+  return [1, 0.5 + 0.1 * flicker, 0.32];
 }
 
 /**

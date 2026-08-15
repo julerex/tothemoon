@@ -12,6 +12,14 @@ import {
   thrustFlicker,
   type PlumeLook,
 } from "./plumeRegime";
+import {
+  FROST_PATCHES,
+  frostPatchOpacity,
+  frostStrength,
+  ICE_FLAKES,
+  iceFlakePose,
+  iceShedStrength,
+} from "./craftFrost";
 import { createNameLabel } from "./zoomLabels";
 
 /**
@@ -33,7 +41,10 @@ import { createNameLabel } from "./zoomLabels";
  *
  * V7 entry: windward tile emissive from plasma; hinged flaps/elevons from
  * Flight 13 attitude (belly throw, transonic taper).
-
+ *
+ * V14 launch: pink-magenta atmosphere plumes, Super Heavy cryo frost sheets,
+ * ice-flake shed through max-Q.
+ */
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
 
@@ -587,12 +598,78 @@ function addBoostEngines(booster: THREE.Group, mats: CraftMats): void {
   booster.add(boostPlume);
 }
 
+function addBoostFrost(booster: THREE.Group): void {
+  const g = new THREE.Group();
+  g.name = "frost-patches";
+  const baseMat = makeFrostMaterial();
+  for (const spec of FROST_PATCHES) {
+    const mat = baseMat.clone();
+    const h = spec.hFrac * BOOST_H;
+    const mesh = zCylinder(
+      new THREE.CylinderGeometry(R * spec.rMul, R * spec.rMul, h, 24, 1, true),
+      mat,
+      spec.zFrac * BOOST_H,
+    );
+    mesh.userData.phase = spec.phase;
+    mesh.userData.mat = mat;
+    g.add(mesh);
+  }
+  booster.add(g);
+}
+
 function addBoostUpper(booster: THREE.Group, mats: CraftMats): void {
   addBoostBody(booster, mats);
   addBoostChines(booster, mats);
   addBoostWeldRings(booster, mats);
+  addBoostFrost(booster);
   addInterstage(booster, mats);
   addInterstageVents(booster, mats);
+}
+
+function makeFrostMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0xf2f6fa,
+    map: makeFrostTexture(),
+    roughness: 0.92,
+    metalness: 0.08,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+}
+
+function paintFrostBlotch(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  i: number,
+): void {
+  const x = ((i * 37) % w);
+  const y = ((i * 53) % h);
+  const rw = 8 + (i % 14);
+  const rh = 12 + ((i * 3) % 22);
+  const a = 0.12 + ((i * 7) % 10) / 28;
+  ctx.fillStyle = i % 5 === 0 ? `rgba(210, 220, 230, ${a})` : `rgba(244, 248, 252, ${a})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rw, rh, (i % 8) * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function makeFrostTexture(): THREE.CanvasTexture {
+  const w = 128;
+  const h = 256;
+  const canvas = makeSizedCanvas(w, h);
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(236, 242, 246, 0.18)";
+  ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) paintFrostBlotch(ctx, w, h, i);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.ClampToEdgeWrapping;
+  return map;
 }
 
 function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
@@ -633,6 +710,7 @@ function buildCraftMesh(mats: CraftMats): THREE.Group {
   mesh.add(buildBooster(mats));
   addExhaustLight(mesh);
   mesh.add(makeCondensationCloud(BOOST_H + SHIP_H, R));
+  mesh.add(makeIceFlakeGroup());
   mesh.scale.setScalar(CRAFT_MESH_SCALE);
   return mesh;
 }
@@ -1048,17 +1126,17 @@ function paintPlumeGradient(
 }
 
 function paintBoosterPlumeStops(g: CanvasGradient): void {
-  g.addColorStop(0, "rgba(255, 230, 200, 0.9)");
-  g.addColorStop(0.18, "rgba(255, 160, 80, 0.55)");
-  g.addColorStop(0.45, "rgba(255, 90, 40, 0.18)");
-  g.addColorStop(1, "rgba(255, 50, 20, 0)");
+  g.addColorStop(0, "rgba(255, 248, 252, 0.95)");
+  g.addColorStop(0.16, "rgba(255, 190, 220, 0.58)");
+  g.addColorStop(0.42, "rgba(255, 110, 185, 0.2)");
+  g.addColorStop(1, "rgba(230, 70, 160, 0)");
 }
 
 function paintShipPlumeStops(g: CanvasGradient): void {
-  g.addColorStop(0, "rgba(240, 250, 255, 0.9)");
-  g.addColorStop(0.2, "rgba(140, 200, 255, 0.5)");
-  g.addColorStop(0.5, "rgba(60, 130, 255, 0.14)");
-  g.addColorStop(1, "rgba(40, 90, 255, 0)");
+  g.addColorStop(0, "rgba(255, 252, 255, 0.92)");
+  g.addColorStop(0.2, "rgba(230, 220, 245, 0.48)");
+  g.addColorStop(0.5, "rgba(180, 170, 230, 0.14)");
+  g.addColorStop(1, "rgba(140, 130, 220, 0)");
 }
 
 function makePlumeLayerSprite(palette: PlumePalette): THREE.Sprite {
@@ -1443,6 +1521,33 @@ function addCondenseSheath(g: THREE.Group, stackH: number, radius: number): void
   g.add(makeSheathMesh(stackH, radius, makeSheathMaterial()));
 }
 
+function configureIceFlake(sprite: THREE.Sprite, spec: (typeof ICE_FLAKES)[number]): void {
+  sprite.position.set(
+    Math.cos(spec.ang) * spec.r0,
+    Math.sin(spec.ang) * spec.r0,
+    spec.z0,
+  );
+  sprite.scale.setScalar(spec.scale);
+  sprite.userData.ang = spec.ang;
+  sprite.userData.r0 = spec.r0;
+  sprite.userData.z0 = spec.z0;
+  sprite.userData.scale = spec.scale;
+  sprite.userData.phase = spec.phase;
+}
+
+function makeIceFlakeGroup(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "ice-flakes";
+  g.visible = false;
+  const map = makeCondenseMap();
+  for (const spec of ICE_FLAKES) {
+    const sprite = new THREE.Sprite(condensePuffMaterial(map));
+    configureIceFlake(sprite, spec);
+    g.add(sprite);
+  }
+  return g;
+}
+
 /**
  * Soft vapor / condensation sheath around the stack (Maximum dynamic pressure theater cue).
  * Sprites face the camera; opacity driven by altitude in updateCraftVisuals.
@@ -1769,6 +1874,71 @@ function updateCondenseSheath(obj: THREE.Object3D, str: number, wobble: number):
   obj.scale.set(1 + 0.15 * str, 1 + 0.15 * str, 1);
 }
 
+function frostFxInput(state: CraftVisualState, missionT: number) {
+  return {
+    missionT,
+    phase: state.phase,
+    burning: state.burning,
+    altEarth: state.altEarth ?? 0,
+  };
+}
+
+function updateFrostAndIce(
+  group: THREE.Group,
+  state: CraftVisualState,
+  missionT: number,
+): void {
+  const fx = frostFxInput(state, missionT);
+  updateFrostPatches(group.getObjectByName("frost-patches"), frostStrength(fx), missionT);
+  updateIceFlakes(group.getObjectByName("ice-flakes"), iceShedStrength(fx), missionT);
+}
+
+function updateFrostPatches(
+  patches: THREE.Object3D | undefined,
+  frostStr: number,
+  missionT: number,
+): void {
+  if (!patches) return;
+  patches.visible = frostStr > 0.04;
+  if (frostStr <= 0.04) return;
+  patches.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+    const phase = (obj.userData.phase as number) ?? 0;
+    const mat =
+      (obj.userData.mat as THREE.MeshStandardMaterial | undefined) ??
+      (obj.material as THREE.MeshStandardMaterial);
+    mat.opacity = frostPatchOpacity(frostStr, phase, missionT);
+  });
+}
+
+function iceFlakeSpecFromUserData(obj: THREE.Sprite): (typeof ICE_FLAKES)[number] {
+  return {
+    ang: (obj.userData.ang as number) ?? 0,
+    r0: (obj.userData.r0 as number) ?? 0.13,
+    z0: (obj.userData.z0 as number) ?? 0.5,
+    scale: (obj.userData.scale as number) ?? 0.03,
+    phase: (obj.userData.phase as number) ?? 0,
+  };
+}
+
+function updateIceFlakes(
+  flakes: THREE.Object3D | undefined,
+  iceStr: number,
+  missionT: number,
+): void {
+  if (!flakes) return;
+  flakes.visible = iceStr > 0.03;
+  if (iceStr <= 0.03) return;
+  flakes.traverse((obj) => {
+    if (!(obj instanceof THREE.Sprite)) return;
+    const pose = iceFlakePose(iceFlakeSpecFromUserData(obj), iceStr, missionT);
+    const mat = obj.material as THREE.SpriteMaterial;
+    mat.opacity = pose.opacity;
+    obj.position.set(pose.position.x, pose.position.y, pose.position.z);
+    obj.scale.set(pose.scale.x, pose.scale.y, 1);
+  });
+}
+
 function setStackLayout(group: THREE.Group, staged: boolean): void {
   const booster = group.getObjectByName("booster");
   if (booster) booster.visible = !staged;
@@ -1847,6 +2017,7 @@ export function updateCraftVisuals(
   driveCraftPlumes(group, state, missionT, hotPre, hotPost, showBoost, showShip);
   dimShipBells(group, state);
   updateCondensation(group.getObjectByName("condense-cloud"), state.phase, missionT, state.burning);
+  updateFrostAndIce(group, state, missionT);
   updateEntryHeat(group, state.plasmaStrength ?? 0);
   updateControlSurfaces(group, state);
 }

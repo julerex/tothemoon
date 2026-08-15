@@ -208,7 +208,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
 4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-5. **Visual photorealism V13+** — hex TPS / S40 hull, pink ascent plumes, magenta entry plasma, Pez payload, splash steam ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+5. **Visual photorealism V13+** — V14 launch scene **done** (pink plumes / frost / pad steam); **next** hex TPS / S40 hull, magenta entry plasma, Pez payload, splash steam ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 6. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---

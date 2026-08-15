@@ -46,9 +46,11 @@ Related:
 
 **Shipped (V6–V10, V12):** terminal dust/splash, Flight 13 entry craft, recovery catch, lunar Malapert plate, finale Auto-cam beats, coast watchability.
 
-**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — hex TPS / **S40**, pink-magenta ascent plumes, magenta entry plasma, Pez payload, splash steam. See **V13+**.
+**Shipped (V14):** pink-magenta atmosphere / landing plumes, Super Heavy cryo frost + ice shed, denser ground-hugging pad steam with engine-warm core.
 
-Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,coastCorridor}.ts`.
+**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — hex TPS / **S40**, magenta entry plasma, Pez payload, splash steam. See **V13+**.
+
+Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor}.ts`.
 
 ---
 
@@ -81,7 +83,7 @@ Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere
 | **V11** | Pad horizon depth | **Done** — Sentinel-2 plate + Blue Marble |
 | **V12** | Finale camera beats | **Done** — Auto-cam splash + last-30s lunar widen |
 | **V13** | Hull-cam materials | Hex TPS, S40, oil-canning — most of the webcast is this shot |
-| **V14** | Ascent plume / frost / steam | Pink-white Raptor look + ice shed vs current orange cones |
+| **V14** | Ascent plume / frost / steam | **Done** — pink-magenta atmo plumes, Super Heavy frost, denser pad steam |
 | **V15** | Entry plasma palette | Magenta/violet flap wrap, not orange sprites |
 | **V16** | Payload Pez deploy | Unique Flight 13 mid-coast act; theater has none |
 | **V17** | Splash / ocean steam | Volumetric contact cloud vs cyan discs |
@@ -393,42 +395,42 @@ steel vs the T+8:21 still; experiment tiles visible at landing-approach
 
 ---
 
-## V14 — Ascent plume, frost, pad steam
+## V14 — Ascent plume, frost, pad steam — **done 2026-08-15**
 
 V1 plumes are multi-layer sprites with the **wrong atmospheric color**. Stills
 at T+16 and T+56 are pink-white cores with magenta rims, not orange cones.
 Pad stills at T−42 / T+0 are a dense, opaque steam volume with engine glow
 inside.
 
-### V14.1 Atmosphere / landing palette
+### V14.1 Atmosphere / landing palette — **done**
 
-Retune `BOOSTER_ATMO`, `BOOSTER_LANDING`, and ship-in-atmosphere looks in
-`plumeRegime.ts`: core near-white, rim **pink–magenta**. Keep vacuum / LOI
-cooler. Landing-burn stills (T+1:05:02–12, Super Heavy T+6:40) use the same
-pink family. Tests on `plumeLook` RGB bands so the palette cannot silently
-regress to orange.
+Retune `BOOSTER_ATMO`, `BOOSTER_LANDING`, ship-in-atmosphere, hot-stage, and
+boostback looks in `plumeRegime.ts`: core near-white, rim **pink–magenta**.
+Keep vacuum / LOI cooler. Landing-burn stills (T+1:05:02–12, Super Heavy
+T+6:40) use the same pink family. Tests on `plumeLook` RGB bands so the
+palette cannot silently regress to orange.
 
-### V14.2 Cryo frost + ice shed
+### V14.2 Cryo frost + ice shed — **done**
 
 Webcast: frost sheets on the booster at T+0; flakes and mist peeling at T+16.
 
 - Prelaunch/ascent frost patches on Super Heavy (albedo/roughness, scrub from
   `t` / phase — gone by vacuum).
 - Sparse ice-flake sprites during dense-atmosphere burn (mission-`t` seeded,
-  not `performance.now()`). Reuse condensation vocabulary (`condense-cloud`).
+  not `performance.now()`). Same sprite vocabulary as `condense-cloud`.
 
-### V14.3 Pad steam punch
+### V14.3 Pad steam punch — **done**
 
 V3 deluge is the right *structure* (tiers + sheets). Stills want **more
 opacity**, ground-hug, and a warm core where 33 engines light the cloud
-(T+0). Tighten `padLaunchFx` scales/opacity; optional extra ground-sheet.
-Do not switch to a particle sim.
+(T+0). Tightened `padLaunchFx` scales/opacity; extra ground-hugging sheets;
+steam tints orange-pink with flame strength. Not a particle sim.
 
 **Done when:** trench/chase at T+16 is pink, not orange; pad at T+0 steam
 reads opaque; frost/ice visible on scrub through liftoff→max-Q. No bake.
 
-**Files:** `plumeRegime.ts` (+ tests), `craft.ts`, `padLaunchFx.ts` (+ tests),
-`earthTheater.ts`.
+**Files:** `plumeRegime.ts` (+ tests), `craftFrost.ts` (+ tests), `craft.ts`,
+`padLaunchFx.ts` (+ tests), `earthTheater.ts`.
 
 ---
 
@@ -590,3 +592,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-13 | Starbase plate: wider ~80 km square (full JPEG, not a circular crop) |
 | 2026-08-13 | V6–V10 + V12 shipped: terminal dust/splash, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast whiskers/LOI bloom |
 | 2026-08-15 | Photorealism track V13–V20 from Flight 13 webcast stills: hex TPS/S40, pink plumes, magenta plasma, Pez deploy, splash steam, engine-bay, gated LEO clouds |
+| 2026-08-15 | V14 shipped (launch scene): pink-magenta atmo/landing plumes, Super Heavy frost + ice shed, denser pad steam with engine-warm core |

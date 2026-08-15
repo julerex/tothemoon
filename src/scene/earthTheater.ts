@@ -34,6 +34,8 @@ import {
   floodFixtureEmissive,
   floodSpotDistance,
   floodSpotIntensity,
+  GROUND_SHEETS,
+  groundSheetPose,
   hazeBaseZs,
   hazeSpritePose,
   olmLampColorHex,
@@ -46,6 +48,8 @@ import {
   plumeLightRgb,
   sheetSpritePose,
   steamSpritePose,
+  steamTintRgb,
+  steamWarmth,
   tongueVisual,
   VENT_ANCHORS,
   ventSpritePose,
@@ -78,10 +82,11 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * - **Landmark rings** for Earth cam (thin annuli — never a solid disc that
  *   would z-fight the stack). Hidden once the photo plate is on.
  *
- * ## Visual V3 close-up
+ * ## Visual V3 close-up + V14 steam punch
  *
  * Scorch + water stains, multi-tier deluge sheets, chopsticks/QD silhouette,
- * scrub-driven heat haze. Strengths/poses are pure (`padLaunchFx.ts`); this
+ * scrub-driven heat haze. V14 adds denser ground-hugging steam and an
+ * engine-warm tint. Strengths/poses are pure (`padLaunchFx.ts`); this
  * module only builds meshes and applies poses each tick.
  *
  * ## Named objects (for `getObjectByName` / FX)
@@ -91,6 +96,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * | `pad-flame` / `pad-flame-tongues` | Trench flame sheet + cones |
  * | `pad-steam` | Multi-tier deluge ring sprites |
  * | `pad-deluge-sheets` | Volumetric sheet curtains |
+ * | `pad-ground-steam` | Ground-hugging steam sheets (V14) |
  * | `pad-heat-haze` | Ignition shimmer over trench |
  * | `pad-vent-steam` | Tank-farm hold vents |
  * | `pad-flood-*` / `pad-fill` / `pad-plume-light` | Lighting |
@@ -281,6 +287,18 @@ function addPadDelugeSheets(pad: THREE.Group, steamTex: THREE.CanvasTexture): vo
   pad.add(delugeSheets);
 }
 
+function addPadGroundSteam(pad: THREE.Group, steamTex: THREE.CanvasTexture): void {
+  const ground = new THREE.Group();
+  ground.name = "pad-ground-steam";
+  ground.visible = false;
+  for (const a of GROUND_SHEETS) {
+    const sprite = new THREE.Sprite(makeSteamSpriteMat(steamTex, 0xe4eaf0));
+    configureSheetSprite(sprite, a);
+    ground.add(sprite);
+  }
+  pad.add(ground);
+}
+
 function makeHazeSpriteMat(map: THREE.CanvasTexture): THREE.SpriteMaterial {
   return new THREE.SpriteMaterial({
     map, transparent: true, opacity: 0, depthWrite: false, depthTest: true,
@@ -350,6 +368,7 @@ function addPadFxSprites(pad: THREE.Group): void {
   const steamTex = makeSteamTexture();
   addPadSteamGroup(pad, steamTex);
   addPadDelugeSheets(pad, steamTex);
+  addPadGroundSteam(pad, steamTex);
   addPadHeatHaze(pad);
   addPadVentSteam(pad, steamTex);
 }
@@ -1161,13 +1180,25 @@ function steamBaseFromUserData(obj: THREE.Sprite) {
   };
 }
 
-function updatePadSteam(pad: THREE.Object3D, steamStr: number, night: number, animT: number): void {
+function tintSteamSprite(obj: THREE.Sprite, warmth: number, night: number): void {
+  const [r, g, b] = steamTintRgb(warmth, night);
+  (obj.material as THREE.SpriteMaterial).color.setRGB(r, g, b);
+}
+
+function updatePadSteam(
+  pad: THREE.Object3D,
+  steamStr: number,
+  night: number,
+  animT: number,
+  warmth: number,
+): void {
   const steam = pad.getObjectByName("pad-steam");
   if (!steam) return;
   steam.visible = steamStr > 0.03;
   steam.traverse((obj) => {
     if (!(obj instanceof THREE.Sprite)) return;
     applySpritePose(obj, steamSpritePose(steamBaseFromUserData(obj), steamStr, night, animT));
+    tintSteamSprite(obj, warmth, night);
   });
 }
 
@@ -1182,13 +1213,37 @@ function sheetBaseFromUserData(obj: THREE.Sprite) {
   };
 }
 
-function updatePadSheets(pad: THREE.Object3D, steamStr: number, night: number, animT: number): void {
+function updatePadSheets(
+  pad: THREE.Object3D,
+  steamStr: number,
+  night: number,
+  animT: number,
+  warmth: number,
+): void {
   const sheets = pad.getObjectByName("pad-deluge-sheets");
   if (!sheets) return;
   sheets.visible = steamStr > 0.04;
   sheets.traverse((obj) => {
     if (!(obj instanceof THREE.Sprite)) return;
     applySpritePose(obj, sheetSpritePose(sheetBaseFromUserData(obj), steamStr, night, animT));
+    tintSteamSprite(obj, warmth * 0.85, night);
+  });
+}
+
+function updatePadGroundSteam(
+  pad: THREE.Object3D,
+  steamStr: number,
+  night: number,
+  animT: number,
+  warmth: number,
+): void {
+  const ground = pad.getObjectByName("pad-ground-steam");
+  if (!ground) return;
+  ground.visible = steamStr > 0.04;
+  ground.traverse((obj) => {
+    if (!(obj instanceof THREE.Sprite)) return;
+    applySpritePose(obj, groundSheetPose(sheetBaseFromUserData(obj), steamStr, night, animT));
+    tintSteamSprite(obj, warmth, night);
   });
 }
 
@@ -1302,9 +1357,12 @@ function updatePadSpriteFx(
   ventStr: number,
   night: number,
   animT: number,
+  flameStrength: number,
 ): void {
-  updatePadSteam(pad, steamStr, night, animT);
-  updatePadSheets(pad, steamStr, night, animT);
+  const warmth = steamWarmth(flameStrength);
+  updatePadSteam(pad, steamStr, night, animT, warmth);
+  updatePadSheets(pad, steamStr, night, animT, warmth);
+  updatePadGroundSteam(pad, steamStr, night, animT, warmth);
   updatePadHaze(pad, hazePeak, animT);
   updatePadVent(pad, ventStr, night, animT);
 }
@@ -1341,7 +1399,7 @@ export function updateStarbaseLaunchFx(
   const fx = derivePadFx(state);
   const { animT, night, flame, steamStr, hazePeak, ventStr } = fx;
   updatePadFlame(pad, flame.strength);
-  updatePadSpriteFx(pad, steamStr, hazePeak, ventStr, night, animT);
+  updatePadSpriteFx(pad, steamStr, hazePeak, ventStr, night, animT, flame.strength);
   updatePadLightingFx(pad, fx);
 }
 
