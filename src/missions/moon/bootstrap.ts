@@ -38,7 +38,7 @@ import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
 import { createCoastBeatsOverlay, createCoastCorridorOverlay } from "../../scene/coastCorridor";
 import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
-import { LandingFx } from "../../scene/landingFx";
+import { createLandingFx, type LandingFx } from "../../scene/landingFx";
 import {
   createStarbasePad,
 } from "../../scene/earthTheater";
@@ -268,7 +268,7 @@ function mountStagingFx(
 }
 
 function mountLandingFx(scene: THREE.Scene, cache: Trajectory, epoch: Trajectory["epoch"]) {
-  const landingFx = new LandingFx();
+  const landingFx = createLandingFx();
   landingFx.setEpoch(epoch);
   const last = cache.samples[cache.samples.length - 1]!;
   landingFx.setLanding(last.pos, last.t);

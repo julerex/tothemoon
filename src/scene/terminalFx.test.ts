@@ -7,6 +7,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  BEACON_PULSE_RATE,
+  beaconPulseOpacity,
   clamp01,
   clampRange,
   contactCueExpand,
@@ -244,5 +246,32 @@ describe("deriveSplashSpray", () => {
       altEarth: TERMINAL_ALT_GATE_KM,
     });
     assert.equal(high.active, false);
+  });
+});
+
+describe("beaconPulseOpacity", () => {
+  it("holds the idle opacity beyond the pulse range", () => {
+    assert.equal(beaconPulseOpacity(1234, 900, 800, 0.4), 0.4);
+    assert.equal(beaconPulseOpacity(1234, 800, 800, 0.45), 0.45);
+  });
+
+  it("breathes inside the pulse range", () => {
+    // Sine peak / trough: wall time chosen so BEACON_PULSE_RATE * t = ±π/2.
+    const peakMs = Math.PI / 2 / BEACON_PULSE_RATE;
+    const troughMs = (3 * Math.PI) / 2 / BEACON_PULSE_RATE;
+    assert.ok(Math.abs(beaconPulseOpacity(peakMs, 10, 800, 0.4) - 0.9) < 1e-9);
+    assert.ok(Math.abs(beaconPulseOpacity(troughMs, 10, 800, 0.4) - 0.2) < 1e-9);
+  });
+
+  it("stays a valid opacity across a full pulse cycle", () => {
+    const period = (2 * Math.PI) / BEACON_PULSE_RATE;
+    for (let i = 0; i < 64; i++) {
+      const o = beaconPulseOpacity((i / 64) * period, 0, 800, 0.4);
+      assert.ok(o >= 0 && o <= 1, `opacity ${o} out of range`);
+    }
+  });
+
+  it("treats a non-finite distance as far away", () => {
+    assert.equal(beaconPulseOpacity(1234, NaN, 800, 0.4), 0.4);
   });
 });

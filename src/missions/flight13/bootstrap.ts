@@ -37,8 +37,8 @@ import { meshLocalTrailFromSamples } from "../../physics/earthTrail";
 import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
 import { createEntryFx, type EntryFx } from "../../scene/entryFx";
-import { SplashFx } from "../../scene/splashFx";
-import { GulfLandFx } from "../../scene/gulfLandFx";
+import { createSplashFx, type SplashFx } from "../../scene/splashFx";
+import { createGulfLandFx, type GulfLandFx } from "../../scene/gulfLandFx";
 import {
   createStarbasePad,
 } from "../../scene/earthTheater";
@@ -297,10 +297,10 @@ function mountSplashEntry(
   bodies: ReturnType<typeof createBodies>,
   craft: THREE.Group,
 ) {
-  const splashFx = new SplashFx();
+  const splashFx = createSplashFx();
   splashFx.setSplashTime(cache.samples[cache.samples.length - 1]!.t);
   bodies.earth.add(splashFx.group);
-  const gulfLandFx = new GulfLandFx();
+  const gulfLandFx = createGulfLandFx();
   const stageT = staging.stageT;
   if (stageT != null) gulfLandFx.setLandTime(stageT);
   bodies.earth.add(gulfLandFx.group);

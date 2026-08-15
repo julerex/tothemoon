@@ -280,6 +280,32 @@ export function landingWashStrength(
   return clamp01((25 - altMoon) / 25);
 }
 
+/** Beacon pulse angular rate (rad per wall millisecond). */
+export const BEACON_PULSE_RATE = 0.004;
+
+/**
+ * Site-beacon opacity: breathes while the craft is within `nearKm`, otherwise
+ * holds `idleOpacity`.
+ *
+ * Driven by wall clock rather than mission time on purpose — the beacon keeps
+ * pulsing while playback is paused, so it is the one terminal cue that is not
+ * scrub-deterministic.
+ *
+ * @param wallMs - Wall clock (ms), e.g. `performance.now()`
+ * @param distKm - Craft distance to the site (km)
+ * @param nearKm - Pulse only inside this range (km)
+ * @param idleOpacity - Steady opacity when far away
+ */
+export function beaconPulseOpacity(
+  wallMs: number,
+  distKm: number,
+  nearKm: number,
+  idleOpacity: number,
+): number {
+  if (!(distKm < nearKm)) return idleOpacity;
+  return 0.55 + 0.35 * Math.sin(wallMs * BEACON_PULSE_RATE);
+}
+
 function discLayerPose(
   base: ExpandOpacity,
   active: boolean,
