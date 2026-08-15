@@ -33,23 +33,29 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(s.mount, "boosterHull");
   });
 
-  it("picks the left engine-bay pane at hot-stage, then ship hull after sep", () => {
+  it("picks the left engine-bay pane at hot-stage and keeps it after sep", () => {
     const hot = webcastShotAt(141);
     assert.equal(hot.mode, "gridfin");
     assert.equal(hot.mount, "engines");
-    const hull = webcastShotAt(160);
-    assert.equal(hull.mode, "hull");
+    assert.equal(webcastShotAt(160).mount, "engines");
   });
 
-  it("stays on booster hull through Super Heavy splash, then ship hull", () => {
+  it("follows left-pane booster cuts through boostback and Super Heavy splash", () => {
+    assert.equal(webcastShotAt(190).mount, "enginesDown");
+    assert.equal(webcastShotAt(255).mount, "boosterHull");
+    assert.equal(webcastShotAt(280).mount, "engines");
+    assert.equal(webcastShotAt(320).mount, "boosterHull");
+    assert.equal(webcastShotAt(340).mount, "engines");
     assert.equal(webcastShotAt(386).mount, "boosterHull");
     assert.equal(webcastShotAt(400).mount, "boosterHull");
     assert.equal(webcastShotAt(420).mode, "hull");
   });
 
-  it("holds ship hull through coast, entry, and landing approach", () => {
+  it("holds ship hull through coast and landing, flap-cam on the entry split", () => {
     assert.equal(webcastShotAt(500).mode, "hull");
-    assert.equal(webcastShotAt(2845).mode, "hull");
+    assert.equal(webcastShotAt(2845).mode, "fin");
+    assert.equal(webcastShotAt(2845).mount, "flap");
+    assert.equal(webcastShotAt(3750).mode, "hull");
     assert.equal(webcastShotAt(3900).mode, "hull");
   });
 

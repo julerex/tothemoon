@@ -330,6 +330,20 @@ function addFinCam(ship: THREE.Group): void {
 }
 
 /**
+ * Entry left-pane flap-cam: starboard forward flap fills the left of frame
+ * with the aft hull / Earth (plasma in the webcast) to the right.
+ */
+function addFlapCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "flap-cam",
+    "flap-cam-look",
+    [R + 0.05, 0.16, SHIP_H - 0.38],
+    [R + 0.10, -0.18, SHIP_H - 0.70],
+  );
+}
+
+/**
  * Webcast hull-cam: starboard barrel looking aft so the hull fills the left
  * of frame and Earth fills the rest (Flight 13 S40 stills).
  */
@@ -445,6 +459,7 @@ function addShipStructure(ship: THREE.Group, mats: CraftMats): void {
 function addShipControlSurfaces(ship: THREE.Group, mats: CraftMats): void {
   addForwardFlaps(ship, mats);
   addFinCam(ship);
+  addFlapCam(ship);
   addHullCam(ship);
   addAftFlaps(ship, mats);
 }
@@ -582,8 +597,8 @@ function addBoosterHullCam(booster: THREE.Group): void {
     booster,
     "booster-hull-cam",
     "booster-hull-cam-look",
-    [R + 0.42, 0.08, BOOST_H * 0.62],
-    [R * 0.12, -0.06, -0.02],
+    [R + 0.36, 0.05, BOOST_H * 0.70],
+    [R * 0.18, -0.05, BOOST_H * 0.08],
   );
 }
 
@@ -2006,6 +2021,8 @@ export function craftLengthKm(staged: boolean): number {
 export const CRAFT_CAM_MOUNT_NAMES = [
   "fin-cam",
   "fin-cam-look",
+  "flap-cam",
+  "flap-cam-look",
   "hull-cam",
   "hull-cam-look",
   "grid-fin-cam",

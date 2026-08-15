@@ -10,7 +10,8 @@
  * Profiles:
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)
  * - **flight13** — official Flight 13 X-replay cuts (pad aerial → ground
- *   track → onboard hull / engine-bay → booster hull-down → splash chase)
+ *   track → booster hull / engine-bay through Super Heavy splash → ship
+ *   hull / entry flap → splash chase)
  */
 
 import type { CameraMode } from "./modes";
@@ -158,9 +159,11 @@ const FLIGHT13_PHASE: PhaseTable = {
  * | Phase / beat | Framing |
  * |--------------|---------|
  * | Launch (incl. T− countdown) | Wide pad aerial |
- * | Ascent | Ground track, then onboard hull |
+ * | Ascent | Ground track, then booster hull |
  * | Staging | Engine-bay (left of hot-stage split) |
- * | Coast / entry / descent | Ship hull-cam |
+ * | Boostback / SH landing | Booster engines-down / hull (left pane) |
+ * | Coast / landing | Ship hull-cam |
+ * | Entry | Forward-flap cam (left of plasma split) |
  * | Splash | Aerial chase |
  */
 export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {

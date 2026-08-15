@@ -36,6 +36,7 @@ describe("V4 craft material layout", () => {
     const names = new Set<string>(CRAFT_CAM_MOUNT_NAMES);
     for (const n of [
       "hull-cam", "hull-cam-look",
+      "flap-cam", "flap-cam-look",
       "booster-hull-cam", "booster-hull-cam-look",
       "engines-cam", "engines-cam-look",
       "engines-down-cam", "engines-down-cam-look",

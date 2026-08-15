@@ -872,11 +872,8 @@ export class CameraDirector {
   }
 
   private copyFinLook(out: THREE.Vector3): boolean {
-    const look = this.craft?.getObjectByName("fin-cam-look");
-    if (!this.craft || !look) return false;
-    this.craft.updateMatrixWorld(true);
-    look.getWorldPosition(out);
-    return true;
+    const lookName = this.mountVariant === "flap" ? "flap-cam-look" : "fin-cam-look";
+    return this.copyNamedLook(this.craft, lookName, out);
   }
 
   private copyTrenchLook(out: THREE.Vector3): boolean {
@@ -915,8 +912,10 @@ export class CameraDirector {
    */
   private applyFinCam(): void {
     if (!this.craft) return;
-    const mount = this.craft.getObjectByName("fin-cam");
-    const look = this.craft.getObjectByName("fin-cam-look");
+    const mountName = this.mountVariant === "flap" ? "flap-cam" : "fin-cam";
+    const lookName = this.mountVariant === "flap" ? "flap-cam-look" : "fin-cam-look";
+    const mount = this.craft.getObjectByName(mountName);
+    const look = this.craft.getObjectByName(lookName);
     if (!mount || !look) return;
     this.craft.updateMatrixWorld(true);
     this.seatMountCam(mount, look, this.craft);

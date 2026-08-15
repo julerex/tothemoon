@@ -11,7 +11,7 @@
 
 import type { CameraMode } from "./modes";
 
-/** Onboard mount picked on a gridfin / hull cut. */
+/** Onboard mount picked on a gridfin / hull / fin cut. */
 export type WebcastMount =
   | "fin"
   | "hull"
@@ -19,7 +19,8 @@ export type WebcastMount =
   | "trench"
   | "engines"
   | "enginesDown"
-  | "boosterHull";
+  | "boosterHull"
+  | "flap";
 
 /** One webcast camera hold, active from `t0` until the next shot. */
 export type WebcastShot = {
@@ -50,10 +51,13 @@ export const THEATER_DEFAULT_FOV = 50;
 /**
  * Sorted Flight 13 webcast cuts (left pane when split).
  *
+ * Times follow `assets/flight13-webcast/README.md` HUD clocks. Consecutive
+ * stills that keep the same left-pane mount are collapsed into one hold.
+ *
  * Pad: wide aerial → ground stack that tracks the climb.
- * Ascent/coast/entry: onboard hull or engine-bay (left of split).
- * Super Heavy landing: booster hull-down over the Gulf.
- * Splash: external aerial chase.
+ * Ascent through Super Heavy splash: booster hull / engine-bay (left of split).
+ * After SH landing: ship hull-cam (payload / coast / landing) and flap-cam
+ * on the entry split. Splash: external aerial chase.
  */
 export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
@@ -96,27 +100,11 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    key: "prestage-engines",
+    key: "hotstage-engines",
     t0: 130,
     mode: "gridfin",
     frame: true,
     mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "hotstage-engines",
-    t0: 141,
-    mode: "gridfin",
-    frame: true,
-    mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "postsep-hull",
-    t0: 155,
-    mode: "hull",
-    frame: true,
-    mount: "hull",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
@@ -136,6 +124,30 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
+    key: "booster-engines-mid",
+    t0: 272,
+    mode: "gridfin",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    key: "booster-hull-coast",
+    t0: 314,
+    mode: "gridfin",
+    frame: true,
+    mount: "boosterHull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    key: "booster-engines-late",
+    t0: 337,
+    mode: "gridfin",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
     key: "sh-descent",
     t0: 380,
     mode: "gridfin",
@@ -146,14 +158,6 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "ship-hull",
     t0: 408,
-    mode: "hull",
-    frame: true,
-    mount: "hull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "payload-hull",
-    t0: 1000,
     mode: "hull",
     frame: true,
     mount: "hull",
@@ -177,24 +181,16 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    key: "relight-hull",
-    t0: 2338,
-    mode: "hull",
-    frame: true,
-    mount: "hull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "entry-hull",
+    key: "entry-flap",
     t0: 2845,
-    mode: "hull",
+    mode: "fin",
     frame: true,
-    mount: "hull",
+    mount: "flap",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    key: "landing-hull",
-    t0: 3890,
+    key: "transonic-hull",
+    t0: 3739,
     mode: "hull",
     frame: true,
     mount: "hull",
