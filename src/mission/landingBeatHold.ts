@@ -1,6 +1,11 @@
 /**
  * Terminal landing-beat hold: pin 1×, settle camera, delay complete card.
  * Shared by lunar and Flight 13 theaters.
+ *
+ * Pure: {@link stepLandingBeat} maps (state, frame input) to the next state, a
+ * card flag, and a description of the side effects to apply — same shape as the
+ * transport reducers in `clock.ts`. Callers own the clock and camera, so the
+ * transition itself stays testable without stubbing six callbacks.
  */
 
 import type { CameraMode } from "../camera/modes";
@@ -12,71 +17,28 @@ import {
 } from "./landingBeat";
 import type { PhaseId } from "../physics/missionTypes";
 
-/** Mutable hold state closed over by a mission theater. */
-export type LandingBeatState = {
+/** Immutable hold state for one mission theater. */
+export type LandingBeatState = Readonly<{
   kind: LandingBeatKind | null;
   /** performance.now() when the hold started; null → card ready immediately */
   holdStartMs: number | null;
   /** One-shot settle applied for the current complete edge */
   settled: boolean;
   wasComplete: boolean;
-};
+}>;
 
-/** Fresh hold state (mission start). */
+/** Fresh hold state (mission start, or a scrub back before complete). */
 export function createLandingBeatState(): LandingBeatState {
-  return {
+  return Object.freeze({
     kind: null,
     holdStartMs: null,
     settled: false,
     wasComplete: false,
-  };
+  });
 }
 
-/** Clear hold when scrubbing back before complete. */
-export function clearLandingBeat(state: LandingBeatState): void {
-  state.kind = null;
-  state.holdStartMs = null;
-  state.settled = false;
-  state.wasComplete = false;
-}
-
-function onRisingComplete(
-  state: LandingBeatState,
-  beatKind: LandingBeatKind | null,
-  playing: boolean,
-  nowMs: number,
-): void {
-  state.kind = beatKind;
-  state.settled = false;
-  state.holdStartMs = playing ? nowMs : null;
-}
-
-export type LandingSettleArgs = {
-  state: LandingBeatState;
-  beatKind: LandingBeatKind | null;
-  playing: boolean;
-  clockSpeed: number;
-  setSpeed: (rate: number) => void;
-  phase: PhaseId;
-  staged: boolean;
-  setAutoCamPhase: (phase: PhaseId, staged: boolean) => void;
-  easeToMode: (mode: CameraMode, opts: { frame: boolean }) => void;
-  notifyAutoCamera: (mode: CameraMode) => void;
-};
-
-/** One-shot: pin 1× and settle camera while the hold runs. */
-export function maybeSettleLandingBeat(args: LandingSettleArgs): void {
-  const { state, beatKind, playing } = args;
-  if (!playing || state.settled || !beatKind) return;
-  state.settled = true;
-  if (Math.abs(args.clockSpeed) > 1 + 1e-9) args.setSpeed(1);
-  const mode = landingBeatCameraMode(beatKind);
-  args.setAutoCamPhase(args.phase, args.staged);
-  args.easeToMode(mode, { frame: true });
-  args.notifyAutoCamera(mode);
-}
-
-export type LandingBeatStep = {
+/** One frame of mission state; no callbacks. */
+export type LandingBeatInput = Readonly<{
   completeRaw: boolean;
   phase: PhaseId;
   /** Map splashdown → landed for classify when needed */
@@ -85,46 +47,98 @@ export type LandingBeatStep = {
   nowMs: number;
   clockSpeed: number;
   staged: boolean;
-  setSpeed: (rate: number) => void;
-  setAutoCamPhase: (phase: PhaseId, staged: boolean) => void;
-  easeToMode: (mode: CameraMode, opts: { frame: boolean }) => void;
-  notifyAutoCamera: (mode: CameraMode) => void;
-};
+}>;
 
-function settleFromStep(state: LandingBeatState, step: LandingBeatStep, beatKind: LandingBeatKind | null): void {
-  maybeSettleLandingBeat({
-    state, beatKind, playing: step.playing, clockSpeed: step.clockSpeed,
-    setSpeed: step.setSpeed, phase: step.phase, staged: step.staged,
-    setAutoCamPhase: step.setAutoCamPhase, easeToMode: step.easeToMode,
-    notifyAutoCamera: step.notifyAutoCamera,
+/** What the caller should do to the clock and camera after the transition. */
+export type LandingBeatEffects = Readonly<{
+  /** Playback is faster than 1× and should be pinned back for the beat. */
+  pinSpeed1x: boolean;
+  /** Non-null → sync guided-camera state to this frame. */
+  autoCamPhase: Readonly<{ phase: PhaseId; staged: boolean }> | null;
+  /** Non-null → ease onto this mode and report it as an auto-cam cut. */
+  settleCamera: CameraMode | null;
+}>;
+
+const NO_EFFECTS: LandingBeatEffects = Object.freeze({
+  pinSpeed1x: false,
+  autoCamPhase: null,
+  settleCamera: null,
+});
+
+/** Result of advancing the beat by one frame. */
+export type LandingBeatStep = Readonly<{
+  state: LandingBeatState;
+  /** Whether the mission-complete card should show. */
+  showCompleteCard: boolean;
+  effects: LandingBeatEffects;
+}>;
+
+/** Hold has run long enough (or never started, when paused at the edge). */
+function cardReadyFromHold(state: LandingBeatState, nowMs: number): boolean {
+  return (
+    state.holdStartMs == null ||
+    landingBeatCardReady((nowMs - state.holdStartMs) / 1000)
+  );
+}
+
+/** First frame at complete: latch the beat kind and start the hold clock. */
+function onRisingComplete(
+  state: LandingBeatState,
+  beatKind: LandingBeatKind | null,
+  input: LandingBeatInput,
+): LandingBeatState {
+  if (state.wasComplete) return state;
+  return Object.freeze({
+    ...state,
+    kind: beatKind,
+    settled: false,
+    holdStartMs: input.playing ? input.nowMs : null,
   });
 }
 
-function cardReadyFromHold(state: LandingBeatState, nowMs: number): boolean {
-  return state.holdStartMs == null || landingBeatCardReady((nowMs - state.holdStartMs) / 1000);
+/** One-shot settle: pin 1× and frame the landing camera while the hold runs. */
+function settleEffects(
+  state: LandingBeatState,
+  beatKind: LandingBeatKind | null,
+  input: LandingBeatInput,
+): LandingBeatEffects {
+  if (!input.playing || state.settled || !beatKind) return NO_EFFECTS;
+  return Object.freeze({
+    pinSpeed1x: Math.abs(input.clockSpeed) > 1 + 1e-9,
+    autoCamPhase: Object.freeze({ phase: input.phase, staged: input.staged }),
+    settleCamera: landingBeatCameraMode(beatKind),
+  });
 }
 
-function advanceCompleteBeat(state: LandingBeatState, step: LandingBeatStep): boolean {
-  const phaseForKind = step.classifyPhase ?? step.phase;
-  const beatKind = classifyLandingBeat(phaseForKind, step.completeRaw);
-  if (!state.wasComplete) onRisingComplete(state, beatKind, step.playing, step.nowMs);
-  state.wasComplete = true;
-  state.kind = beatKind;
-  settleFromStep(state, step, beatKind);
-  return step.completeRaw && cardReadyFromHold(state, step.nowMs);
+function advanceCompleteBeat(
+  state: LandingBeatState,
+  input: LandingBeatInput,
+): LandingBeatStep {
+  const beatKind = classifyLandingBeat(input.classifyPhase ?? input.phase, input.completeRaw);
+  const risen = onRisingComplete(state, beatKind, input);
+  const effects = settleEffects(risen, beatKind, input);
+  const settled = risen.settled || effects.settleCamera != null;
+  return Object.freeze({
+    state: Object.freeze({ ...risen, kind: beatKind, wasComplete: true, settled }),
+    showCompleteCard: input.completeRaw && cardReadyFromHold(risen, input.nowMs),
+    effects,
+  });
 }
 
 /**
  * Advance landing-beat state for one frame.
- * @returns whether the complete card should show
+ * Scrubbing back before complete resets the hold.
  */
 export function stepLandingBeat(
   state: LandingBeatState,
-  step: LandingBeatStep,
-): boolean {
-  if (!step.completeRaw) {
-    clearLandingBeat(state);
-    return false;
+  input: LandingBeatInput,
+): LandingBeatStep {
+  if (!input.completeRaw) {
+    return Object.freeze({
+      state: createLandingBeatState(),
+      showCompleteCard: false,
+      effects: NO_EFFECTS,
+    });
   }
-  return advanceCompleteBeat(state, step);
+  return advanceCompleteBeat(state, input);
 }

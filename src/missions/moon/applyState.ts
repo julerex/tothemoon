@@ -24,6 +24,7 @@ import {
   telemetryAltitudeKm,
 } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
+import { applyLandingBeatEffects } from "../theaterHandlers";
 import { nextAutoCamCut, lunarFinaleChaseScale, lunarFinaleShouldCut, finaleChaseBias } from "../../camera/autoCam";
 import {
   applyEarthshine,
@@ -40,7 +41,6 @@ import { updateMoonRelativeOrbit } from "../../scene/createScene";
 import { updateCoastBeatsOverlay } from "../../scene/coastCorridor";
 import { updateStarbaseLaunchFx, updateMechazillaRecovery } from "../../scene/earthTheater";
 import { deriveChopstickPose } from "../../scene/padRecoveryFx";
-import type { PhaseId } from "../../physics/missionTypes";
 import type { MoonCtx } from "./bootstrap";
 import { orientCraft } from "./orientCraft";
 
@@ -287,31 +287,18 @@ function completeRaw(frame: SampleFrame, u: number): boolean {
   );
 }
 
-function setAutoCamPhase(ctx: MoonCtx, phase: PhaseId, staged: boolean): void {
-  ctx.autoCam.phase = phase;
-  ctx.autoCam.staged = staged;
-}
-
-function landingBeatHooks(ctx: MoonCtx) {
-  return {
-    setSpeed: (rate: number) => ctx.clock.setSpeed(rate),
-    setAutoCamPhase: (phase: PhaseId, staged: boolean) =>
-      setAutoCamPhase(ctx, phase, staged),
-    easeToMode: ctx.director.easeToMode.bind(ctx.director),
-    notifyAutoCamera: ctx.notifyAutoCamera,
-  };
-}
-
 function runLandingBeat(ctx: MoonCtx, frame: SampleFrame, u: number): boolean {
-  return stepLandingBeat(ctx.landingBeat, {
+  const step = stepLandingBeat(ctx.landingBeat, {
     completeRaw: completeRaw(frame, u),
     phase: frame.phase,
     playing: ctx.clock.playing,
     nowMs: performance.now(),
     clockSpeed: ctx.clock.speed,
     staged: frame.staged,
-    ...landingBeatHooks(ctx),
   });
+  ctx.landingBeat = step.state;
+  applyLandingBeatEffects(step.effects, ctx);
+  return step.showCompleteCard;
 }
 
 function hudCore(

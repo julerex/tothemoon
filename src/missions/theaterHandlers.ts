@@ -12,6 +12,7 @@ import type { CameraDirector } from "../camera/modes";
 import type { CameraMode } from "../camera/modes";
 import type { MissionClock } from "../mission/clock";
 import type { CinematicBookmark } from "../mission/bookmarks";
+import type { LandingBeatEffects } from "../mission/landingBeatHold";
 import type { PhaseId } from "../physics/missionTypes";
 import { sampleAtProgress, type Trajectory } from "../physics/trajectoryCache";
 import { nudgePlaybackSpeed } from "../ui/hudFormat";
@@ -113,6 +114,32 @@ function toggleHandlers(w: TheaterHudWire): Pick<
 
 export function makeTheaterHudHandlers(w: TheaterHudWire): HudHandlers {
   return { ...transportHandlers(w), ...cameraHandlers(w), ...toggleHandlers(w) };
+}
+
+/** The slice of a mission context the landing beat writes to. */
+export type LandingBeatTarget = {
+  clock: MissionClock;
+  director: CameraDirector;
+  autoCam: TheaterAutoCam;
+  notifyAutoCamera: (mode: CameraMode) => void;
+};
+
+/**
+ * Apply the effects a landing-beat transition asked for.
+ * Order matters: pin playback before framing so the settle eases at 1×.
+ */
+export function applyLandingBeatEffects(
+  effects: LandingBeatEffects,
+  target: LandingBeatTarget,
+): void {
+  if (effects.pinSpeed1x) target.clock.setSpeed(1);
+  if (effects.autoCamPhase) {
+    target.autoCam.phase = effects.autoCamPhase.phase;
+    target.autoCam.staged = effects.autoCamPhase.staged;
+  }
+  if (effects.settleCamera == null) return;
+  target.director.easeToMode(effects.settleCamera, { frame: true });
+  target.notifyAutoCamera(effects.settleCamera);
 }
 
 /** Feed canvas pointer moves to the hover-driven vector arrows. */
