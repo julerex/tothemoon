@@ -1198,7 +1198,7 @@ function updatePadSteam(
   steam.traverse((obj) => {
     if (!(obj instanceof THREE.Sprite)) return;
     applySpritePose(obj, steamSpritePose(steamBaseFromUserData(obj), steamStr, night, animT));
-    tintSteamSprite(obj, warmth, night);
+    tintSteamSprite(obj, warmth * 0.55, night);
   });
 }
 

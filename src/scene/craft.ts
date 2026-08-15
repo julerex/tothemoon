@@ -1126,10 +1126,10 @@ function paintPlumeGradient(
 }
 
 function paintBoosterPlumeStops(g: CanvasGradient): void {
-  g.addColorStop(0, "rgba(255, 248, 252, 0.95)");
-  g.addColorStop(0.16, "rgba(255, 190, 220, 0.58)");
-  g.addColorStop(0.42, "rgba(255, 110, 185, 0.2)");
-  g.addColorStop(1, "rgba(230, 70, 160, 0)");
+  g.addColorStop(0, "rgba(255, 220, 240, 0.92)");
+  g.addColorStop(0.16, "rgba(255, 90, 190, 0.58)");
+  g.addColorStop(0.42, "rgba(220, 20, 150, 0.22)");
+  g.addColorStop(1, "rgba(160, 0, 110, 0)");
 }
 
 function paintShipPlumeStops(g: CanvasGradient): void {

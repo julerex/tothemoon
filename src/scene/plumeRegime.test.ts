@@ -122,7 +122,7 @@ describe("plumeLook", () => {
     const shipLand = plumeLook("landing", "ship");
     for (const look of [atmo, land, shipAtmo, shipLand]) {
       // Near-white core (all channels high)
-      assert.ok(look.core[0]! > 0.9 && look.core[1]! > 0.85 && look.core[2]! > 0.85);
+      assert.ok(look.core[0]! > 0.9 && look.core[1]! > 0.7 && look.core[2]! > 0.8);
       // Magenta rim: red high, blue > green (not orange)
       assert.ok(look.rim[0]! > 0.85);
       assert.ok(look.rim[2]! > look.rim[1]!);

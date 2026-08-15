@@ -76,16 +76,16 @@ export type IceFlakeSpec = Readonly<{
  * read “shedding frost,” not a particle blizzard.
  */
 export const ICE_FLAKES: readonly IceFlakeSpec[] = [
-  { ang: 0.4, r0: 0.13, z0: 0.35, scale: 0.034, phase: 0.3 },
-  { ang: 1.3, r0: 0.125, z0: 0.62, scale: 0.028, phase: 1.0 },
-  { ang: 2.2, r0: 0.14, z0: 0.88, scale: 0.04, phase: 1.7 },
-  { ang: 3.05, r0: 0.12, z0: 1.12, scale: 0.03, phase: 2.4 },
-  { ang: 3.9, r0: 0.135, z0: 0.48, scale: 0.036, phase: 3.1 },
-  { ang: 4.7, r0: 0.128, z0: 1.35, scale: 0.026, phase: 3.8 },
-  { ang: 5.5, r0: 0.142, z0: 0.72, scale: 0.038, phase: 4.5 },
-  { ang: 0.9, r0: 0.118, z0: 1.52, scale: 0.032, phase: 5.2 },
-  { ang: 2.7, r0: 0.15, z0: 0.22, scale: 0.03, phase: 5.9 },
-  { ang: 5.1, r0: 0.122, z0: 1.05, scale: 0.029, phase: 6.4 },
+  { ang: 0.4, r0: 0.13, z0: 0.35, scale: 0.055, phase: 0.3 },
+  { ang: 1.3, r0: 0.125, z0: 0.62, scale: 0.048, phase: 1.0 },
+  { ang: 2.2, r0: 0.14, z0: 0.88, scale: 0.062, phase: 1.7 },
+  { ang: 3.05, r0: 0.12, z0: 1.12, scale: 0.05, phase: 2.4 },
+  { ang: 3.9, r0: 0.135, z0: 0.48, scale: 0.058, phase: 3.1 },
+  { ang: 4.7, r0: 0.128, z0: 1.35, scale: 0.046, phase: 3.8 },
+  { ang: 5.5, r0: 0.142, z0: 0.72, scale: 0.06, phase: 4.5 },
+  { ang: 0.9, r0: 0.118, z0: 1.52, scale: 0.052, phase: 5.2 },
+  { ang: 2.7, r0: 0.15, z0: 0.22, scale: 0.05, phase: 5.9 },
+  { ang: 5.1, r0: 0.122, z0: 1.05, scale: 0.049, phase: 6.4 },
 ];
 
 function onPadAscent(phase: string | undefined, missionT: number): boolean {
@@ -142,7 +142,7 @@ export function frostPatchOpacity(
   animT: number,
 ): number {
   const wobble = 0.9 + 0.1 * Math.sin(animT * 0.55 + phase);
-  return 0.48 * frostStr * wobble;
+  return 0.56 * frostStr * wobble;
 }
 
 function flakeRadius(spec: IceFlakeSpec, iceStr: number, animT: number): number {
@@ -174,8 +174,8 @@ export function iceFlakePose(
   const wobble = 0.78 + 0.22 * Math.sin(animT * 3.4 + spec.phase);
   const grow = spec.scale * (0.85 + iceStr * 1.15);
   return {
-    opacity: 0.5 * iceStr * wobble,
-    scale: { x: grow * 1.15, y: grow * 0.85 },
+    opacity: 0.62 * iceStr * wobble,
+    scale: { x: grow * 1.35, y: grow * 1.05 },
     position: flakePosition(spec, iceStr, animT),
   };
 }

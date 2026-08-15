@@ -539,13 +539,14 @@ export type SteamSpriteBase = Readonly<{
  * @param animT - Mission-time clock
  */
 function steamOpacity(base: SteamSpriteBase, steamStr: number, night: number, animT: number): number {
-  const tierOp = 1 - base.tier * 0.14;
+  const tierOp = 1 - base.tier * 0.16;
   const wobble = 0.88 + 0.12 * Math.sin(animT * 3.1 + base.phase);
-  return (0.52 + 0.16 * night) * steamStr * wobble * tierOp;
+  // Denser than V3 (~0.26) but not so opaque that pad bloom whites out trench cam.
+  return (0.38 + 0.14 * night) * steamStr * wobble * tierOp;
 }
 
 function steamGrow(base: SteamSpriteBase, steamStr: number, animT: number): number {
-  return base.baseScale * (1.05 + steamStr * 1.05) + 0.012 * Math.sin(animT * 2.2 + base.phase);
+  return base.baseScale * (0.95 + steamStr * 0.95) + 0.012 * Math.sin(animT * 2.2 + base.phase);
 }
 
 function steamPosition(base: SteamSpriteBase, steamStr: number, animT: number): Vec3 {
@@ -610,7 +611,7 @@ export function sheetSpritePose(
 ): SpritePose {
   const wobble = 0.85 + 0.15 * Math.sin(animT * 4.2 + base.phase);
   return {
-    opacity: (0.55 + 0.14 * night) * steamStr * wobble,
+    opacity: (0.42 + 0.12 * night) * steamStr * wobble,
     scale: sheetScale(base, steamStr, animT),
     position: sheetPosition(base, steamStr, animT),
   };
@@ -630,7 +631,7 @@ export function groundSheetPose(
   const sx = base.baseSx * (1.1 + steamStr * 0.8);
   const sy = base.baseSy * (0.95 + steamStr * 0.35 + 0.04 * Math.sin(animT * 2.4 + base.phase));
   return {
-    opacity: (0.62 + 0.12 * night) * steamStr * wobble,
+    opacity: (0.44 + 0.12 * night) * steamStr * wobble,
     scale: { x: sx, y: sy },
     position: {
       x: base.baseX + 0.004 * Math.sin(animT * 1.8 + base.phase),
@@ -715,7 +716,7 @@ export function ventSpritePose(
   const wobble = 0.8 + 0.2 * Math.sin(animT * 1.8 + base.phase);
   const grow = 0.08 + ventStr * 0.18 + 0.03 * Math.sin(animT * 1.4 + base.phase);
   return {
-    opacity: (0.52 + 0.18 * night) * ventStr * wobble,
+    opacity: (0.45 + 0.16 * night) * ventStr * wobble,
     scale: { x: grow * 1.15, y: grow * 1.4 },
     position: ventPosition(base, ventStr, animT),
   };
@@ -742,7 +743,7 @@ export type FlameVisual = Readonly<{
 export function flameVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.02,
-    opacity: 0.55 * strength,
+    opacity: 0.45 * strength,
     scaleY: 0.7 + 0.5 * strength,
   };
 }
@@ -773,8 +774,8 @@ export type BloomVisual = Readonly<{
 export function bloomVisual(strength: number, flicker: number): BloomVisual {
   return {
     visible: strength > 0.04,
-    opacity: 0.52 * strength * flicker,
-    scale: 0.11 + 0.14 * strength,
+    opacity: 0.4 * strength * flicker,
+    scale: 0.09 + 0.11 * strength,
   };
 }
 
@@ -783,7 +784,7 @@ export function bloomVisual(strength: number, flicker: number): BloomVisual {
  * 0 = cool gray steam; 1 = orange-pink core like T+0 webcast stills.
  */
 export function steamWarmth(flameStrength: number): number {
-  return clamp01(flameStrength * 1.15);
+  return clamp01(flameStrength * 0.7);
 }
 
 /**
@@ -862,7 +863,7 @@ export function padFillDistance(night: number): number {
 
 /** Warm plume point-light intensity under the engines only. */
 export function plumeLightIntensity(strength: number): number {
-  return 2.2 * strength;
+  return 1.65 * strength;
 }
 
 /** Plume point-light reach (km). */
