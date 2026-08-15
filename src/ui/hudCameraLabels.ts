@@ -32,9 +32,10 @@ export const CAMERA_LABELS: Record<
     detail: "Chase · key 7 · double-tap to frame",
   },
   fin: { title: "Ship fin", detail: "Aft engines · key 8" },
+  hull: { title: "Ship hull", detail: "Barrel cam · key 9" },
 };
 
-/** Focus modes cycled by ` (backtick) — same order as number keys 1–8. */
+/** Focus modes cycled by ` (backtick) — same order as number keys 1–9. */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
   "sun",
   "moon",
@@ -44,6 +45,7 @@ export const CAMERA_CYCLE: readonly CameraMode[] = [
   "gridfin",
   "chase",
   "fin",
+  "hull",
 ];
 
 /** Double-tap window for number-key frame zoom (ms). */

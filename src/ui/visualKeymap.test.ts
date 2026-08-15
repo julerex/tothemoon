@@ -69,6 +69,7 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("6"), "Booster");
     assert.equal(actions.get("7"), "Starship");
     assert.equal(actions.get("8"), "Fin cam");
+    assert.equal(actions.get("9"), "Hull cam");
     assert.equal(actions.get("Q"), "Yaw ←");
     assert.equal(actions.get("E"), "Yaw →");
     assert.equal(actions.get("A"), "Pan →");

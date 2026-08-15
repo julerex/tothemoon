@@ -329,16 +329,60 @@ function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
   addFwdFlap(ship, mats, 1);
 }
 
-/** Fin-cam mount + look target on ship. */
+/** Fin-cam mount + look target on ship (flap → engines). */
 function addFinCam(ship: THREE.Group): void {
-  const finCam = new THREE.Object3D();
-  finCam.name = "fin-cam";
-  finCam.position.set(R + 0.08, 0.03, SHIP_H - 0.58);
-  ship.add(finCam);
-  const finLook = new THREE.Object3D();
-  finLook.name = "fin-cam-look";
-  finLook.position.set(0, 0, -0.05);
-  ship.add(finLook);
+  addNamedCam(
+    ship,
+    "fin-cam",
+    "fin-cam-look",
+    [R + 0.08, 0.03, SHIP_H - 0.58],
+    [0, 0, -0.05],
+  );
+}
+
+/**
+ * Entry left-pane flap-cam: starboard forward flap fills the left of frame
+ * with the aft hull / Earth (plasma in the webcast) to the right.
+ */
+function addFlapCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "flap-cam",
+    "flap-cam-look",
+    [R + 0.05, 0.16, SHIP_H - 0.38],
+    [R + 0.10, -0.18, SHIP_H - 0.70],
+  );
+}
+
+/**
+ * Webcast hull-cam: starboard barrel looking aft so the hull fills the left
+ * of frame and Earth fills the rest (Flight 13 S40 stills).
+ */
+function addHullCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "hull-cam",
+    "hull-cam-look",
+    [R + 0.42, 0.08, SHIP_H * 0.64],
+    [R * 0.12, -0.04, 0.04],
+  );
+}
+
+function addNamedCam(
+  host: THREE.Group,
+  camName: string,
+  lookName: string,
+  camPos: readonly [number, number, number],
+  lookPos: readonly [number, number, number],
+): void {
+  const cam = new THREE.Object3D();
+  cam.name = camName;
+  cam.position.set(camPos[0], camPos[1], camPos[2]);
+  host.add(cam);
+  const look = new THREE.Object3D();
+  look.name = lookName;
+  look.position.set(lookPos[0], lookPos[1], lookPos[2]);
+  host.add(look);
 }
 
 /** One aft elevon + tile face on a named hinge pivot. */
@@ -426,6 +470,8 @@ function addShipStructure(ship: THREE.Group, mats: CraftMats): void {
 function addShipControlSurfaces(ship: THREE.Group, mats: CraftMats): void {
   addForwardFlaps(ship, mats);
   addFinCam(ship);
+  addFlapCam(ship);
+  addHullCam(ship);
   addAftFlaps(ship, mats);
 }
 
@@ -547,14 +593,46 @@ function addGridFinCam(
   finZ: number,
   finW: number,
 ): void {
-  const gridFinCam = new THREE.Object3D();
-  gridFinCam.name = "grid-fin-cam";
-  gridFinCam.position.set(Math.cos(ang) * r, Math.sin(ang) * r, finZ + finW * 0.12);
-  booster.add(gridFinCam);
-  const gridFinLook = new THREE.Object3D();
-  gridFinLook.name = "grid-fin-cam-look";
-  gridFinLook.position.set(Math.cos(ang) * R * 0.25, Math.sin(ang) * R * 0.25, 0.04);
-  booster.add(gridFinLook);
+  addNamedCam(
+    booster,
+    "grid-fin-cam",
+    "grid-fin-cam-look",
+    [Math.cos(ang) * r, Math.sin(ang) * r, finZ + finW * 0.12],
+    [Math.cos(ang) * R * 0.25, Math.sin(ang) * R * 0.25, 0.04],
+  );
+}
+
+/** Booster hull-down cam (max-Q / Super Heavy landing stills). */
+function addBoosterHullCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "booster-hull-cam",
+    "booster-hull-cam-look",
+    [R + 0.36, 0.05, BOOST_H * 0.70],
+    [R * 0.18, -0.05, BOOST_H * 0.08],
+  );
+}
+
+/** Looking at the Raptor cluster (hot-stage left pane). */
+function addEnginesCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "engines-cam",
+    "engines-cam-look",
+    [0.09, 0.04, -0.22],
+    [0, 0, -0.02],
+  );
+}
+
+/** Looking past the bells at Earth (post-sep left pane). */
+function addEnginesDownCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "engines-down-cam",
+    "engines-down-cam-look",
+    [0.11, 0.03, 0.14],
+    [0, 0, -0.38],
+  );
 }
 
 function addBoostSkirtAndRaceway(booster: THREE.Group, mats: CraftMats): void {
@@ -675,6 +753,9 @@ function makeFrostTexture(): THREE.CanvasTexture {
 function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
   const cam = addGridFins(booster, mats);
   addGridFinCam(booster, cam.ang, cam.r, cam.finZ, cam.finW);
+  addBoosterHullCam(booster);
+  addEnginesCam(booster);
+  addEnginesDownCam(booster);
   addBoostSkirtAndRaceway(booster, mats);
   addBoostEngines(booster, mats);
 }
@@ -2106,6 +2187,24 @@ export function setPlumeVisible(group: THREE.Group, visible: boolean): void {
 export function craftLengthKm(staged: boolean): number {
   return staged ? SHIP_H_M / 1000 : (SHIP_H_M + BOOST_H_M) / 1000;
 }
+
+/** Named camera mounts on the stack (fin / hull / booster / engines). */
+export const CRAFT_CAM_MOUNT_NAMES = [
+  "fin-cam",
+  "fin-cam-look",
+  "flap-cam",
+  "flap-cam-look",
+  "hull-cam",
+  "hull-cam-look",
+  "grid-fin-cam",
+  "grid-fin-cam-look",
+  "booster-hull-cam",
+  "booster-hull-cam-look",
+  "engines-cam",
+  "engines-cam-look",
+  "engines-down-cam",
+  "engines-down-cam-look",
+] as const;
 
 /** Super Heavy alone (~71 m) for free-flyer locator sizing after stage-out. */
 export function boosterLengthKm(): number {
