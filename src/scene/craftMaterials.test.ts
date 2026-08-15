@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   BOOSTER_WELD_RING_COUNT,
+  FIN_CAM_LOCAL,
+  FIN_CAM_LOOK_LOCAL,
   GRID_FIN_LATTICE_N,
   SHIP_WELD_RING_FRACTIONS,
 } from "./craft.ts";
@@ -30,5 +32,12 @@ describe("V4 craft material layout", () => {
 
   it("uses a denser grid-fin lattice than the pre-V4 4-bar set", () => {
     assert.ok(GRID_FIN_LATTICE_N >= 6);
+  });
+
+  it("seats fin-cam aft of the forward flap looking toward the engines", () => {
+    // Forward-flap hinge is near z = 0.78; camera must sit behind it.
+    assert.ok(FIN_CAM_LOCAL.z < 0.70);
+    assert.ok(FIN_CAM_LOOK_LOCAL.z < FIN_CAM_LOCAL.z);
+    assert.ok(FIN_CAM_LOCAL.x > 0.2);
   });
 });

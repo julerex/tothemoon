@@ -193,8 +193,8 @@ function makeSteelFamily(stainless: {
   bump: THREE.CanvasTexture;
 }): Pick<CraftMats, "steel" | "steelBright" | "steelDark" | "steelMatte" | "weldMat"> {
   return {
-    steel: makeSteelPhysical(0xc8ccd0, stainless, 0.92, 0.24, 0.84),
-    steelBright: makeSteelPhysical(0xd8e0e4, stainless, 0.94, 0.18, 0.88),
+    steel: makeSteelPhysical(0xd0d4d8, stainless, 0.93, 0.22, 0.86),
+    steelBright: makeSteelPhysical(0xe0e6ea, stainless, 0.95, 0.16, 0.90),
     steelDark: makeMetalStd(0x6a7078, 0.78, 0.4),
     steelMatte: makeMetalStd(0x9aa0a8, 0.68, 0.42),
     weldMat: makeMetalStd(0xb8c0c8, 0.95, 0.16),
@@ -379,16 +379,25 @@ function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
   addFwdFlap(ship, mats, 1);
 }
 
+/**
+ * Fin-cam mesh-local pose (before {@link CRAFT_MESH_SCALE}).
+ * Sits just aft of the starboard forward flap so an 84° lens sees the barrel
+ * (tiles | steel | S40), not the flap mesh the camera is “bolted” to.
+ */
+export const FIN_CAM_LOCAL = { x: R + 0.13, y: 0.055, z: 0.62 } as const;
+
+/** Fin-cam look target — aft along the barrel toward the engines. */
+export const FIN_CAM_LOOK_LOCAL = { x: 0.02, y: -0.02, z: 0.06 } as const;
+
 /** Fin-cam mount + look target on ship. */
 function addFinCam(ship: THREE.Group): void {
   const finCam = new THREE.Object3D();
   finCam.name = "fin-cam";
-  // Starboard TPS/steel chine, slightly off the barrel — webcast hull-cam.
-  finCam.position.set(R + 0.11, 0.05, SHIP_H - 0.54);
+  finCam.position.set(FIN_CAM_LOCAL.x, FIN_CAM_LOCAL.y, FIN_CAM_LOCAL.z);
   ship.add(finCam);
   const finLook = new THREE.Object3D();
   finLook.name = "fin-cam-look";
-  finLook.position.set(-0.02, 0.0, 0.10);
+  finLook.position.set(FIN_CAM_LOOK_LOCAL.x, FIN_CAM_LOOK_LOCAL.y, FIN_CAM_LOOK_LOCAL.z);
   ship.add(finLook);
 }
 

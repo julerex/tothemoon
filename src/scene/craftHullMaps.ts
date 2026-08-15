@@ -63,7 +63,7 @@ export const SHIP_HULL_MARK = {
   /** Radians from +Y toward +X (starboard steel, just past the TPS chine). */
   ang: Math.PI * 0.58,
   /** Fraction of ship height from the engines (0) toward the nose (1). */
-  zFrac: 0.50,
+  zFrac: 0.38,
   /** Decal width in craft mesh units (~2.6 m). */
   width: 0.066,
   /** Decal height in craft mesh units (~1.1 m). */
@@ -178,7 +178,7 @@ export function hexTileAlbedo(col: number, row: number): Rgb {
 }
 
 function hexBodyAlbedo(col: number, row: number): Rgb {
-  const n = 16 + Math.round(latticeHash(col, row, 1) * 14);
+  const n = 22 + Math.round(latticeHash(col, row, 1) * 16);
   const toast = latticeHash(col, row, 2) > 0.82 ? 10 : 0;
   const edge = hexEdgeFactor(col);
   const r = Math.min(255, n + toast + Math.round(edge * 18));
