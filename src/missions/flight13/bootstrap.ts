@@ -36,7 +36,7 @@ import { CRAFT_MESH_SCALE, createCraft } from "../../scene/craft";
 import { meshLocalTrailFromSamples } from "../../physics/earthTrail";
 import { createTrailFromPoints } from "../../scene/trail";
 import { StagingFx, findStageEvent } from "../../scene/stagingFx";
-import { EntryFx } from "../../scene/entryFx";
+import { createEntryFx, type EntryFx } from "../../scene/entryFx";
 import { SplashFx } from "../../scene/splashFx";
 import { GulfLandFx } from "../../scene/gulfLandFx";
 import {
@@ -304,7 +304,7 @@ function mountSplashEntry(
   const stageT = staging.stageT;
   if (stageT != null) gulfLandFx.setLandTime(stageT);
   bodies.earth.add(gulfLandFx.group);
-  const entryFx = new EntryFx();
+  const entryFx = createEntryFx();
   craft.add(entryFx.group);
   return { ...staging, splashFx, gulfLandFx, entryFx };
 }
