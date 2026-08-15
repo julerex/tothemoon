@@ -54,9 +54,9 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
   ],
   [
     { label: "Caps", w: 1.75 },
-    { label: "A", action: "Pan ←" },
+    { label: "A", action: "Pan →" },
     { label: "S", action: "Pan back" },
-    { label: "D", action: "Pan →" },
+    { label: "D", action: "Pan ←" },
     { label: "F", action: "Pitch ↓" },
     { label: "G", action: "Auto-cam" },
     { label: "H", action: "HUD" },
