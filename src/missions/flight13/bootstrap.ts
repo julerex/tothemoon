@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import { MissionClock } from "../../mission/clock";
+import { createMissionClock, type MissionClock } from "../../mission/clock";
 import {
   createLandingBeatState,
   type LandingBeatState,
@@ -374,7 +374,7 @@ function makeClockAndTimeline(cache: Trajectory) {
 }
 
 function playClock(): MissionClock {
-  const clock = new MissionClock();
+  const clock = createMissionClock();
   clock.setSpeed(1);
   clock.play();
   return clock;

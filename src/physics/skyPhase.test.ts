@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
-import { TrajectoryCache } from "./trajectoryCache.ts";
+import { loadPrecomputedTrajectory, type Trajectory } from "./trajectoryCache.ts";
 import type { EphemerisEpoch } from "./ephemerisEpoch.ts";
 import {
   formatSkyPhaseLine,
@@ -38,10 +38,10 @@ describe("moonPhaseName", () => {
 
 describe("skyPhaseAt (baked lunar pack)", () => {
   let epoch: EphemerisEpoch;
-  let cache: TrajectoryCache;
+  let cache: Trajectory;
 
   before(() => {
-    cache = TrajectoryCache.loadPrecomputed();
+    cache = loadPrecomputedTrajectory();
     epoch = cache.epoch;
   });
 

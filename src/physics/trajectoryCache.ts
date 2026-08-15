@@ -1,8 +1,9 @@
 /**
  * Baked / runtime mission trajectory: pure load, sample, and trail helpers.
  *
- * Packs are immutable after {@link makeTrajectory}. Sampling is a pure function
- * of (trajectory, t) + ephemeris epoch — no class instance methods required.
+ * Packs are frozen by {@link makeTrajectory}. Everything here is a free function
+ * of (trajectory, t) + ephemeris epoch, so a trajectory is plain data that
+ * callers pass around rather than an object with behavior.
  */
 
 import { R_EARTH, R_MOON } from "./constants";
@@ -370,111 +371,4 @@ function makeFrame(
   epoch: EphemerisEpoch,
 ): FrameState {
   return frameCore(t, pos, vel, phase, burning, fuelBooster, fuelShip, thrustN, staged, frameAlts(t, pos, epoch));
-}
-
-function isTrajectory(value: MissionResult | Trajectory): value is Trajectory {
-  return (
-    typeof value === "object" &&
-    value != null &&
-    "epoch" in value &&
-    (value as Trajectory).epoch != null &&
-    typeof (value as Trajectory).epoch === "object"
-  );
-}
-
-type CacheFields = {
-  samples: Sample[]; durationS: number; ok: boolean; message: string;
-  moonPhase0: number; translunarInjectionDeltaV: number; minMoonAlt: number;
-  peakSpeedKmS: number; stageT: number | null; keplerRefMaxDevKm: number;
-  horizonsLandingT: number; epoch: EphemerisEpoch;
-};
-
-function copyCoreFields(target: CacheFields, t: Trajectory): void {
-  target.samples = t.samples;
-  target.durationS = t.durationS;
-  target.ok = t.ok;
-  target.message = t.message;
-  target.moonPhase0 = t.moonPhase0;
-  target.translunarInjectionDeltaV = t.translunarInjectionDeltaV;
-}
-
-function copyMetaFields(target: CacheFields, t: Trajectory): void {
-  target.minMoonAlt = t.minMoonAlt;
-  target.peakSpeedKmS = t.peakSpeedKmS;
-  target.stageT = t.stageT;
-  target.keplerRefMaxDevKm = t.keplerRefMaxDevKm;
-  target.horizonsLandingT = t.horizonsLandingT;
-  target.epoch = t.epoch;
-}
-
-function copyTrajectoryFields(target: CacheFields, t: Trajectory): void {
-  copyCoreFields(target, t);
-  copyMetaFields(target, t);
-}
-
-/**
- * Thin object facade over pure trajectory helpers (same call shape as the old class).
- * Prefer free functions + {@link Trajectory} for new code.
- */
-export class TrajectoryCache {
-  readonly samples!: Sample[];
-  readonly durationS!: number;
-  readonly ok!: boolean;
-  readonly message!: string;
-  readonly moonPhase0!: number;
-  readonly translunarInjectionDeltaV!: number;
-  readonly minMoonAlt!: number;
-  readonly peakSpeedKmS!: number;
-  readonly stageT!: number | null;
-  readonly keplerRefMaxDevKm!: number;
-  readonly horizonsLandingT!: number;
-  readonly epoch!: EphemerisEpoch;
-  private readonly traj: Trajectory;
-  private _corridor: CoastCorridor | null | undefined;
-
-  constructor(result: MissionResult | Trajectory) {
-    const t = isTrajectory(result) ? result : makeTrajectory(result);
-    this.traj = t;
-    copyTrajectoryFields(this, t);
-  }
-
-  /** Underlying pure trajectory data. */
-  asTrajectory(): Trajectory {
-    return this.traj;
-  }
-
-  getCoastCorridor(): CoastCorridor | null {
-    if (this._corridor === undefined) {
-      this._corridor = trajectoryCoastCorridor(this.traj);
-    }
-    return this._corridor;
-  }
-
-  static loadPrecomputed(): TrajectoryCache {
-    return new TrajectoryCache(loadPrecomputedTrajectory());
-  }
-
-  static loadFlight13(): TrajectoryCache {
-    return new TrajectoryCache(loadFlight13Trajectory());
-  }
-
-  static compute(): TrajectoryCache {
-    return new TrajectoryCache(computeLunarTrajectory());
-  }
-
-  static computeFlight13(): TrajectoryCache {
-    return new TrajectoryCache(computeFlight13Trajectory());
-  }
-
-  sampleAtProgress(u: number): FrameState {
-    return sampleAtProgress(this.traj, u);
-  }
-
-  sampleAtTime(t: number): FrameState {
-    return sampleAtTime(this.traj, t);
-  }
-
-  trailPoints(max = 1200): V3[] {
-    return trailPoints(this.traj, max);
-  }
 }

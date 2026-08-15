@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  MissionClock,
+  createMissionClock,
   clockPause,
   clockPlay,
   clockSeek,
@@ -81,7 +81,7 @@ describe("pure ClockState transitions", () => {
 
 describe("MissionClock shell", () => {
   it("starts paused at t=0 with speed 1", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     assert.equal(c.t, 0);
     assert.equal(c.playing, false);
     assert.equal(c.speed, 1);
@@ -89,7 +89,7 @@ describe("MissionClock shell", () => {
   });
 
   it("seek clamps to [0, 1] and notifies subscribers", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     const seen: number[] = [];
     c.subscribe((t) => seen.push(t));
     c.seek(0.5);
@@ -100,7 +100,7 @@ describe("MissionClock shell", () => {
   });
 
   it("unsubscribe stops further notifications", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     let n = 0;
     const unsub = c.subscribe(() => {
       n++;
@@ -112,7 +112,7 @@ describe("MissionClock shell", () => {
   });
 
   it("setSpeed rejects zero/non-finite and clamps |speed| ≥ 0.1", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     c.setSpeed(0);
     assert.equal(c.speed, 1);
     c.setSpeed(Number.NaN);
@@ -126,7 +126,7 @@ describe("MissionClock shell", () => {
   });
 
   it("tick advances only while playing and pauses at end", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     const duration = 100; // s
     c.tick(10, duration);
     assert.equal(c.t, 0); // still paused
@@ -140,7 +140,7 @@ describe("MissionClock shell", () => {
   });
 
   it("negative speed rewinds and pauses at start", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     c.seek(0.5);
     c.setSpeed(-1);
     c.play();
@@ -150,7 +150,7 @@ describe("MissionClock shell", () => {
   });
 
   it("toggle flips playing", () => {
-    const c = new MissionClock();
+    const c = createMissionClock();
     c.toggle();
     assert.equal(c.playing, true);
     c.toggle();

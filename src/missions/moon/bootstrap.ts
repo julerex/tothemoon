@@ -5,7 +5,7 @@
 
 import * as THREE from "three";
 import type { Line2 } from "three/addons/lines/Line2.js";
-import { MissionClock } from "../../mission/clock";
+import { createMissionClock, type MissionClock } from "../../mission/clock";
 import {
   createLandingBeatState,
   type LandingBeatState,
@@ -332,7 +332,7 @@ function makeClock(cache: Trajectory) {
     buildTimeline(cache.samples, physicsDurationS),
     physicsDurationS,
   );
-  const clock = new MissionClock();
+  const clock = createMissionClock();
   clock.setSpeed(1);
   return { clock, physicsDurationS, transportS, timeline };
 }

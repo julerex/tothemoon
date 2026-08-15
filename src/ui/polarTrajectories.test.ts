@@ -4,7 +4,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
-import { TrajectoryCache } from "../physics/trajectoryCache.ts";
+import { loadPrecomputedTrajectory } from "../physics/trajectoryCache.ts";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
 import { A_EM, R_EARTH } from "../physics/constants.ts";
 import { len } from "../physics/vec3.ts";
@@ -24,7 +24,7 @@ let samples: Sample[];
 let epoch: EphemerisEpoch;
 
 before(() => {
-  const cache = TrajectoryCache.loadPrecomputed();
+  const cache = loadPrecomputedTrajectory();
   epoch = cache.epoch;
   samples = cache.samples;
 });

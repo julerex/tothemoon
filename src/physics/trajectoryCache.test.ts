@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  TrajectoryCache,
   epochFromResult,
   loadPrecomputedTrajectory,
   makeTrajectory,
@@ -177,7 +176,7 @@ describe("trailPoints", () => {
   });
 });
 
-describe("loadPrecomputedTrajectory / TrajectoryCache facade", () => {
+describe("loadPrecomputedTrajectory", () => {
   it("loads lunar pack with Horizons-capable epoch", () => {
     const traj = loadPrecomputedTrajectory();
     assert.ok(traj.ok);
@@ -186,19 +185,20 @@ describe("loadPrecomputedTrajectory / TrajectoryCache facade", () => {
     assert.equal(traj.epoch.clockUtcMsAtT0, null);
   });
 
-  it("TrajectoryCache delegates to pure helpers", () => {
-    const cache = TrajectoryCache.loadPrecomputed();
-    const traj = cache.asTrajectory();
-    const a = cache.sampleAtProgress(0);
-    const b = sampleAtProgress(traj, 0);
-    assert.equal(a.phase, b.phase);
-    assert.ok(Math.abs(a.pos.x - b.pos.x) < 1e-9);
+  it("returns a frozen pack so consumers cannot mutate shared meta", () => {
+    const traj = loadPrecomputedTrajectory();
+    assert.ok(Object.isFrozen(traj));
+    assert.throws(() => {
+      (traj as { durationS: number }).durationS = 0;
+    });
+  });
+
+  it("samples and derives the corridor from the same pack", () => {
+    const traj = loadPrecomputedTrajectory();
+    const frame = sampleAtProgress(traj, 0);
+    assert.equal(frame.t, traj.samples[0]!.t);
     const corridor = trajectoryCoastCorridor(traj);
-    const viaCache = cache.getCoastCorridor();
-    if (corridor && viaCache) {
-      assert.equal(corridor.maxDevKm, viaCache.maxDevKm);
-    } else {
-      assert.equal(corridor, viaCache);
-    }
+    // Corridor derivation is pure: repeat calls agree.
+    assert.deepEqual(corridor, trajectoryCoastCorridor(traj));
   });
 });
