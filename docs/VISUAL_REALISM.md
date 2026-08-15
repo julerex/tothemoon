@@ -10,6 +10,7 @@ Related:
 
 - [NEXT.md](./NEXT.md) — overall product roadmap (watchability, physics, architecture)
 - [PLAN.md](../PLAN.md) — physics fidelity track
+- [STARSHIP_13.md](./STARSHIP_13.md) — Flight 13 recap + webcast still SOP (photorealism look target)
 - [AGENTS.md](../AGENTS.md) — agent commit/hygiene rules
 
 **Live:** https://julerex.github.io/tothemoon/
@@ -45,6 +46,8 @@ Related:
 
 **Shipped (V6–V10, V12):** terminal dust/splash, Flight 13 entry craft, recovery catch, lunar Malapert plate, finale Auto-cam beats, coast watchability.
 
+**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — hex TPS / **S40**, pink-magenta ascent plumes, magenta entry plasma, Pez payload, splash steam. See **V13+**.
+
 Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,coastCorridor}.ts`.
 
 ---
@@ -77,6 +80,14 @@ Key modules: `src/scene/{bodies,craft,earthTheater,starbasePlate,earthAtmosphere
 | **V10** | Coast / LOI watchability | **Done** — trail dim/pulse, whiskers, LOI bloom |
 | **V11** | Pad horizon depth | **Done** — Sentinel-2 plate + Blue Marble |
 | **V12** | Finale camera beats | **Done** — Auto-cam splash + last-30s lunar widen |
+| **V13** | Hull-cam materials | Hex TPS, S40, oil-canning — most of the webcast is this shot |
+| **V14** | Ascent plume / frost / steam | Pink-white Raptor look + ice shed vs current orange cones |
+| **V15** | Entry plasma palette | Magenta/violet flap wrap, not orange sprites |
+| **V16** | Payload Pez deploy | Unique Flight 13 mid-coast act; theater has none |
+| **V17** | Splash / ocean steam | Volumetric contact cloud vs cyan discs |
+| **V18** | Engine-bay / onboard | Gridfin stills: MLI, stencil IDs, mild fisheye |
+| **V19** | LEO Earth from hull-cam | Gated cloud shell + ocean glitter (does not undo #14) |
+| **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
 
 ---
 
@@ -200,6 +211,17 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 12. ~~**V10** — coast watchability when long scrub feels empty~~ **done**  
 13. ~~**V11** — pad horizon / satellite surrounds plate~~ **done** (see below)
 
+**Next (photorealism vs Flight 13 stills):**
+
+14. **V13** — hex TPS / S40 / oil-canning / experiment tiles (every fin/hull cam)  
+15. **V14** — pink-magenta atmosphere plumes + cryo frost/ice + denser pad steam  
+16. **V15** — magenta/violet entry plasma on flap leading edges  
+17. **V16** — Flight 13 Pez / Starlink V3 deploy theater  
+18. **V17** — splash steam + ocean glitter (ship + Super Heavy gulf)  
+19. **V18** — engine-bay interior + onboard-cam post (fin/gridfin)  
+20. **V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)  
+21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
+
 ---
 
 ## V6 — Terminal FX: lunar dust + ocean splash — **done 2026-08-13**
@@ -286,10 +308,264 @@ Multiplies terminal FX; Auto-cam only (does not fight Free orbit).
 
 ---
 
+## Photorealism track (V13+) — Flight 13 webcast stills
+
+V0–V12 made the theater **watchable**. These slices raise **photorealism** against
+the official Flight 13 X-replay stills, still theater-grade (sprites, canvas
+maps, scrub-safe curves — not CFD, DEM, or a second renderer).
+
+**Reference pack:** `assets/flight13-webcast/` (catalog + theater-camera mapping
+in that folder’s README). Development reference only — **not** runtime textures;
+do not copy frames into `public/` or `src/`. Capture SOP:
+[STARSHIP_13.md](./STARSHIP_13.md). If the pack is not in the tree yet, use the
+replay URL in that SOP.
+
+Hull-cam / fin-cam stills are the majority of the broadcast. **V13 first** so
+later FX sit on a hull that already reads as S40.
+
+### Still → gap → slice
+
+| Stills (HUD `T+`) | What the frame shows | Theater today | Slice |
+|---|---|---|---|
+| T−42 pad wide, T−2 ignition, T+0 liftoff | Opaque ground-hugging cryo/deluge steam, engine orange in the cloud, chopsticks open | V3 multi-tier steam sprites — thinner, less self-shadowed | V14 |
+| T+16 tracking + engines-down, T+56 max-Q hull | **Pink-magenta** atmospheric plume, ice/frost shed, Boca Chica under haze | `BOOSTER_ATMO` rim is orange `[1, 0.45, 0.18]`; condensation cloud only | V14 |
+| T+2:38–8:21 hull / SECO / coast (`S40`) | Hexagonal TPS, oil-canning stainless, **S40** stencil, Earth limb | Offset-rect “hex-ish” canvas; no hull number; brush maps without panel ripple | V13 |
+| T+2:21 hot-stage split, T+4:32–5:50 engine bay | Raptor bells + MLI foil, stencil IDs, fisheye, lens dirt/flare | Exterior bells only; no bay interior or onboard post | V18 |
+| T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | No cloud deck (#14); Gulf plate is a beacon, not glitter water | V17 / V19 |
+| T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
+| T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
+| T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | Generic wear boxes; landing plume still orange-class | V13 / V14 / V15 |
+| T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | Cyan spray discs + site beacon (`splashFx.ts`) | V17 |
+
+### Working agreements (photorealism)
+
+Same as the top of this file, plus:
+
+- Compare the slice against the **named stills** in the table, not a generic “more detail” instinct.
+- Procedural / GPU-cheap first. Stills are a look target, not an asset to drape.
+- Do not clone the SpaceX webcast HUD (engine-dot grid, attitude bug, `VIEWS BY STARLINK`).
+- Keep WebGL first-class; onboard grain/fisheye only on fin/gridfin (V18), not every camera.
+
+---
+
+## V13 — Hull-cam materials (hex TPS, S40, oil-canning) — **next**
+
+Highest ROI: almost every still after tower-clear is a hull or flap close-up.
+V4 already has anisotropy + weld rings + edge wear; the stills still beat the
+mesh on **tile shape**, **hull identity**, and **panel ripple**.
+
+### V13.1 Hexagonal TPS
+
+`makeHeatTileTexture` / `paintTileField` is a brick-offset rectangle field
+labeled “hex-ish.” Webcast TPS is a clear **hex grid** (coast `S40`, transonic
+flap, post-splash close-up).
+
+- Canvas hex cells with per-tile albedo/roughness jitter and visible grout.
+- Keep windward-only coverage; do not tile the stainless leeward.
+- Readable at fin cam without a geometry explosion (texture, not 20k meshes).
+
+### V13.2 Hull identity + oil-canning
+
+- **S40** (and a quieter booster cue if it stays readable) as a decal on the
+  stainless barrel — Flight 13 stills; lunar stack may keep a generic or
+  mission-specific mark.
+- Stainless maps: low-frequency **panel oil-canning** (dents that break
+  cylindrical reflections). Still `MeshPhysicalMaterial` anisotropy, not a
+  second shader stack.
+
+### V13.3 Experiment / missing tiles (was a later-only idea)
+
+Flight 13 page + post-splash still: white **missing-tile imaging targets**,
+gaps showing structure, a few tiles on the metallic face of aft flaps.
+`addOneTileMarker` is three gray boxes.
+
+- A handful of high-contrast white hexes on the windward belly.
+- A few missing-tile holes (dark underlayer, not more gray boxes).
+- Optional small tile patches on the stainless side of aft flaps.
+- After entry, residual **grout glow** (driven by plasma strength decaying
+  into descent) so T+1:04:55 matches without extra sprites.
+
+**Done when:** fin-cam at SECO/coast reads as hexagonal TPS + S40 + rippled
+steel vs the T+8:21 still; experiment tiles visible at landing-approach
+(T+1:04:55). Unit tests on tile-layout / marker counts. No bake.
+
+**Files:** `craft.ts`, `craftMaterials.test.ts`.
+
+---
+
+## V14 — Ascent plume, frost, pad steam
+
+V1 plumes are multi-layer sprites with the **wrong atmospheric color**. Stills
+at T+16 and T+56 are pink-white cores with magenta rims, not orange cones.
+Pad stills at T−42 / T+0 are a dense, opaque steam volume with engine glow
+inside.
+
+### V14.1 Atmosphere / landing palette
+
+Retune `BOOSTER_ATMO`, `BOOSTER_LANDING`, and ship-in-atmosphere looks in
+`plumeRegime.ts`: core near-white, rim **pink–magenta**. Keep vacuum / LOI
+cooler. Landing-burn stills (T+1:05:02–12, Super Heavy T+6:40) use the same
+pink family. Tests on `plumeLook` RGB bands so the palette cannot silently
+regress to orange.
+
+### V14.2 Cryo frost + ice shed
+
+Webcast: frost sheets on the booster at T+0; flakes and mist peeling at T+16.
+
+- Prelaunch/ascent frost patches on Super Heavy (albedo/roughness, scrub from
+  `t` / phase — gone by vacuum).
+- Sparse ice-flake sprites during dense-atmosphere burn (mission-`t` seeded,
+  not `performance.now()`). Reuse condensation vocabulary (`condense-cloud`).
+
+### V14.3 Pad steam punch
+
+V3 deluge is the right *structure* (tiers + sheets). Stills want **more
+opacity**, ground-hug, and a warm core where 33 engines light the cloud
+(T+0). Tighten `padLaunchFx` scales/opacity; optional extra ground-sheet.
+Do not switch to a particle sim.
+
+**Done when:** trench/chase at T+16 is pink, not orange; pad at T+0 steam
+reads opaque; frost/ice visible on scrub through liftoff→max-Q. No bake.
+
+**Files:** `plumeRegime.ts` (+ tests), `craft.ts`, `padLaunchFx.ts` (+ tests),
+`earthTheater.ts`.
+
+---
+
+## V15 — Entry plasma (magenta / violet, flap wrap)
+
+V7 already drives tile emissive from `entryPlasmaStrength` and banks the
+trail. The stills at T+47:25 / T+48:53 are **purple-white leading-edge
+envelopes**, not an orange belly shell.
+
+- Recolor `PLASMA_SPRITE_BUILD` and tile emissive from orange to
+  magenta/violet/white (hot core white, sheath violet, trail deep magenta).
+- Extra or repositioned sprites on **fwd-flap / aft-elevon leading edges** so
+  split flap-cams match the stills; keep bank offset.
+- Plasma as a colored fill on nearby tiles (emissive already exists — change
+  hue, not count).
+- Relight still (T+39:03) is a single vacuum Raptor glow + flap, not the
+  entry envelope — do not reuse the plasma palette there.
+
+**Done when:** entry chase/fin at ~80 km matches the magenta stills; tile
+emissive is violet not orange; `entryPlasma` tests cover color + flap-edge
+visibility. No bake.
+
+**Files:** `entryPlasma.ts` (+ tests), `entryFx.ts`, `craft.ts`.
+
+---
+
+## V16 — Flight 13 payload deploy theater
+
+Public timeline: Pez deploy **T+16:40–27:39**, 20 Starlink V3, demise ~20 min
+later. Theater has no hatch, sats, or ticker beat — the unique mid-coast act
+is empty. Stills: door/hardware departing, open bay in darkness, sat receding
+against belly tiles.
+
+Theater-grade only (not a constellation sim):
+
+- Timeline + ticker beats (`payload-start` / `payload-complete`) from the
+  public T+ table (pack only if event times must be baked).
+- Named hatch / Pez door on the ship; open during the window.
+- ~20 small sat silhouettes peeling on a delayed trail, then fade before
+  entry. Same suborbital path as the ship — no extra integrator.
+- Optional: six “camera sats” slightly distinct (white tile-imaging story in
+  `STARSHIP_13.md`) if the hatch work is already open.
+
+**Done when:** scrubbing the deploy window shows hatch + sats; outside it they
+are gone. Tests on deploy strength vs `t`. No new trajectory physics.
+
+**Files:** `timeline.ts`, `newsTicker.ts`, `craft.ts` or `payloadFx.ts`,
+Flight 13 `applyState`.
+
+---
+
+## V17 — Splash steam and ocean glitter
+
+V6 splash is inner spray / outer mist / sheet + a cyan site beacon. Stills at
+T+1:05:20–24 are a **white volumetric contact cloud** swallowing the aft, with
+engine glow in the steam and a choppy dark ocean. Super Heavy T+6:40 is an
+ocean **glitter path**, not a disc.
+
+- Denser, whiter splash layers (reuse pad-deluge tiers); warm core from
+  landing-plume light. Fade on the same `missionT − landT` curve.
+- Cheap ocean sun-glint on the splash / Gulf plates (anisotropic sparkle
+  sprite or material, altitude-gated) so hull-down shots match T+6:40 and
+  landing-approach.
+- Post-contact: hull reads wet/charred (roughness punch, no new mesh).
+- Do not wait on physics F1 (kinematic gulf path is enough for the look).
+
+**Done when:** splashdown chase matches the steam stills more than the cyan
+discs; gulf landing shows glitter, not only a beacon. Tests on splash-layer
+opacity/color. No bake.
+
+**Files:** `splashFx.ts`, `terminalFx.ts` (+ tests), `gulfLandFx.ts`,
+`craft.ts` (wet look).
+
+---
+
+## V18 — Engine-bay and onboard-cam look
+
+Hot-stage and booster stills are **split engine-bay / hull**. Theater gridfin
+cam sees exterior bells and a 6×6 lattice, not the bay.
+
+- Lightweight bay interior: a few Raptor bells with stencil IDs, crinkled MLI
+  foil canvas, visible through the skirt for gridfin / a dedicated look-down.
+- Onboard post **only** on fin + gridfin: mild fisheye, restrained grain,
+  dirt/bloom already partly from V5. Off for Earth/Sun/Free.
+- Do not add a webcast split-screen compositor.
+
+**Done when:** gridfin at hot-stage / boostback shows bay structure vs empty
+skirt; fin-cam has a slight onboard character without breaking pad/Earth
+cams. No bake.
+
+**Files:** `craft.ts`, `cinema.ts`, camera mode hooks.
+
+---
+
+## V19 — LEO Earth from hull-cam (gated clouds + glitter)
+
+#14 removed the procedural **globe** cloud deck so Blue Marble land/ocean stay
+visible from Earth-cam. Hull-cam stills (T+2:38, T+8:21, T+1:02:19) still need
+**cloud depth** and a bright limb; Super Heavy over water needs glitter (pairs
+with V17).
+
+- Thin high-altitude cloud **shell** (or camera-distance sprites), visible
+  from LEO hull/fin/chase, **hidden** for Earth-cam / low pad so #14 stands.
+- Optional cheap glitter on open ocean from those same cameras.
+- Not a tile-server, not real-time volumetric Mie, not a full-sphere overlay.
+
+**Done when:** coast hull-cam shows broken cloud over ocean; Earth-cam globe
+stays cloudless Blue Marble. Tests on the visibility gate. No bake.
+
+**Files:** `bodies.ts` / `groundSky.ts` or a small `leoClouds.ts`, `cinema.ts`.
+
+---
+
+## V20 — Moon photo albedo (later, optional)
+
+Earth has NASA Blue Marble; the Moon is still a procedural canvas. A single
+theater-grade JPEG (Clementine / LRO WAC, procedural fallback) is the V11
+analogue — **not** a tile server or DEM.
+
+Do after V9 so the local Malapert plate sits on photo terrain. Same asset
+rules as Blue Marble: modest JPEG, credit in `public/textures/ATTRIBUTION.txt`.
+Not driven by the Flight 13 stills.
+
+**Files:** `bodies.ts`, `textures.ts`, `public/textures/`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
-- Full PBR / DEM / tile-server Earth or Moon (the committed Blue Marble + Starbase JPEGs are the theater-grade exception)
-- Real-time volumetric clouds or full atmospheric scattering path
+- Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
+  are the exception: Blue Marble + Starbase plate now; optional Clementine/LRO
+  Moon albedo is V20)
+- Draping webcast stills as runtime textures (copyright; keep them in
+  `assets/` as look reference)
+- Cloning the SpaceX webcast HUD
+- Real-time volumetric clouds or a full atmospheric scattering path (V19 is a
+  cheap gated shell only — do not reverse #14’s globe cloud deck)
 - Ops-grade plume CFD tables
 - Non-deterministic particle systems that break scrubbing
 - WebGPU-only post path (keep WebGL first-class)
@@ -313,3 +589,4 @@ Multiplies terminal FX; Auto-cam only (does not fight Free orbit).
 | 2026-08-12 | V11 shipped: NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate |
 | 2026-08-13 | Starbase plate: wider ~80 km square (full JPEG, not a circular crop) |
 | 2026-08-13 | V6–V10 + V12 shipped: terminal dust/splash, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast whiskers/LOI bloom |
+| 2026-08-15 | Photorealism track V13–V20 from Flight 13 webcast stills: hex TPS/S40, pink plumes, magenta plasma, Pez deploy, splash steam, engine-bay, gated LEO clouds |
