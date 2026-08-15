@@ -37,6 +37,7 @@ import {
   applySunLight,
 } from "../../scene/sunLight";
 import {
+  CRAFT_LOCATOR_MIN_DIST_KM,
   craftLengthKm,
   updateCraftVisuals,
   updateLocatorVisibility,
@@ -229,6 +230,7 @@ function updateLights(ctx: F13Ctx, simT: number, b: BodyState): void {
 function updateLocators(ctx: F13Ctx, frame: SampleFrame, b: BodyState): void {
   updateLocatorVisibility(ctx.locator, ctx.camera, ctx.craftPos, {
     sizeKm: craftLengthKm(frame.staged),
+    minDistKm: CRAFT_LOCATOR_MIN_DIST_KM,
   });
   updateLocatorVisibility(ctx.bodies.earthLocator, ctx.camera, ctx.earthPos, {
     sizeKm: R_EARTH * 2,

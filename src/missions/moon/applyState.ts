@@ -32,6 +32,7 @@ import {
   applySunLight,
 } from "../../scene/sunLight";
 import {
+  CRAFT_LOCATOR_MIN_DIST_KM,
   craftLengthKm,
   updateCraftVisuals,
   updateLocatorVisibility,
@@ -197,6 +198,7 @@ function updateMoonLocator(ctx: MoonCtx, b: BodyState): void {
 function updateLocators(ctx: MoonCtx, frame: SampleFrame, b: BodyState): void {
   updateLocatorVisibility(ctx.locator, ctx.camera, ctx.craftPos, {
     sizeKm: craftLengthKm(frame.staged),
+    minDistKm: CRAFT_LOCATOR_MIN_DIST_KM,
   });
   updateLocatorVisibility(ctx.bodies.earthLocator, ctx.camera, ctx.earthPos, {
     sizeKm: R_EARTH * 2,

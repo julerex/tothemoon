@@ -23,7 +23,8 @@ import {
 import { createNameLabel } from "./zoomLabels";
 
 /**
- * Near-true-scale Super Heavy + Starship stack plus a red locator for system views.
+ * Near-true-scale Super Heavy + Starship stack plus a red locator for system
+ * views (hidden when the camera is closer than {@link CRAFT_LOCATOR_MIN_DIST_KM}).
  * Scene unit = 1 km. Mesh units × CRAFT_MESH_SCALE ≈ real meters / 1000.
  *
  * Local +Z = nose, −Z = engines (matches velocity look-at in main).
@@ -2112,22 +2113,47 @@ export function boosterLengthKm(): number {
   return BOOST_H_M / 1000;
 }
 
+/** Hide the Starship red locator when the camera is closer than this (km). */
+export const CRAFT_LOCATOR_MIN_DIST_KM = 10;
+
+/** Hide a locator once the real geometry subtends this many pixels. */
+export const LOCATOR_HIDE_ABOVE_PX = 5;
+
+/**
+ * Whether a locator should draw this frame.
+ *
+ * @param distKm camera-to-target distance (scene units = km)
+ * @param bodyPx on-screen pixels subtended by the body's characteristic size
+ * @param minDistKm optional near-range hide (Starship red dot uses 10 km)
+ */
+export function locatorShouldShow(
+  distKm: number,
+  bodyPx: number,
+  minDistKm?: number,
+): boolean {
+  if (minDistKm != null && distKm < minDistKm) return false;
+  return bodyPx < LOCATOR_HIDE_ABOVE_PX;
+}
+
 /**
  * Locator dot: constant on-screen marker whenever the body/craft is too small
- * to read. Hide once the real geometry subtends enough pixels.
+ * to read. Hide once the real geometry subtends enough pixels, and (for the
+ * Starship red dot) whenever the camera is closer than
+ * {@link CRAFT_LOCATOR_MIN_DIST_KM}.
  *
  * `sizeKm` — characteristic size in scene units (craft length, body diameter).
+ * `minDistKm` — optional camera-distance floor; the craft locator passes 10 km.
  */
 export function updateLocatorVisibility(
   locator: THREE.Sprite,
   camera: THREE.Camera,
   worldPos: THREE.Vector3,
-  opts: { sizeKm: number },
+  opts: { sizeKm: number; minDistKm?: number },
 ): void {
   const dist = Math.max(1e-6, camera.position.distanceTo(worldPos));
   const len = Math.max(opts.sizeKm, 0.01);
   const bodyPx = bodyPixels(camera, dist, len);
-  if (bodyPx >= 5) {
+  if (!locatorShouldShow(dist, bodyPx, opts.minDistKm)) {
     locator.visible = false;
     return;
   }
