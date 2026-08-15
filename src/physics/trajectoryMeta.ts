@@ -21,14 +21,14 @@ import type { V3 } from "./vec3";
 export const TRAJECTORY_PACK_VERSION = 2 as const;
 
 /** Mission-summary stats stored beside samples in trajectory.json. */
-export type TrajectoryPackMeta = {
+export type TrajectoryPackMeta = Readonly<{
   /** Minimum altitude above mean lunar radius (km); ≤0 on impact/land */
   minMoonAlt: number;
   /** Peak |v| over samples (km/s, inertial / heliocentric theater frame) */
   peakSpeedKmS: number;
   /** Mission time (s) of first staged sample, or null if never staged */
   stageT: number | null;
-};
+}>;
 
 export type SampleLikeForMeta = {
   t: number;

@@ -11,7 +11,7 @@ import {
   type StageState,
 } from "../physics/boosterRecovery.ts";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
-import type { Sample } from "../physics/missionTypes.ts";
+import type { ReadonlySample } from "../physics/missionTypes.ts";
 import {
   buildCrossSectionModel,
   drawCrossSection,
@@ -28,7 +28,7 @@ import {
   type CrossSectionModel,
 } from "./crossSection.ts";
 
-let samples: Sample[];
+let samples: readonly ReadonlySample[];
 let stage: StageState | null;
 let model: CrossSectionModel;
 

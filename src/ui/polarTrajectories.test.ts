@@ -8,7 +8,7 @@ import { loadPrecomputedTrajectory } from "../physics/trajectoryCache.ts";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch.ts";
 import { A_EM, R_EARTH } from "../physics/constants.ts";
 import { len } from "../physics/vec3.ts";
-import type { Sample } from "../physics/missionTypes.ts";
+import type { ReadonlySample } from "../physics/missionTypes.ts";
 import {
   buildPolarTrajectoryModel,
   craftEarthRel,
@@ -20,7 +20,7 @@ import {
   trailUpTo,
 } from "./polarTrajectories.ts";
 
-let samples: Sample[];
+let samples: readonly ReadonlySample[];
 let epoch: EphemerisEpoch;
 
 before(() => {

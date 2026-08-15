@@ -17,8 +17,8 @@ import {
   runMission,
   type MissionResult,
   type PhaseId,
-  type Sample,
 } from "./mission";
+import type { ReadonlySample, Sample } from "./missionTypes";
 import {
   buildCoastCorridor,
   computeKeplerRefMaxDevKm,
@@ -56,7 +56,7 @@ export type FrameState = {
  * Prefer free functions: {@link sampleAtTime}, {@link trailPoints}, etc.
  */
 export type Trajectory = Readonly<{
-  samples: Sample[];
+  samples: readonly ReadonlySample[];
   durationS: number;
   ok: boolean;
   message: string;
@@ -150,7 +150,7 @@ function inferStaged(s: PackedTrajectory["samples"][number]): boolean {
   return s.st ?? (s.phase !== "launch" && s.phase !== "ascent" && (s.fb ?? 0) < 1e-6);
 }
 
-function unpackSample(s: PackedTrajectory["samples"][number]): Sample {
+function unpackSample(s: PackedTrajectory["samples"][number]): ReadonlySample {
   return {
     t: s.t, pos: { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! }, vel: { x: s.v[0]!, y: s.v[1]!, z: s.v[2]! },
     phase: normalizePhaseId(s.phase), burning: s.burning, fuelBooster: s.fb ?? 0, fuelShip: s.fs ?? 1,
@@ -160,7 +160,7 @@ function unpackSample(s: PackedTrajectory["samples"][number]): Sample {
 
 function resolveKeplerDev(
   packed: number | undefined,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   epoch: EphemerisEpoch,
 ): number {
   return packed != null && Number.isFinite(packed)
@@ -284,7 +284,7 @@ export function sampleAtProgress(traj: Trajectory, u: number): FrameState {
   return sampleAtTime(traj, t);
 }
 
-function findSampleBracket(s: Sample[], t: number): { a: Sample; b: Sample; f: number } {
+function findSampleBracket(s: readonly ReadonlySample[], t: number): { a: ReadonlySample; b: ReadonlySample; f: number } {
   let lo = 0, hi = s.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -298,7 +298,7 @@ function lerpV3(a: V3, b: V3, f: number): V3 {
   return v3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, a.z + (b.z - a.z) * f);
 }
 
-function interpFrameFields(a: Sample, b: Sample, f: number) {
+function interpFrameFields(a: ReadonlySample, b: ReadonlySample, f: number) {
   return {
     phase: f < 0.5 ? a.phase : b.phase,
     burning: a.burning || b.burning,
@@ -341,7 +341,7 @@ function emptyFrame(): FrameState {
   };
 }
 
-function frameFromSample(s: Sample, epoch: EphemerisEpoch): FrameState {
+function frameFromSample(s: ReadonlySample, epoch: EphemerisEpoch): FrameState {
   return makeFrame(s.t, s.pos, s.vel, s.phase, s.burning, s.fuelBooster, s.fuelShip, s.thrustN, s.staged, epoch);
 }
 

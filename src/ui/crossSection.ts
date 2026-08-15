@@ -29,7 +29,7 @@ import {
   type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
-import type { Sample } from "../physics/missionTypes";
+import type { ReadonlySample } from "../physics/missionTypes";
 import { len, type V3, v3 } from "../physics/vec3";
 import {
   drawBoosterIcon,
@@ -190,7 +190,7 @@ function expandBounds(
  * booster trail is stacked ascent + full return to launch site to catch.
  */
 export function buildCrossSectionModel(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stage: StageState | null,
   recovery: RecoveryProfile = "chopsticks",
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
@@ -204,7 +204,7 @@ export function buildCrossSectionModel(
 }
 
 function fillAllTrails(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stage: StageState | null,
   stageT: number | null,
   recovery: RecoveryProfile,
@@ -231,7 +231,7 @@ function finishCrossSectionModel(
 }
 
 function fillStackedAscent(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stageT: number | null,
   basis: LaunchPlaneBasis,
   shipTrail: TimedPlanePoint[],
@@ -247,7 +247,7 @@ function fillStackedAscent(
 }
 
 function maybePushStacked(
-  s: Sample,
+  s: ReadonlySample,
   stageT: number | null,
   basis: LaunchPlaneBasis,
   shipTrail: TimedPlanePoint[],
@@ -266,7 +266,7 @@ function maybePushStacked(
 }
 
 function fillPostStageShip(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stageT: number | null,
   basis: LaunchPlaneBasis,
   shipTrail: TimedPlanePoint[],
@@ -277,7 +277,7 @@ function fillPostStageShip(
 }
 
 function appendPostStageSamples(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stageT: number,
   basis: LaunchPlaneBasis,
   shipTrail: TimedPlanePoint[],
@@ -292,7 +292,7 @@ function appendPostStageSamples(
 }
 
 function stepPostStage(
-  s: Sample,
+  s: ReadonlySample,
   stageT: number,
   basis: LaunchPlaneBasis,
   shipTrail: TimedPlanePoint[],
@@ -416,7 +416,7 @@ void LANDING_HOLD_CUT;
  */
 export function liveCrossSection(
   model: CrossSectionModel,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   stage: StageState | null,
   t: number,
   keyframes?: ReturnType<typeof buildBoosterKeyframes> | null,
@@ -430,7 +430,7 @@ export function liveCrossSection(
 
 function liveShipPoint(
   model: CrossSectionModel,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   t: number,
   epoch: EphemerisEpoch,
 ): PlanePoint | null {
@@ -515,7 +515,7 @@ function liveAltRange(
 }
 
 /** Linear position interpolate on samples at time t. */
-export function samplePosAt(samples: Sample[], t: number): V3 | null {
+export function samplePosAt(samples: readonly ReadonlySample[], t: number): V3 | null {
   if (samples.length === 0) return null;
   if (t <= samples[0]!.t) {
     const s = samples[0]!;
@@ -526,7 +526,7 @@ export function samplePosAt(samples: Sample[], t: number): V3 | null {
   return interpolatePos(samples, t);
 }
 
-function interpolatePos(samples: Sample[], t: number): V3 {
+function interpolatePos(samples: readonly ReadonlySample[], t: number): V3 {
   const { lo, hi } = bisectSamples(samples, t);
   const a = samples[lo]!;
   const b = samples[hi]!;
@@ -538,7 +538,7 @@ function interpolatePos(samples: Sample[], t: number): V3 {
   );
 }
 
-function bisectSamples(samples: Sample[], t: number): { lo: number; hi: number } {
+function bisectSamples(samples: readonly ReadonlySample[], t: number): { lo: number; hi: number } {
   let lo = 0;
   let hi = samples.length - 1;
   while (hi - lo > 1) {
@@ -1047,7 +1047,7 @@ function formatMissionClock(t: number): string {
 /**
  * Stage state from samples (first staged sample). Pure; no Three.js.
  */
-export function stageStateFromSamples(samples: Sample[]): StageState | null {
+export function stageStateFromSamples(samples: readonly ReadonlySample[]): StageState | null {
   for (const s of samples) {
     if (!s.staged) continue;
     return {

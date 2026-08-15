@@ -5,7 +5,8 @@
  * staging, dogleg, translunar injection, lunar orbit insertion, touchdown, impact, etc. for the HUD.
  */
 
-import { phaseLabel, type PhaseId, type Sample } from "../physics/mission";
+import { phaseLabel, type PhaseId } from "../physics/mission";
+import type { ReadonlySample } from "../physics/missionTypes";
 
 /** Scrubber / marker short labels (keep tight — scrubber is narrow). */
 const PHASE_SHORT: Record<PhaseId, string> = {
@@ -23,7 +24,7 @@ const PHASE_SHORT: Record<PhaseId, string> = {
   splashdown: "Splash",
 };
 
-export type PhaseSegment = {
+export type PhaseSegment = Readonly<{
   phase: PhaseId;
   label: string;
   shortLabel: string;
@@ -35,21 +36,21 @@ export type PhaseSegment = {
   u0: number;
   /** Normalized progress at end [0,1] */
   u1: number;
-};
+}>;
 
-export type MissionEvent = {
+export type MissionEvent = Readonly<{
   id: string;
   t: number;
   u: number;
   title: string;
   detail?: string;
-};
+}>;
 
-export type MissionTimeline = {
+export type MissionTimeline = Readonly<{
   durationS: number;
-  segments: PhaseSegment[];
-  events: MissionEvent[];
-};
+  segments: readonly PhaseSegment[];
+  events: readonly MissionEvent[];
+}>;
 
 type EventAdder = (
   id: string,
@@ -60,7 +61,7 @@ type EventAdder = (
 
 /** Build phase segments and narrative events from trajectory samples. */
 export function buildTimeline(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   durationS: number,
 ): MissionTimeline {
   const dur = Math.max(durationS, 1);
@@ -69,7 +70,7 @@ export function buildTimeline(
   return { durationS: dur, segments, events };
 }
 
-function buildSegments(samples: Sample[], durationS: number): PhaseSegment[] {
+function buildSegments(samples: readonly ReadonlySample[], durationS: number): PhaseSegment[] {
   if (samples.length === 0) return [];
   const segments: PhaseSegment[] = [];
   walkPhaseEdges(samples, durationS, segments);
@@ -77,7 +78,7 @@ function buildSegments(samples: Sample[], durationS: number): PhaseSegment[] {
 }
 
 function walkPhaseEdges(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   durationS: number,
   segments: PhaseSegment[],
 ): void {
@@ -88,7 +89,7 @@ function walkPhaseEdges(
 }
 
 function scanPhaseChanges(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   durationS: number,
   segments: PhaseSegment[],
   phase: PhaseId,
@@ -143,7 +144,7 @@ function makeEventAdder(
 }
 
 function buildEvents(
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   segments: PhaseSegment[],
   durationS: number,
 ): MissionEvent[] {
@@ -229,7 +230,7 @@ function addAscentIfNoLaunch(
   add("ascent", seg.t0, "Ascent", "Powered climb to low Earth orbit");
 }
 
-function addStagingEvents(add: EventAdder, samples: Sample[]): void {
+function addStagingEvents(add: EventAdder, samples: readonly ReadonlySample[]): void {
   const stageIdx = samples.findIndex((s) => s.staged);
   if (stageIdx <= 0) return;
   pushStagingTrio(add, samples[stageIdx]!.t);
@@ -246,25 +247,25 @@ function pushStagingTrio(add: EventAdder, t: number): void {
   );
 }
 
-function addDoglegEvent(add: EventAdder, samples: Sample[]): void {
+function addDoglegEvent(add: EventAdder, samples: readonly ReadonlySample[]): void {
   const dogleg = findDoglegSample(samples);
   if (!dogleg) return;
   add("dogleg", dogleg.t, "Dogleg", "Plane change into lunar plane · paid ship Δv");
 }
 
-function findDoglegSample(samples: Sample[]): Sample | undefined {
+function findDoglegSample(samples: readonly ReadonlySample[]): ReadonlySample | undefined {
   return samples.find(
     (s) => s.phase === "lowEarthOrbit" && s.burning && s.thrustN > 1e3,
   );
 }
 
-function hasFlightTestPhases(samples: Sample[]): boolean {
+function hasFlightTestPhases(samples: readonly ReadonlySample[]): boolean {
   return samples.some((s) => s.phase === "entry" || s.phase === "splashdown");
 }
 
 function addFlightTestBeats(
   add: EventAdder,
-  samples: Sample[],
+  samples: readonly ReadonlySample[],
   segments: PhaseSegment[],
 ): void {
   if (!hasFlightTestPhases(samples)) return;
@@ -274,7 +275,7 @@ function addFlightTestBeats(
   addLandingStepEvents(add, segments);
 }
 
-function addSecoEvent(add: EventAdder, samples: Sample[]): void {
+function addSecoEvent(add: EventAdder, samples: readonly ReadonlySample[]): void {
   const seco = samples.find(
     (s, i) =>
       s.burning &&
@@ -286,7 +287,7 @@ function addSecoEvent(add: EventAdder, samples: Sample[]): void {
   if (seco) add("seco", seco.t, "SECO", "Starship engine cutoff · suborbital coast");
 }
 
-function addRelightEvent(add: EventAdder, samples: Sample[]): void {
+function addRelightEvent(add: EventAdder, samples: readonly ReadonlySample[]): void {
   const relight = samples.find(
     (s) => s.phase === "coast" && s.burning && s.thrustN > 1e3,
   );

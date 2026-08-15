@@ -75,7 +75,7 @@ function buildPhaseMark(seg: PhaseSegment): HTMLButtonElement {
 /** One marker per major phase start on the scrubber track. */
 export function renderPhaseMarkers(
   root: HTMLElement,
-  segments: PhaseSegment[],
+  segments: readonly PhaseSegment[],
 ): void {
   root.replaceChildren();
   for (const seg of segments) {

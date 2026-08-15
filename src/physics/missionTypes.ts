@@ -30,7 +30,13 @@ export type PhaseId =
   /** Soft ocean splashdown complete (flight-test terminal). */
   | "splashdown";
 
-/** One trajectory sample at mission time `t` (s). */
+/**
+ * One trajectory sample at mission time `t` (s).
+ *
+ * Mutable because the integrator fills samples while flying. Consumers of a
+ * finished pack should take {@link ReadonlySample} instead, so a trail or HUD
+ * cannot write back into baked physics.
+ */
 export type Sample = {
   /** Mission time (s) from liftoff. */
   t: number;
@@ -49,6 +55,19 @@ export type Sample = {
   /** True after booster stage-out at low Earth orbit insert */
   staged: boolean;
 };
+
+/**
+ * Read-only view of a baked {@link Sample}, vectors included.
+ *
+ * `Sample` is assignable to this, so producers keep writing plain samples and
+ * only the consumer signature changes.
+ */
+export type ReadonlySample = Readonly<
+  Omit<Sample, "pos" | "vel"> & {
+    pos: Readonly<V3>;
+    vel: Readonly<V3>;
+  }
+>;
 
 /** Result of a full mission integration / precompute pack metadata. */
 export type MissionResult = {

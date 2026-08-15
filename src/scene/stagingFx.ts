@@ -345,12 +345,12 @@ export function createStagingFx(
 
 /** Find first staged sample → stage event. */
 export function findStageEvent(
-  samples: Array<{
+  samples: readonly Readonly<{
     t: number;
-    pos: { x: number; y: number; z: number };
-    vel: { x: number; y: number; z: number };
+    pos: Readonly<{ x: number; y: number; z: number }>;
+    vel: Readonly<{ x: number; y: number; z: number }>;
     staged: boolean;
-  }>,
+  }>[],
 ): StageEvent | null {
   for (const s of samples) {
     if (!s.staged) continue;
