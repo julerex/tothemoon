@@ -108,7 +108,7 @@ function periluneScore(
 
 type CandidateEval = { sc: number; alt: number; t: number; rE: number };
 
-type SearchBest = {
+type SearchBest = Readonly<{
   bestPhase: number;
   bestDv: number;
   bestAlt: number;
@@ -116,42 +116,52 @@ type SearchBest = {
   bestREarth: number;
   bestScore: number;
   bestLandingT: number;
-};
+}>;
 
-/** Apply a candidate eval if it improves the best score. */
-function considerEval(
-  best: SearchBest,
+/** Coordinate-descent result: the surviving best plus whether it moved. */
+type RefineStep = Readonly<{ best: SearchBest; improved: boolean }>;
+
+/** Offsets probed on each coordinate-descent axis, in step multiples. */
+const REFINE_OFFSETS: readonly number[] = [-2, -1, 1, 2];
+
+/** Score improvement a refine step must beat to count as progress. */
+const REFINE_MARGIN = 1e-6;
+
+/** The winning candidate as a new best record (pure). */
+function withCandidate(
   ev: CandidateEval,
   ph: number,
   dv: number,
   landT: number,
-): void {
-  if (!(ev.sc < best.bestScore)) return;
-  best.bestScore = ev.sc;
-  best.bestAlt = ev.alt;
-  best.bestPeriluneT = ev.t;
-  best.bestREarth = ev.rE;
-  best.bestPhase = ph;
-  best.bestDv = dv;
-  best.bestLandingT = landT;
+): SearchBest {
+  return {
+    bestScore: ev.sc,
+    bestAlt: ev.alt,
+    bestPeriluneT: ev.t,
+    bestREarth: ev.rE,
+    bestPhase: ph,
+    bestDv: dv,
+    bestLandingT: landT,
+  };
 }
 
-/** Apply eval only when score improves by more than 1e-6 (refine steps). */
-function considerEvalStrict(
+/**
+ * Keep whichever of `best` / the candidate scores lower.
+ *
+ * `margin` is the improvement a candidate must beat: 0 for the coarse passes,
+ * 1e-6 in coordinate descent so numerically identical scores do not read as
+ * progress and keep the refine loop spinning.
+ */
+function betterCandidate(
   best: SearchBest,
   ev: CandidateEval,
   ph: number,
   dv: number,
   landT: number,
-): boolean {
-  if (!(ev.sc < best.bestScore - 1e-6)) return false;
-  best.bestScore = ev.sc; best.bestAlt = ev.alt;
-  best.bestPeriluneT = ev.t;
-  best.bestREarth = ev.rE;
-  best.bestPhase = ph;
-  best.bestDv = dv;
-  best.bestLandingT = landT;
-  return true;
+  margin = 0,
+): SearchBest {
+  if (!(ev.sc < best.bestScore - margin)) return best;
+  return withCandidate(ev, ph, dv, landT);
 }
 
 type SearchCtx = {
@@ -188,10 +198,9 @@ function evalCandidate(
   return { sc: periluneScore(pr.minAlt, pr.periluneT, pr.rEarth) + launchDayPenalty(ctx.epoch), alt: pr.minAlt, t: pr.periluneT, rE: pr.rEarth };
 }
 
+/** `[lo·step … hi·step]` inclusive, one entry per integer index. */
 function rangeOffsets(lo: number, hi: number, step: number): number[] {
-  const out: number[] = [];
-  for (let i = lo; i <= hi; i++) out.push(i * step);
-  return out;
+  return Array.from({ length: hi - lo + 1 }, (_unused, i) => (lo + i) * step);
 }
 
 /** Build phase / epoch / Δv grids for the coarse pass. */
@@ -203,19 +212,24 @@ function buildSearchGrids(
   return { phaseOffsets: useHorizons ? [0] : rangeOffsets(-80, 80, 0.03), epochOffsetsS: useHorizons ? rangeOffsets(-20, 20, 12 * 3600) : [0], dvScales: [1.0, 1.015, 1.03, 1.045, 1.06].filter((s) => baseDv * s <= dvMax + 1e-9) };
 }
 
+/** Δv floor: never trim below (almost) the Hohmann baseline. */
+function clampDv(ctx: SearchCtx, dv: number): number {
+  return Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, dv));
+}
+
 function coarseAtLandOff(
   ctx: SearchCtx, best: SearchBest, grids: ReturnType<typeof buildSearchGrids>,
   guess: number, landOff: number,
-): void {
+): SearchBest {
   if (ctx.useHorizons) rebuildLeo(ctx, makeLunarEpoch(0, ctx.T + landOff, true));
-  for (const dS of grids.dvScales) {
+  const landT = ctx.T + landOff;
+  return grids.dvScales.reduce((atScale, dS) => {
     const dv = Math.min(ctx.baseDv * dS, ctx.dvMax);
-    for (const off of grids.phaseOffsets) {
+    return grids.phaseOffsets.reduce((atPhase, off) => {
       const ph = ctx.useHorizons ? 0 : guess + off;
-      const landT = ctx.T + landOff;
-      considerEval(best, evalCandidate(ctx, dv, ph, landT, false), ph, dv, landT);
-    }
-  }
+      return betterCandidate(atPhase, evalCandidate(ctx, dv, ph, landT, false), ph, dv, landT);
+    }, atScale);
+  }, best);
 }
 
 /** Coarse grid over epoch × Δv × phase. */
@@ -224,92 +238,117 @@ function runCoarseGrid(
   best: SearchBest,
   grids: ReturnType<typeof buildSearchGrids>,
   guess: number,
-): void {
-  for (const landOff of grids.epochOffsetsS) coarseAtLandOff(ctx, best, grids, guess, landOff);
-  if (ctx.useHorizons) ctx.epoch = makeLunarEpoch(0, best.bestLandingT, true);
+): SearchBest {
+  const coarse = grids.epochOffsetsS.reduce(
+    (acc, landOff) => coarseAtLandOff(ctx, acc, grids, guess, landOff),
+    best,
+  );
+  if (ctx.useHorizons) ctx.epoch = makeLunarEpoch(0, coarse.bestLandingT, true);
+  return coarse;
 }
 
-function mediumAtLandT(ctx: SearchCtx, best: SearchBest, seedDv: number, landT: number): void {
+/** Δv offsets probed around the seed in the medium passes. */
+const MEDIUM_DV_OFFSETS_HORIZONS: readonly number[] = [0, -0.012, 0.012, -0.024, 0.024];
+const MEDIUM_DV_OFFSETS_ANALYTIC: readonly number[] = [0, -0.012, 0.012];
+
+function mediumAtLandT(
+  ctx: SearchCtx, best: SearchBest, seedDv: number, landT: number,
+): SearchBest {
   rebuildLeo(ctx, makeLunarEpoch(0, landT, true));
-  for (const s of [0, -0.012, 0.012, -0.024, 0.024]) {
-    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, seedDv + s));
-    considerEval(best, evalCandidate(ctx, dv, 0, landT, false), 0, dv, landT);
-  }
+  return MEDIUM_DV_OFFSETS_HORIZONS.reduce((acc, s) => {
+    const dv = clampDv(ctx, seedDv + s);
+    return betterCandidate(acc, evalCandidate(ctx, dv, 0, landT, false), 0, dv, landT);
+  }, best);
 }
 
-/** Medium refine under Horizons: ±48 h epoch × small Δv. */
-function mediumPassHorizons(ctx: SearchCtx, best: SearchBest): void {
+/**
+ * Medium refine under Horizons: ±48 h epoch × small Δv.
+ * Score resets so the pass re-picks against the rebuilt low Earth orbit template.
+ */
+function mediumPassHorizons(ctx: SearchCtx, best: SearchBest): SearchBest {
   const seedDv = best.bestDv;
   const seedLand = best.bestLandingT;
-  best.bestScore = Infinity;
-  for (let i = -12; i <= 12; i++) mediumAtLandT(ctx, best, seedDv, seedLand + i * 4 * 3600);
-  ctx.epoch = makeLunarEpoch(0, best.bestLandingT, true);
+  const refined = rangeOffsets(-12, 12, 4 * 3600).reduce(
+    (acc, landOff) => mediumAtLandT(ctx, acc, seedDv, seedLand + landOff),
+    { ...best, bestScore: Infinity },
+  );
+  ctx.epoch = makeLunarEpoch(0, refined.bestLandingT, true);
+  return refined;
 }
 
 /** One analytic medium-pass phase sample over Δv offsets. */
-function mediumAnalyticAtPhase(ctx: SearchCtx, best: SearchBest, ph: number, seedDv: number): void {
+function mediumAnalyticAtPhase(
+  ctx: SearchCtx, best: SearchBest, ph: number, seedDv: number,
+): SearchBest {
   rebuildLeo(ctx, makeLunarEpoch(ph, ctx.T, false));
-  for (const s of [0, -0.012, 0.012]) {
-    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, seedDv + s));
-    considerEval(best, evalCandidate(ctx, dv, ph, ctx.T, false), ph, dv, ctx.T);
-  }
+  return MEDIUM_DV_OFFSETS_ANALYTIC.reduce((acc, s) => {
+    const dv = clampDv(ctx, seedDv + s);
+    return betterCandidate(acc, evalCandidate(ctx, dv, ph, ctx.T, false), ph, dv, ctx.T);
+  }, best);
 }
 
 /** Medium refine under analytic Moon phase. */
-function mediumPassAnalytic(ctx: SearchCtx, best: SearchBest): void {
+function mediumPassAnalytic(ctx: SearchCtx, best: SearchBest): SearchBest {
   const seedPhase = best.bestPhase;
   const seedDv = best.bestDv;
-  best.bestScore = Infinity;
-  for (let i = -20; i <= 20; i++) mediumAnalyticAtPhase(ctx, best, seedPhase + i * 0.05, seedDv);
+  return rangeOffsets(-20, 20, 0.05).reduce(
+    (acc, off) => mediumAnalyticAtPhase(ctx, acc, seedPhase + off, seedDv),
+    { ...best, bestScore: Infinity },
+  );
 }
 
-/** One coordinate-descent iteration: epoch/phase then Δv. */
-function refineIteration(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
-  let improved = false;
-  if (ctx.useHorizons) {
-    improved = refineLandingT(ctx, best, iter) || improved;
-  } else {
-    improved = refinePhase(ctx, best, iter) || improved;
-  }
-  improved = refineDv(ctx, best, iter) || improved;
-  return improved;
+/** Fold one probed axis offset into the running best, tracking progress. */
+function refineFold(
+  step: RefineStep,
+  ev: CandidateEval,
+  ph: number,
+  dv: number,
+  landT: number,
+): RefineStep {
+  const next = betterCandidate(step.best, ev, ph, dv, landT, REFINE_MARGIN);
+  return { best: next, improved: step.improved || next !== step.best };
 }
 
 /** Coordinate descent on landing map (Horizons). */
-function refineLandingT(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
-  let improved = false; const dT = (3 * 3600) / (1 + iter);
-  for (const s of [-2, -1, 1, 2]) {
-    const landT = best.bestLandingT + s * dT;
+function refineLandingT(ctx: SearchCtx, best: SearchBest, iter: number): RefineStep {
+  const dT = (3 * 3600) / (1 + iter);
+  const step = REFINE_OFFSETS.reduce<RefineStep>((acc, s) => {
+    const landT = acc.best.bestLandingT + s * dT;
     rebuildLeo(ctx, makeLunarEpoch(0, landT, true));
-    const ev = evalCandidate(ctx, best.bestDv, 0, landT, false);
-    if (considerEvalStrict(best, ev, 0, best.bestDv, landT)) improved = true;
-  }
-  rebuildLeo(ctx, makeLunarEpoch(0, best.bestLandingT, true));
-  return improved;
+    const ev = evalCandidate(ctx, acc.best.bestDv, 0, landT, false);
+    return refineFold(acc, ev, 0, acc.best.bestDv, landT);
+  }, { best, improved: false });
+  rebuildLeo(ctx, makeLunarEpoch(0, step.best.bestLandingT, true));
+  return step;
 }
 
 /** Coordinate descent on Moon phase (analytic). */
-function refinePhase(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
-  let improved = false;
+function refinePhase(ctx: SearchCtx, best: SearchBest, iter: number): RefineStep {
   const dPh = 0.02 / (1 + iter);
-  for (const s of [-2, -1, 1, 2]) {
-    const ph = best.bestPhase + s * dPh;
-    const ev = evalCandidate(ctx, best.bestDv, ph, ctx.T, true);
-    if (considerEvalStrict(best, ev, ph, best.bestDv, best.bestLandingT)) improved = true;
-  }
-  return improved;
+  return REFINE_OFFSETS.reduce<RefineStep>((acc, s) => {
+    const ph = acc.best.bestPhase + s * dPh;
+    const ev = evalCandidate(ctx, acc.best.bestDv, ph, ctx.T, true);
+    return refineFold(acc, ev, ph, acc.best.bestDv, acc.best.bestLandingT);
+  }, { best, improved: false });
 }
 
 /** Coordinate descent on Δv. */
-function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): boolean {
-  let improved = false;
+function refineDv(ctx: SearchCtx, best: SearchBest, iter: number): RefineStep {
   const dDv = 0.008 / (1 + iter);
-  for (const s of [-2, -1, 1, 2]) {
-    const dv = Math.min(ctx.dvMax, Math.max(ctx.baseDv * 0.999, best.bestDv + s * dDv));
-    const ev = evalCandidate(ctx, dv, best.bestPhase, best.bestLandingT, true);
-    if (considerEvalStrict(best, ev, best.bestPhase, dv, best.bestLandingT)) improved = true;
-  }
-  return improved;
+  return REFINE_OFFSETS.reduce<RefineStep>((acc, s) => {
+    const dv = clampDv(ctx, acc.best.bestDv + s * dDv);
+    const ev = evalCandidate(ctx, dv, acc.best.bestPhase, acc.best.bestLandingT, true);
+    return refineFold(acc, ev, acc.best.bestPhase, dv, acc.best.bestLandingT);
+  }, { best, improved: false });
+}
+
+/** One coordinate-descent iteration: epoch/phase then Δv. */
+function refineIteration(ctx: SearchCtx, best: SearchBest, iter: number): RefineStep {
+  const axis = ctx.useHorizons
+    ? refineLandingT(ctx, best, iter)
+    : refinePhase(ctx, best, iter);
+  const dv = refineDv(ctx, axis.best, iter);
+  return { best: dv.best, improved: axis.improved || dv.improved };
 }
 
 /** Log search summary. */
@@ -361,14 +400,28 @@ export type SearchOpts = {
   ascent: AscentResult;
 };
 
+/** Coordinate-descent iterations before giving up on further improvement. */
+const REFINE_ITERATIONS = 8;
+
+/** Descend until an iteration stops improving the score. */
+function runRefinement(ctx: SearchCtx, best: SearchBest): SearchBest {
+  let current = best;
+  for (let iter = 0; iter < REFINE_ITERATIONS; iter++) {
+    const step = refineIteration(ctx, current, iter);
+    current = step.best;
+    if (!step.improved) break;
+  }
+  return current;
+}
+
 export function searchBallisticTransfer(opts: SearchOpts): TransferSearchResult {
   const { ctx, best, grids, guess } = initSearch(opts);
-  runCoarseGrid(ctx, best, grids, guess);
-  if (ctx.useHorizons) mediumPassHorizons(ctx, best);
-  else mediumPassAnalytic(ctx, best);
-  for (let iter = 0; iter < 8; iter++) {
-    if (!refineIteration(ctx, best, iter)) break;
-  }
-  const found = best.bestAlt < INTERCEPT_ALT; logSearchResult(best, ctx.baseDv, found);
-  return toSearchResult(best, found);
+  const coarse = runCoarseGrid(ctx, best, grids, guess);
+  const medium = ctx.useHorizons
+    ? mediumPassHorizons(ctx, coarse)
+    : mediumPassAnalytic(ctx, coarse);
+  const refined = runRefinement(ctx, medium);
+  const found = refined.bestAlt < INTERCEPT_ALT;
+  logSearchResult(refined, ctx.baseDv, found);
+  return toSearchResult(refined, found);
 }

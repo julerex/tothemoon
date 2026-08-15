@@ -297,6 +297,16 @@ function fitPerihelionFromEarthPos(ep: V3): number {
 }
 
 /**
+ * Sample `n + 1` points evenly over a curve parameter in [0, 1].
+ *
+ * Ring / path builders share this so the inclusive end point (needed to close a
+ * loop) is written once rather than in every fencepost loop.
+ */
+function ringPoints(n: number, at: (u: number) => V3): V3[] {
+  return Array.from({ length: n + 1 }, (_unused, i) => at(i / n));
+}
+
+/**
  * Moon’s heliocentric trail over the mission window [0, durationS].
  * Uses the same ephemeris as bodyPositions (Horizons when available).
  */
@@ -305,15 +315,11 @@ export function moonPathThroughSim(
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   samples = 512,
 ): V3[] {
-  const pts: V3[] = [];
   const dur = Math.max(durationS, 1);
-  const n = Math.max(2, samples);
-  for (let i = 0; i <= n; i++) {
-    const t = (i / n) * dur;
-    const b = bodyPositions(t, epoch);
-    pts.push({ x: b.moon.x, y: b.moon.y, z: b.moon.z });
-  }
-  return pts;
+  return ringPoints(Math.max(2, samples), (u) => {
+    const b = bodyPositions(u * dur, epoch);
+    return { x: b.moon.x, y: b.moon.y, z: b.moon.z };
+  });
 }
 
 const _oscR = v3();
@@ -372,12 +378,10 @@ function sampleKeplerPeriod(
   period: number,
   n: number,
 ): V3[] {
-  const pts: V3[] = [];
-  for (let k = 0; k <= n; k++) {
-    keplerRvAt(orb, t + (k / n) * period, _oscR, _oscV);
-    pts.push({ x: _oscR.x, y: _oscR.y, z: _oscR.z });
-  }
-  return pts;
+  return ringPoints(n, (u) => {
+    keplerRvAt(orb, t + u * period, _oscR, _oscV);
+    return { x: _oscR.x, y: _oscR.y, z: _oscR.z };
+  });
 }
 
 /** Build orthonormal e1,e2 in the r×v plane. */
@@ -394,9 +398,7 @@ function planeBasisFromRv(pos: V3, vel: V3, r: number): void {
 }
 
 function zeroRing(samples: number): V3[] {
-  const pts: V3[] = [];
-  for (let k = 0; k <= samples; k++) pts.push({ x: 0, y: 0, z: 0 });
-  return pts;
+  return ringPoints(samples, () => ({ x: 0, y: 0, z: 0 }));
 }
 
 function circlePoint(r: number, θ: number): V3 {
@@ -409,9 +411,7 @@ function circleThroughMoon(pos: V3, vel: V3, samples: number): V3[] {
   const r = len(pos);
   if (!(r > 1e-6)) return zeroRing(samples);
   planeBasisFromRv(pos, vel, r);
-  const pts: V3[] = [];
-  for (let k = 0; k <= samples; k++) pts.push(circlePoint(r, (k / samples) * 2 * Math.PI));
-  return pts;
+  return ringPoints(samples, (u) => circlePoint(r, u * 2 * Math.PI));
 }
 
 function ellipsePoint(p: number, e: number, ϖ: number, ν: number): V3 {
@@ -422,22 +422,18 @@ function ellipsePoint(p: number, e: number, ϖ: number, ν: number): V3 {
 
 /** Eccentric Earth orbit ring (Horizons-fitted ϖ). */
 function earthOrbitEllipsePoints(epoch: EphemerisEpoch, samples: number): V3[] {
-  const pts: V3[] = [];
   const e = EARTH_ORB_E;
   const p = AU * (1 - e * e);
   const ϖ = earthPerihelionLongitude(epoch);
-  for (let i = 0; i <= samples; i++) pts.push(ellipsePoint(p, e, ϖ, (i / samples) * 2 * Math.PI));
-  return pts;
+  return ringPoints(samples, (u) => ellipsePoint(p, e, ϖ, u * 2 * Math.PI));
 }
 
 /** Circular 1 AU Earth orbit (analytic fallback). */
 function earthOrbitCirclePoints(samples: number): V3[] {
-  const pts: V3[] = [];
-  for (let i = 0; i <= samples; i++) {
-    const θ = (i / samples) * 2 * Math.PI;
-    pts.push({ x: AU * Math.cos(θ), y: AU * Math.sin(θ), z: 0 });
-  }
-  return pts;
+  return ringPoints(samples, (u) => {
+    const theta = u * 2 * Math.PI;
+    return { x: AU * Math.cos(theta), y: AU * Math.sin(theta), z: 0 };
+  });
 }
 
 /**

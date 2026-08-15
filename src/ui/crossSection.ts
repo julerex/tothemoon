@@ -170,15 +170,18 @@ export function surfaceArcKm(p: PlanePoint, rEarth = R_EARTH): number {
   return Math.atan2(p.x, p.y) * rEarth;
 }
 
+/** Bounds grown to include `p` (does not modify `b`). */
 function expandBounds(
   b: CrossSectionBounds,
   p: PlanePoint,
   pad = 0,
-): void {
-  b.xMin = Math.min(b.xMin, p.x - pad);
-  b.xMax = Math.max(b.xMax, p.x + pad);
-  b.yMin = Math.min(b.yMin, p.y - pad);
-  b.yMax = Math.max(b.yMax, p.y + pad);
+): CrossSectionBounds {
+  return {
+    xMin: Math.min(b.xMin, p.x - pad),
+    xMax: Math.max(b.xMax, p.x + pad),
+    yMin: Math.min(b.yMin, p.y - pad),
+    yMax: Math.max(b.yMax, p.y + pad),
+  };
 }
 
 /**
@@ -349,13 +352,15 @@ function computeCrossSectionBounds(
   rEarth: number,
   rAtm: number,
 ): CrossSectionBounds {
-  const bounds = emptyBounds();
-  for (const p of boosterTrail) expandBounds(bounds, p);
-  for (const p of shipTrail) expandBounds(bounds, p);
-  if (!Number.isFinite(bounds.xMin)) return fallbackPadBounds(rEarth, rAtm);
-  expandBoundsWithAtmArc(bounds, rEarth, rAtm);
-  padCrossSectionBounds(bounds, rEarth);
-  return bounds;
+  const trailBounds = [...boosterTrail, ...shipTrail].reduce(
+    (acc, p) => expandBounds(acc, p),
+    emptyBounds(),
+  );
+  if (!Number.isFinite(trailBounds.xMin)) return fallbackPadBounds(rEarth, rAtm);
+  return padCrossSectionBounds(
+    expandBoundsWithAtmArc(trailBounds, rEarth, rAtm),
+    rEarth,
+  );
 }
 
 function emptyBounds(): CrossSectionBounds {
@@ -366,30 +371,40 @@ function fallbackPadBounds(rEarth: number, rAtm: number): CrossSectionBounds {
   return { xMin: -20, xMax: 120, yMin: rEarth - 5, yMax: rAtm + 20 };
 }
 
+/** Arc steps used to sweep the surface / atmosphere shells into view. */
+const ATM_ARC_STEPS = 24;
+
+/**
+ * Grow bounds to hold the Earth surface and atmosphere arcs spanning the
+ * trails, so the diagram never clips the limb.
+ */
 function expandBoundsWithAtmArc(
   bounds: CrossSectionBounds,
   rEarth: number,
   rAtm: number,
-): void {
+): CrossSectionBounds {
   const angMin = Math.atan2(bounds.xMin, Math.max(bounds.yMin, 1));
   const angMax = Math.atan2(bounds.xMax, Math.max(bounds.yMin, 1));
-  for (let i = 0; i <= 24; i++) {
-    const a = angMin + ((angMax - angMin) * i) / 24;
-    expandBounds(bounds, { x: rAtm * Math.sin(a), y: rAtm * Math.cos(a) });
-    expandBounds(bounds, { x: rEarth * Math.sin(a), y: rEarth * Math.cos(a) });
-  }
+  return Array.from({ length: ATM_ARC_STEPS + 1 }, (_unused, i) =>
+    angMin + ((angMax - angMin) * i) / ATM_ARC_STEPS,
+  ).reduce((acc, a) => {
+    const withAtm = expandBounds(acc, { x: rAtm * Math.sin(a), y: rAtm * Math.cos(a) });
+    return expandBounds(withAtm, { x: rEarth * Math.sin(a), y: rEarth * Math.cos(a) });
+  }, bounds);
 }
 
 function padCrossSectionBounds(
   bounds: CrossSectionBounds,
   rEarth: number,
-): void {
+): CrossSectionBounds {
   const padX = 12;
   const padY = 8;
-  bounds.xMin -= padX;
-  bounds.xMax += padX;
-  bounds.yMin = Math.min(bounds.yMin, rEarth - 4) - padY * 0.25;
-  bounds.yMax += padY;
+  return {
+    xMin: bounds.xMin - padX,
+    xMax: bounds.xMax + padX,
+    yMin: Math.min(bounds.yMin, rEarth - 4) - padY * 0.25,
+    yMax: bounds.yMax + padY,
+  };
 }
 
 /** Age past which we stop extending the return to launch site trail after fade. */
