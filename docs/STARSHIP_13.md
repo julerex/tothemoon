@@ -124,6 +124,8 @@ The live event is over. The replay is a recorded X broadcast:
 
 Ship hull marking visible in coast shots: **S40**.
 
+Captured stills (major events + camera angles, for 3D visual reference): [`assets/flight13-webcast/`](../assets/flight13-webcast/). Catalog and theater-camera mapping live in that folder’s README. Do **not** ship these as runtime textures.
+
 ### Do not use the spacex.com embed for screenshots
 
 1. Open https://www.spacex.com/launches/starship-flight-13
