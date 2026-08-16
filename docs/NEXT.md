@@ -13,7 +13,7 @@ Visual realism backlog (V0–V19 shipped; **next:** optional Moon albedo): **[VI
 | Area | What’s in place |
 |------|------------------|
 | **Mission arc** | Starbase → ascent → low Earth orbit → translunar injection → N-body coast (Kepler ref) → lunar orbit insertion-style capture → soft landing; trajectory baked at build |
-| **Mission UX** | Scrubber phase marks, event callouts, Auto speed by phase |
+| **Mission UX** | Scrubber phase marks, event ticks, Auto speed by phase |
 | **Staging / craft** | Super Heavy + Ship mesh, thrust-scaled plumes, booster fallaway + flash, fuel bars |
 | **Earth theater** | Starbase pad, ascent ground track, atmosphere limb |
 | **Landing theater** | Site beacon + Malapert Massif label, dust puff, landing beat (1× hold + settle) then mission-complete card |
@@ -61,8 +61,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 ### 2. Callout ↔ scrubber coupling — **done**
 
 - Subtle **event ticks** under the scrubber (phase marks stay above); secondary beats (staging, dogleg, return to launch site) use a taller tick.
-- Click a tick → seek + show callout; click the callout (or Enter/Space) → re-seek that beat.
-- Telemetry dims while a callout is visible (`tel-dimmed`).
+- Click a tick → seek that beat. No popup toast.
 - Pure helper: `src/mission/scrubEvents.ts` (+ unit tests).
 
 ### 3. Booster fallaway readability — **done**

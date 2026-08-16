@@ -54,15 +54,6 @@ export type HudTelStrip = {
   camGridEl: HTMLElement | null;
 };
 
-export type HudCalloutToast = {
-  callout: HTMLElement | null;
-  calloutTitle: HTMLElement | null;
-  calloutDetail: HTMLElement | null;
-  camToast: HTMLElement | null;
-  camToastTitle: HTMLElement | null;
-  camToastDetail: HTMLElement | null;
-};
-
 export type HudCompleteCard = {
   completeEl: HTMLElement | null;
   mcSub: HTMLElement | null;
@@ -127,7 +118,6 @@ export type MetricsDom = {
 export type HudDom = HudButtons &
   HudTransport &
   HudTelStrip &
-  HudCalloutToast &
   HudCompleteCard &
   HudOverlays;
 
@@ -216,17 +206,6 @@ function collectTelStripB(): Omit<
   };
 }
 
-function collectCalloutToast(): HudCalloutToast {
-  return {
-    callout: q("#callout"),
-    calloutTitle: q("#callout-title"),
-    calloutDetail: q("#callout-detail"),
-    camToast: q("#cam-toast"),
-    camToastTitle: q("#cam-toast-title"),
-    camToastDetail: q("#cam-toast-detail"),
-  };
-}
-
 function collectCompleteCardA(): Pick<
   HudCompleteCard,
   | "completeEl"
@@ -301,7 +280,6 @@ export function collectHudDom(): HudDom {
     ...collectTransport(),
     ...collectTelStripA(),
     ...collectTelStripB(),
-    ...collectCalloutToast(),
     ...collectCompleteCard(),
     ...collectOverlays(),
   };

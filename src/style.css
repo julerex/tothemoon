@@ -16,7 +16,7 @@
   --radius: 2px;
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-  /* Side-rail widths; title + callouts clear both */
+  /* Side-rail widths; title clears both */
   --telemetry-width: 12.25rem;
   --camera-rail-width: 12.25rem;
 }
@@ -820,12 +820,6 @@ body.menus-active {
   pointer-events: auto;
 }
 
-/* Soften rails while a callout holds focus */
-.telemetry.tel-dimmed,
-.camera-rail.tel-dimmed {
-  opacity: 0.38;
-}
-
 .telemetry > div,
 .camera-rail > div {
   display: flex;
@@ -1239,142 +1233,6 @@ input[type="range"] {
   width: 100%;
   min-width: 0;
   margin: 0;
-}
-
-/* Event callout toast (clickable → re-seek that beat) */
-.callout {
-  pointer-events: none;
-  position: absolute;
-  top: 4.75rem;
-  left: calc((100% + var(--telemetry-width) - var(--camera-rail-width)) / 2);
-  transform: translateX(-50%);
-  min-width: 12rem;
-  max-width: min(22rem, 90vw);
-  padding: 0.7rem 1.1rem 0.75rem;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--radius);
-  box-shadow: none;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 5;
-  opacity: 0;
-}
-
-.callout.callout-seekable:not([hidden]) {
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.callout.callout-seekable:hover,
-.callout.callout-seekable:focus-visible {
-  border-color: rgba(255, 255, 255, 0.65);
-  box-shadow: none;
-}
-
-.callout-hint {
-  margin-top: 0.35rem;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.callout.callout-seekable:hover .callout-hint,
-.callout.callout-seekable:focus-visible .callout-hint {
-  color: var(--text);
-}
-
-/* Camera mode switch toast (keys 1–6 / free pan) */
-.cam-toast {
-  pointer-events: none;
-  position: absolute;
-  top: 1.15rem;
-  left: calc((100% + var(--telemetry-width) - var(--camera-rail-width)) / 2);
-  transform: translateX(-50%);
-  min-width: 10rem;
-  max-width: min(20rem, 90vw);
-  padding: 0.55rem 1rem 0.6rem;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--radius);
-  box-shadow: none;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 6;
-  opacity: 0;
-}
-
-.cam-toast.cam-toast-in {
-  animation: callout-in 0.28s ease forwards;
-}
-
-.cam-toast.cam-toast-out {
-  animation: callout-out 0.28s ease forwards;
-}
-
-.cam-toast-title {
-  font-size: 0.92rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  color: var(--text);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
-}
-
-.cam-toast-detail {
-  margin-top: 0.15rem;
-  font-size: 0.68rem;
-  color: var(--muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.callout.callout-in {
-  animation: callout-in 0.35s ease forwards;
-}
-
-.callout.callout-out {
-  animation: callout-out 0.3s ease forwards;
-}
-
-.callout-title {
-  font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-  color: var(--text);
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
-}
-
-.callout-detail {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-@keyframes callout-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-@keyframes callout-out {
-  from {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-6px);
-  }
 }
 
 /* ── Keymap overlay (K) ─────────────────────────────────────────── */
@@ -1875,14 +1733,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   .footer-hints {
     gap: 0.25rem 0.4rem;
     font-size: 0.62rem;
-  }
-
-  .callout {
-    top: 3.5rem;
-  }
-
-  .cam-toast {
-    top: 0.85rem;
   }
 
   .keymap-body {

@@ -30,7 +30,7 @@ Texture credits (NASA Blue Marble, Sentinel-2 cloudless, NASA star map) live in 
 
 - Play / pause, **Auto** speed by phase (or fixed up to 2000×), mission scrubber with phase marks + **event ticks**
 - **Cinematic bookmarks** (Pad · Stage · translunar injection · Half · lunar orbit insertion · Land) — seek + camera; **1…6**
-- Event callouts (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click callout or tick to seek; telemetry dims during toast
+- Event ticks on the scrubber (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click a tick to seek
 - **Ascent / return to launch site cross-section** (**Tab** cycle or button) — true-scale black & white launch-plane diagram (Earth surface + 120 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
 - **Earth great-circle section** (**Earth GC** / **Tab**) — whole-Earth B&W slice on the Flight 13 corridor (Starbase · Gauteng · Indian Ocean landing · Australia); also from the Flight 13 briefing
 - **Polar trajectories** (**Polar** / **Tab**) — Earth-centric 2-D map looking along ecliptic +Z (perpendicular to Earth's orbital plane): ship path + Moon path, true scale

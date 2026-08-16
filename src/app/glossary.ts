@@ -164,7 +164,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Scrubber",
     category: "views",
     definition:
-      "Mission-time slider on the transport bar. Phase marks sit above; event ticks below. Click a tick or callout to jump to that beat while playback can continue. The LIVE news ticker above the transport bar follows the same mission clock.",
+      "Mission-time slider on the transport bar. Phase marks sit above; event ticks below. Click a tick to jump to that beat while playback can continue. The LIVE news ticker above the transport bar follows the same mission clock.",
   },
   {
     id: "seco",

@@ -38,7 +38,7 @@ import {
   redrawEarthGcOverlay,
   setEarthGcOverlayOpen,
 } from "./earthGcOverlay";
-import { formatMissionTime, parseSpeedMode } from "./hudFormat";
+import { parseSpeedMode } from "./hudFormat";
 import {
   ensurePolarOverlayBound,
   isPolarOverlayOpen,
@@ -63,7 +63,6 @@ import {
 } from "./hudApply";
 import {
   CAM_DOUBLE_TAP_MS,
-  CAMERA_LABELS,
   cycleCameraMode,
 } from "./hudCameraLabels";
 import {
@@ -77,7 +76,7 @@ import {
   renderEventTicks,
   renderPhaseMarkers,
 } from "./hudScrubRender";
-import { playCamToast, type ToastTimer } from "./hudToast";
+
 
 export type { Telemetry } from "./telemetryView";
 
@@ -119,13 +118,9 @@ export type HudHandlers = {
   onBookmark?: (bookmark: CinematicBookmark) => void;
 };
 
-const CALLOUT_MS = 4200;
-const CAM_TOAST_MS = 1600;
-
 type HudFlags = {
   scrubbing: boolean;
   lastPhase: PhaseId | null;
-  lastMissionT: number;
   lastPlaying: boolean;
   completeShown: boolean;
   keymapOpen: boolean;
@@ -140,7 +135,6 @@ type HudFlags = {
   lastCamKeyT: number;
   lastNewsId: string | null;
   lastNewsRate: number;
-  activeCalloutEvent: MissionEvent | null;
 };
 
 type HudData = {
@@ -154,7 +148,6 @@ type HudData = {
   stageState: StageState | null;
   crossModel: CrossSectionModel | null;
   boosterKeyframes: ReturnType<typeof buildBoosterKeyframes> | null;
-  firedEvents: Set<string>;
 };
 
 type HudRuntime = {
@@ -162,15 +155,12 @@ type HudRuntime = {
   mx: MetricsDom;
   flags: HudFlags;
   data: HudData;
-  calloutTimer: { timer: ToastTimer };
-  camToastTimer: { timer: ToastTimer };
 };
 
 function createHudFlagsA(): Pick<
   HudFlags,
   | "scrubbing"
   | "lastPhase"
-  | "lastMissionT"
   | "lastPlaying"
   | "completeShown"
   | "keymapOpen"
@@ -178,7 +168,7 @@ function createHudFlagsA(): Pick<
   | "crossSectionOpen"
 > {
   return {
-    scrubbing: false, lastPhase: null, lastMissionT: -1, lastPlaying: false,
+    scrubbing: false, lastPhase: null, lastPlaying: false,
     completeShown: false, keymapOpen: false, metricsOpen: false, crossSectionOpen: false,
   };
 }
@@ -204,14 +194,10 @@ function createHudFlagsB(): Pick<
   };
 }
 
-function createHudFlagsC(): Pick<
-  HudFlags,
-  "lastNewsId" | "lastNewsRate" | "activeCalloutEvent"
-> {
+function createHudFlagsC(): Pick<HudFlags, "lastNewsId" | "lastNewsRate"> {
   return {
     lastNewsId: null,
     lastNewsRate: Number.NaN,
-    activeCalloutEvent: null,
   };
 }
 
@@ -238,7 +224,7 @@ function buildHudData(
   return {
     timeline, handlers, samples, recoveryProfile,
     bookmarks: buildBookmarks(timeline), scrubEventTicks: buildScrubEventTicks(timeline.events),
-    newsBeats: buildNewsBeats(timeline), ...derived, firedEvents: new Set<string>(),
+    newsBeats: buildNewsBeats(timeline), ...derived,
   };
 }
 
@@ -254,7 +240,6 @@ function createHudRuntime(
   return {
     dom: collectHudDom(), mx: collectMetricsDom(), flags: createHudFlags(),
     data: buildHudData(timeline, handlers, samples, recoveryProfile),
-    calloutTimer: { timer: null }, camToastTimer: { timer: null },
   };
 }
 
@@ -280,19 +265,6 @@ function toggleAutoCam(rt: HudRuntime): void {
   if (!rt.data.handlers.onAutoCamToggle) return;
   const on = rt.data.handlers.onAutoCamToggle();
   setAutoCamEnabled(rt, on);
-  showAutoCamToast(rt, on);
-}
-
-function showAutoCamToast(rt: HudRuntime, on: boolean): void {
-  playCamToast(
-    rt.dom.camToast,
-    rt.dom.camToastTitle,
-    rt.dom.camToastDetail,
-    on ? "Auto-cam on" : "Auto-cam off",
-    on ? "Matches the official webcast camera" : "Manual focus · G to re-enable",
-    rt.camToastTimer,
-    CAM_TOAST_MS,
-  );
 }
 
 // —— HUD visibility / panel exclusivity ——————————————————————————————————————
@@ -438,12 +410,7 @@ function redrawCrossSection(rt: HudRuntime, missionT: number): void {
   paintCrossSection(rt, missionT);
 }
 
-// —— Scrub events / bookmarks / callouts ——————————————————————————————————————
-
-function setTelemetryDimmed(rt: HudRuntime, dimmed: boolean): void {
-  rt.dom.telemetryEl?.classList.toggle("tel-dimmed", dimmed);
-  rt.dom.cameraRailEl?.classList.toggle("tel-dimmed", dimmed);
-}
+// —— Scrub events / bookmarks ————————————————————————————————————————————————
 
 function setActiveEventTick(rt: HudRuntime, id: string | null): void {
   if (!rt.dom.eventsEl) return;
@@ -461,28 +428,12 @@ function setActiveBookmark(rt: HudRuntime, id: string | null): void {
   }
 }
 
-/**
- * Seek scrubber to a narrative event, show its callout, and highlight the tick.
- */
+/** Seek scrubber to a narrative event and highlight the tick. */
 function seekToEvent(rt: HudRuntime, ev: MissionEvent): void {
   setActiveBookmark(rt, null);
   rt.dom.scrub.value = String(Math.round(ev.u * 1000));
   rt.data.handlers.onScrub(ev.u);
-  rt.data.firedEvents.add(ev.id);
   setActiveEventTick(rt, ev.id);
-  showCallout(rt, ev);
-}
-
-function showBookmarkToast(rt: HudRuntime, bm: CinematicBookmark): void {
-  playCamToast(
-    rt.dom.camToast,
-    rt.dom.camToastTitle,
-    rt.dom.camToastDetail,
-    `Bookmark · ${bm.label}`,
-    `${formatMissionTime(bm.t)} · seek + camera`,
-    rt.camToastTimer,
-    CAM_TOAST_MS,
-  );
 }
 
 function jumpToBookmark(rt: HudRuntime, bm: CinematicBookmark): void {
@@ -491,79 +442,9 @@ function jumpToBookmark(rt: HudRuntime, bm: CinematicBookmark): void {
   rt.dom.scrub.value = String(Math.round(bm.u * 1000));
   if (rt.data.handlers.onBookmark) rt.data.handlers.onBookmark(bm);
   else rt.data.handlers.onScrub(bm.u);
-  showBookmarkToast(rt, bm);
 }
 
-function hideCallout(rt: HudRuntime): void {
-  if (!rt.dom.callout) return;
-  rt.dom.callout.hidden = true;
-  rt.dom.callout.classList.remove("callout-out", "callout-in");
-  rt.flags.activeCalloutEvent = null;
-  setTelemetryDimmed(rt, false);
-  setActiveEventTick(rt, null);
-}
-
-function fillCalloutDetail(rt: HudRuntime, ev: MissionEvent): void {
-  if (!rt.dom.calloutDetail) return;
-  rt.dom.calloutDetail.textContent = ev.detail ?? "";
-  rt.dom.calloutDetail.hidden = !ev.detail;
-}
-
-function fillCalloutA11y(rt: HudRuntime, ev: MissionEvent): void {
-  const t = formatMissionTime(ev.t);
-  rt.dom.callout!.title = `Jump to ${ev.title} · ${t}`;
-  rt.dom.callout!.setAttribute(
-    "aria-label",
-    `Mission event: ${ev.title}. Activate to jump to ${t}`,
-  );
-}
-
-function fillCallout(rt: HudRuntime, ev: MissionEvent): void {
-  if (!rt.dom.callout || !rt.dom.calloutTitle) return;
-  rt.dom.calloutTitle.textContent = ev.title;
-  fillCalloutDetail(rt, ev);
-  fillCalloutA11y(rt, ev);
-}
-
-function scheduleCalloutHide(rt: HudRuntime): void {
-  if (rt.calloutTimer.timer) clearTimeout(rt.calloutTimer.timer);
-  rt.calloutTimer.timer = setTimeout(() => {
-    rt.dom.callout?.classList.remove("callout-in");
-    rt.dom.callout?.classList.add("callout-out");
-    rt.calloutTimer.timer = setTimeout(() => hideCallout(rt), 320);
-  }, CALLOUT_MS);
-}
-
-function revealCallout(rt: HudRuntime): void {
-  const el = rt.dom.callout!;
-  el.hidden = false;
-  el.classList.remove("callout-out");
-  void el.offsetWidth;
-  el.classList.add("callout-in");
-}
-
-function showCallout(rt: HudRuntime, ev: MissionEvent): void {
-  if (!rt.dom.callout || !rt.dom.calloutTitle) return;
-  rt.flags.activeCalloutEvent = ev;
-  fillCallout(rt, ev);
-  revealCallout(rt);
-  setTelemetryDimmed(rt, true);
-  setActiveEventTick(rt, ev.id);
-  scheduleCalloutHide(rt);
-}
-
-// —— Camera toasts / keys ————————————————————————————————————————————————————
-
-function showCameraToast(
-  rt: HudRuntime,
-  mode: CameraMode,
-  framed = false,
-): void {
-  const info = CAMERA_LABELS[mode];
-  const title = framed ? `${info.title} · framed` : info.title;
-  const detail = framed ? "Zoom matched to object size" : info.detail;
-  playCamToast(rt.dom.camToast, rt.dom.camToastTitle, rt.dom.camToastDetail, title, detail, rt.camToastTimer, CAM_TOAST_MS);
-}
+// —— Camera keys —————————————————————————————————————————————————————————————
 
 function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
   rt.flags.lastCamMode = mode;
@@ -573,38 +454,22 @@ function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
 function noteCameraMode(rt: HudRuntime, mode: CameraMode): void {
   if (mode === rt.flags.lastCamMode) return;
   rememberCameraMode(rt, mode);
-  showCameraToast(rt, mode);
 }
 
 function switchCamera(rt: HudRuntime, mode: CameraMode): void {
   rt.data.handlers.onCamera(mode);
   rememberCameraMode(rt, mode);
-  showCameraToast(rt, mode, false);
 }
 
 function frameCamera(rt: HudRuntime, mode: CameraMode): void {
   if (rt.data.handlers.onCameraFrame) rt.data.handlers.onCameraFrame(mode);
   else rt.data.handlers.onCamera(mode);
   rememberCameraMode(rt, mode);
-  showCameraToast(rt, mode, true);
 }
 
-function toastAutoCam(rt: HudRuntime, mode: CameraMode): void {
-  playCamToast(
-    rt.dom.camToast,
-    rt.dom.camToastTitle,
-    rt.dom.camToastDetail,
-    `Auto · ${CAMERA_LABELS[mode].title}`,
-    "Guided camera",
-    rt.camToastTimer,
-    CAM_TOAST_MS,
-  );
-}
-
-/** Auto-cam cut: toast only (does not disable Auto-cam). */
+/** Auto-cam cut: update the rail highlight; no popup. */
 function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
-  toastAutoCam(rt, mode);
 }
 
 function cycleCamera(rt: HudRuntime, dir: -1 | 1 = 1): void {
@@ -693,42 +558,6 @@ function updateNewsTicker(
   applyNewsTickerRate(rt, playbackRate, playing);
 }
 
-function clearFutureFiredEvents(rt: HudRuntime, missionT: number): void {
-  for (const ev of rt.data.timeline.events) {
-    if (ev.t > missionT) rt.data.firedEvents.delete(ev.id);
-  }
-}
-
-function tryFireEvent(
-  rt: HudRuntime,
-  ev: MissionEvent,
-  missionT: number,
-  playing: boolean,
-): void {
-  if (rt.data.firedEvents.has(ev.id) || missionT + 0.05 < ev.t) return;
-  if (missionT - ev.t > 12) {
-    rt.data.firedEvents.add(ev.id);
-    return;
-  }
-  if (!playing && !rt.flags.scrubbing) return;
-  rt.data.firedEvents.add(ev.id);
-  showCallout(rt, ev);
-}
-
-function maybeFireEvents(
-  rt: HudRuntime,
-  missionT: number,
-  playing: boolean,
-): void {
-  if (rt.flags.lastMissionT >= 0 && missionT + 1e-3 < rt.flags.lastMissionT) {
-    clearFutureFiredEvents(rt, missionT);
-  }
-  rt.flags.lastMissionT = missionT;
-  for (const ev of rt.data.timeline.events) {
-    tryFireEvent(rt, ev, missionT, playing);
-  }
-}
-
 function syncSpeedSelect(rt: HudRuntime, view: TelemetryView): void {
   const rateStr = String(view.main.playbackSpeed);
   if (
@@ -775,7 +604,6 @@ function applyUpdateChrome(rt: HudRuntime, tel: Telemetry, view: TelemetryView):
   syncSpeedSelect(rt, view);
   if (!rt.flags.scrubbing) rt.dom.scrub.value = view.main.scrubValue;
   highlightPhaseMarker(rt, tel.phaseId);
-  maybeFireEvents(rt, tel.t, tel.playing);
   updateOverlays(rt, tel, view);
 }
 
@@ -1071,25 +899,6 @@ function wireKeyboard(rt: HudRuntime): void {
   window.addEventListener("blur", () => releaseAllHolds(rt));
 }
 
-function activateCallout(rt: HudRuntime): void {
-  if (rt.flags.activeCalloutEvent) seekToEvent(rt, rt.flags.activeCalloutEvent);
-}
-
-function onCalloutKey(rt: HudRuntime, e: KeyboardEvent): void {
-  if (e.key !== "Enter" && e.key !== " ") return;
-  e.preventDefault();
-  activateCallout(rt);
-}
-
-function wireCallout(rt: HudRuntime): void {
-  if (!rt.dom.callout) return;
-  rt.dom.callout.addEventListener("click", (e) => {
-    e.preventDefault();
-    activateCallout(rt);
-  });
-  rt.dom.callout.addEventListener("keydown", (e) => onCalloutKey(rt, e));
-}
-
 function onReplayClick(rt: HudRuntime): void {
   rt.data.handlers.onScrub(0);
   if (!rt.flags.lastPlaying) rt.data.handlers.onPlayToggle();
@@ -1097,8 +906,7 @@ function onReplayClick(rt: HudRuntime): void {
   rt.flags.completeShown = false;
 }
 
-function wireCalloutAndReplay(rt: HudRuntime): void {
-  wireCallout(rt);
+function wireReplay(rt: HudRuntime): void {
   rt.dom.mcReplay?.addEventListener("click", () => onReplayClick(rt));
 }
 
@@ -1118,7 +926,7 @@ function wireHud(rt: HudRuntime): void {
   wireScrubber(rt);
   wireOverlayCloses(rt);
   wireKeyboard(rt);
-  wireCalloutAndReplay(rt);
+  wireReplay(rt);
   wireScrubChrome(rt);
   rt.data.handlers.onSpeedMode(parseSpeedMode(rt.dom.speed.value));
 }

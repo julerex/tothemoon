@@ -127,7 +127,7 @@ function buildEventTickButton(
   return btn;
 }
 
-/** Subtle event ticks under the scrubber range (click → seek + callout). */
+/** Subtle event ticks under the scrubber range (click → seek). */
 export function renderEventTicks(
   root: HTMLElement,
   ticks: ScrubEventTick[],
