@@ -5,6 +5,10 @@
  * opacity / scale / offset numbers that `entryFx.ts` writes onto sprites.
  * Scrub-deterministic — every term comes from mission time, phase, altitude,
  * speed, and bank.
+ *
+ * V15: magenta / violet palette + flap leading-edge wrap (Flight 13 stills
+ * T+47:25 / T+48:53). Relight (T+39:03) stays off — gated by
+ * {@link entryPlasmaStrength}.
  */
 
 import {
@@ -30,6 +34,14 @@ export type PlasmaLayerPose = Readonly<{
   offsetX: number;
 }>;
 
+/** Shared pose for all four flap leading-edge sprites. */
+export type FlapEdgePose = Readonly<{
+  visible: boolean;
+  opacity: number;
+  /** Uniform sprite scale (mesh units). */
+  scale: number;
+}>;
+
 export type EntryPlasmaFx = Readonly<{
   /** Envelope gate: false hides every layer. */
   visible: boolean;
@@ -38,6 +50,8 @@ export type EntryPlasmaFx = Readonly<{
   core: PlasmaLayerPose;
   sheath: PlasmaLayerPose;
   trail: PlasmaLayerPose;
+  /** Leading-edge wrap on fwd flaps + aft elevons. */
+  flapEdge: FlapEdgePose;
 }>;
 
 /**
@@ -72,11 +86,16 @@ const PLASMA_LAYERS: Readonly<Record<PlasmaLayer, PlasmaLayerSpec>> = {
   },
 };
 
-/** Build-time sprite sizes (the envelope is scaled from these on update). */
+/**
+ * Build-time sprite sizes / tint (envelope scaled on update).
+ * Hot core near-white, sheath violet, trail deep magenta — not orange.
+ */
 export const PLASMA_SPRITE_BUILD = Object.freeze({
-  core: Object.freeze({ color: 0xffcc88, size: 0.55 }),
-  sheath: Object.freeze({ color: 0xff6622, size: 1.1 }),
-  trail: Object.freeze({ color: 0xff4400, size: 1.6 }),
+  core: Object.freeze({ color: 0xfff0ff, size: 0.55 }),
+  sheath: Object.freeze({ color: 0xbb66ff, size: 1.1 }),
+  trail: Object.freeze({ color: 0x9900aa, size: 1.6 }),
+  /** Flap leading-edge wrap (magenta-violet). */
+  flapEdge: Object.freeze({ color: 0xdd88ff, size: 0.28 }),
 });
 
 /** Craft-local rest positions: belly is +Y, nose +Z (mesh units). */
@@ -86,9 +105,63 @@ export const PLASMA_SPRITE_REST = Object.freeze({
   trail: Object.freeze({ y: 0.08, z: -0.2 }),
 });
 
+/**
+ * Flap-local rest for leading-edge plasma (parented to hinge pivots).
+ * Mid-span, windward (+Y tile face), slightly nose-ward (+Z chord).
+ * Mesh units match craft.ts `U = 1/40`.
+ */
+export const FLAP_EDGE_REST = Object.freeze({
+  fwd: Object.freeze({ x: 0.044, y: 0.004, z: 0.04 }),
+  aft: Object.freeze({ x: 0.05, y: 0.005, z: 0.05 }),
+});
+
+/** Named hinges that receive a leading-edge plasma sprite. */
+export const FLAP_EDGE_PIVOTS = [
+  { name: "fwd-flap-L", kind: "fwd" as const },
+  { name: "fwd-flap-R", kind: "fwd" as const },
+  { name: "aft-elevon-L", kind: "aft" as const },
+  { name: "aft-elevon-R", kind: "aft" as const },
+] as const;
+
 /** High-frequency shimmer in ~[0.7, 1.0]; deterministic in mission time. */
 export function plasmaFlicker(missionT: number): number {
   return 0.85 + 0.1 * Math.sin(missionT * 41.3) + 0.05 * Math.sin(missionT * 73.7 + 1.1);
+}
+
+export type Rgb01 = Readonly<{ r: number; g: number; b: number }>;
+
+export type EntryHeatEmissive = Readonly<{
+  tile: Rgb01;
+  tileWear: Rgb01;
+  tileIntensity: number;
+  wearIntensity: number;
+}>;
+
+/**
+ * Windward tile / wear emissive from plasma + residual grout.
+ * Hot plasma → violet fill (`B > G`); residual grout into descent stays warm.
+ */
+export function entryHeatEmissiveRgb(
+  plasma: number,
+  groutU: number,
+): EntryHeatEmissive {
+  const p = Number.isFinite(plasma) ? Math.max(0, Math.min(1, plasma)) : 0;
+  const u = Number.isFinite(groutU) ? Math.max(0, Math.min(1, groutU)) : 0;
+  // Warm residual (landing-approach stills) + violet plasma fill.
+  return Object.freeze({
+    tile: Object.freeze({
+      r: 0.72 * u + 0.42 * p,
+      g: 0.22 * u + 0.08 * p,
+      b: 0.07 * u + 0.58 * p,
+    }),
+    tileWear: Object.freeze({
+      r: 0.7 * u + 0.35 * p,
+      g: 0.16 * u + 0.06 * p,
+      b: 0.03 * u + 0.48 * p,
+    }),
+    tileIntensity: 0.4 + 1.55 * p,
+    wearIntensity: 0.25 + 1.05 * p,
+  });
 }
 
 const HIDDEN_POSE: PlasmaLayerPose = Object.freeze({
@@ -98,12 +171,19 @@ const HIDDEN_POSE: PlasmaLayerPose = Object.freeze({
   offsetX: 0,
 });
 
+const HIDDEN_FLAP: FlapEdgePose = Object.freeze({
+  visible: false,
+  opacity: 0,
+  scale: 0,
+});
+
 const HIDDEN_FX: EntryPlasmaFx = Object.freeze({
   visible: false,
   strength: 0,
   core: HIDDEN_POSE,
   sheath: HIDDEN_POSE,
   trail: HIDDEN_POSE,
+  flapEdge: HIDDEN_FLAP,
 });
 
 function layerPose(
@@ -117,6 +197,14 @@ function layerPose(
     opacity: spec.baseOpacity * strength * flicker * spec.opacityMul(off),
     scale: spec.baseScale * (0.75 + 0.5 * strength) * (0.95 + 0.08 * flicker),
     offsetX: spec.offsetX(off),
+  });
+}
+
+function flapEdgePose(strength: number, flicker: number): FlapEdgePose {
+  return Object.freeze({
+    visible: true,
+    opacity: 0.7 * strength * flicker,
+    scale: 0.85 + 0.55 * strength,
   });
 }
 
@@ -145,5 +233,6 @@ export function deriveEntryPlasma(
     core: layerPose(PLASMA_LAYERS.core, strength, flicker, off),
     sheath: layerPose(PLASMA_LAYERS.sheath, strength, flicker, off),
     trail: layerPose(PLASMA_LAYERS.trail, strength, flicker, off),
+    flapEdge: flapEdgePose(strength, flicker),
   });
 }

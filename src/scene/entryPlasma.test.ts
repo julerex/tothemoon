@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { entryPlasmaStrength } from "../physics/flight13Attitude.ts";
+import { tileGroutGlow } from "./craftHullMaps.ts";
 import {
   deriveEntryPlasma,
+  entryHeatEmissiveRgb,
+  PLASMA_SPRITE_BUILD,
   PLASMA_VISIBLE_MIN,
   plasmaFlicker,
 } from "./entryPlasma.ts";
 
 /** Mid-entry state with a strong plasma pulse. */
 const HOT = { t: 2900, phase: "entry" as const, altKm: 55, speedKmS: 6.5 };
+
+function rgbChannels(hex: number): { r: number; g: number; b: number } {
+  return { r: (hex >> 16) & 0xff, g: (hex >> 8) & 0xff, b: hex & 0xff };
+}
 
 describe("plasmaFlicker", () => {
   it("stays inside the additive shimmer band", () => {
@@ -23,6 +30,41 @@ describe("plasmaFlicker", () => {
   });
 });
 
+describe("PLASMA_SPRITE_BUILD palette", () => {
+  it("uses near-white core and magenta/violet sheath + trail (not orange)", () => {
+    const core = rgbChannels(PLASMA_SPRITE_BUILD.core.color);
+    const sheath = rgbChannels(PLASMA_SPRITE_BUILD.sheath.color);
+    const trail = rgbChannels(PLASMA_SPRITE_BUILD.trail.color);
+    const flap = rgbChannels(PLASMA_SPRITE_BUILD.flapEdge.color);
+    // Core: all channels high (near-white / pale magenta)
+    assert.ok(core.r > 230 && core.g > 200 && core.b > 230);
+    // Sheath / trail / flap: red high, blue > green (violet–magenta, not orange)
+    for (const c of [sheath, trail, flap]) {
+      assert.ok(c.r > 140, `r=${c.r}`);
+      assert.ok(c.b > c.g, `b=${c.b} should exceed g=${c.g}`);
+      assert.ok(c.b > 100, `b=${c.b}`);
+    }
+  });
+});
+
+describe("entryHeatEmissiveRgb", () => {
+  it("fills tiles violet under hot plasma (B > G)", () => {
+    const heat = entryHeatEmissiveRgb(0.85, tileGroutGlow(0.85, "entry"));
+    assert.ok(heat.tile.b > heat.tile.g);
+    assert.ok(heat.tileWear.b > heat.tileWear.g);
+    assert.ok(heat.tile.r > 0.5);
+  });
+
+  it("keeps residual grout warm when plasma is gone", () => {
+    const u = tileGroutGlow(0, "descent");
+    assert.ok(u >= 0.12);
+    const heat = entryHeatEmissiveRgb(0, u);
+    assert.ok(heat.tile.r > heat.tile.g);
+    assert.ok(heat.tile.g > heat.tile.b);
+    assert.ok(heat.tile.b < 0.05);
+  });
+});
+
 describe("deriveEntryPlasma", () => {
   it("hides every layer outside the entry heat pulse", () => {
     const fx = deriveEntryPlasma(0, "launch", 0, 0);
@@ -32,6 +74,8 @@ describe("deriveEntryPlasma", () => {
       assert.equal(layer.visible, false);
       assert.equal(layer.opacity, 0);
     }
+    assert.equal(fx.flapEdge.visible, false);
+    assert.equal(fx.flapEdge.opacity, 0);
   });
 
   it("hides the envelope at or below the visibility floor", () => {
@@ -39,9 +83,10 @@ describe("deriveEntryPlasma", () => {
     const fx = deriveEntryPlasma(HOT.t, "descent", 5.5, 1.6);
     assert.ok(entryPlasmaStrength(HOT.t, "descent", 5.5, 1.6) <= PLASMA_VISIBLE_MIN);
     assert.equal(fx.visible, false);
+    assert.equal(fx.flapEdge.visible, false);
   });
 
-  it("shows all three layers during the heat pulse", () => {
+  it("shows belly layers and flap-edge wrap during the heat pulse", () => {
     const fx = deriveEntryPlasma(HOT.t, HOT.phase, HOT.altKm, HOT.speedKmS);
     assert.equal(fx.visible, true);
     assert.ok(fx.strength > PLASMA_VISIBLE_MIN);
@@ -50,6 +95,9 @@ describe("deriveEntryPlasma", () => {
       assert.ok(layer.opacity > 0, "layer should be lit");
       assert.ok(layer.scale > 0, "layer should have positive scale");
     }
+    assert.equal(fx.flapEdge.visible, true);
+    assert.ok(fx.flapEdge.opacity > 0);
+    assert.ok(fx.flapEdge.scale > 0);
   });
 
   it("orders layers core brightest, trail widest", () => {
@@ -86,6 +134,7 @@ describe("deriveEntryPlasma", () => {
     const strong = deriveEntryPlasma(HOT.t, HOT.phase, HOT.altKm, HOT.speedKmS);
     assert.ok(strong.strength > weak.strength);
     assert.ok(strong.core.scale > weak.core.scale);
+    assert.ok(strong.flapEdge.opacity > weak.flapEdge.opacity);
   });
 
   it("returns frozen poses so applicators cannot mutate the model", () => {

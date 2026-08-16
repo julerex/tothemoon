@@ -16,6 +16,8 @@ const SECONDARY_IDS = new Set([
   "dogleg",
   "max-q",
   "seco",
+  "payload-start",
+  "payload-complete",
   "relight",
   "land-flip",
   "land-3to2",

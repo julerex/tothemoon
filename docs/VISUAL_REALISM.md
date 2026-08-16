@@ -50,7 +50,13 @@ Related:
 
 **Shipped (V13):** hexagonal TPS (grout + experiment / missing tiles), **S40** stencil, stainless oil-canning + heat tint, residual grout glow, wide onboard fin/gridfin FOV.
 
-**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — magenta entry plasma, Pez payload, splash steam. See **V15+**.
+**Shipped (V15):** magenta/violet entry plasma (belly + flap leading edges), violet tile fill; residual grout into descent stays warm.
+
+**Shipped (V16):** Pez hatch + ~20 Starlink V3 silhouettes + payload ticker/scrub beats.
+
+**Shipped (V17):** white splash steam + warm core, ocean glitter on splash/Gulf plates, wet hull roughness punch.
+
+**Next (photorealism):** engine-bay / onboard look, gated LEO clouds, optional Moon albedo. See **V18+**.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor}.ts`.
 
@@ -86,9 +92,9 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V12** | Finale camera beats | **Done** — Auto-cam splash + last-30s lunar widen |
 | **V13** | Hull-cam materials | **Done** — hex TPS, S40, oil-canning, wide fin-cam FOV |
 | **V14** | Ascent plume / frost / steam | **Done** — pink-magenta atmo plumes, Super Heavy frost, denser pad steam |
-| **V15** | Entry plasma palette | Magenta/violet flap wrap, not orange sprites |
-| **V16** | Payload Pez deploy | Unique Flight 13 mid-coast act; theater has none |
-| **V17** | Splash / ocean steam | Volumetric contact cloud vs cyan discs |
+| **V15** | Entry plasma palette | **Done** — magenta/violet flap wrap + violet tile fill |
+| **V16** | Payload Pez deploy | **Done** — hatch + sat silhouettes + ticker beats |
+| **V17** | Splash / ocean steam | **Done** — white contact cloud + glitter + wet hull |
 | **V18** | Engine-bay / onboard | Gridfin stills: MLI, stencil IDs, mild fisheye |
 | **V19** | LEO Earth from hull-cam | Gated cloud shell + ocean glitter (does not undo #14) |
 | **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
@@ -219,10 +225,10 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 **Next (photorealism vs Flight 13 stills):**
 
 14. ~~**V13** — hex TPS / S40 / oil-canning / experiment tiles (every fin/hull cam)~~ **done**  
-15. **V14** — pink-magenta atmosphere plumes + cryo frost/ice + denser pad steam  
-16. **V15** — magenta/violet entry plasma on flap leading edges  
-17. **V16** — Flight 13 Pez / Starlink V3 deploy theater  
-18. **V17** — splash steam + ocean glitter (ship + Super Heavy gulf)  
+15. ~~**V14** — pink-magenta atmosphere plumes + cryo frost/ice + denser pad steam~~ **done**  
+16. ~~**V15** — magenta/violet entry plasma on flap leading edges~~ **done**  
+17. ~~**V16** — Flight 13 Pez / Starlink V3 deploy theater~~ **done**  
+18. ~~**V17** — splash steam + ocean glitter (ship + Super Heavy gulf)~~ **done**  
 19. **V18** — engine-bay interior + onboard-cam post (fin/gridfin)  
 20. **V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)  
 21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
@@ -437,79 +443,61 @@ reads opaque; frost/ice visible on scrub through liftoff→max-Q. No bake.
 
 ---
 
-## V15 — Entry plasma (magenta / violet, flap wrap)
+## V15 — Entry plasma (magenta / violet, flap wrap) — **done 2026-08-16**
 
-V7 already drives tile emissive from `entryPlasmaStrength` and banks the
-trail. The stills at T+47:25 / T+48:53 are **purple-white leading-edge
+V7 already drove tile emissive from `entryPlasmaStrength` and banked the
+trail. Stills at T+47:25 / T+48:53 are **purple-white leading-edge
 envelopes**, not an orange belly shell.
 
-- Recolor `PLASMA_SPRITE_BUILD` and tile emissive from orange to
-  magenta/violet/white (hot core white, sheath violet, trail deep magenta).
-- Extra or repositioned sprites on **fwd-flap / aft-elevon leading edges** so
-  split flap-cams match the stills; keep bank offset.
-- Plasma as a colored fill on nearby tiles (emissive already exists — change
-  hue, not count).
-- Relight still (T+39:03) is a single vacuum Raptor glow + flap, not the
-  entry envelope — do not reuse the plasma palette there.
+### V15.1 Palette — **done**
+
+- `PLASMA_SPRITE_BUILD` + canvas stops: hot core near-white, sheath violet,
+  trail deep magenta (`B > G`, not orange).
+- Tile fill via `entryHeatEmissiveRgb`: violet while plasma is hot; residual
+  `tileGroutGlow` into descent stays warm (T+1:04:55).
+- Relight (T+39:03) stays off — gated by `entryPlasmaStrength` before entry.
+
+### V15.2 Flap leading-edge wrap — **done**
+
+- Shared `flapEdge` pose from strength × flicker.
+- One additive sprite per `fwd-flap-L/R` and `aft-elevon-L/R` pivot so edges
+  ride V7 hinge throw. Belly bank skew unchanged.
 
 **Done when:** entry chase/fin at ~80 km matches the magenta stills; tile
 emissive is violet not orange; `entryPlasma` tests cover color + flap-edge
 visibility. No bake.
 
-**Files:** `entryPlasma.ts` (+ tests), `entryFx.ts`, `craft.ts`.
+**Files:** `entryPlasma.ts` (+ tests), `entryFx.ts`, `craft.ts`, Flight 13
+`bootstrap.ts`.
 
 ---
 
-## V16 — Flight 13 payload deploy theater
+## V16 — Flight 13 payload deploy theater — **done 2026-08-16**
 
-Public timeline: Pez deploy **T+16:40–27:39**, 20 Starlink V3, demise ~20 min
-later. Theater has no hatch, sats, or ticker beat — the unique mid-coast act
-is empty. Stills: door/hardware departing, open bay in darkness, sat receding
-against belly tiles.
+Public timeline: Pez deploy **T+16:40–27:39**, 20 Starlink V3. Theater had no
+hatch, sats, or ticker beat.
 
-Theater-grade only (not a constellation sim):
+- Timeline + ticker: `payload-start` / `payload-complete` at `F13.PAYLOAD_*`
+- Named Pez door on the leeward mid-barrel; open during the window
+- 20 sat silhouettes peeling on a delayed craft-local trail, then fade
+- Pure `payloadDeployStrength` / hatch / sat pose tests
 
-- Timeline + ticker beats (`payload-start` / `payload-complete`) from the
-  public T+ table (pack only if event times must be baked).
-- Named hatch / Pez door on the ship; open during the window.
-- ~20 small sat silhouettes peeling on a delayed trail, then fade before
-  entry. Same suborbital path as the ship — no extra integrator.
-- Optional: six “camera sats” slightly distinct (white tile-imaging story in
-  `STARSHIP_13.md`) if the hatch work is already open.
-
-**Done when:** scrubbing the deploy window shows hatch + sats; outside it they
-are gone. Tests on deploy strength vs `t`. No new trajectory physics.
-
-**Files:** `timeline.ts`, `newsTicker.ts`, `craft.ts` or `payloadFx.ts`,
-Flight 13 `applyState`.
+**Files:** `payloadDeploy.ts` (+ tests), `payloadFx.ts`, `timeline.ts`,
+`newsTicker.ts`, `scrubEvents.ts`, Flight 13 `bootstrap` / `applyState`.
 
 ---
 
-## V17 — Splash steam and ocean glitter
+## V17 — Splash steam and ocean glitter — **done 2026-08-16**
 
-V6 splash is inner spray / outer mist / sheet + a cyan site beacon. Stills at
-T+1:05:20–24 are a **white volumetric contact cloud** swallowing the aft, with
-engine glow in the steam and a choppy dark ocean. Super Heavy T+6:40 is an
-ocean **glitter path**, not a disc.
+V6 splash was cyan discs + site beacon. Stills at T+1:05:20–24 are a **white
+volumetric contact cloud**; Super Heavy T+6:40 is an ocean glitter path.
 
-**Video look target:** the two 4K clips in
-https://x.com/SpaceX/status/2082186658162626898 (landing burn + splash).
-Use these when stills are not enough for steam evolution, flip, or plume flicker.
+- Denser/whiter splash layers + warm inner core; Gulf plate shares glitter
+- Altitude-gated sun-glint sprites on splash / Gulf sites
+- Post-contact wet/charred hull roughness punch (`hullWetStrength`)
 
-- Denser, whiter splash layers (reuse pad-deluge tiers); warm core from
-  landing-plume light. Fade on the same `missionT − landT` curve.
-- Cheap ocean sun-glint on the splash / Gulf plates (anisotropic sparkle
-  sprite or material, altitude-gated) so hull-down shots match T+6:40 and
-  landing-approach.
-- Post-contact: hull reads wet/charred (roughness punch, no new mesh).
-- Do not wait on physics F1 (kinematic gulf path is enough for the look).
-
-**Done when:** splashdown chase matches the steam stills more than the cyan
-discs; gulf landing shows glitter, not only a beacon. Tests on splash-layer
-opacity/color. No bake.
-
-**Files:** `splashFx.ts`, `terminalFx.ts` (+ tests), `gulfLandFx.ts`,
-`craft.ts` (wet look).
+**Files:** `terminalFx.ts` (+ tests), `terminalSiteFx.ts`, `splashFx.ts`,
+`gulfLandFx.ts`, `craft.ts`.
 
 ---
 
@@ -603,3 +591,6 @@ Not driven by the Flight 13 stills.
 | 2026-08-15 | V14 shipped (launch scene): pink-magenta atmo/landing plumes, Super Heavy frost + ice shed, denser pad steam with engine-warm core |
 | 2026-08-15 | V13 shipped (fin / hull cam): hex TPS, S40, oil-canning + heat tint, experiment / missing tiles, wide onboard FOV |
 | 2026-08-15 | Recorded official Flight 13 landing/splash highlight videos (X post 2082186658162626898) as a future visual-refinement source |
+| 2026-08-16 | V15 shipped: magenta/violet entry plasma (belly + flap edges), violet tile fill, warm residual grout |
+| 2026-08-16 | V16 shipped: Pez hatch + 20 Starlink V3 silhouettes + payload ticker/scrub beats |
+| 2026-08-16 | V17 shipped: white splash steam, ocean glitter, wet hull roughness |

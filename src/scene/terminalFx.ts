@@ -106,6 +106,8 @@ export type SplashSprayDerived = Readonly<{
   outer: TerminalLayerPose;
   sheet: TerminalLayerPose;
   contact: ContactCuePose;
+  /** Ocean sun-glint strength [0, 1] for splash / Gulf plates. */
+  glitter: number;
 }>;
 
 /** Dust / spray visible below this altitude (km). */
@@ -117,6 +119,12 @@ const INNER_EXPAND = 0.42;
 const INNER_OPACITY = 1.18;
 const OUTER_EXPAND = 1.62;
 const OUTER_OPACITY = 0.42;
+
+/** Splash steam denser / wider than lunar dust (V17 contact cloud). */
+const SPLASH_INNER_EXPAND = 0.62;
+const SPLASH_INNER_OPACITY = 1.75;
+const SPLASH_OUTER_EXPAND = 2.15;
+const SPLASH_OUTER_OPACITY = 0.78;
 
 /**
  * Powered-descent lunar dust envelope from altitude (km).
@@ -193,25 +201,25 @@ export function dustActive(phase: string, altMoon: number): boolean {
 }
 
 /**
- * Post-splash spray: spike at contact then faster fade than lunar dust.
+ * Post-splash spray: spike at contact then fade — denser white steam (V17).
  */
 export function splashdownSpray(missionT: number, landT: number): ExpandOpacity {
   const age = Math.max(0, missionT - landT);
-  const u = Math.min(1, age / 80);
-  const spike = 1 + 0.7 * Math.exp(-age / 1.4);
+  const u = Math.min(1, age / 90);
+  const spike = 1 + 0.85 * Math.exp(-age / 1.5);
   return {
-    expand: 12 + u * 50,
-    opacity: 0.55 * spike * Math.exp(-age / 150),
+    expand: 14 + u * 58,
+    opacity: 0.82 * spike * Math.exp(-age / 170),
   };
 }
 
 /**
- * Terminal-descent spray from Earth altitude (km).
+ * Terminal-descent spray from Earth altitude (km) — denser near water.
  */
 export function descentSpray(altEarth: number): ExpandOpacity {
   return {
-    expand: clampRange(6 + (20 - altEarth) * 1.2, 4, 30),
-    opacity: clampRange(0.12 + (15 - altEarth) * 0.025, 0.08, 0.5),
+    expand: clampRange(7 + (20 - altEarth) * 1.35, 4, 34),
+    opacity: clampRange(0.18 + (15 - altEarth) * 0.035, 0.1, 0.72),
   };
 }
 
@@ -407,6 +415,50 @@ export function deriveLunarDust(state: LunarDustState): LunarDustDerived {
 }
 
 /**
+ * Ocean sun-glint on splash / Gulf plates [0, 1].
+ * Strongest hull-down (~0.1–20 km); soft out to ~60 km. Scrub-safe shimmer.
+ */
+export function oceanGlitterOpacity(altKm: number, missionT: number): number {
+  if (!Number.isFinite(altKm) || altKm > 60 || altKm < 0) return 0;
+  const env =
+    altKm < 20
+      ? 0.4 + 0.55 * clamp01(1 - altKm / 20)
+      : 0.4 * clamp01((60 - altKm) / 40);
+  const shimmer = 0.72 + 0.28 * Math.sin(missionT * 3.1 + 0.4);
+  return clamp01(env * shimmer);
+}
+
+/**
+ * Post-contact wet / charred hull roughness punch [0, 1].
+ * Full on splashdown; ramps in the last half-km of descent.
+ */
+export function hullWetStrength(
+  phase: string | undefined,
+  altEarthKm: number | undefined,
+): number {
+  if (phase === "splashdown") return 1;
+  if (phase !== "descent" || altEarthKm == null || !Number.isFinite(altEarthKm)) {
+    return 0;
+  }
+  if (altEarthKm >= 0.5) return 0;
+  return clamp01(1 - altEarthKm / 0.5);
+}
+
+function splashLayersFromBase(
+  base: ExpandOpacity,
+  active: boolean,
+  age: number,
+  altKm: number,
+): Pick<SplashSprayDerived, "inner" | "outer" | "sheet" | "contact"> {
+  return {
+    inner: discLayerPose(base, active, SPLASH_INNER_EXPAND, SPLASH_INNER_OPACITY),
+    outer: discLayerPose(base, active, SPLASH_OUTER_EXPAND, SPLASH_OUTER_OPACITY),
+    sheet: sheetLayerPose(age, base.opacity, altKm, active),
+    contact: contactPose(altKm, active),
+  };
+}
+
+/**
  * Derive all splash spray poses from mission state (single pure entry point).
  *
  * @param state - Mission spray input
@@ -423,6 +475,9 @@ export function deriveSplashSpray(state: SplashSprayState): SplashSprayDerived {
     siteVisible,
     active,
     base,
-    ...layersFromBase(base, active, age, state.altEarth),
+    ...splashLayersFromBase(base, active, age, state.altEarth),
+    glitter: siteVisible
+      ? oceanGlitterOpacity(state.altEarth, state.missionT)
+      : 0,
   };
 }

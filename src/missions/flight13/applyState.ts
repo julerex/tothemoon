@@ -212,6 +212,7 @@ function updateEntry(
   ctx.cinemaState.plasma = prelaunch
     ? 0
     : entryPlasmaStrength(t, d.displayPhase, d.displayAltEarth, air);
+  ctx.payloadFx.update(prelaunch ? 0 : t);
 }
 
 function updateLights(ctx: F13Ctx, simT: number, b: BodyState): void {

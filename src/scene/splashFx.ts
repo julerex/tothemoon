@@ -4,12 +4,11 @@
  * Earth-fixed site (lat/lon → mesh-local on the Earth body) so the beacon
  * co-rotates. Spray expands near terminal splash — scrub-deterministic.
  *
- * Layers follow the pad-deluge tier pattern: inner spray, outer mist, brief
- * vertical sheet. Theater-grade, not CFD.
+ * V17: white volumetric contact steam + warm core + ocean glitter (not cyan discs).
  *
  * @see terminalFx.ts — pure strength / pose helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
- * @see docs/VISUAL_REALISM.md — V6 terminal FX
+ * @see docs/VISUAL_REALISM.md — V17 splash steam
  */
 
 import type * as THREE from "three";
@@ -30,20 +29,22 @@ const SPLASH_SITE: EarthTerminalSiteSpec = {
   name: "splash-fx",
   lat: FLIGHT13_SPLASH_LAT,
   lon: FLIGHT13_SPLASH_LON,
-  ring: { innerRadius: 1.5, outerRadius: 3.2, color: 0x4ec4ff, opacity: 0.5 },
+  ring: { innerRadius: 1.5, outerRadius: 3.2, color: 0x6a90a8, opacity: 0.45 },
   beacon: {
-    topRadius: 0.2, bottomRadius: 0.4, height: 10, color: 0x66ddff,
-    opacity: 0.7, nearKm: 800, idleOpacity: 0.4,
+    topRadius: 0.2, bottomRadius: 0.4, height: 10, color: 0xa8c8e0,
+    opacity: 0.55, nearKm: 800, idleOpacity: 0.3,
   },
-  disc: { radius: 1.2, color: 0x88e0ff, opacity: 0.3 },
+  disc: { radius: 1.2, color: 0x1a2838, opacity: 0.35 },
   label: {
-    name: "splash-site-label", text: SPLASH_SITE_LABEL, color: "#88e0ff",
+    name: "splash-site-label", text: SPLASH_SITE_LABEL, color: "#c8dce8",
     detail: SPLASH_SITE_DETAIL, height: 12,
   },
   layers: {
-    name: "splash-spray", segments: 48, innerColor: 0xc8eefc,
-    outerColor: 0xa8d8f0, contactColor: 0x0a2030, sheetColor: 0xe8f6ff,
+    // Warm-white core + pale mist (engine glow in the steam).
+    name: "splash-spray", segments: 48, innerColor: 0xffe8d8,
+    outerColor: 0xf0f4f8, contactColor: 0x081018, sheetColor: 0xffffff,
   },
+  oceanGlitter: true,
 };
 
 /**
@@ -81,9 +82,13 @@ export function createSplashFx(): SplashFx {
         missionT, landT, phase: opts.phase, altEarth: opts.altEarth,
       });
       site.setVisible(derived.siteVisible);
-      if (!derived.siteVisible) return;
+      if (!derived.siteVisible) {
+        site.setGlitter(0);
+        return;
+      }
       site.pulseBeacon(craftPos);
       site.layers.apply(derived);
+      site.setGlitter(derived.glitter);
     },
   });
 }

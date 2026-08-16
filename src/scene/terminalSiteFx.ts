@@ -263,6 +263,8 @@ export type EarthTerminalSiteSpec = Readonly<{
   disc: SiteDiscSpec;
   label: SiteLabelSpec;
   layers: TerminalLayersSpec;
+  /** Cheap ocean sun-glint sprites (V17 splash / Gulf). */
+  oceanGlitter?: boolean;
 }>;
 
 export type EarthTerminalSite = Readonly<{
@@ -273,7 +275,57 @@ export type EarthTerminalSite = Readonly<{
   setVisible: (visible: boolean) => void;
   /** Breathe the beacon from the craft's distance to the site. */
   pulseBeacon: (craftPos: THREE.Vector3) => void;
+  /** Set ocean glitter opacity [0, 1] (no-op when glitter was not requested). */
+  setGlitter: (opacity: number) => void;
 }>;
+
+function paintGlitterCanvas(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 28);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(200,230,255,0.55)");
+  g.addColorStop(1, "rgba(40,80,120,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Sparse anisotropic sparkle sprites on the water plate. */
+function createOceanGlitterSprites(): {
+  group: THREE.Group;
+  mats: THREE.SpriteMaterial[];
+} {
+  const group = new THREE.Group();
+  group.name = "ocean-glitter";
+  const map = paintGlitterCanvas();
+  const mats: THREE.SpriteMaterial[] = [];
+  const spots = [
+    { x: 0.8, z: 0.2, s: 2.4 },
+    { x: -0.5, z: 1.1, s: 1.8 },
+    { x: 1.4, z: -0.7, s: 2.1 },
+    { x: -1.2, z: -0.4, s: 1.6 },
+    { x: 0.2, z: -1.5, s: 2.8 },
+    { x: -0.9, z: 0.6, s: 1.5 },
+  ];
+  for (const spot of spots) {
+    const mat = new THREE.SpriteMaterial({
+      map, color: 0xddeeff, transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.set(spot.x, 0.08, spot.z);
+    sprite.scale.set(spot.s, spot.s * 0.35, 1);
+    group.add(sprite);
+    mats.push(mat);
+  }
+  group.visible = false;
+  return { group, mats };
+}
 
 /**
  * Build an Earth-fixed site plate (ring, beacon, disc, label) with its spray
@@ -286,6 +338,7 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
   const beacon = createSiteBeacon(spec.beacon);
   const beaconMat = beacon.material as THREE.MeshBasicMaterial;
   const layers = createTerminalLayers(spec.layers);
+  const glitter = spec.oceanGlitter ? createOceanGlitterSprites() : null;
   site.add(
     createSiteRing(spec.ring),
     beacon,
@@ -293,6 +346,7 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
     createSiteLabel(spec.label),
     ...layers.objects,
   );
+  if (glitter) site.add(glitter.group);
   placeSiteOnEarth(site, spec.lat, spec.lon);
   group.add(site);
   site.visible = false;
@@ -312,6 +366,13 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
         spec.beacon.nearKm,
         spec.beacon.idleOpacity,
       );
+    },
+    setGlitter(opacity) {
+      if (!glitter) return;
+      const on = opacity > 0.02;
+      glitter.group.visible = on;
+      if (!on) return;
+      for (const mat of glitter.mats) mat.opacity = opacity;
     },
   });
 }

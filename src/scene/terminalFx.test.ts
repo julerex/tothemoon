@@ -20,10 +20,12 @@ import {
   descentSpray,
   dustActive,
   dustExpandOpacity,
+  hullWetStrength,
   landedDust,
   landingWashStrength,
   nearMoonPhase,
   nearSplash,
+  oceanGlitterOpacity,
   sheetLayerPose,
   shouldShowSplashSite,
   splashdownSpray,
@@ -139,7 +141,7 @@ describe("splashdownSpray / descentSpray", () => {
     const t150 = splashdownSpray(160, 10);
     assert.ok(t0.opacity > 0.85);
     assert.ok(t150.opacity < t0.opacity);
-    assert.ok(t150.opacity < 0.25);
+    assert.ok(t150.opacity < 0.4);
   });
 
   it("descent expand grows as alt drops", () => {
@@ -155,6 +157,37 @@ describe("splashdownSpray / descentSpray", () => {
       sprayExpandOpacity(30, 40, "descent", 8),
       descentSpray(8),
     );
+  });
+
+  it("keeps splash layers denser/whiter than the lunar dust multipliers", () => {
+    const fx = deriveSplashSpray({
+      missionT: 10,
+      landT: 10,
+      phase: "splashdown",
+      altEarth: 0.2,
+    });
+    assert.ok(fx.inner.opacity > 0.9, `inner ${fx.inner.opacity}`);
+    assert.ok(fx.outer.opacity > 0.35, `outer ${fx.outer.opacity}`);
+    assert.ok(fx.inner.expand > 5);
+  });
+});
+
+describe("oceanGlitterOpacity / hullWetStrength", () => {
+  it("peaks at low altitude and fades above 60 km", () => {
+    assert.ok(oceanGlitterOpacity(0.1, 100) > 0.3);
+    assert.ok(oceanGlitterOpacity(10, 100) > 0.2);
+    assert.equal(oceanGlitterOpacity(80, 100), 0);
+  });
+
+  it("is scrub-deterministic", () => {
+    assert.equal(oceanGlitterOpacity(5, 42.5), oceanGlitterOpacity(5, 42.5));
+  });
+
+  it("wets the hull on splashdown and late descent", () => {
+    assert.equal(hullWetStrength("splashdown", 0), 1);
+    assert.ok(hullWetStrength("descent", 0.1)! > 0.5);
+    assert.equal(hullWetStrength("descent", 2), 0);
+    assert.equal(hullWetStrength("coast", 0.1), 0);
   });
 });
 
@@ -239,6 +272,7 @@ describe("deriveSplashSpray", () => {
     assert.deepEqual(a, deriveSplashSpray(splash));
     assert.equal(a.active, true);
     assert.equal(a.inner.visible, true);
+    assert.ok(a.glitter > 0);
 
     const high = deriveSplashSpray({
       ...splash,

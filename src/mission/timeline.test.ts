@@ -119,6 +119,8 @@ describe("buildTimeline", () => {
     const ids = new Set(tl.events.map((e) => e.id));
     assert.ok(ids.has("max-q"));
     assert.ok(ids.has("seco"));
+    assert.ok(ids.has("payload-start"));
+    assert.ok(ids.has("payload-complete"));
     assert.ok(ids.has("relight"));
     assert.ok(ids.has("entry"));
     assert.ok(ids.has("splashdown"));

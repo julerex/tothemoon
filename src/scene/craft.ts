@@ -29,6 +29,8 @@ import {
   paintStainlessPhotoreal,
   tileGroutGlow,
 } from "./craftHullMaps";
+import { entryHeatEmissiveRgb } from "./entryPlasma";
+import { hullWetStrength } from "./terminalFx";
 
 /**
  * Near-true-scale Super Heavy + Starship stack plus STARSHIP / SUPER HEAVY name
@@ -58,6 +60,11 @@ import {
  *
  * V14 launch: pink-magenta atmosphere plumes, Super Heavy cryo frost sheets,
  * ice-flake shed through max-Q.
+ *
+ * V15 entry: violet / magenta plasma fill on windward tiles (flap-edge sprites
+ * live in entryFx); residual grout glow into descent stays warm.
+ *
+ * V17 splash: wet / charred hull roughness punch after water contact.
  */
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
@@ -665,7 +672,12 @@ function buildShip(mats: CraftMats): THREE.Group {
   ship.position.z = BOOST_H;
   ship.userData.stackedZ = BOOST_H;
   ship.userData.stagedZ = 0;
-  ship.userData.heatMats = { tile: mats.tile, tileWear: mats.tileWear };
+  ship.userData.heatMats = {
+    tile: mats.tile,
+    tileWear: mats.tileWear,
+    tileRough0: mats.tile.roughness,
+    wearRough0: mats.tileWear.roughness,
+  };
   return ship;
 }
 
@@ -2166,11 +2178,14 @@ function setStackLayout(group: THREE.Group, staged: boolean): void {
 type HeatMats = {
   tile: THREE.MeshStandardMaterial;
   tileWear: THREE.MeshStandardMaterial;
+  tileRough0: number;
+  wearRough0: number;
 };
 
 /**
  * Windward tile glow / char from entry plasma. Theater-grade — not a heat map.
  * Intensity is scrub-safe via {@link CraftVisualState.plasmaStrength}.
+ * V15: violet plasma fill; residual grout into descent stays warm.
  */
 function updateEntryHeat(group: THREE.Group, plasma: number, phase?: string): void {
   const ship = group.getObjectByName("ship");
@@ -2178,10 +2193,25 @@ function updateEntryHeat(group: THREE.Group, plasma: number, phase?: string): vo
   if (!mats) return;
   const p = Number.isFinite(plasma) ? Math.max(0, Math.min(1, plasma)) : 0;
   const u = tileGroutGlow(p, phase);
-  mats.tile.emissive.setRGB(0.72 * u + 0.28 * p, 0.22 * u + 0.08 * p, 0.07 * u);
-  mats.tile.emissiveIntensity = 0.4 + 1.55 * p;
-  mats.tileWear.emissive.setRGB(0.7 * u, 0.16 * u, 0.03 * u);
-  mats.tileWear.emissiveIntensity = 0.25 + 1.05 * p;
+  const heat = entryHeatEmissiveRgb(p, u);
+  mats.tile.emissive.setRGB(heat.tile.r, heat.tile.g, heat.tile.b);
+  mats.tile.emissiveIntensity = heat.tileIntensity;
+  mats.tileWear.emissive.setRGB(heat.tileWear.r, heat.tileWear.g, heat.tileWear.b);
+  mats.tileWear.emissiveIntensity = heat.wearIntensity;
+}
+
+/** Post-contact wet / charred hull (V17) — roughness punch, no new mesh. */
+function updateHullWet(
+  group: THREE.Group,
+  phase: string | undefined,
+  altEarth: number | undefined,
+): void {
+  const ship = group.getObjectByName("ship");
+  const mats = ship?.userData.heatMats as HeatMats | undefined;
+  if (!mats) return;
+  const wet = hullWetStrength(phase, altEarth);
+  mats.tile.roughness = mats.tileRough0 + 0.18 * wet;
+  mats.tileWear.roughness = mats.wearRough0 + 0.22 * wet;
 }
 
 const FWD_FLAP_NAMES = ["fwd-flap-L", "fwd-flap-R"] as const;
@@ -2233,6 +2263,7 @@ export function updateCraftVisuals(
   updateCondensation(group.getObjectByName("condense-cloud"), state.phase, missionT, state.burning);
   updateFrostAndIce(group, state, missionT);
   updateEntryHeat(group, state.plasmaStrength ?? 0, state.phase);
+  updateHullWet(group, state.phase, state.altEarth);
   updateControlSurfaces(group, state);
 }
 

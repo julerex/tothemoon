@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V14 shipped; **next:** photorealism vs Flight 13 webcast stills — magenta plasma, Pez payload, splash steam): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V17 shipped; **next:** engine-bay / onboard look, gated LEO clouds): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
 
@@ -208,7 +208,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
 4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-5. **Visual photorealism V13+** — V13 hull-cam + V14 launch scene **done**; **next** magenta entry plasma, Pez payload, splash steam ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+5. **Visual photorealism V13+** — V13–V17 **done**; **next** engine-bay / onboard (V18), gated LEO clouds (V19) ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 6. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---

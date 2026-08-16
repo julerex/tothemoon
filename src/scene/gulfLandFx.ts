@@ -3,10 +3,11 @@
  *
  * Earth-fixed (lat/lon → mesh-local) so the beacon co-rotates. Spray uses the
  * shared terminal FX curves. Theater-grade — not a barge or CFD splash.
+ * V17: ocean glitter + warmer white steam on the Gulf plate.
  *
  * @see padRecoveryFx.ts — visibility / AGL helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
- * @see docs/VISUAL_REALISM.md — V8 recovery catch
+ * @see docs/VISUAL_REALISM.md — V8 recovery catch / V17 splash steam
  */
 
 import type * as THREE from "three";
@@ -45,9 +46,10 @@ const GULF_SITE: EarthTerminalSiteSpec = {
     detail: GULF_SITE_DETAIL, height: 10,
   },
   layers: {
-    name: "gulf-spray", segments: 40, innerColor: 0xc8f0dc,
-    outerColor: 0xa8dcc8, contactColor: 0x0a2418, sheetColor: 0xe8fff4,
+    name: "gulf-spray", segments: 40, innerColor: 0xffe8d0,
+    outerColor: 0xe8f4f0, contactColor: 0x0a1814, sheetColor: 0xffffff,
   },
+  oceanGlitter: true,
 };
 
 /** Gulf booster landing beacon + spray, parented under the Earth mesh. */
@@ -88,12 +90,14 @@ export function createGulfLandFx(): GulfLandFx {
       site.setVisible(show);
       if (!show) return;
       site.pulseBeacon(craftPos);
-      site.layers.apply(deriveSplashSpray({
+      const derived = deriveSplashSpray({
         missionT,
         landT,
         phase: gulfSprayPhase(opts.recoveryPhase),
         altEarth: gulfLandingAltKm(age),
-      }));
+      });
+      site.layers.apply(derived);
+      site.setGlitter(derived.glitter);
     },
   });
 }

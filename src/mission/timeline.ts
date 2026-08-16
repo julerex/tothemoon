@@ -271,8 +271,25 @@ function addFlightTestBeats(
   if (!hasFlightTestPhases(samples)) return;
   add("max-q", 58, "Max Q", "Peak aerodynamic stress");
   addSecoEvent(add, samples);
+  addPayloadEvents(add);
   addRelightEvent(add, samples);
   addLandingStepEvents(add, segments);
+}
+
+function addPayloadEvents(add: EventAdder): void {
+  // Public T+ table (F13.PAYLOAD_START / END) — theater has no baked payload samples.
+  add(
+    "payload-start",
+    1000,
+    "Payload deploy",
+    "Pez door open · Starlink V3 deploy start",
+  );
+  add(
+    "payload-complete",
+    1659,
+    "Payload complete",
+    "20 Starlink V3 on the suborbital path",
+  );
 }
 
 function addSecoEvent(add: EventAdder, samples: readonly ReadonlySample[]): void {

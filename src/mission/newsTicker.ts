@@ -124,6 +124,14 @@ const COPY_BY_ID: Record<string, CopySpec> = {
     wire: "SECO",
     line: "SECO — Ship main engine cutoff. Suborbital coast begins on the Flight 13 corridor.",
   },
+  "payload-start": {
+    wire: "PAYLOAD",
+    line: "Pez deploy — Starlink V3 satellites departing the bay on the suborbital path.",
+  },
+  "payload-complete": {
+    wire: "PAYLOAD",
+    line: "Payload complete — all 20 Starlink V3 sats deployed; bay door closing.",
+  },
   relight: {
     wire: "DEMO",
     line: "Raptor in-space relight demo — single-engine retrograde burn to set up entry.",
@@ -351,7 +359,7 @@ const FLIGHT_COAST_MID: MidItem[] = [
   {
     everyS: 900,
     wire: "TRACK",
-    line: "Ship remains in free coast; next major beat is the in-space Raptor relight demo.",
+    line: "Coast continues — Pez deploy window or the in-space Raptor relight still ahead.",
   },
 ];
 
