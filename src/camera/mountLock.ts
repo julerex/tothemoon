@@ -8,14 +8,14 @@
  * Re-entering the mount (digit key, Auto-cam cut) restores `"hard"`.
  */
 
-export type MountFocus = "fin" | "gridfin" | "trench";
+export type MountFocus = "fin" | "gridfin" | "trench" | "hull";
 
 /** Snap pose every frame until the user grabs the camera. */
 export type MountLock = "hard" | "orbit";
 
-/** True for the three onboard / webcast mount focuses. */
+/** True for onboard / webcast mount focuses. */
 export function isMountFocus(mode: string): mode is MountFocus {
-  return mode === "fin" || mode === "gridfin" || mode === "trench";
+  return mode === "fin" || mode === "gridfin" || mode === "trench" || mode === "hull";
 }
 
 /** Snap to the mount pose until the user orbits, pans, or zooms. */

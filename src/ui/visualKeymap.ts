@@ -30,7 +30,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "6", action: "Booster" },
     { label: "7", action: "Starship" },
     { label: "8", action: "Fin cam" },
-    { label: "9" },
+    { label: "9", action: "Hull cam" },
     { label: "0" },
     { label: "-" },
     { label: "=" },

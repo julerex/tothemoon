@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   BOOSTER_WELD_RING_COUNT,
+  CRAFT_CAM_MOUNT_NAMES,
   FIN_CAM_LOCAL,
   FIN_CAM_LOOK_LOCAL,
   GRID_FIN_LATTICE_N,
@@ -39,5 +40,18 @@ describe("V4 craft material layout", () => {
     assert.ok(FIN_CAM_LOCAL.z > 0.82);
     assert.ok(FIN_CAM_LOOK_LOCAL.z < 0.40);
     assert.ok(FIN_CAM_LOCAL.x > FIN_CAM_LOOK_LOCAL.x);
+  });
+
+  it("names webcast hull and engine-bay mounts for Auto-cam", () => {
+    const names = new Set<string>(CRAFT_CAM_MOUNT_NAMES);
+    for (const n of [
+      "hull-cam", "hull-cam-look",
+      "flap-cam", "flap-cam-look",
+      "booster-hull-cam", "booster-hull-cam-look",
+      "engines-cam", "engines-cam-look",
+      "engines-down-cam", "engines-down-cam-look",
+    ]) {
+      assert.ok(names.has(n), n);
+    }
   });
 });
