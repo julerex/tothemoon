@@ -154,7 +154,13 @@ const COPY_BY_ID: Record<string, CopySpec> = {
   },
   splashdown: {
     wire: "SPLASH",
-    line: "Splashdown — Starship is soft in the Indian Ocean. Flight test complete.",
+    line:
+      "Splashdown — Starship is floating upright in the Indian Ocean. Recovery drone is inbound.",
+  },
+  "splash-drone": {
+    wire: "DRONE",
+    line:
+      "Recovery drone is on station — circling the intact ship at sea level in the Indian Ocean.",
   },
   lowEarthOrbit: {
     wire: "ORBIT",
@@ -246,7 +252,8 @@ const PHASE_AMBIENT: Partial<
   }),
   splashdown: () => ({
     wire: "SPLASH",
-    line: "Ship is down in the Indian Ocean — recovery assets on station.",
+    line:
+      "Ship is floating engines-down in the Indian Ocean — recovery drone holding a sea-level orbit.",
   }),
   landed: () => ({
     wire: "LAND",

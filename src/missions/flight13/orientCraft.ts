@@ -7,6 +7,7 @@ import type * as THREE from "three";
 import {
   landingFlipBlend,
   shipAttitudeMode,
+  splashFloatBob,
 } from "../../physics/flight13Attitude";
 import type { PhaseId } from "../../physics/missionTypes";
 
@@ -142,14 +143,27 @@ function orientPrograde(
   applyCraftHeading(s, vel);
 }
 
+function applySplashBob(s: OrientScratch, missionT: number): void {
+  const bob = splashFloatBob(missionT);
+  s.side.set(0, 0, 1).cross(s.localUp);
+  if (s.side.lengthSq() < 1e-12) s.side.set(1, 0, 0).cross(s.localUp);
+  s.side.normalize();
+  s.craftTan.copy(s.localUp).cross(s.side).normalize();
+  s.localUp.addScaledVector(s.craftTan, bob.pitchRad);
+  s.localUp.addScaledVector(s.side, bob.rollRad);
+  s.localUp.normalize();
+}
+
 function applyAttitudeMode(
   s: OrientScratch,
   mode: ReturnType<typeof shipAttitudeMode>,
   vel: THREE.Vector3,
   nearEarth: boolean,
   missionT: number,
+  phase: PhaseId,
 ): void {
   if (mode === "radial_up" || (airTooSlow(s) && mode === "prograde")) {
+    if (phase === "splashdown") applySplashBob(s, missionT);
     applyCraftHeading(s, s.localUp);
     return;
   }
@@ -177,5 +191,5 @@ export function orientCraft(
   const r = computeLocalUp(s, earthPos);
   computeAirVel(s, vel, earthVel, r);
   const mode = shipAttitudeMode(missionT, phase, altEarth, burning);
-  applyAttitudeMode(s, mode, vel, nearEarth, missionT);
+  applyAttitudeMode(s, mode, vel, nearEarth, missionT, phase);
 }

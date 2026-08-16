@@ -73,8 +73,8 @@ describe("autoCamForPhaseFlight13", () => {
     assert.equal(autoCamForPhaseFlight13("entry").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("descent").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("splashdown").mode, "chase");
-    assert.ok((autoCamForPhaseFlight13("splashdown").frameScale ?? 1) > 1.3);
-    assert.ok((autoCamForPhaseFlight13("splashdown").elevationDeg ?? 0) > 40);
+    assert.equal(autoCamForPhaseFlight13("splashdown").droneTrack, true);
+    assert.ok((autoCamForPhaseFlight13("splashdown").elevationDeg ?? 90) < 15);
   });
 });
 
@@ -255,10 +255,11 @@ describe("finaleChaseBias", () => {
     });
   });
 
-  it("looks down more on splash than mid-descent", () => {
+  it("looks down on descent and pins the floating ship at splash", () => {
     const d = finaleChaseBias(true, "flight13", "descent");
     const s = finaleChaseBias(true, "flight13", "splashdown");
-    assert.ok(s.lookDownKm > d.lookDownKm);
-    assert.ok(s.lookAheadScale > d.lookAheadScale);
+    assert.ok(d.lookDownKm > 0);
+    assert.equal(s.lookAheadScale, 0);
+    assert.equal(s.lookDownKm, 0);
   });
 });

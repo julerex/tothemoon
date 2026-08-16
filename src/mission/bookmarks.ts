@@ -230,8 +230,19 @@ function impactTouchdown(tl: MissionTimeline): TouchdownTerm | null {
   return { t: impactT, mode: "moon", label: "Impact", shortLabel: "Impact" };
 }
 
+function splashTouchdown(tl: MissionTimeline): TouchdownTerm | null {
+  const splashT = eventT(tl, "splashdown") ?? segmentT0(tl, "splashdown");
+  if (splashT == null) return null;
+  return {
+    t: splashT,
+    mode: "chase",
+    label: "Splashdown",
+    shortLabel: "Splash",
+  };
+}
+
 function resolveTouchdown(tl: MissionTimeline): TouchdownTerm | null {
-  return landTouchdown(tl) ?? impactTouchdown(tl);
+  return landTouchdown(tl) ?? splashTouchdown(tl) ?? impactTouchdown(tl);
 }
 
 function clamp(v: number, lo: number, hi: number): number {

@@ -24,8 +24,8 @@ export const MISSIONS: readonly MissionDef[] = [
     subtitle: "July 2026 · Starbase · flight test · true scale",
     blurb:
       "Full theater: staged ascent, hot-stage, suborbital coast, Raptor relight, " +
-      "entry, and Indian Ocean splashdown on the public Flight 13 timeline. " +
-      "Same visual stack as the lunar mission (pad, craft, cameras, HUD).",
+      "entry, Indian Ocean splashdown, and a sea-level drone hold of the floating " +
+      "ship through T+1:10. Same visual stack as the lunar mission (pad, craft, cameras, HUD).",
     status: "ready",
     path: "flight-13",
   },

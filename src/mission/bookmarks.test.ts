@@ -92,6 +92,25 @@ describe("buildBookmarks", () => {
     assert.ok(marks.some((m) => m.id === "translunarInjection"));
   });
 
+  it("labels Flight 13 splashdown as Splash on the touchdown bookmark", () => {
+    const samples: Sample[] = [
+      sample(0, "launch", { staged: false }),
+      sample(50, "ascent", { staged: false }),
+      sample(150, "coast", { staged: true }),
+      sample(2000, "entry", { staged: true }),
+      sample(2500, "descent", { staged: true }),
+      sample(2800, "splashdown", { staged: true }),
+    ];
+    const tl = buildTimeline(samples, 4200);
+    const marks = buildBookmarks(tl);
+    const end = marks.find((m) => m.id === "touchdown");
+    assert.ok(end);
+    assert.equal(end!.label, "Splashdown");
+    assert.equal(end!.shortLabel, "Splash");
+    assert.equal(end!.mode, "chase");
+    assert.equal(end!.t, 2800);
+  });
+
   it("uses Impact framing when there is no soft landing", () => {
     const samples: Sample[] = [
       sample(0, "launch", { staged: false }),

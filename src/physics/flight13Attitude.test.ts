@@ -14,6 +14,7 @@ import {
   landingFlipBlend,
   plasmaBankOffset,
   shipAttitudeMode,
+  splashFloatBob,
 } from "./flight13Attitude.ts";
 
 describe("shipAttitudeMode", () => {
@@ -43,6 +44,17 @@ describe("shipAttitudeMode", () => {
       shipAttitudeMode(F13_ATT.SPLASH, "splashdown", 0.05, false),
       "radial_up",
     );
+  });
+});
+
+describe("splashFloatBob", () => {
+  it("is a small scrub-stable swell", () => {
+    const a = splashFloatBob(4000);
+    const b = splashFloatBob(4000);
+    assert.deepEqual(a, b);
+    assert.ok(Math.abs(a.pitchRad) < 0.05);
+    assert.ok(Math.abs(a.rollRad) < 0.04);
+    assert.notEqual(splashFloatBob(4004).pitchRad, a.pitchRad);
   });
 });
 

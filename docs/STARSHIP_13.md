@@ -237,9 +237,9 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 
 ## App theater (this repository)
 
-Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon): baked RK4 pack `src/data/flight13-trajectory.json`, pad/craft/staging FX, cameras, HUD scrubber. Phases: launch → ascent → coast → entry → descent → splashdown. Rebuild with `npm run precompute:flight13`.
+Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon): baked RK4 pack `src/data/flight13-trajectory.json`, pad/craft/staging FX, cameras, HUD scrubber. Phases: launch → ascent → coast → entry → descent → splashdown (float hold). Rebuild with `npm run precompute:flight13`.
 
-**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight as a real retrograde deorbit** (theater ~20 s vs public ~12 s demo); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive (may finish before the public T+65:21 mark). Not ops ephemerides.
+**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight as a real retrograde deorbit** (theater ~20 s vs public ~12 s demo); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive (may be before the public T+65:21 mark). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Not ops ephemerides.
 
 **Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window open, **5:45 p.m. CDT** — no time shift). Actual liftoff on the SpaceX page is **2026-07-24 22:51 UTC** (5:51 p.m. CT). Solar longitude matches the theater UTC. Analytic Earth/Sun (not the July 2027 Horizons table). Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
 

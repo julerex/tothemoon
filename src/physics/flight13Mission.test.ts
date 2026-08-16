@@ -12,7 +12,7 @@ import {
 } from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
-import { F13, runFlight13Mission } from "./flight13Mission.ts";
+import { F13, firstSplashdownT, runFlight13Mission } from "./flight13Mission.ts";
 import { cross, dot, len, set, sub, v3 } from "./vec3.ts";
 
 /** Geodetic longitude (deg, east-positive) from an inertial sample position. */
@@ -45,9 +45,28 @@ describe("runFlight13Mission", () => {
     assert.equal(result.ok, true);
     assert.ok(result.samples.length > 100);
     assert.equal(result.samples[result.samples.length - 1]!.phase, "splashdown");
-    // Natural early splash is OK (dynamics-driven); still a full suborbital flight
+    // Natural early splash is OK (dynamics-driven); pack holds through T+1:10
     assert.ok(result.durationS > 35 * 60, `duration ${result.durationS}s too short`);
-    assert.ok(result.durationS < F13.SPLASH + 60, `duration ${result.durationS}s too long`);
+    assert.ok(
+      Math.abs(result.durationS - F13.END) < 3,
+      `duration ${result.durationS}s expected ~${F13.END}s (T+1:10)`,
+    );
+  });
+
+  it("holds the floating ship on the ocean through T+1:10", () => {
+    const splash0 = result.samples.find((s) => s.phase === "splashdown");
+    assert.ok(splash0, "expected a splashdown sample");
+    assert.ok(splash0!.t < F13.SPLASH + 30, `first splash ${splash0!.t}`);
+    assert.equal(firstSplashdownT(result.samples), splash0!.t);
+    const last = result.samples[result.samples.length - 1]!;
+    assert.equal(last.phase, "splashdown");
+    const alt = altitudeEarth(last.t, last.pos, epoch);
+    assert.ok(alt < 0.5, `float alt ${alt} km`);
+    const lon = sampleLonDeg(last.t, last.pos, epoch);
+    assert.ok(Math.abs(lon - 95) < 8, `float lon ${lon}° — expected Indian Ocean ~95°E`);
+    const splashSamples = result.samples.filter((s) => s.phase === "splashdown");
+    assert.ok(splashSamples.length > 20, `float samples ${splashSamples.length}`);
+    assert.ok(last.t - splash0!.t > 200, `float hold ${last.t - splash0!.t}s`);
   });
 
   it("stages near the public hot-stage mark", () => {

@@ -24,6 +24,7 @@ import {
   compareFlight13ToEarthOnly,
   formatForceCompareLine,
 } from "../../physics/flight13ForceCompare";
+import { firstSplashdownT } from "../../physics/flight13Mission";
 import { hasHorizonsEpoch, horizonsSource } from "../../physics/horizonsEpoch";
 import { EARTH_SPIN_RATE, earthNorthPole } from "../../physics/earthFrame";
 import {
@@ -301,7 +302,7 @@ function mountSplashEntry(
   craft: THREE.Group,
 ) {
   const splashFx = createSplashFx();
-  splashFx.setSplashTime(cache.samples[cache.samples.length - 1]!.t);
+  splashFx.setSplashTime(firstSplashdownT(cache.samples));
   bodies.earth.add(splashFx.group);
   const gulfLandFx = createGulfLandFx();
   const stageT = staging.stageT;

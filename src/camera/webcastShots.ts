@@ -41,12 +41,41 @@ export type WebcastShot = {
   chaseSubject?: "ship" | "booster";
   /** Vertical FOV; onboard hull/engine cams are wider than the theater default. */
   fov?: number;
+  /**
+   * Sea-level drone hold: reseat each frame on an Earth-ENU orbit of the
+   * floating ship (Flight 13 post-splash).
+   */
+  droneTrack?: boolean;
 };
 
 /** Wider FOV for webcast hull / engine-bay stills. */
 export const WEBCAST_ONBOARD_FOV = 80;
 /** Default theater PerspectiveCamera FOV. */
 export const THEATER_DEFAULT_FOV = 50;
+
+/** Mission time (s) when Auto-cam cuts from aerial splash to the sea drone. */
+export const SPLASH_DRONE_T0 = 3926;
+/** Opening ENU azimuth (deg from east toward north) for the drone hold. */
+export const SPLASH_DRONE_AZ0_DEG = 218;
+/** Slow orbit rate (deg/s) — ~32°/min, a leisurely recovery-drone circle. */
+export const SPLASH_DRONE_AZ_RATE_DEG_S = 32 / 60;
+/** Elevation above the local ocean horizon (deg). */
+export const SPLASH_DRONE_ELEV_DEG = 8;
+/** Chase frameScale: ship + steam + horizon, close enough to read the hull. */
+export const SPLASH_DRONE_FRAME_SCALE = 0.92;
+/** Slightly wider than the theater default — handheld drone lens. */
+export const SPLASH_DRONE_FOV = 58;
+
+/**
+ * ENU azimuth for the post-splash recovery drone at mission time `t`.
+ * Scrub-deterministic slow orbit around the floating ship.
+ *
+ * @param t - Mission time (s)
+ */
+export function splashDroneAzimuthDeg(t: number): number {
+  const age = Math.max(0, t - SPLASH_DRONE_T0);
+  return SPLASH_DRONE_AZ0_DEG + age * SPLASH_DRONE_AZ_RATE_DEG_S;
+}
 
 /**
  * Sorted Flight 13 webcast cuts (left pane when split).
@@ -57,7 +86,8 @@ export const THEATER_DEFAULT_FOV = 50;
  * Pad: wide aerial → ground stack that tracks the climb.
  * Ascent through Super Heavy splash: booster hull / engine-bay (left of split).
  * After SH landing: ship hull-cam (payload / coast / landing) and flap-cam
- * on the entry split. Splash: external aerial chase.
+ * on the entry split. Splash: brief aerial chase, then sea-level drone orbit
+ * of the floating ship (webcast recovery views).
  */
 export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
@@ -204,6 +234,17 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     frameScale: 1.7,
     azimuthDeg: 145,
     elevationDeg: 55,
+  },
+  {
+    key: "splash-drone",
+    t0: SPLASH_DRONE_T0,
+    mode: "chase",
+    frame: true,
+    frameScale: SPLASH_DRONE_FRAME_SCALE,
+    azimuthDeg: SPLASH_DRONE_AZ0_DEG,
+    elevationDeg: SPLASH_DRONE_ELEV_DEG,
+    fov: SPLASH_DRONE_FOV,
+    droneTrack: true,
   },
 ];
 

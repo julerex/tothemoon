@@ -30,7 +30,8 @@ import {
 import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
 import { applyLandingBeatEffects } from "../theaterHandlers";
-import { nextAutoCamCut, finaleChaseBias, type AutoCamSuggestion } from "../../camera/autoCam";
+import { nextAutoCamCut, finaleChaseBias, autoCamFromWebcastShot, type AutoCamSuggestion } from "../../camera/autoCam";
+import { webcastShotAt } from "../../camera/webcastShots";
 import {
   applyEarthshine,
   applyFillLight,
@@ -275,6 +276,15 @@ function applyAutoCam(
       z: b.earth.z - ctx.craftPos.z,
     },
   });
+  holdSplashDrone(ctx, physicsT);
+}
+
+/** Keep the sea-level drone seated while Auto-cam is on the splash-drone cut. */
+function holdSplashDrone(ctx: F13Ctx, physicsT: number): void {
+  if (!ctx.autoCam.enabled) return;
+  const shot = webcastShotAt(physicsT);
+  if (shot.key !== "splash-drone") return;
+  ctx.director.easeToMode(shot.mode, autoCamFromWebcastShot(shot));
 }
 
 function splashWorldPoint(ctx: F13Ctx, simT: number): void {
@@ -353,11 +363,8 @@ function updateVectors(
 }
 
 function completeRaw(frame: SampleFrame, u: number): boolean {
-  return (
-    frame.phase === "splashdown" ||
-    frame.phase === "landed" ||
-    u >= 0.999
-  );
+  // Splashdown is a long float hold (through T+1:10). Complete only at the end.
+  return frame.phase === "landed" || u >= 0.999;
 }
 
 function runLandingBeat(

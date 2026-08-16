@@ -24,7 +24,14 @@ import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
-import { THEATER_DEFAULT_FOV, type WebcastMount } from "./webcastShots";
+import {
+  SPLASH_DRONE_ELEV_DEG,
+  SPLASH_DRONE_FOV,
+  SPLASH_DRONE_FRAME_SCALE,
+  THEATER_DEFAULT_FOV,
+  splashDroneAzimuthDeg,
+  type WebcastMount,
+} from "./webcastShots";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
@@ -165,6 +172,13 @@ export class CameraDirector {
   private padTrackAz = 180;
   private padTrackEl = PAD_OPENING_ELEV * (180 / Math.PI);
   private padTrackDist = 0.5;
+  /**
+   * Sea-level drone orbit of a floating ship (Flight 13 post-splash).
+   * Reseats every frame on Earth ENU until the user grabs the camera.
+   */
+  private droneTrack = false;
+  private droneFrameScale = SPLASH_DRONE_FRAME_SCALE;
+  private droneEl = SPLASH_DRONE_ELEV_DEG;
   /** Gridfin/hull mount override for webcast engine-bay / hull-down shots. */
   private mountVariant: WebcastMount | "default" = "default";
   private chaseSubject: "ship" | "booster" = "ship";
@@ -416,6 +430,7 @@ export class CameraDirector {
       mount?: WebcastMount;
       chaseSubject?: "ship" | "booster";
       fov?: number;
+      droneTrack?: boolean;
     },
   ): void {
     this.applyGuidedPose(opts);
@@ -437,17 +452,26 @@ export class CameraDirector {
     fov?: number;
     azimuthDeg?: number;
     elevationDeg?: number;
+    droneTrack?: boolean;
+    frameScale?: number;
   }): void {
     this.padTrack = !!opts?.padTrack;
+    this.droneTrack = !!opts?.droneTrack;
     this.mountVariant = opts?.mount ?? "default";
     this.chaseSubject = opts?.chaseSubject ?? "ship";
     if (opts?.azimuthDeg != null) this.padTrackAz = opts.azimuthDeg;
-    if (opts?.elevationDeg != null) this.padTrackEl = opts.elevationDeg;
-    this.setVerticalFov(opts?.fov ?? THEATER_DEFAULT_FOV);
+    if (opts?.elevationDeg != null) {
+      this.padTrackEl = opts.elevationDeg;
+      this.droneEl = opts.elevationDeg;
+    }
+    if (opts?.frameScale != null) this.droneFrameScale = opts.frameScale;
+    const fov = opts?.droneTrack ? (opts.fov ?? SPLASH_DRONE_FOV) : (opts?.fov ?? THEATER_DEFAULT_FOV);
+    this.setVerticalFov(fov);
   }
 
   private clearGuidedPose(): void {
     this.padTrack = false;
+    this.droneTrack = false;
     this.mountVariant = "default";
     this.chaseSubject = "ship";
     this.setVerticalFov(THEATER_DEFAULT_FOV);
@@ -1047,6 +1071,7 @@ export class CameraDirector {
   private chaseLookaheadKm(sp: number): number {
     const len = craftLengthKm(false);
     const scale = Number.isFinite(this.chaseLookAheadScale) ? this.chaseLookAheadScale : 1;
+    if (!(scale > 0)) return 0;
     return THREE.MathUtils.clamp(
       sp * CHASE_LOOKAHEAD_S * scale,
       CHASE_LOOKAHEAD_MIN_KM,
@@ -1341,6 +1366,7 @@ export class CameraDirector {
     this.craftPos.copy(craftPos);
     this.craftVel.copy(craftVel);
     if (this.holdPadTrack()) return;
+    if (this.holdDroneTrack()) return;
     if (this.holdHardLockMount()) return;
     this.updateFreeCamera(dt);
   }
@@ -1366,6 +1392,52 @@ export class CameraDirector {
     }
     this.applyPadTrack();
     return true;
+  }
+
+  /**
+   * Sea-level drone: reseat on a slow ENU orbit of the floating ship.
+   * Azimuth is a function of mission time so scrubs stay deterministic.
+   */
+  private holdDroneTrack(): boolean {
+    if (!this.droneTrack || this.focus !== "chase") return false;
+    if (this.hasCameraHold()) {
+      this.droneTrack = false;
+      this.unlockMount();
+      return false;
+    }
+    this.applyDroneTrack();
+    return true;
+  }
+
+  private applyDroneTrack(): void {
+    if (!this.buildCraftEnu()) return;
+    // Staged ship length, no orbital speed-widen — the float is Earth-fixed.
+    const dist = Math.max(
+      this.controls.minDistance,
+      this.distanceForRadius(craftLengthKm(true) * 0.5, 0.48) * this.droneFrameScale,
+    );
+    const az = splashDroneAzimuthDeg(this.simTime);
+    const off = enuOffsetKm(
+      { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },
+      { x: this.earthNorth.x, y: this.earthNorth.y, z: this.earthNorth.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+      az,
+      this.droneEl,
+      dist,
+    );
+    this.desiredTarget.copy(this.craftPos);
+    this.camera.position.set(
+      this.craftPos.x + off.x,
+      this.craftPos.y + off.y,
+      this.craftPos.z + off.z,
+    );
+    this.controls.target.copy(this.desiredTarget);
+    this.camera.up.copy(this.earthUp);
+    this.camera.lookAt(this.controls.target);
+    this.syncOrbitControlsUp();
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
+    this.clampOutsideBodies();
   }
 
   private applyLockedMountPose(): void {
@@ -1404,6 +1476,7 @@ export class CameraDirector {
    */
   private unlockMount(): void {
     if (this.padTrack) this.padTrack = false;
+    if (this.droneTrack) this.droneTrack = false;
     if (!isHardLockedMount(this.focus, this.mountLock)) return;
     this.mountLock = mountLockAfterUserControl(this.mountLock);
     this.seedMountTrackAnchor();

@@ -127,6 +127,7 @@ describe("buildTimeline", () => {
     assert.ok(ids.has("land-flip"));
     assert.ok(ids.has("land-3to2"));
     assert.ok(ids.has("land-2to1"));
+    assert.ok(ids.has("splash-drone"));
   });
 
   it("emits touchdown for soft-land packs", () => {

@@ -316,7 +316,7 @@ Photo plate instead of procedural coastline glints:
 
 Multiplies terminal FX; Auto-cam only (does not fight Free orbit).
 
-- Flight 13: slightly larger splashdown `frameScale` plus a modest chase look-down / look-ahead bias so the ocean horizon reads.
+- Flight 13: brief aerial splash chase, then a low sea-level **recovery drone** orbit of the floating ship through T+1:10 (webcast analog).
 - Lunar: last ~30 s of descent (same phase) nudges `frameScale` ~1.35–1.6 once via `lunarFinaleShouldCut`.
 
 **Files:** `autoCam.ts` (+ tests), `camera/modes.ts` (`setChaseBias`), mission `applyState`.

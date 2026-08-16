@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   FLIGHT13_WEBCAST_SHOTS,
+  SPLASH_DRONE_T0,
+  splashDroneAzimuthDeg,
   webcastShotAt,
 } from "./webcastShots.ts";
 
@@ -59,11 +61,24 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(webcastShotAt(3900).mode, "hull");
   });
 
-  it("cuts to an aerial chase for splashdown", () => {
+  it("cuts to an aerial chase for splashdown, then a sea-level drone", () => {
     const splash = webcastShotAt(3920);
     assert.equal(splash.mode, "chase");
     assert.ok((splash.elevationDeg ?? 0) > 40);
     assert.ok((splash.frameScale ?? 1) > 1.3);
+    const drone = webcastShotAt(SPLASH_DRONE_T0);
+    assert.equal(drone.key, "splash-drone");
+    assert.equal(drone.droneTrack, true);
+    assert.ok((drone.elevationDeg ?? 90) < 15);
+    assert.equal(webcastShotAt(4000).key, "splash-drone");
+  });
+
+  it("orbits the drone azimuth with mission time", () => {
+    const a0 = splashDroneAzimuthDeg(SPLASH_DRONE_T0);
+    const a1 = splashDroneAzimuthDeg(SPLASH_DRONE_T0 + 60);
+    assert.ok(a1 > a0);
+    assert.ok(a1 - a0 > 20 && a1 - a0 < 45);
+    assert.equal(splashDroneAzimuthDeg(0), a0);
   });
 
   it("chooses chase for the payload-receding still, hull otherwise mid-coast", () => {

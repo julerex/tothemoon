@@ -19,6 +19,8 @@
  *   vs the public ~12 s demo so periapsis drops before the entry mark)
  * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
  * - Landing burn brakes near the splash fix; soft snap only in the last ~1 s
+ * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
+ *   (T+1:10) so the theater can hold a sea-level drone shot
  *
  * Splash coordinates are theater (west of Australia), not a surveyed buoy.
  */
@@ -110,7 +112,15 @@ export const F13 = {
   LAND_3TO2: 3912,
   LAND_2TO1: 3919,
   SPLASH: 3921,
+  /**
+   * Theater end: post-splash drone hold of the floating ship through
+   * T+1:10:00 (public splash is T+1:05:21).
+   */
+  END: 70 * 60,
 } as const;
+
+/** Sample step while the ship is Earth-fixed on the ocean (s). */
+const FLOAT_DT_S = 2;
 
 /** Keep this fraction of ship prop for relight + landing burn. */
 const SHIP_PROP_RESERVE = 0.07;
@@ -464,7 +474,25 @@ type F13Loop = {
   lastShipN: number;
   thrAcc: V3;
   accelOpts: AccelOptions;
+  /** True after the terminal splash snap; remaining time is a kinematic float. */
+  splashed: boolean;
+  /** Mission time of the splash snap (s). */
+  splashT: number;
 };
+
+/**
+ * Mission time of the first splashdown sample, or {@link F13.SPLASH} if none.
+ *
+ * @param samples - Trajectory samples (live or packed)
+ */
+export function firstSplashdownT(
+  samples: readonly { phase: string; t: number }[],
+): number {
+  for (const s of samples) {
+    if (s.phase === "splashdown") return s.t;
+  }
+  return F13.SPLASH;
+}
 
 /** Belly drag + lift + bank toward splash during atmospheric entry. */
 function bellyEntryActive(
@@ -736,6 +764,7 @@ function maybeStartLand(loop: F13Loop, alt: number): void {
 
 /** HUD phase id from time / mode / altitude. */
 function flight13Phase(loop: F13Loop, alt: number): PhaseId {
+  if (loop.splashed) return "splashdown";
   const t = loop.state.t;
   if (t < 12) return "launch";
   if (t < F13.SECO) return "ascent";
@@ -840,7 +869,17 @@ function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
   const targetR = EARTH_SURFACE_RADIUS_KM;
   if (rangeKm < 200) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
   else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
-  set(loop.state.vel, b.earthVel.x, b.earthVel.y, b.earthVel.z);
+  sub(_relP, loop.state.pos, b.earth);
+  surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
+}
+
+/** Earth-fixed float at the theater splash lat/lon (co-rotating ocean). */
+function placeFloating(loop: F13Loop): void {
+  const b = getBodies(loop.state.t, loop.epoch);
+  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
+  placeOnSphere(loop.state.pos, b.earth, surf, 1, EARTH_SURFACE_RADIUS_KM);
+  sub(_relP, loop.state.pos, b.earth);
+  surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
@@ -854,15 +893,19 @@ function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>)
 }
 
 function trySplashdown(loop: F13Loop): boolean {
+  if (loop.splashed) return false;
   const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
   const geo = splashRangeKm(loop, surf);
   if (!(naturalSplashDone(loop, geo) || loop.state.t >= F13.SPLASH - 0.1)) return false;
   snapSplash(loop, surf, geo.L, geo.rangeKm);
+  loop.splashed = true;
+  loop.splashT = loop.state.t;
   pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
   return true;
 }
 
 function flight13SampleMinDt(loop: F13Loop, phase: PhaseId): number {
+  if (phase === "splashdown" || loop.splashed) return FLOAT_DT_S;
   if (phase === "launch" || loop.mode === "boost" || loop.mode === "hot_stage") return 0.2;
   if (phase === "coast" && loop.mode === "idle") return 4;
   return 0.4;
@@ -884,16 +927,15 @@ function makeFlight13Raw(
   durationS: number,
   meta: ReturnType<typeof deriveTrajectoryMeta>,
 ): MissionResult {
-  return { samples: loop.samples, durationS, moonPhase0: loop.epoch.moonPhase0, translunarInjectionDeltaV: 0, minMoonAlt: Infinity, ok: true, message: "Flight 13 · suborbital · Indian Ocean splashdown (theater timeline)", peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, horizonsLandingT: durationS };
+  return { samples: loop.samples, durationS, moonPhase0: loop.epoch.moonPhase0, translunarInjectionDeltaV: 0, minMoonAlt: Infinity, ok: true, message: "Flight 13 · suborbital · Indian Ocean splashdown (theater timeline)", peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, horizonsLandingT: firstSplashdownT(loop.samples) };
 }
 
 function stampFlight13Out(
   out: MissionResult,
-  durationS: number,
   meta: ReturnType<typeof deriveTrajectoryMeta>,
   gravity: GravityModel | undefined,
 ): MissionResult {
-  out.horizonsLandingT = durationS; out.peakSpeedKmS = meta.peakSpeedKmS;
+  out.horizonsLandingT = firstSplashdownT(out.samples); out.peakSpeedKmS = meta.peakSpeedKmS;
   out.stageT = meta.stageT ?? F13.HOT_STAGE;
   out.minMoonAlt = Infinity;
   const gLabel = gravity === "earth" ? "earth-only" : "n-body";
@@ -905,14 +947,18 @@ function stampFlight13Out(
 
 /** Pack + downsample Flight 13 result. */
 function finalizeFlight13(loop: F13Loop): MissionResult {
+  if (loop.splashed && loop.state.t < F13.END - 1e-3) {
+    loop.state.t = F13.END;
+    placeFloating(loop);
+  }
   const last = loop.samples[loop.samples.length - 1]!;
-  if (last.phase !== "splashdown") {
+  if (last.phase !== "splashdown" || last.t < F13.END - 0.05) {
     pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
   }
   const durationS = loop.samples[loop.samples.length - 1]!.t;
   const meta = deriveTrajectoryMeta(loop.samples, loop.epoch);
   const out = downsampleTrajectory(makeFlight13Raw(loop, durationS, meta));
-  return stampFlight13Out(out, durationS, meta, loop.accelOpts.gravity);
+  return stampFlight13Out(out, meta, loop.accelOpts.gravity);
 }
 
 function padLiftoffState(epoch: EphemerisEpoch): CraftState {
@@ -928,27 +974,38 @@ function emptyF13Loop(epoch: EphemerisEpoch, gravity: GravityModel): F13Loop {
   return {
     state: padLiftoffState(epoch), samples: [], prop: createPropState(0), epoch,
     mode: "boost", hotStageT0: -1, lastThrustN: 0, lastBoostN: 0, lastShipN: 0,
-    thrAcc: v3(), accelOpts: { gravity, epoch },
+    thrAcc: v3(), accelOpts: { gravity, epoch }, splashed: false, splashT: 0,
   };
 }
 
 /**
- * Integrate Flight 13 from liftoff through Indian Ocean splashdown.
+ * Integrate Flight 13 from liftoff through Indian Ocean splashdown
+ * and a post-splash drone hold to {@link F13.END}.
  */
 function initFlight13Loop(opts?: Flight13MissionOptions): F13Loop {
   const epoch = opts?.epoch ?? makeFlight13Epoch(0, 0);
   return emptyF13Loop(epoch, opts?.gravity ?? "nbody");
 }
 
+function stepFlight13Float(loop: F13Loop, maxT: number): boolean {
+  const dt = Math.min(FLOAT_DT_S, maxT - loop.state.t);
+  if (dt < 1e-4) return false;
+  loop.state.t += dt;
+  placeFloating(loop);
+  maybePushFlight13Sample(loop, "splashdown");
+  return true;
+}
+
 function flight13PostStep(loop: F13Loop, phase: PhaseId): boolean {
   surfaceClamp(loop);
   bookFlight13Prop(loop);
-  if (trySplashdown(loop)) return false;
+  if (trySplashdown(loop)) return true;
   maybePushFlight13Sample(loop, phase);
   return true;
 }
 
 function flight13Step(loop: F13Loop, thrustFn: ThrustFn, maxT: number): boolean {
+  if (loop.splashed) return stepFlight13Float(loop, maxT);
   const alt = altitudeEarth(loop.state.t, loop.state.pos, loop.epoch);
   advanceFlight13Mode(loop, alt);
   const phase = flight13Phase(loop, alt);
@@ -962,7 +1019,7 @@ export function runFlight13Mission(opts?: Flight13MissionOptions): MissionResult
   const loop = initFlight13Loop(opts);
   const thrustFn = makeFlight13ThrustFn(loop);
   pushSample(loop.samples, loop.state, "launch", true, loop.prop, peakForceN("boost", 0.98));
-  const maxT = F13.SPLASH + 2;
+  const maxT = F13.END;
   while (loop.state.t < maxT) {
     if (!flight13Step(loop, thrustFn, maxT)) break;
   }

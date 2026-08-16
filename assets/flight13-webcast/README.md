@@ -57,7 +57,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tplus-010512-landing-plume.jpg` | T+01:05:12 | Pink landing plume, 0.3 km, missing tiles | Hull-down | Chase |
 | `tplus-010520-splashdown.jpg` | T+01:05:20 | Soft splash, steam cloud, charred hull | External aerial | Chase |
 | `tplus-010524-splash-steam.jpg` | T+01:05:24 | Intact ship in steam, engines-down on water | External aerial | Chase |
-| `heatshield-tiles-post-splash.jpg` | post-splash (~1:45 webcast) | Intact hexagonal TPS, missing-tile targets, flap, ocean spray | Hull close-up | Fin |
+| `heatshield-tiles-post-splash.jpg` | post-splash (~1:45 webcast) | Intact hexagonal TPS, missing-tile targets, flap, ocean spray | Hull close-up / sea drone | Chase (drone) |
 
 ## Notes for 3D work
 

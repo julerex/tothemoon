@@ -17,6 +17,10 @@
 import type { CameraMode } from "./modes";
 import type { PhaseId } from "../physics/missionTypes";
 import {
+  SPLASH_DRONE_AZ0_DEG,
+  SPLASH_DRONE_ELEV_DEG,
+  SPLASH_DRONE_FOV,
+  SPLASH_DRONE_FRAME_SCALE,
   webcastShotAt,
   type WebcastMount,
   type WebcastShot,
@@ -45,6 +49,8 @@ export type AutoCamSuggestion = {
   mount?: WebcastMount;
   chaseSubject?: "ship" | "booster";
   fov?: number;
+  /** Sea-level drone orbit of a floating ship (Flight 13 post-splash). */
+  droneTrack?: boolean;
 };
 
 type PhaseTable = Partial<Record<PhaseId, AutoCamSuggestion>>;
@@ -111,9 +117,12 @@ export function finaleChaseBias(
   phase: PhaseId,
 ): { lookAheadScale: number; lookDownKm: number } {
   if (!enabled) return { lookAheadScale: 1, lookDownKm: 0 };
-  if (profile === "flight13" && (phase === "descent" || phase === "splashdown" || phase === "landed")) {
-    const splash = phase === "splashdown" || phase === "landed";
-    return { lookAheadScale: splash ? 1.35 : 1.18, lookDownKm: splash ? 0.14 : 0.08 };
+  if (profile === "flight13" && phase === "descent") {
+    return { lookAheadScale: 1.18, lookDownKm: 0.08 };
+  }
+  if (profile === "flight13" && (phase === "splashdown" || phase === "landed")) {
+    // Floating ship: look at the hull, not along heliocentric velocity.
+    return { lookAheadScale: 0, lookDownKm: 0 };
   }
   if (profile === "lunar" && (phase === "descent" || phase === "landed")) {
     return { lookAheadScale: 1.1, lookDownKm: 0.06 };
@@ -145,8 +154,24 @@ const FLIGHT13_PHASE: PhaseTable = {
   coast: { mode: "hull", frame: true },
   entry: { mode: "hull", frame: true },
   descent: { mode: "hull", frame: true },
-  splashdown: { mode: "chase", frame: true, frameScale: 1.7, azimuthDeg: 145, elevationDeg: 55 },
-  landed: { mode: "chase", frame: true, frameScale: 1.7, azimuthDeg: 145, elevationDeg: 55 },
+  splashdown: {
+    mode: "chase",
+    frame: true,
+    frameScale: SPLASH_DRONE_FRAME_SCALE,
+    azimuthDeg: SPLASH_DRONE_AZ0_DEG,
+    elevationDeg: SPLASH_DRONE_ELEV_DEG,
+    fov: SPLASH_DRONE_FOV,
+    droneTrack: true,
+  },
+  landed: {
+    mode: "chase",
+    frame: true,
+    frameScale: SPLASH_DRONE_FRAME_SCALE,
+    azimuthDeg: SPLASH_DRONE_AZ0_DEG,
+    elevationDeg: SPLASH_DRONE_ELEV_DEG,
+    fov: SPLASH_DRONE_FOV,
+    droneTrack: true,
+  },
   approach: { mode: "hull", frame: true },
   braking: { mode: "hull", frame: true },
   impact: { mode: "hull", frame: true },
@@ -164,7 +189,7 @@ const FLIGHT13_PHASE: PhaseTable = {
  * | Boostback / SH landing | Booster engines-down / hull (left pane) |
  * | Coast / landing | Ship hull-cam |
  * | Entry | Forward-flap cam (left of plasma split) |
- * | Splash | Aerial chase |
+ * | Splash | Aerial chase, then sea-level drone |
  */
 export function autoCamForPhaseFlight13(phase: PhaseId): AutoCamSuggestion {
   return FLIGHT13_PHASE[phase] ?? CHASE;
@@ -182,6 +207,7 @@ export function autoCamFromWebcastShot(shot: WebcastShot): AutoCamSuggestion {
     mount: shot.mount,
     chaseSubject: shot.chaseSubject,
     fov: shot.fov,
+    droneTrack: shot.droneTrack,
   };
 }
 

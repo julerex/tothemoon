@@ -321,6 +321,14 @@ function addLandingStepEvents(
   add("land-flip", descent.t0 + 2, "Landing flip", "Belly → engines-first");
   add("land-3to2", descent.t0 + 11, "3 → 2 engines", "Landing burn throttle-down");
   add("land-2to1", descent.t0 + 18, "2 → 1 engine", "Single-engine landing");
+  const splash = segments.find((s) => s.phase === "splashdown");
+  if (!splash) return;
+  add(
+    "splash-drone",
+    splash.t0 + 8,
+    "Recovery drone",
+    "Sea-level orbit of the floating ship",
+  );
 }
 
 /** Drop events that share the same id, keep earliest. */

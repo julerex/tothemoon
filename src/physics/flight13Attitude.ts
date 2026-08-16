@@ -44,6 +44,19 @@ function landingAttitude(t: number): ShipAttitudeMode | null {
   return t < F13_ATT.LAND_FLIP ? "belly" : "engines_first";
 }
 
+/**
+ * Gentle swell rock while the ship floats engines-down (theater, not a wave model).
+ * Scrub-deterministic function of mission time.
+ *
+ * @param t - Mission time (s)
+ */
+export function splashFloatBob(t: number): { pitchRad: number; rollRad: number } {
+  return {
+    pitchRad: 0.028 * Math.sin(t * 0.74),
+    rollRad: 0.016 * Math.sin(t * 1.1 + 1.1),
+  };
+}
+
 export function shipAttitudeMode(
   t: number, phase: PhaseId, altKm: number, burning: boolean,
 ): ShipAttitudeMode {
