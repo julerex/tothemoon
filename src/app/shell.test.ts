@@ -42,6 +42,33 @@ describe("parseRoute", () => {
     assert.equal(r2.missionPath, "flight-13");
   });
 
+  it("reads t= from the hash query", () => {
+    const r = parseRoute("#/mission/flight-13?t=1:05:21");
+    assert.equal(r.kind, "mission");
+    assert.equal(r.missionPath, "flight-13");
+    assert.equal(r.seekT, 3921);
+    const lunar = parseRoute("#/mission/to-the-moon?t=T+50:00:00");
+    assert.equal(lunar.seekT, 50 * 3600);
+    const countdown = parseRoute("#/mission/flight-13?t=-0:02:00");
+    assert.equal(countdown.seekT, -120);
+  });
+
+  it("falls back to location-search t= when the hash has none", () => {
+    const r = parseRoute("#/mission/flight-13", "?t=65:21");
+    assert.equal(r.seekT, 3921);
+  });
+
+  it("prefers hash t= over search t=", () => {
+    const r = parseRoute("#/mission/flight-13?t=10", "?t=999");
+    assert.equal(r.seekT, 10);
+  });
+
+  it("ignores invalid t=", () => {
+    const r = parseRoute("#/mission/flight-13?t=nope");
+    assert.equal(r.kind, "mission");
+    assert.equal(r.seekT, undefined);
+  });
+
   it("unknown falls back to main", () => {
     assert.equal(parseRoute("#/nope").kind, "main");
   });

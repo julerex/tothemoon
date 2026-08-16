@@ -86,12 +86,16 @@ function frame<C extends MissionLoopCtx>(ctx: C, hooks: MissionLoopHooks<C>): vo
   hooks.render(ctx);
 }
 
-/** Apply u=0, snap the pad opening shot, then start the rAF loop. */
+/** Apply the current clock (pad at u=0, or a deep-link seek), then start rAF. */
 export function startMissionLoop<C extends MissionLoopCtx>(
   ctx: C,
   hooks: MissionLoopHooks<C>,
 ): void {
-  hooks.applyState(ctx, 0);
-  ctx.director.snapPadOpening(transportUToPhysicsT(0, ctx.physicsDurationS));
+  hooks.applyState(ctx, ctx.clock.t);
+  // Pad opening snap is only for a cold start; a `?t=` seek already placed
+  // the craft, and Auto-cam will cut to the shot for that time.
+  if (ctx.clock.t < 1e-9) {
+    ctx.director.snapPadOpening(transportUToPhysicsT(0, ctx.physicsDurationS));
+  }
   frame(ctx, hooks);
 }

@@ -13,7 +13,7 @@ export type MissionDef = {
   subtitle: string;
   blurb: string;
   status: MissionStatus;
-  /** Hash path segment: `#/mission/<path>` */
+  /** Hash path segment: `#/mission/<path>` (`?t=` seeks the clock) */
   path: string;
 };
 

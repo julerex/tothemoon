@@ -3,6 +3,8 @@
  * Theater is the canvas + mission HUD; menus sit above a static backdrop.
  */
 
+import { seekParamFromQuery } from "./seekUrl";
+
 export type ShellView = "main" | "missions" | "glossary" | "theater";
 
 function el(id: string): HTMLElement | null {
@@ -77,10 +79,21 @@ export function navigate(hashPath: string): void {
   location.hash = path;
 }
 
-type ParsedRoute = {
+export type ParsedRoute = {
   kind: "main" | "missions" | "glossary" | "mission";
   missionPath?: string;
+  /** Physics mission time (s) from `t=`; negative = T− countdown. */
+  seekT?: number;
 };
+
+function splitHash(hash: string): { path: string; query: URLSearchParams } {
+  const stripped = hash.replace(/^#/, "");
+  const q = stripped.indexOf("?");
+  const pathRaw = q >= 0 ? stripped.slice(0, q) : stripped;
+  const path = (pathRaw || "/").replace(/\/+$/, "") || "/";
+  const query = new URLSearchParams(q >= 0 ? stripped.slice(q + 1) : "");
+  return { path, query };
+}
 
 function parseMissionRoute(raw: string): ParsedRoute | null {
   const m = raw.match(/^\/?mission\/([^/]+)$/);
@@ -88,15 +101,31 @@ function parseMissionRoute(raw: string): ParsedRoute | null {
   return { kind: "mission", missionPath: m[1] };
 }
 
+function seekTFromQueries(
+  hashQuery: URLSearchParams,
+  search = "",
+): number | undefined {
+  const fromHash = seekParamFromQuery(hashQuery);
+  if (fromHash != null) return fromHash;
+  return seekParamFromQuery(new URLSearchParams(search.startsWith("?") ? search.slice(1) : search));
+}
+
 /**
  * Parse location.hash into a route.
  * `#/` or empty → main; `#/missions` → picker; `#/glossary` → glossary;
- * `#/mission/<id>` → mission.
+ * `#/mission/<id>` → mission; optional `?t=` seeks the mission clock
+ * (hash query wins over `location.search`).
  */
-export function parseRoute(hash = location.hash): ParsedRoute {
-  const raw = (hash.replace(/^#/, "") || "/").replace(/\/+$/, "") || "/";
-  if (raw === "/" || raw === "") return { kind: "main" };
-  if (raw === "/missions" || raw === "missions") return { kind: "missions" };
-  if (raw === "/glossary" || raw === "glossary") return { kind: "glossary" };
-  return parseMissionRoute(raw) ?? { kind: "main" };
+export function parseRoute(
+  hash = typeof location !== "undefined" ? location.hash : "",
+  search = typeof location !== "undefined" ? location.search : "",
+): ParsedRoute {
+  const { path, query } = splitHash(hash);
+  if (path === "/" || path === "") return { kind: "main" };
+  if (path === "/missions" || path === "missions") return { kind: "missions" };
+  if (path === "/glossary" || path === "glossary") return { kind: "glossary" };
+  const mission = parseMissionRoute(path);
+  if (!mission) return { kind: "main" };
+  const seekT = seekTFromQueries(query, search);
+  return seekT == null ? mission : { ...mission, seekT };
 }
