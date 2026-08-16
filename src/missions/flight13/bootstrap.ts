@@ -66,6 +66,7 @@ export type F13AutoCam = {
   enabled: boolean;
   phase: PhaseId | null;
   staged: boolean;
+  shotKey: string | null;
 };
 
 export type F13CinemaState = {
@@ -649,7 +650,7 @@ function wireBootstrapHud(
 
 function runtimePack(world: ReturnType<typeof assembleWorld>, cache: Trajectory) {
   const clockPack = makeClockAndTimeline(cache);
-  const autoCam: F13AutoCam = { enabled: true, phase: null, staged: false };
+  const autoCam: F13AutoCam = { enabled: true, phase: null, staged: false, shotKey: null };
   const flags: F13Flags = { orbitsVisible: true };
   const hudPack = wireBootstrapHud(world, clockPack, cache, autoCam, flags);
   return { clockPack, autoCam, flags, hudPack };

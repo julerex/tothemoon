@@ -4,7 +4,7 @@ import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
-import { starbasePadState } from "../physics/earthFrame";
+import { earthNorthPole, starbasePadState } from "../physics/earthFrame";
 import { craftLengthKm } from "../scene/craft";
 import {
   pushOutsideSpheres,
@@ -22,15 +22,19 @@ import {
 import { panAxesFromHeld } from "./panAxes";
 import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
+import { cameraFovForFocus } from "./onboardFov";
+import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
+import { THEATER_DEFAULT_FOV, type WebcastMount } from "./webcastShots";
 
 /**
  * Focus preset — camera stays free; these only choose what to track.
  * `"free"` is internal (no subject co-motion); not shown in the UI.
  * Pan / orbit / zoom keep the current focus and ride along with it, preserving
  * any look-target offset from the subject center.
- * `"fin"` / `"gridfin"` / `"trench"` start as locked mounts (onboard / webcast).
- * The first mouse or orbit/pan/zoom key leaves the lock and tracks the look-at
- * like other focuses, so Flight 13 and the lunar mission share the same controls.
+ * `"fin"` / `"gridfin"` / `"trench"` / `"hull"` start as locked mounts
+ * (onboard / webcast). The first mouse or orbit/pan/zoom key leaves the lock
+ * and tracks the look-at like other focuses, so Flight 13 and the lunar
+ * mission share the same controls.
  */
 export type CameraMode =
   | "free"
@@ -41,7 +45,8 @@ export type CameraMode =
   | "starbase"
   | "fin"
   | "gridfin"
-  | "trench";
+  | "trench"
+  | "hull";
 
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
@@ -155,6 +160,18 @@ export class CameraDirector {
   /** Extra chase look-down (km) along {@link chaseLookDownDir}. */
   private chaseLookDownKm = 0;
   private readonly chaseLookDownDir = new THREE.Vector3(0, -1, 0);
+  /** Earth-fixed pad camera looking at the stack (Flight 13 ground track). */
+  private padTrack = false;
+  private padTrackAz = 180;
+  private padTrackEl = PAD_OPENING_ELEV * (180 / Math.PI);
+  private padTrackDist = 0.5;
+  /** Gridfin/hull mount override for webcast engine-bay / hull-down shots. */
+  private mountVariant: WebcastMount | "default" = "default";
+  private chaseSubject: "ship" | "booster" = "ship";
+  private readonly earthUp = new THREE.Vector3();
+  private readonly earthEast = new THREE.Vector3();
+  private readonly earthNorth = new THREE.Vector3();
+  private readonly boosterChasePos = new THREE.Vector3();
   /** 0…1 distance ease; 1 = idle. */
   private distEaseU = 1;
   private distEaseFrom = 0;
@@ -352,6 +369,7 @@ export class CameraDirector {
   }
 
   setMode(mode: CameraMode): void {
+    this.clearGuidedPose();
     this.cancelDistanceEase();
     this.applyFocus(mode, /* frame */ false);
   }
@@ -361,6 +379,7 @@ export class CameraDirector {
    * view (distance scales with object size). Double-tap number keys use this.
    */
   frameMode(mode: CameraMode, frameScale = 1): void {
+    this.clearGuidedPose();
     this.cancelDistanceEase();
     this.applyFocus(mode, /* frame */ true, frameScale);
   }
@@ -368,9 +387,11 @@ export class CameraDirector {
   /**
    * Auto-cam cut: switch focus immediately (tracking stays live) and ease the
    * camera–target distance to the framed size over ~0.7 s wall-clock.
+   * Webcast pose cuts (azimuth / pad-track / onboard mounts) snap instantly.
    */
   private isInstantEaseMode(mode: CameraMode): boolean {
-    return mode === "fin" || mode === "gridfin" || mode === "trench" || mode === "free";
+    return mode === "fin" || mode === "gridfin" || mode === "trench" ||
+      mode === "hull" || mode === "free";
   }
 
   private beginDistanceEase(mode: CameraMode, frameScale: number): void {
@@ -383,18 +404,64 @@ export class CameraDirector {
     this.distEaseU = from === to ? 1 : 0;
   }
 
+  /** Options for Auto-cam / bookmark guided cuts. */
   easeToMode(
     mode: CameraMode,
-    opts?: { frame?: boolean; frameScale?: number },
+    opts?: {
+      frame?: boolean;
+      frameScale?: number;
+      azimuthDeg?: number;
+      elevationDeg?: number;
+      padTrack?: boolean;
+      mount?: WebcastMount;
+      chaseSubject?: "ship" | "booster";
+      fov?: number;
+    },
   ): void {
+    this.applyGuidedPose(opts);
     const frame = opts?.frame ?? true;
     const frameScale = opts?.frameScale ?? 1;
-    if (this.isInstantEaseMode(mode) || !frame) {
+    const posed = this.hasSphericalPose(opts) || this.padTrack;
+    if (this.isInstantEaseMode(mode) || !frame || posed) {
       this.cancelDistanceEase();
-      this.applyFocus(mode, frame, frameScale);
+      this.applyFocus(mode, frame, frameScale, opts);
       return;
     }
     this.beginDistanceEase(mode, frameScale);
+  }
+
+  private applyGuidedPose(opts?: {
+    padTrack?: boolean;
+    mount?: WebcastMount;
+    chaseSubject?: "ship" | "booster";
+    fov?: number;
+    azimuthDeg?: number;
+    elevationDeg?: number;
+  }): void {
+    this.padTrack = !!opts?.padTrack;
+    this.mountVariant = opts?.mount ?? "default";
+    this.chaseSubject = opts?.chaseSubject ?? "ship";
+    if (opts?.azimuthDeg != null) this.padTrackAz = opts.azimuthDeg;
+    if (opts?.elevationDeg != null) this.padTrackEl = opts.elevationDeg;
+    this.setVerticalFov(opts?.fov ?? THEATER_DEFAULT_FOV);
+  }
+
+  private clearGuidedPose(): void {
+    this.padTrack = false;
+    this.mountVariant = "default";
+    this.chaseSubject = "ship";
+    this.setVerticalFov(THEATER_DEFAULT_FOV);
+  }
+
+  private hasSphericalPose(opts?: { azimuthDeg?: number; elevationDeg?: number }): boolean {
+    return opts?.azimuthDeg != null || opts?.elevationDeg != null;
+  }
+
+  private setVerticalFov(fov: number): void {
+    const next = Number.isFinite(fov) ? fov : THEATER_DEFAULT_FOV;
+    if (Math.abs(this.camera.fov - next) < 1e-6) return;
+    this.camera.fov = next;
+    this.camera.updateProjectionMatrix();
   }
 
   /**
@@ -406,23 +473,36 @@ export class CameraDirector {
     mode: CameraMode,
     frame: boolean,
     frameScale = 1,
+    pose?: { azimuthDeg?: number; elevationDeg?: number; frameScale?: number },
   ): void {
     if (this.applyLockedOrFreeFocus(mode, frame, frameScale)) return;
     this.controls.enabled = true;
-    this.applyTrackedFocus(mode, frame, frameScale);
+    this.applyTrackedFocus(mode, frame, frameScale, pose);
   }
 
   private applyTrackedFocus(
     mode: CameraMode,
     frame: boolean,
     frameScale: number,
+    pose?: { azimuthDeg?: number; elevationDeg?: number },
   ): void {
     const prevDist = this.clampedFocusDistance();
     this.captureViewDirection();
     this.seatTrackedFocus(mode);
-    this.placeCameraAlongView(
-      this.resolveFocusDistance(mode, frame, frameScale, prevDist),
-    );
+    const dist = this.resolveFocusDistance(mode, frame, frameScale, prevDist);
+    if (this.padTrack && mode === "starbase") {
+      this.padTrackDist = dist;
+      this.applyPadTrack();
+      return;
+    }
+    if (this.placeWithSphericalPose(mode, dist, pose)) {
+      this.snapYawUpIfNeeded();
+      this.syncOrbitControlsUp();
+      this.controls.update();
+      this.clampOutsideBodies();
+      return;
+    }
+    this.placeCameraAlongView(dist);
     this.snapYawUpIfNeeded();
     this.syncOrbitControlsUp();
     this.controls.update();
@@ -458,6 +538,11 @@ export class CameraDirector {
     this.trackAnchorValid = false;
     this.controls.enabled = true;
     this.applyClipPlanes();
+    // Manual digit-key mounts (variant still "default") get the wide onboard
+    // lens. Auto-cam already set a per-shot FOV in applyGuidedPose.
+    if (this.mountVariant === "default") {
+      this.setVerticalFov(cameraFovForFocus(mode));
+    }
     this.applyLockedMountPose();
   }
 
@@ -510,6 +595,105 @@ export class CameraDirector {
   }
 
   /**
+   * Place the camera on an ENU bearing around the current focus.
+   * Starbase uses pad ENU; chase uses local vertical at the ship (Earth radial).
+   */
+  private placeWithSphericalPose(
+    mode: CameraMode,
+    dist: number,
+    pose?: { azimuthDeg?: number; elevationDeg?: number },
+  ): boolean {
+    if (!this.buildEnuForMode(mode)) return false;
+    const az = pose?.azimuthDeg ?? this.padTrackAz;
+    const el = pose?.elevationDeg ?? this.padTrackEl;
+    if (pose?.azimuthDeg == null && pose?.elevationDeg == null && !this.padTrack) {
+      return false;
+    }
+    const off = enuOffsetKm(
+      { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },
+      { x: this.earthNorth.x, y: this.earthNorth.y, z: this.earthNorth.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+      az,
+      el,
+      dist,
+    );
+    this.camera.position.set(
+      this.desiredTarget.x + off.x,
+      this.desiredTarget.y + off.y,
+      this.desiredTarget.z + off.z,
+    );
+    this.camera.up.copy(this.earthUp);
+    this.camera.lookAt(this.controls.target);
+    return true;
+  }
+
+  private buildEnuForMode(mode: CameraMode): boolean {
+    if (mode === "starbase") return this.buildPadEnu();
+    if (mode === "chase") return this.buildCraftEnu();
+    return false;
+  }
+
+  private buildPadEnu(): boolean {
+    const pad = starbasePadState(this.simTime, this.epoch);
+    this.earthUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
+    this.earthEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
+    const n = northFromEastUp(
+      { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+    );
+    this.earthNorth.set(n.x, n.y, n.z);
+    return true;
+  }
+
+  private buildCraftEnu(): boolean {
+    const b = bodyPositions(this.simTime, this.epoch);
+    this.earthUp.set(
+      this.craftPos.x - b.earth.x,
+      this.craftPos.y - b.earth.y,
+      this.craftPos.z - b.earth.z,
+    );
+    if (this.earthUp.lengthSq() < 1e-12) return false;
+    this.earthUp.normalize();
+    const pole = earthNorthPole();
+    const e = eastFromNorthUp(pole, {
+      x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z,
+    });
+    this.earthEast.set(e.x, e.y, e.z);
+    const n = northFromEastUp(
+      { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+    );
+    this.earthNorth.set(n.x, n.y, n.z);
+    return true;
+  }
+
+  /**
+   * Ground-tracking shot: camera stays in the pad ENU frame and looks at the
+   * craft so the stack climbs out of a fixed webcast-style pad camera.
+   */
+  private applyPadTrack(): void {
+    if (!this.buildPadEnu()) return;
+    const pad = starbasePadState(this.simTime, this.epoch);
+    const dist = this.padTrackDist;
+    const off = enuOffsetKm(
+      { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },
+      { x: this.earthNorth.x, y: this.earthNorth.y, z: this.earthNorth.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+      this.padTrackAz,
+      this.padTrackEl,
+      dist,
+    );
+    this.camera.position.set(pad.pos.x + off.x, pad.pos.y + off.y, pad.pos.z + off.z);
+    this.desiredTarget.copy(this.craftPos);
+    this.controls.target.copy(this.desiredTarget);
+    this.camera.up.copy(this.earthUp);
+    this.camera.lookAt(this.controls.target);
+    this.syncOrbitControlsUp();
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
+  }
+
+  /**
    * Orbit distance so a sphere of `radiusKm` fills ~`fill` of the vertical FOV
    * (diameter). Works for bodies and for half-length of elongated craft.
    */
@@ -526,7 +710,7 @@ export class CameraDirector {
     if (mode === "moon") return this.distanceForRadius(R_MOON, 0.65);
     if (mode === "chase") return this.chaseFrameDistance();
     if (mode === "starbase") return this.distanceForRadius(0.12, 0.5);
-    if (mode === "trench") return this.distanceForRadius(0.02, 0.55);
+    if (mode === "trench" || mode === "hull") return this.distanceForRadius(0.02, 0.55);
     return this.getFocusDistance();
   }
 
@@ -608,7 +792,8 @@ export class CameraDirector {
       this.focus === "starbase" ||
       this.focus === "fin" ||
       this.focus === "gridfin" ||
-      this.focus === "trench";
+      this.focus === "trench" ||
+      this.focus === "hull";
     return close ? 0.0002 : 0.1;
   }
 
@@ -654,26 +839,47 @@ export class CameraDirector {
   /** Look-at for an unlocked mount so tracking co-moves with pad / craft. */
   private copyMountLook(mode: MountFocus, out: THREE.Vector3): boolean {
     if (mode === "fin") return this.copyFinLook(out);
-    if (mode === "gridfin") return this.copyGridFinLook(out);
+    if (mode === "hull") return this.copyNamedLook(this.craft, "hull-cam-look", out);
+    if (mode === "gridfin") return this.copyGridFinVariantLook(out);
     return this.copyTrenchLook(out);
   }
 
-  private copyFinLook(out: THREE.Vector3): boolean {
-    const look = this.craft?.getObjectByName("fin-cam-look");
-    if (!this.craft || !look) return false;
-    this.craft.updateMatrixWorld(true);
-    look.getWorldPosition(out);
-    return true;
+  private copyGridFinVariantLook(out: THREE.Vector3): boolean {
+    const host = this.resolveGridFinHost();
+    const lookName = this.gridFinLookName();
+    return this.copyNamedLook(host, lookName, out);
   }
 
-  private copyGridFinLook(out: THREE.Vector3): boolean {
-    const host = this.resolveGridFinHost();
-    const look = host?.getObjectByName("grid-fin-cam-look");
+  private gridFinLookName(): string {
+    if (this.mountVariant === "engines") return "engines-cam-look";
+    if (this.mountVariant === "enginesDown") return "engines-down-cam-look";
+    if (this.mountVariant === "boosterHull") return "booster-hull-cam-look";
+    return "grid-fin-cam-look";
+  }
+
+  private gridFinMountName(): string {
+    if (this.mountVariant === "engines") return "engines-cam";
+    if (this.mountVariant === "enginesDown") return "engines-down-cam";
+    if (this.mountVariant === "boosterHull") return "booster-hull-cam";
+    return "grid-fin-cam";
+  }
+
+  private copyNamedLook(
+    host: THREE.Object3D | null | undefined,
+    lookName: string,
+    out: THREE.Vector3,
+  ): boolean {
+    const look = host?.getObjectByName(lookName);
     if (!host || !look) return false;
     this.craft?.updateMatrixWorld(true);
     this.detachedBooster?.updateMatrixWorld(true);
     look.getWorldPosition(out);
     return true;
+  }
+
+  private copyFinLook(out: THREE.Vector3): boolean {
+    const lookName = this.mountVariant === "flap" ? "flap-cam-look" : "fin-cam-look";
+    return this.copyNamedLook(this.craft, lookName, out);
   }
 
   private copyTrenchLook(out: THREE.Vector3): boolean {
@@ -707,16 +913,30 @@ export class CameraDirector {
   }
 
   /**
-   * Lock camera to the Starship starboard forward flap, looking aft at the
-   * engine bells (craft +Z = nose, −Z = engines).
+   * Lock camera to the Starship starboard TPS/steel chine, looking aft along
+   * the barrel (craft +Z = nose, −Z = engines). Up is outboard so the
+   * windward tiles sit left and stainless / S40 sit right — Flight 13 hull-cam.
    */
   private applyFinCam(): void {
     if (!this.craft) return;
-    const mount = this.craft.getObjectByName("fin-cam");
-    const look = this.craft.getObjectByName("fin-cam-look");
+    const mountName = this.mountVariant === "flap" ? "flap-cam" : "fin-cam";
+    const lookName = this.mountVariant === "flap" ? "flap-cam-look" : "fin-cam-look";
+    const mount = this.craft.getObjectByName(mountName);
+    const look = this.craft.getObjectByName(lookName);
     if (!mount || !look) return;
     this.craft.updateMatrixWorld(true);
-    this.seatMountCam(mount, look, this.craft);
+    mount.getWorldPosition(this.finPos);
+    look.getWorldPosition(this.finLook);
+    this.finUp.set(mount.position.x, mount.position.y, 0);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.set(1, 0, 0);
+    const upHost = mount.parent ?? this.craft;
+    this.finUp.transformDirection(upHost.matrixWorld);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.copy(ECLIPTIC_NORTH);
+    this.camera.position.copy(this.finPos);
+    this.camera.up.copy(this.finUp);
+    this.camera.lookAt(this.finLook);
+    this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
   }
 
   private seatMountCam(
@@ -803,6 +1023,7 @@ export class CameraDirector {
    * path reads as motion (especially free coast).
    */
   private chaseTarget(out: THREE.Vector3): void {
+    if (this.copyBoosterChaseTarget(out)) return;
     out.copy(this.craftPos);
     const sp = this.craftVel.length();
     if (sp >= 0.02) {
@@ -811,6 +1032,16 @@ export class CameraDirector {
     if (this.chaseLookDownKm > 1e-6) {
       out.addScaledVector(this.chaseLookDownDir, this.chaseLookDownKm);
     }
+  }
+
+  private copyBoosterChaseTarget(out: THREE.Vector3): boolean {
+    if (this.chaseSubject !== "booster") return false;
+    const host = this.detachedBooster;
+    if (!host?.visible) return false;
+    host.updateMatrixWorld(true);
+    host.getWorldPosition(this.boosterChasePos);
+    out.copy(this.boosterChasePos);
+    return true;
   }
 
   private chaseLookaheadKm(sp: number): number {
@@ -1109,6 +1340,7 @@ export class CameraDirector {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
     this.craftVel.copy(craftVel);
+    if (this.holdPadTrack()) return;
     if (this.holdHardLockMount()) return;
     this.updateFreeCamera(dt);
   }
@@ -1124,10 +1356,46 @@ export class CameraDirector {
     return true;
   }
 
+  /** Earth-fixed pad camera: reseat every frame until the user grabs it. */
+  private holdPadTrack(): boolean {
+    if (!this.padTrack || this.focus !== "starbase") return false;
+    if (this.hasCameraHold()) {
+      this.padTrack = false;
+      this.unlockMount();
+      return false;
+    }
+    this.applyPadTrack();
+    return true;
+  }
+
   private applyLockedMountPose(): void {
     if (this.focus === "fin") { this.applyFinCam(); return; }
-    if (this.focus === "gridfin") { this.applyGridFinCam(); return; }
+    if (this.focus === "hull") { this.applyHullCam(); return; }
+    if (this.focus === "gridfin") { this.applyGridFinVariant(); return; }
     if (this.focus === "trench") this.applyTrenchCam();
+  }
+
+  private applyHullCam(): void {
+    if (!this.craft) return;
+    const mount = this.craft.getObjectByName("hull-cam");
+    const look = this.craft.getObjectByName("hull-cam-look");
+    if (!mount || !look) return;
+    this.craft.updateMatrixWorld(true);
+    this.seatMountCam(mount, look, this.craft);
+  }
+
+  private applyGridFinVariant(): void {
+    const host = this.resolveGridFinHost();
+    if (!host) return;
+    const mount = host.getObjectByName(this.gridFinMountName());
+    const look = host.getObjectByName(this.gridFinLookName());
+    if (!mount || !look) {
+      this.applyGridFinCam();
+      return;
+    }
+    this.craft?.updateMatrixWorld(true);
+    this.detachedBooster?.updateMatrixWorld(true);
+    this.seatMountCam(mount, look, host);
   }
 
   /**
@@ -1135,6 +1403,7 @@ export class CameraDirector {
    * mount look-at so WASD / QERF / mouse match Starbase / chase.
    */
   private unlockMount(): void {
+    if (this.padTrack) this.padTrack = false;
     if (!isHardLockedMount(this.focus, this.mountLock)) return;
     this.mountLock = mountLockAfterUserControl(this.mountLock);
     this.seedMountTrackAnchor();

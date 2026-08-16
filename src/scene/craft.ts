@@ -21,6 +21,14 @@ import {
   iceShedStrength,
 } from "./craftFrost";
 import { createNameLabel } from "./zoomLabels";
+import {
+  HEX_TILE_MAP_SIZE,
+  SHIP_HULL_MARK,
+  paintHexTileMaps,
+  paintHullMarkDecal,
+  paintStainlessPhotoreal,
+  tileGroutGlow,
+} from "./craftHullMaps";
 
 /**
  * Near-true-scale Super Heavy + Starship stack plus a red locator for system views.
@@ -41,6 +49,9 @@ import { createNameLabel } from "./zoomLabels";
  *
  * V7 entry: windward tile emissive from plasma; hinged flaps/elevons from
  * Flight 13 attitude (belly throw, transonic taper).
+ *
+ * V13 hull-cam: hexagonal TPS (not brick-offset rects), S40 stencil, stainless
+ * oil-canning + heat tint, white experiment / missing tiles, residual grout glow.
  *
  * V14 launch: pink-magenta atmosphere plumes, Super Heavy cryo frost sheets,
  * ice-flake shed through max-Q.
@@ -88,10 +99,14 @@ type CraftMats = {
   finLattice: THREE.MeshStandardMaterial;
 };
 
-/** Physical stainless body with anisotropy maps. */
+/** Physical stainless body with anisotropy + oil-canning bump. */
 function makeSteelPhysical(
   color: number,
-  stainless: { color: THREE.CanvasTexture; roughness: THREE.CanvasTexture },
+  stainless: {
+    color: THREE.CanvasTexture;
+    roughness: THREE.CanvasTexture;
+    bump: THREE.CanvasTexture;
+  },
   metalness: number,
   roughness: number,
   anisotropy: number,
@@ -100,6 +115,8 @@ function makeSteelPhysical(
     color,
     map: stainless.color,
     roughnessMap: stainless.roughness,
+    bumpMap: stainless.bump,
+    bumpScale: 0.72,
     metalness,
     roughness,
     anisotropy,
@@ -116,15 +133,40 @@ function makeMetalStd(
   return new THREE.MeshStandardMaterial({ color, metalness, roughness });
 }
 
-/** Mapped tile material. */
-function makeTileMat(map: THREE.CanvasTexture, metalness: number, roughness: number): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color: 0xffffff, map, metalness, roughness });
+/** Mapped tile material (optional V13 roughness / bump / grout emissive). */
+function makeTileMat(
+  map: THREE.CanvasTexture,
+  metalness: number,
+  roughness: number,
+  extras?: {
+    roughnessMap?: THREE.CanvasTexture;
+    bumpMap?: THREE.CanvasTexture;
+    emissiveMap?: THREE.CanvasTexture;
+  },
+): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map,
+    metalness,
+    roughness,
+    roughnessMap: extras?.roughnessMap,
+    bumpMap: extras?.bumpMap,
+    bumpScale: extras?.bumpMap ? 0.38 : 0,
+    emissiveMap: extras?.emissiveMap,
+    emissive: extras?.emissiveMap ? 0xffffff : 0x000000,
+    emissiveIntensity: 0,
+  });
 }
 
 /** Tile / wear materials from heat-shield maps. */
 function makeTileMats(): Pick<CraftMats, "tile" | "tileEdge" | "tileWear"> {
+  const hex = makeHeatTileMaps();
   return {
-    tile: makeTileMat(makeHeatTileTexture(), 0.1, 0.9),
+    tile: makeTileMat(hex.color, 0.08, 0.86, {
+      roughnessMap: hex.rough,
+      bumpMap: hex.bump,
+      emissiveMap: hex.emissive,
+    }),
     tileEdge: makeMetalStd(0x1a1c20, 0.18, 0.82),
     tileWear: makeTileMat(makeHeatTileEdgeWearTexture(), 0.14, 0.78),
   };
@@ -145,12 +187,14 @@ function makeDetailMats(): Pick<
 }
 
 /** Stainless body + dark/matte/weld metals. */
-function makeSteelFamily(stainless: { color: THREE.CanvasTexture; roughness: THREE.CanvasTexture }): Pick<
-  CraftMats, "steel" | "steelBright" | "steelDark" | "steelMatte" | "weldMat"
-> {
+function makeSteelFamily(stainless: {
+  color: THREE.CanvasTexture;
+  roughness: THREE.CanvasTexture;
+  bump: THREE.CanvasTexture;
+}): Pick<CraftMats, "steel" | "steelBright" | "steelDark" | "steelMatte" | "weldMat"> {
   return {
-    steel: makeSteelPhysical(0xc8ccd0, stainless, 0.9, 0.3, 0.82),
-    steelBright: makeSteelPhysical(0xd8e0e4, stainless, 0.94, 0.2, 0.88),
+    steel: makeSteelPhysical(0xd0d4d8, stainless, 0.93, 0.22, 0.86),
+    steelBright: makeSteelPhysical(0xe0e6ea, stainless, 0.95, 0.16, 0.90),
     steelDark: makeMetalStd(0x6a7078, 0.78, 0.4),
     steelMatte: makeMetalStd(0x9aa0a8, 0.68, 0.42),
     weldMat: makeMetalStd(0xb8c0c8, 0.95, 0.16),
@@ -264,22 +308,28 @@ function addHeatFwdWear(ship: THREE.Group, mats: CraftMats): void {
   }
 }
 
-/** Flight-test white / missing-tile markers. */
-function addTileMarkers(ship: THREE.Group): void {
-  const spots: [number, number][] = [
-    [0.1, SHIP_H * 0.55], [-0.06, SHIP_H * 0.4], [0.04, SHIP_H * 0.28],
-  ];
-  for (const [u, v] of spots) addOneTileMarker(ship, u, v);
-}
-
-function addOneTileMarker(ship: THREE.Group, u: number, v: number): void {
-  const marker = new THREE.Mesh(
-    new THREE.BoxGeometry(0.028, 0.006, 0.032),
-    makeMetalStd(0xe8eaf0, 0.1, 0.65),
-  );
-  marker.position.set(Math.sin(u) * R * 1.02, Math.cos(u) * R * 1.02, v);
-  marker.lookAt(0, 0, v);
-  ship.add(marker);
+/** Flight 13 S40 stencil on the stainless leeward (fin-cam readable). */
+function addHullMark(ship: THREE.Group): void {
+  const spec = SHIP_HULL_MARK;
+  const canvas = makeSizedCanvas(256, 96);
+  paintHullMarkDecal(canvas.getContext("2d")!, 256, 96, spec.text);
+  const mat = new THREE.MeshStandardMaterial({
+    map: finishCanvasTexture(canvas, true),
+    transparent: true,
+    depthWrite: false,
+    metalness: 0.12,
+    roughness: 0.58,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(spec.width, spec.height), mat);
+  mesh.name = "hull-mark-s40";
+  const r = R * 1.014;
+  const z = spec.zFrac * SHIP_H;
+  mesh.position.set(Math.sin(spec.ang) * r, Math.cos(spec.ang) * r, z);
+  mesh.lookAt(mesh.position.x * 2, mesh.position.y * 2, z);
+  ship.add(mesh);
 }
 
 /** Barrel ring welds on ship. */
@@ -329,16 +379,71 @@ function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
   addFwdFlap(ship, mats, 1);
 }
 
+/**
+ * Fin-cam mesh-local pose (before {@link CRAFT_MESH_SCALE}).
+ * Nose-ward and outboard of the starboard forward flap (flap occupies
+ * ~z 0.55–0.81) so the locked lens looks aft along the barrel instead of
+ * into a flap face.
+ */
+export const FIN_CAM_LOCAL = { x: R + 0.20, y: 0.06, z: 0.90 } as const;
+
+/** Fin-cam look — aft along the TPS/steel chine toward the engines. */
+export const FIN_CAM_LOOK_LOCAL = { x: R + 0.05, y: 0.02, z: 0.22 } as const;
+
 /** Fin-cam mount + look target on ship. */
 function addFinCam(ship: THREE.Group): void {
-  const finCam = new THREE.Object3D();
-  finCam.name = "fin-cam";
-  finCam.position.set(R + 0.08, 0.03, SHIP_H - 0.58);
-  ship.add(finCam);
-  const finLook = new THREE.Object3D();
-  finLook.name = "fin-cam-look";
-  finLook.position.set(0, 0, -0.05);
-  ship.add(finLook);
+  addNamedCam(
+    ship,
+    "fin-cam",
+    "fin-cam-look",
+    [FIN_CAM_LOCAL.x, FIN_CAM_LOCAL.y, FIN_CAM_LOCAL.z],
+    [FIN_CAM_LOOK_LOCAL.x, FIN_CAM_LOOK_LOCAL.y, FIN_CAM_LOOK_LOCAL.z],
+  );
+}
+
+/**
+ * Entry left-pane flap-cam: starboard forward flap fills the left of frame
+ * with the aft hull / Earth (plasma in the webcast) to the right.
+ */
+function addFlapCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "flap-cam",
+    "flap-cam-look",
+    [R + 0.05, 0.16, SHIP_H - 0.38],
+    [R + 0.10, -0.18, SHIP_H - 0.70],
+  );
+}
+
+/**
+ * Webcast hull-cam: starboard barrel looking aft so the hull fills the left
+ * of frame and Earth fills the rest (Flight 13 S40 stills).
+ */
+function addHullCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "hull-cam",
+    "hull-cam-look",
+    [R + 0.42, 0.08, SHIP_H * 0.64],
+    [R * 0.12, -0.04, 0.04],
+  );
+}
+
+function addNamedCam(
+  host: THREE.Group,
+  camName: string,
+  lookName: string,
+  camPos: readonly [number, number, number],
+  lookPos: readonly [number, number, number],
+): void {
+  const cam = new THREE.Object3D();
+  cam.name = camName;
+  cam.position.set(camPos[0], camPos[1], camPos[2]);
+  host.add(cam);
+  const look = new THREE.Object3D();
+  look.name = lookName;
+  look.position.set(lookPos[0], lookPos[1], lookPos[2]);
+  host.add(look);
 }
 
 /** One aft elevon + tile face on a named hinge pivot. */
@@ -354,6 +459,10 @@ function addAftFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
   const flapTile = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.2, 0.28), mats.tile);
   flapTile.position.set(side * 0.03, 0.02, 0);
   pivot.add(flapTile);
+  // Hex patch on the metallic face (Flight 13 flap-tile experiment).
+  const steelPatch = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.07, 0.11), mats.tile);
+  steelPatch.position.set(side * 0.01, -0.055, 0.03);
+  pivot.add(steelPatch);
   ship.add(pivot);
 }
 
@@ -419,13 +528,15 @@ function addShipStructure(ship: THREE.Group, mats: CraftMats): void {
   addHeatFwd(ship, mats);
   addHeatEdgeWear(ship, mats);
   addHeatFwdWear(ship, mats);
-  addTileMarkers(ship);
+  addHullMark(ship);
   addShipWeldRings(ship, mats);
 }
 
 function addShipControlSurfaces(ship: THREE.Group, mats: CraftMats): void {
   addForwardFlaps(ship, mats);
   addFinCam(ship);
+  addFlapCam(ship);
+  addHullCam(ship);
   addAftFlaps(ship, mats);
 }
 
@@ -547,14 +658,46 @@ function addGridFinCam(
   finZ: number,
   finW: number,
 ): void {
-  const gridFinCam = new THREE.Object3D();
-  gridFinCam.name = "grid-fin-cam";
-  gridFinCam.position.set(Math.cos(ang) * r, Math.sin(ang) * r, finZ + finW * 0.12);
-  booster.add(gridFinCam);
-  const gridFinLook = new THREE.Object3D();
-  gridFinLook.name = "grid-fin-cam-look";
-  gridFinLook.position.set(Math.cos(ang) * R * 0.25, Math.sin(ang) * R * 0.25, 0.04);
-  booster.add(gridFinLook);
+  addNamedCam(
+    booster,
+    "grid-fin-cam",
+    "grid-fin-cam-look",
+    [Math.cos(ang) * r, Math.sin(ang) * r, finZ + finW * 0.12],
+    [Math.cos(ang) * R * 0.25, Math.sin(ang) * R * 0.25, 0.04],
+  );
+}
+
+/** Booster hull-down cam (max-Q / Super Heavy landing stills). */
+function addBoosterHullCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "booster-hull-cam",
+    "booster-hull-cam-look",
+    [R + 0.36, 0.05, BOOST_H * 0.70],
+    [R * 0.18, -0.05, BOOST_H * 0.08],
+  );
+}
+
+/** Looking at the Raptor cluster (hot-stage left pane). */
+function addEnginesCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "engines-cam",
+    "engines-cam-look",
+    [0.09, 0.04, -0.22],
+    [0, 0, -0.02],
+  );
+}
+
+/** Looking past the bells at Earth (post-sep left pane). */
+function addEnginesDownCam(booster: THREE.Group): void {
+  addNamedCam(
+    booster,
+    "engines-down-cam",
+    "engines-down-cam-look",
+    [0.11, 0.03, 0.14],
+    [0, 0, -0.38],
+  );
 }
 
 function addBoostSkirtAndRaceway(booster: THREE.Group, mats: CraftMats): void {
@@ -675,6 +818,9 @@ function makeFrostTexture(): THREE.CanvasTexture {
 function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
   const cam = addGridFins(booster, mats);
   addGridFinCam(booster, cam.ang, cam.r, cam.finZ, cam.finW);
+  addBoosterHullCam(booster);
+  addEnginesCam(booster);
+  addEnginesDownCam(booster);
   addBoostSkirtAndRaceway(booster, mats);
   addBoostEngines(booster, mats);
 }
@@ -983,7 +1129,8 @@ function finishCanvasTexture(
 
 /**
  * Procedural stainless maps for cylinder UV (U = circumference, V = height).
- * Circumferential brush streaks + horizontal weld bands for fin-cam close-ups.
+ * Circumferential brush streaks, weld bands, oil-canning bump, and heat tint
+ * for fin-cam close-ups (V13).
  */
 function makeSizedCanvas(w: number, h: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -1005,26 +1152,36 @@ function stainlessTextures(
 function makeStainlessMaps(size = 512): {
   color: THREE.CanvasTexture;
   roughness: THREE.CanvasTexture;
+  bump: THREE.CanvasTexture;
 } {
   const colorCanvas = makeSizedCanvas(size, size);
   const roughCanvas = makeSizedCanvas(size, size);
-  paintStainlessMaps(colorCanvas, roughCanvas, size, size);
-  return stainlessTextures(colorCanvas, roughCanvas);
+  const bumpCanvas = makeSizedCanvas(size, size);
+  paintStainlessMaps(colorCanvas, roughCanvas, bumpCanvas, size, size);
+  return {
+    ...stainlessTextures(colorCanvas, roughCanvas),
+    bump: finishCanvasTexture(bumpCanvas, false),
+  };
 }
 
 function paintStainlessMaps(
   colorCanvas: HTMLCanvasElement,
   roughCanvas: HTMLCanvasElement,
+  bumpCanvas: HTMLCanvasElement,
   w: number,
   h: number,
 ): void {
   const cctx = colorCanvas.getContext("2d")!;
   const rctx = roughCanvas.getContext("2d")!;
+  const bctx = bumpCanvas.getContext("2d")!;
   fillStainlessBase(cctx, rctx, w, h);
+  bctx.fillStyle = "#808080";
+  bctx.fillRect(0, 0, w, h);
   paintStainlessBrush(cctx, rctx, w, h);
   paintStainlessGrain(cctx, w, h);
   paintStainlessWelds(cctx, rctx, w, h);
   paintStainlessChines(cctx, w, h);
+  paintStainlessPhotoreal(cctx, rctx, bctx, w, h);
 }
 
 function makeBellBody(rTop: number, rBot: number, h: number, bodyMat: THREE.Material): THREE.Mesh {
@@ -1254,145 +1411,36 @@ function tintPlumeSprite(
   );
 }
 
-function paintTileField(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-  ctx.fillStyle = "#16181b";
-  ctx.fillRect(0, 0, w, h);
-  const cols = 14;
-  const rows = 48;
-  const tw = w / cols;
-  const th = h / rows;
-  for (let row = 0; row < rows; row++) paintTileRow(ctx, row, cols, tw, th);
-}
-
-function paintTileRow(
-  ctx: CanvasRenderingContext2D,
-  row: number,
-  cols: number,
-  tw: number,
-  th: number,
-): void {
-  const xOff = (row % 2) * (tw * 0.5);
-  for (let col = -1; col <= cols; col++) {
-    paintOneTile(ctx, row, col, cols, tw, th, xOff);
-  }
-}
-
-function tileEdgeFactor(col: number, cols: number): number {
-  if (col <= 1 || col >= cols - 2) return 1;
-  if (col <= 2 || col >= cols - 3) return 0.45;
-  return 0;
-}
-
-function paintOneTile(
-  ctx: CanvasRenderingContext2D,
-  row: number,
-  col: number,
-  cols: number,
-  tw: number,
-  th: number,
-  xOff: number,
-): void {
-  const x = col * tw + xOff;
-  const y = row * th;
-  const edge = tileEdgeFactor(col, cols);
-  const n = 14 + ((row * 17 + col * 31) % 11) + ((row * 3 + col * 7) % 5) + Math.round(edge * 22);
-  fillTileCell(ctx, x, y, tw, th, n, edge);
-}
-
-function fillTileCell(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  tw: number,
-  th: number,
-  n: number,
-  edge: number,
-): void {
-  const r = Math.min(255, n + (edge > 0.5 ? 8 : 0));
-  const g = Math.min(255, n + 1 + (edge > 0.5 ? 4 : 0));
-  const b = Math.min(255, n + 2);
-  ctx.fillStyle = `rgb(${r},${g},${b})`;
-  ctx.fillRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
-  ctx.strokeStyle = edge > 0 ? "rgba(70,60,50,0.9)" : "rgba(48,52,58,0.85)";
-  ctx.lineWidth = 0.7;
-  ctx.strokeRect(x + 0.6, y + 0.5, tw - 1.2, th - 1.0);
-}
-
-function paintDamagedTiles(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-): void {
-  const cols = 14;
-  const rows = 48;
-  const tw = w / cols;
-  const th = h / rows;
-  for (let i = 0; i < 28; i++) paintDamagedTile(ctx, i, cols, rows, tw, th);
-}
-
-function paintDamagedTile(
-  ctx: CanvasRenderingContext2D,
-  i: number,
-  cols: number,
-  rows: number,
-  tw: number,
-  th: number,
-): void {
-  const edgeBias = i % 3 !== 0;
-  const col = edgeBias ? (i % 2 === 0 ? i % 3 : cols - 1 - (i % 3)) : (i * 5 + 3) % cols;
-  const row = (i * 11 + 7) % rows;
-  const xOff = (row % 2) * (tw * 0.5);
-  ctx.fillStyle = i % 5 === 0 ? "#c8ccd2" : i % 3 === 0 ? "#3a342e" : "#2a3036";
-  ctx.fillRect(col * tw + xOff + 1, row * th + 0.8, tw - 2, th - 1.4);
-}
-
-function paintTileCharMargins(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-): void {
-  const tw = w / 14;
-  paintCharMargin(ctx, 0, 0, tw * 2.2, h, true);
-  paintCharMargin(ctx, w - tw * 2.2, 0, tw * 2.2, h, false);
-}
-
-function paintCharMargin(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  mw: number,
-  h: number,
-  left: boolean,
-): void {
-  const g = left
-    ? ctx.createLinearGradient(x, 0, x + mw, 0)
-    : ctx.createLinearGradient(x + mw, 0, x, 0);
-  g.addColorStop(0, "rgba(90,70,50,0.35)");
-  g.addColorStop(0.6, "rgba(40,36,32,0.15)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(x, y, mw, h);
-}
-
 /**
- * Dense hex-ish TPS tile map for the windward heat shield.
- * V4: left/right UV columns get edge wear (matches windward arc sides only).
+ * Hexagonal TPS maps for the windward heat shield (V13).
+ * Color + roughness + bump + grout emissive; chine columns run warmer.
  */
-function makeHeatTileTexture(): THREE.CanvasTexture {
-  const canvas = makeSizedCanvas(256, 512);
-  const ctx = canvas.getContext("2d")!;
-  paintTileField(ctx, 256, 512);
-  paintDamagedTiles(ctx, 256, 512);
-  paintTileCharMargins(ctx, 256, 512);
-  return finishHeatMap(canvas);
+function makeHeatTileMaps(): {
+  color: THREE.CanvasTexture;
+  rough: THREE.CanvasTexture;
+  bump: THREE.CanvasTexture;
+  emissive: THREE.CanvasTexture;
+} {
+  const { w, h } = HEX_TILE_MAP_SIZE;
+  const color = makeSizedCanvas(w, h);
+  const rough = makeSizedCanvas(w, h);
+  const bump = makeSizedCanvas(w, h);
+  const emissive = makeSizedCanvas(w, h);
+  paintHexTileMaps({ color, rough, bump, emissive });
+  return {
+    color: finishHeatMap(color, true),
+    rough: finishHeatMap(rough, false),
+    bump: finishHeatMap(bump, false),
+    emissive: finishHeatMap(emissive, true),
+  };
 }
 
-function finishHeatMap(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+function finishHeatMap(canvas: HTMLCanvasElement, srgb = true): THREE.CanvasTexture {
   const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
+  if (srgb) map.colorSpace = THREE.SRGBColorSpace;
   map.wrapS = THREE.ClampToEdgeWrapping;
   map.wrapT = THREE.RepeatWrapping;
-  map.anisotropy = 4;
+  map.anisotropy = 8;
   return map;
 }
 
@@ -1959,15 +2007,16 @@ type HeatMats = {
  * Windward tile glow / char from entry plasma. Theater-grade — not a heat map.
  * Intensity is scrub-safe via {@link CraftVisualState.plasmaStrength}.
  */
-function updateEntryHeat(group: THREE.Group, plasma: number): void {
+function updateEntryHeat(group: THREE.Group, plasma: number, phase?: string): void {
   const ship = group.getObjectByName("ship");
   const mats = ship?.userData.heatMats as HeatMats | undefined;
   if (!mats) return;
-  const u = Number.isFinite(plasma) ? Math.max(0, Math.min(1, plasma)) : 0;
-  mats.tile.emissive.setRGB(0.95 * u, 0.28 * u, 0.05 * u);
-  mats.tile.emissiveIntensity = 1.85 * u;
+  const p = Number.isFinite(plasma) ? Math.max(0, Math.min(1, plasma)) : 0;
+  const u = tileGroutGlow(p, phase);
+  mats.tile.emissive.setRGB(0.72 * u + 0.28 * p, 0.22 * u + 0.08 * p, 0.07 * u);
+  mats.tile.emissiveIntensity = 0.4 + 1.55 * p;
   mats.tileWear.emissive.setRGB(0.7 * u, 0.16 * u, 0.03 * u);
-  mats.tileWear.emissiveIntensity = 1.15 * u;
+  mats.tileWear.emissiveIntensity = 0.25 + 1.05 * p;
 }
 
 const FWD_FLAP_NAMES = ["fwd-flap-L", "fwd-flap-R"] as const;
@@ -2018,7 +2067,7 @@ export function updateCraftVisuals(
   dimShipBells(group, state);
   updateCondensation(group.getObjectByName("condense-cloud"), state.phase, missionT, state.burning);
   updateFrostAndIce(group, state, missionT);
-  updateEntryHeat(group, state.plasmaStrength ?? 0);
+  updateEntryHeat(group, state.plasmaStrength ?? 0, state.phase);
   updateControlSurfaces(group, state);
 }
 
@@ -2106,6 +2155,24 @@ export function setPlumeVisible(group: THREE.Group, visible: boolean): void {
 export function craftLengthKm(staged: boolean): number {
   return staged ? SHIP_H_M / 1000 : (SHIP_H_M + BOOST_H_M) / 1000;
 }
+
+/** Named camera mounts on the stack (fin / hull / booster / engines). */
+export const CRAFT_CAM_MOUNT_NAMES = [
+  "fin-cam",
+  "fin-cam-look",
+  "flap-cam",
+  "flap-cam-look",
+  "hull-cam",
+  "hull-cam-look",
+  "grid-fin-cam",
+  "grid-fin-cam-look",
+  "booster-hull-cam",
+  "booster-hull-cam-look",
+  "engines-cam",
+  "engines-cam-look",
+  "engines-down-cam",
+  "engines-down-cam-look",
+] as const;
 
 /** Super Heavy alone (~71 m) for free-flyer locator sizing after stage-out. */
 export function boosterLengthKm(): number {

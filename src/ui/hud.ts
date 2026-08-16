@@ -264,7 +264,7 @@ function syncAutoCamButton(
   if (!btn) return;
   btn.setAttribute("aria-pressed", enabled ? "true" : "false");
   btn.title = enabled
-    ? "Auto-cam on — guided framing by phase (G)"
+    ? "Auto-cam on — Flight 13 follows the webcast left pane (G)"
     : "Auto-cam off — press G or click to re-enable";
   btn.textContent = enabled ? "Auto-cam" : "Auto-cam off";
 }
@@ -282,7 +282,7 @@ function showAutoCamToast(rt: HudRuntime, on: boolean): void {
     rt.dom.camToastTitle,
     rt.dom.camToastDetail,
     on ? "Auto-cam on" : "Auto-cam off",
-    on ? "Camera follows mission phases" : "Manual focus · G to re-enable",
+    on ? "Matches the official webcast camera" : "Manual focus · G to re-enable",
     rt.camToastTimer,
     CAM_TOAST_MS,
   );
@@ -581,7 +581,7 @@ function toastAutoCam(rt: HudRuntime, mode: CameraMode): void {
     rt.dom.camToastTitle,
     rt.dom.camToastDetail,
     `Auto · ${CAMERA_LABELS[mode].title}`,
-    "Guided phase camera",
+    "Guided camera",
     rt.camToastTimer,
     CAM_TOAST_MS,
   );
@@ -913,6 +913,7 @@ const CAM_DIGIT_MODES: Record<string, CameraMode> = {
   "6": "gridfin",
   "7": "chase",
   "8": "fin",
+  "9": "hull",
 };
 
 function handleShiftBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {

@@ -30,7 +30,7 @@ import {
 import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
 import { applyLandingBeatEffects } from "../theaterHandlers";
-import { nextAutoCamCut, finaleChaseBias } from "../../camera/autoCam";
+import { nextAutoCamCut, finaleChaseBias, type AutoCamSuggestion } from "../../camera/autoCam";
 import {
   applyEarthshine,
   applyFillLight,
@@ -243,11 +243,8 @@ function updateMoonLocator(ctx: F13Ctx, b: BodyState): void {
   });
 }
 
-function easeAutoSuggestion(
-  ctx: F13Ctx,
-  s: { mode: Parameters<F13Ctx["notifyAutoCamera"]>[0]; frame: boolean; frameScale?: number },
-): void {
-  ctx.director.easeToMode(s.mode, { frame: s.frame, frameScale: s.frameScale });
+function easeAutoSuggestion(ctx: F13Ctx, s: AutoCamSuggestion): void {
+  ctx.director.easeToMode(s.mode, s);
   ctx.notifyAutoCamera(s.mode);
 }
 
@@ -255,13 +252,21 @@ function applyAutoCam(
   ctx: F13Ctx,
   d: ReturnType<typeof displayFields>,
   b: BodyState,
+  physicsT: number,
 ): void {
   const autoCut = nextAutoCamCut(
     ctx.autoCam.enabled, d.displayPhase, d.stagedForCam,
-    { phase: ctx.autoCam.phase, staged: ctx.autoCam.staged }, "flight13",
+    {
+      phase: ctx.autoCam.phase,
+      staged: ctx.autoCam.staged,
+      shotKey: ctx.autoCam.shotKey,
+    },
+    "flight13",
+    physicsT,
   );
   ctx.autoCam.phase = autoCut.phase;
   ctx.autoCam.staged = autoCut.staged;
+  ctx.autoCam.shotKey = autoCut.shotKey;
   if (autoCut.suggestion) easeAutoSuggestion(ctx, autoCut.suggestion);
   const chaseOn = ctx.autoCam.enabled && ctx.director.getMode() === "chase";
   const bias = finaleChaseBias(chaseOn, "flight13", d.displayPhase);
@@ -481,10 +486,11 @@ function updateSceneStack(
   d: ReturnType<typeof displayFields>,
   b: BodyState,
   simT: number,
+  physicsT: number,
 ): void {
   updateLights(ctx, simT, b);
   updateLocators(ctx, frame, b);
-  applyAutoCam(ctx, d, b);
+  applyAutoCam(ctx, d, b, physicsT);
 }
 
 function poseCraft(ctx: F13Ctx, u: number) {
@@ -520,6 +526,6 @@ export function applyMissionState(ctx: F13Ctx, u: number): void {
   const d = displayFields(prelaunch, frame);
   writeCinema(ctx, d);
   updateFxStack(ctx, physicsT, prelaunch, frame, d, b);
-  updateSceneStack(ctx, frame, d, b, simT);
+  updateSceneStack(ctx, frame, d, b, simT, physicsT);
   finishFrame(ctx, u, physicsT, prelaunch, frame, d, b, simT);
 }
