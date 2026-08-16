@@ -26,6 +26,7 @@ import {
 } from "./earthAtmosphere";
 import { createLocatorSprite } from "./craft";
 import { createNameLabel, markZoomLabel } from "./zoomLabels";
+import { createLeoClouds, type LeoClouds } from "./leoClouds";
 
 export type Bodies = {
   earth: THREE.Mesh;
@@ -38,6 +39,8 @@ export type Bodies = {
   sunGroup: THREE.Group;
   /** Rayleigh-ish multi-shell limb (sun dir updated each frame). */
   earthAtmo: EarthAtmosphere;
+  /** V19 gated LEO cloud shell + glitter (hidden for Earth-cam / pad). */
+  leoClouds: LeoClouds;
   /** Far-range green locator (constant on-screen size). */
   earthLocator: THREE.Sprite;
   /** Far-range light-blue locator. */
@@ -365,15 +368,24 @@ function addEarthDecor(earthAxis: THREE.Group): EarthAtmosphere {
   return earthAtmo;
 }
 
-/** Populate earthAxis with globe, atmo, axis visual. */
+/** Attach the V19 gated LEO cloud + glitter shell (starts hidden). */
+function addLeoClouds(earthAxis: THREE.Group): LeoClouds {
+  const leoClouds = createLeoClouds();
+  earthAxis.add(leoClouds.group);
+  return leoClouds;
+}
+
+/** Populate earthAxis with globe, gated clouds, atmo, axis visual. */
 function populateEarthAxis(earthAxis: THREE.Group): {
   earth: THREE.Mesh;
   earthAtmo: EarthAtmosphere;
+  leoClouds: LeoClouds;
 } {
   const texSize = 1536;
   const earth = makeTexturedEarth(texSize);
   earthAxis.add(earth);
-  return { earth, earthAtmo: addEarthDecor(earthAxis) };
+  const leoClouds = addLeoClouds(earthAxis);
+  return { earth, earthAtmo: addEarthDecor(earthAxis), leoClouds };
 }
 
 /** Build Earth mesh + atmo + axis under earthGroup. */
@@ -381,6 +393,7 @@ function buildEarthBundle(): {
   earthGroup: THREE.Group;
   earth: THREE.Mesh;
   earthAtmo: EarthAtmosphere;
+  leoClouds: LeoClouds;
 } {
   const earthGroup = new THREE.Group();
   const earthAxis = createEarthAxisGroup();
@@ -501,12 +514,13 @@ function earthBodyFields(
   earthLocator: THREE.Sprite,
 ): Pick<
   Bodies,
-  "earth" | "earthGroup" | "earthAtmo" | "earthLocator"
+  "earth" | "earthGroup" | "earthAtmo" | "leoClouds" | "earthLocator"
 > {
   return {
     earth: earth.earth,
     earthGroup: earth.earthGroup,
     earthAtmo: earth.earthAtmo,
+    leoClouds: earth.leoClouds,
     earthLocator,
   };
 }
@@ -664,9 +678,11 @@ function placeBodyGroups(
   bodies.sunGroup.position.set(b.sun.x, b.sun.y, b.sun.z);
 }
 
-/** Apply Earth spin. */
+/** Apply Earth spin (clouds drift slightly; glitter stays ocean-locked). */
 function spinEarthSurface(bodies: Bodies, spin: number): void {
   bodies.earth.rotation.y = spin;
+  bodies.leoClouds.group.rotation.y = spin;
+  bodies.leoClouds.clouds.rotation.y = spin * 0.03 + 0.35;
 }
 
 export function updateBodies(
