@@ -896,9 +896,15 @@ body.menus-active {
   margin-top: auto;
 }
 
-.telemetry #date {
+.telemetry #date,
+.telemetry #date-texas {
   font-size: 0.72rem;
   letter-spacing: 0.01em;
+}
+
+.telemetry #date-texas {
+  color: var(--muted);
+  font-size: 0.68rem;
 }
 
 .fuel-row {

@@ -21,6 +21,7 @@ const METRIC_KEYS = [
   "phase",
   "time",
   "date",
+  "dateTexas",
   "sky",
   "progress",
   "playback",
@@ -90,6 +91,7 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
     dom.missionClockRateEl.textContent = formatRate(m.playbackSpeed);
   }
   if (dom.dateEl) dom.dateEl.textContent = m.dateUtc;
+  if (dom.dateTexasEl) dom.dateTexasEl.textContent = m.dateTexas;
   dom.distEl.textContent = m.distance;
   dom.progEl.textContent = m.progress;
   dom.altEl.textContent = m.altitude;

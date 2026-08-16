@@ -144,6 +144,64 @@ export function formatMissionDateUtc(
   return `${y}-${mo}-${day} ${h}:${mi} UTC`;
 }
 
+/** IANA zone for Starbase / Texas civil time (CST/CDT). */
+export const TEXAS_TIME_ZONE = "America/Chicago";
+
+/**
+ * Texas civil time for the HUD, e.g. "2026-07-23 5:45 p.m. CDT".
+ * Uses America/Chicago so DST follows the civil clock.
+ */
+export function formatMissionDateTexas(
+  missionT: number,
+  landingMissionT: number,
+  clockUtcMsAtT0: number | null = null,
+): string {
+  return formatTexasFromUtcMs(
+    missionUtcMs(missionT, landingMissionT, clockUtcMsAtT0),
+  );
+}
+
+function formatTexasFromUtcMs(utcMs: number): string {
+  const parts = texasDateParts(utcMs);
+  const hour12 = ((parts.hour + 11) % 12) + 1;
+  const ampm = parts.hour < 12 ? "a.m." : "p.m.";
+  return `${parts.year}-${parts.month}-${parts.day} ${hour12}:${parts.minute} ${ampm} ${parts.zone}`;
+}
+
+type TexasDateParts = {
+  year: string;
+  month: string;
+  day: string;
+  hour: number;
+  minute: string;
+  zone: string;
+};
+
+function texasDateParts(utcMs: number): TexasDateParts {
+  const bag = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: TEXAS_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "short",
+    })
+      .formatToParts(new Date(utcMs))
+      .map((p) => [p.type, p.value]),
+  );
+  return {
+    year: bag.year ?? "0000",
+    month: bag.month ?? "01",
+    day: bag.day ?? "01",
+    hour: Number(bag.hour ?? "0"),
+    minute: bag.minute ?? "00",
+    zone: bag.timeZoneName ?? "CT",
+  };
+}
+
 export function formatMissionDateUtcFromEpoch(
   missionT: number,
   epoch: EphemerisEpoch,

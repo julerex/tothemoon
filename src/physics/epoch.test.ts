@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   daysPastFullAtLanding,
   FLIGHT13_LIFTOFF_UTC_MS,
+  formatMissionDateTexas,
   formatMissionDateUtc,
   FULL_MOON_UTC_MS,
   greenwichMeanSiderealTimeRad,
@@ -83,6 +84,17 @@ describe("epoch · Flight 13 daytime launch", () => {
     assert.match(
       formatMissionDateUtc(0, 0, clock),
       /^2026-07-23 22:45 UTC$/,
+    );
+    assert.equal(
+      formatMissionDateTexas(0, 0, clock),
+      "2026-07-23 5:45 p.m. CDT",
+    );
+  });
+
+  it("formatMissionDateTexas uses CDT in July and sits under UTC", () => {
+    assert.equal(
+      formatMissionDateTexas(1000, 1000),
+      "2027-07-20 7:00 a.m. CDT",
     );
   });
 

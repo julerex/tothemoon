@@ -10,7 +10,7 @@ import {
   meshLocalToInertial,
   starbasePadState,
 } from "../../physics/earthFrame";
-import { formatMissionDateUtc } from "../../physics/epoch";
+import { formatMissionDateTexas, formatMissionDateUtc } from "../../physics/epoch";
 import { boosterPhaseAt } from "../../physics/boosterRecovery";
 import {
   FLIGHT13_SPLASH_LAT,
@@ -407,6 +407,7 @@ function hudPlayback(
   return {
     playing: ctx.clock.playing,
     dateUtc: formatMissionDateUtc(physicsT, ctx.cache.horizonsLandingT, ctx.epoch.clockUtcMsAtT0),
+    dateTexas: formatMissionDateTexas(physicsT, ctx.cache.horizonsLandingT, ctx.epoch.clockUtcMsAtT0),
     playbackSpeed: ctx.clock.speed, missionComplete: showCompleteCard,
     completeKind: ctx.landingBeat.kind,
   };
