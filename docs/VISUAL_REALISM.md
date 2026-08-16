@@ -171,12 +171,13 @@ Pad massing reads from altitude; trench + pad cams need density up close.
 
 - ~~Stainless **anisotropy / weld rings** more readable at fin cam~~ **done**
   (`MeshPhysicalMaterial` circumferential anisotropy + brush/weld maps; denser shiny torus weld rings with shadow companions)
+- Ship silhouette pass: lathe tangent ogive (tip +Z), flush cylinder weld bands (no hovering tori on the nose), Block 2 trapezoid flaps at public span/chord.
 - ~~Heat-shield edge wear only on windward side~~ **done**
   (edge-biased TPS texture + char gradients; windward trim/wear strips; flap tile wear)
 - ~~Grid fins: clearer silhouette against sky for gridfin cam~~ **done**
   (dark outer frame, denser 6×6 lattice, thicker frame members)
 
-**Files:** `craft.ts` (+ `craftMaterials.test.ts` layout contracts).
+**Files:** `craft.ts` (+ `craftMaterials.test.ts`, `craftGeometry.test.ts`).
 
 ---
 
@@ -592,6 +593,7 @@ Not driven by the Flight 13 stills.
 | 2026-08-11 | V3 shipped: pad scorch/stains, volumetric deluge, chopsticks/QD silhouette, trench heat haze |
 | 2026-08-11 | V2 shipped: Fresnel Earth limb, soft terminator, cloud contrast, Moon low-sun albedo/roughness |
 | 2026-08-11 | V4 shipped: stainless anisotropy + weld rings, windward tile edge wear, denser grid fins |
+| 2026-08-16 | Ship silhouette: lathe ogive, flush barrel weld bands, Block 2 trapezoid flaps |
 | 2026-08-11 | V5 shipped: pad/craft shadows, mild bloom + exposure, star fade, entry brownout |
 | 2026-08-12 | Post-V5 backlog: V6 terminal FX → V7 entry craft → V8 recovery catch → V9 lunar site; V10 coast, V12 finale cams |
 | 2026-08-12 | V11 shipped: NASA Blue Marble Earth albedo + Sentinel-2 Starbase surrounds plate |

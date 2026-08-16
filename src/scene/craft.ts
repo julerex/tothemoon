@@ -48,6 +48,9 @@ import {
  * fin cam; windward-only heat-shield edge wear; denser high-contrast grid fins
  * for grid-fin cam sky silhouette.
  *
+ * Ship silhouette (Block 2 / V3): tangent-ogive nose (tip +Z), flush barrel
+ * weld bands on the cylinder only, thin trapezoid flaps, 17 m wingspan.
+ *
  * V7 entry: windward tile emissive from plasma; hinged flaps/elevons from
  * Flight 13 attitude (belly throw, transonic taper).
  *
@@ -60,9 +63,12 @@ import {
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
 
-/** Ship barrel weld ring fractions of ship height (V4 — denser for fin cam). */
+/**
+ * Ship barrel weld-band fractions of ship height (cylinder only, nose → aft).
+ * Kept off the ogive so they do not hover around the taper.
+ */
 export const SHIP_WELD_RING_FRACTIONS = [
-  0.95, 0.82, 0.68, 0.55, 0.42, 0.28, 0.15,
+  0.62, 0.54, 0.46, 0.38, 0.3, 0.22, 0.14,
 ] as const;
 
 /** Booster barrel weld ring count (V4). */
@@ -82,6 +88,37 @@ const SHIP_H_M = 52;
 const BOOST_H_M = 71;
 const SHIP_H = SHIP_H_M * U; // 1.3
 const BOOST_H = BOOST_H_M * U; // 1.775
+
+/** Tangent-ogive length (m) from tip to the 9 m barrel. */
+export const SHIP_OGIVE_H_M = 17;
+/** Fraction of ship height at the ogive/barrel join (engines = 0, tip = 1). */
+export const SHIP_OGIVE_BASE_FRAC = (SHIP_H_M - SHIP_OGIVE_H_M) / SHIP_H_M;
+
+const SHIP_OGIVE_H = SHIP_OGIVE_H_M * U;
+const SHIP_OGIVE_BASE_Z = SHIP_H - SHIP_OGIVE_H;
+
+/** Forward flap chord / span (m) — Block 2 class, ~18 m². */
+export const FWD_FLAP_CHORD_M = 6.5;
+export const FWD_FLAP_SPAN_M = 3.5;
+/** Aft flap chord / span (m) — ~40 m² class; 9 + 2×4 = 17 m wingspan. */
+export const AFT_FLAP_CHORD_M = 11;
+export const AFT_FLAP_SPAN_M = 4;
+/** Flap thickness (m) — Block 2 “thinner” forward flaps. */
+export const FLAP_THICKNESS_M = 0.25;
+/** Block 2 forward flaps: included angle about the leeward (−Y) axis. */
+export const FWD_FLAP_INCLUDED_DEG = 140;
+
+const FWD_FLAP_CHORD = FWD_FLAP_CHORD_M * U;
+const FWD_FLAP_SPAN = FWD_FLAP_SPAN_M * U;
+const AFT_FLAP_CHORD = AFT_FLAP_CHORD_M * U;
+const AFT_FLAP_SPAN = AFT_FLAP_SPAN_M * U;
+const FLAP_T = FLAP_THICKNESS_M * U;
+
+/** Sea-level / vacuum Raptor exit radii (m → mesh). */
+const SL_BELL_R = (1.3 / 2) * U;
+const VAC_BELL_R = (2.4 / 2) * U;
+const SL_BELL_H = 3.1 * U;
+const VAC_BELL_H = 3.9 * U;
 
 /** Shared materials for craft mesh construction. */
 type CraftMats = {
@@ -211,6 +248,42 @@ function makeCraftMaterials(): CraftMats {
   };
 }
 
+/**
+ * Tangent-ogive radius (m) at distance from the nose tip.
+ * ρ = (R² + L²) / (2R); y = √(ρ² − (L − x)²) + R − ρ.
+ */
+export function shipOgiveRadiusM(xFromTipM: number): number {
+  const len = SHIP_OGIVE_H_M;
+  const baseR = DIA_M / 2;
+  if (xFromTipM <= 0) return 0;
+  if (xFromTipM >= len) return baseR;
+  const rho = (baseR * baseR + len * len) / (2 * baseR);
+  const d = len - xFromTipM;
+  return Math.sqrt(Math.max(0, rho * rho - d * d)) + baseR - rho;
+}
+
+/** Lathe profile (radius, height along +Y) from barrel join (y=0) to tip. */
+function shipOgivePoints(rScale = 1): THREE.Vector2[] {
+  const n = 18;
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const xFromTipM = (1 - t) * SHIP_OGIVE_H_M;
+    const rM = Math.max(shipOgiveRadiusM(xFromTipM), 0.22);
+    pts.push(new THREE.Vector2(rM * U * rScale, t * SHIP_OGIVE_H));
+  }
+  return pts;
+}
+
+/** Lathe ogive aligned to craft +Z (tip at +Z). */
+function zOgive(rScale: number, mat: THREE.Material, phiStart = 0, phiLength = Math.PI * 2): THREE.Mesh {
+  const geom = new THREE.LatheGeometry(shipOgivePoints(rScale), 28, phiStart, phiLength);
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.z = SHIP_OGIVE_BASE_Z;
+  return mesh;
+}
+
 /** Cylinder aligned to craft +Z (default Three cylinder is +Y). */
 function zCylinder(
   geom: THREE.BufferGeometry,
@@ -224,51 +297,33 @@ function zCylinder(
   return mesh;
 }
 
-/** Ship ogive nose tip. */
-function addShipNoseTip(ship: THREE.Group, mats: CraftMats): void {
-  ship.add(zCylinder(
-    new THREE.ConeGeometry(R * 0.42, 0.22, 24),
-    mats.steelBright,
-    SHIP_H - 0.08,
-    -Math.PI / 2,
-  ));
-}
-
-/** Ship ogive nose tip + mid + base. */
+/** Ship tangent-ogive nose (tip +Z). */
 function addShipNose(ship: THREE.Group, mats: CraftMats): void {
-  addShipNoseTip(ship, mats);
-  ship.add(zCylinder(new THREE.CylinderGeometry(R * 0.42, R * 0.78, 0.2, 24), mats.steel, SHIP_H - 0.26));
-  ship.add(zCylinder(new THREE.CylinderGeometry(R * 0.78, R, 0.18, 24), mats.steel, SHIP_H - 0.44));
+  ship.add(zOgive(1, mats.steelBright));
 }
 
-/** Forward bay + main barrel + aft flare. */
+/** Continuous 9 m barrel from aft skirt to ogive join. */
 function addShipBarrel(ship: THREE.Group, mats: CraftMats): void {
-  ship.add(zCylinder(new THREE.CylinderGeometry(R, R, 0.28, 28), mats.steel, SHIP_H - 0.66));
-  ship.add(zCylinder(new THREE.CylinderGeometry(R, R, 0.55, 28), mats.steel, SHIP_H * 0.42));
-  ship.add(zCylinder(new THREE.CylinderGeometry(R, R * 1.06, 0.16, 28), mats.steelDark, 0.12));
+  const barrelH = SHIP_OGIVE_BASE_Z;
+  ship.add(zCylinder(new THREE.CylinderGeometry(R, R, barrelH, 28), mats.steel, barrelH * 0.5));
+  ship.add(zCylinder(new THREE.CylinderGeometry(R * 1.04, R, 0.055, 28), mats.steelDark, 0.028));
 }
 
-/** Main windward TPS cylinder arc. */
+/** Windward TPS on the cylindrical barrel (+Y). */
 function addHeatMain(ship: THREE.Group, mats: CraftMats): void {
-  const heatMain = zCylinder(
-    new THREE.CylinderGeometry(
-      R * 1.012, R * 1.012, 0.72, 36, 10, true, -Math.PI * 0.32, Math.PI * 0.64,
-    ),
-    mats.tile,
-    SHIP_H * 0.45,
-  );
-  ship.add(heatMain);
-}
-
-/** Forward heat-shield taper arc. */
-function addHeatFwd(ship: THREE.Group, mats: CraftMats): void {
+  const h = SHIP_OGIVE_BASE_Z - 0.05;
   ship.add(zCylinder(
     new THREE.CylinderGeometry(
-      R * 0.8, R * 1.01, 0.36, 28, 6, true, -Math.PI * 0.3, Math.PI * 0.6,
+      R * 1.012, R * 1.012, h, 36, 10, true, Math.PI * 0.68, Math.PI * 0.64,
     ),
     mats.tile,
-    SHIP_H - 0.52,
+    0.05 + h * 0.5,
   ));
+}
+
+/** Windward TPS following the ogive (same lathe, +Y arc). */
+function addHeatFwd(ship: THREE.Group, mats: CraftMats): void {
+  ship.add(zOgive(1.012, mats.tile, Math.PI * 0.68, Math.PI * 0.64));
 }
 
 /** Place a box on windward barrel at angle. */
@@ -288,8 +343,10 @@ function placeWindwardBox(
 
 /** One windward edge trim + wear strip. */
 function addHeatEdgeSide(ship: THREE.Group, mats: CraftMats, side: number): void {
-  placeWindwardBox(ship, new THREE.BoxGeometry(0.01, 0.016, 0.74), mats.tileEdge, side * Math.PI * 0.32, 1.014, SHIP_H * 0.45);
-  placeWindwardBox(ship, new THREE.BoxGeometry(0.014, 0.01, 0.7), mats.tileWear, side * Math.PI * 0.28, 1.016, SHIP_H * 0.45);
+  const h = SHIP_OGIVE_BASE_Z - 0.06;
+  const z = 0.05 + h * 0.5;
+  placeWindwardBox(ship, new THREE.BoxGeometry(0.01, 0.016, h), mats.tileEdge, side * Math.PI * 0.32, 1.014, z);
+  placeWindwardBox(ship, new THREE.BoxGeometry(0.014, 0.01, h * 0.95), mats.tileWear, side * Math.PI * 0.28, 1.016, z);
 }
 
 /** Windward TPS edge wear on main barrel sides. */
@@ -298,12 +355,15 @@ function addHeatEdgeWear(ship: THREE.Group, mats: CraftMats): void {
   addHeatEdgeSide(ship, mats, 1);
 }
 
-/** Forward heat-shield edge wear (nose arc sides). */
+/** Forward heat-shield edge wear (ogive arc sides). */
 function addHeatFwdWear(ship: THREE.Group, mats: CraftMats): void {
+  const xFromTipM = SHIP_OGIVE_H_M * 0.55;
+  const z = SHIP_H - xFromTipM * U;
+  const r = shipOgiveRadiusM(xFromTipM) * U * 1.02;
   for (const side of [-1, 1] as const) {
     const ang = side * Math.PI * 0.3;
-    const wearFwd = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.009, 0.34), mats.tileWear);
-    wearFwd.position.set(Math.sin(ang) * R * 0.95, Math.cos(ang) * R * 0.95, SHIP_H - 0.52);
+    const wearFwd = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.009, SHIP_OGIVE_H * 0.55), mats.tileWear);
+    wearFwd.position.set(Math.sin(ang) * r, Math.cos(ang) * r, z);
     wearFwd.rotation.z = -ang;
     ship.add(wearFwd);
   }
@@ -333,46 +393,116 @@ function addHullMark(ship: THREE.Group): void {
   ship.add(mesh);
 }
 
-/** Barrel ring welds on ship. */
+/** Flush weld bands on the cylindrical barrel (not the ogive). */
 function addShipWeldRings(ship: THREE.Group, mats: CraftMats): void {
   for (const f of SHIP_WELD_RING_FRACTIONS) {
     const z = f * SHIP_H;
-    ship.add(makeBarrelRing(R * 1.006, 0.0055, z, mats.weldMat));
-    ship.add(makeBarrelRing(R * 1.004, 0.0025, z - 0.008, mats.steelDark));
+    ship.add(makeFlushWeldBand(R * 1.002, 0.0022, z, mats.weldMat));
+    ship.add(makeFlushWeldBand(R * 1.001, 0.0012, z - 0.004, mats.steelDark));
   }
 }
 
-/** One forward flap stack (structure + tile + wear) on a named hinge pivot. */
-function addFwdFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
-  const hingeX = side * (R + 0.005);
-  const hingeY = -0.01;
-  const hingeZ = SHIP_H - 0.52;
-  const pivot = new THREE.Group();
-  pivot.name = side < 0 ? "fwd-flap-L" : "fwd-flap-R";
-  pivot.position.set(hingeX, hingeY, hingeZ);
-  pivot.rotation.z = side * 0.12;
-  pivot.rotation.x = 0.08;
-  pivot.userData.restX = 0.08;
-  const flap = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.2, 0.26), mats.steelDark);
-  flap.position.set(side * 0.015, -0.01, -0.10);
-  pivot.add(flap);
-  addFwdFlapTiles(pivot, mats, side);
-  addFwdFlapHinge(pivot, mats);
-  ship.add(pivot);
+type FlapSpec = {
+  chord: number;
+  span: number;
+  thickness: number;
+  sweepFwd: number;
+  sweepAft: number;
+};
+
+/** Trapezoid in XY (x = span from hinge, y = chord); extrude along Z = thickness. */
+function makeFlapGeom(spec: FlapSpec): THREE.ExtrudeGeometry {
+  const c = spec.chord / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, -c);
+  shape.lineTo(0, c);
+  shape.lineTo(spec.span, c - spec.sweepFwd);
+  shape.lineTo(spec.span, -c + spec.sweepAft);
+  shape.closePath();
+  const geom = new THREE.ExtrudeGeometry(shape, {
+    depth: spec.thickness,
+    bevelEnabled: false,
+    steps: 1,
+  });
+  geom.translate(0, 0, -spec.thickness / 2);
+  return geom;
 }
 
-function addFwdFlapTiles(pivot: THREE.Group, mats: CraftMats, side: number): void {
-  const flapTile = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.16, 0.22), mats.tile);
-  flapTile.position.set(side * 0.031, 0.02, -0.10);
-  pivot.add(flapTile);
-  const flapWear = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.04, 0.2), mats.tileWear);
-  flapWear.position.set(side * 0.033, -0.05, -0.10);
-  pivot.add(flapWear);
-}
-
-function addFwdFlapHinge(pivot: THREE.Group, mats: CraftMats): void {
-  const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.07), mats.accent);
+/** Child meshes: local +X = span after rotX so pivot.rotation.x remains the hinge. */
+function addFlapChildren(
+  pivot: THREE.Group,
+  spec: FlapSpec,
+  mats: CraftMats,
+  withWear: boolean,
+): void {
+  const body = new THREE.Mesh(makeFlapGeom(spec), mats.steelDark);
+  body.rotation.x = Math.PI / 2;
+  pivot.add(body);
+  const tileSpec: FlapSpec = {
+    chord: spec.chord * 0.88,
+    span: spec.span * 0.92,
+    thickness: spec.thickness * 0.22,
+    sweepFwd: spec.sweepFwd * 0.88,
+    sweepAft: spec.sweepAft * 0.88,
+  };
+  const tile = new THREE.Mesh(makeFlapGeom(tileSpec), mats.tile);
+  tile.rotation.x = Math.PI / 2;
+  tile.position.set(spec.span * 0.04, spec.thickness * 0.38, 0);
+  pivot.add(tile);
+  if (withWear) {
+    const wear = new THREE.Mesh(
+      new THREE.BoxGeometry(spec.span * 0.55, spec.thickness * 0.18, spec.chord * 0.12),
+      mats.tileWear,
+    );
+    wear.position.set(spec.span * 0.45, spec.thickness * 0.42, -spec.chord * 0.22);
+    pivot.add(wear);
+  }
+  const hinge = new THREE.Mesh(
+    new THREE.BoxGeometry(0.028, spec.thickness * 1.6, spec.chord * 0.22),
+    mats.accent,
+  );
+  hinge.position.set(-0.004, 0, spec.chord * 0.12);
   pivot.add(hinge);
+}
+
+/** Named hinge: Euler ZYX so azimuth (Z) then pitch (X) for V7 belly throw. */
+function makeFlapPivot(name: string, az: number, z: number, restX: number): THREE.Group {
+  const pivot = new THREE.Group();
+  pivot.name = name;
+  pivot.rotation.order = "ZYX";
+  pivot.position.set(Math.cos(az) * R, Math.sin(az) * R, z);
+  pivot.rotation.z = az;
+  pivot.rotation.x = restX;
+  pivot.userData.restX = restX;
+  return pivot;
+}
+
+/** Block 2 forward flaps: leeward, 140° included, on the lower ogive. */
+function fwdFlapAz(side: number): number {
+  const half = ((FWD_FLAP_INCLUDED_DEG * Math.PI) / 180) / 2;
+  return -Math.PI / 2 + side * half;
+}
+
+function fwdFlapZ(): number {
+  return SHIP_OGIVE_BASE_Z + 2.8 * U;
+}
+
+function addFwdFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
+  const spec: FlapSpec = {
+    chord: FWD_FLAP_CHORD,
+    span: FWD_FLAP_SPAN,
+    thickness: FLAP_T,
+    sweepFwd: FWD_FLAP_CHORD * 0.28,
+    sweepAft: FWD_FLAP_CHORD * 0.06,
+  };
+  const pivot = makeFlapPivot(
+    side < 0 ? "fwd-flap-L" : "fwd-flap-R",
+    fwdFlapAz(side),
+    fwdFlapZ(),
+    0.08,
+  );
+  addFlapChildren(pivot, spec, mats, true);
+  ship.add(pivot);
 }
 
 function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
@@ -382,14 +512,21 @@ function addForwardFlaps(ship: THREE.Group, mats: CraftMats): void {
 
 /**
  * Fin-cam mesh-local pose (before {@link CRAFT_MESH_SCALE}).
- * Nose-ward and outboard of the starboard forward flap (flap occupies
- * ~z 0.55–0.81) so the locked lens looks aft along the barrel instead of
- * into a flap face.
+ * Nose-ward and outboard of the starboard forward flap so the locked lens
+ * looks aft along the barrel instead of into a flap face.
  */
-export const FIN_CAM_LOCAL = { x: R + 0.20, y: 0.06, z: 0.90 } as const;
+export const FIN_CAM_LOCAL = {
+  x: Math.cos(fwdFlapAz(1)) * (R + FWD_FLAP_SPAN * 0.75),
+  y: Math.sin(fwdFlapAz(1)) * (R + FWD_FLAP_SPAN * 0.75) + 0.04,
+  z: fwdFlapZ() + FWD_FLAP_CHORD * 0.55,
+} as const;
 
 /** Fin-cam look — aft along the TPS/steel chine toward the engines. */
-export const FIN_CAM_LOOK_LOCAL = { x: R + 0.05, y: 0.02, z: 0.22 } as const;
+export const FIN_CAM_LOOK_LOCAL = {
+  x: Math.cos(fwdFlapAz(1)) * (R + 0.04),
+  y: Math.sin(fwdFlapAz(1)) * R * 0.15,
+  z: 0.22,
+} as const;
 
 /** Fin-cam mount + look target on ship. */
 function addFinCam(ship: THREE.Group): void {
@@ -407,12 +544,22 @@ function addFinCam(ship: THREE.Group): void {
  * with the aft hull / Earth (plasma in the webcast) to the right.
  */
 function addFlapCam(ship: THREE.Group): void {
+  const az = fwdFlapAz(1);
+  const z = fwdFlapZ();
   addNamedCam(
     ship,
     "flap-cam",
     "flap-cam-look",
-    [R + 0.05, 0.16, SHIP_H - 0.38],
-    [R + 0.10, -0.18, SHIP_H - 0.70],
+    [
+      Math.cos(az) * (R + FWD_FLAP_SPAN * 0.35),
+      Math.sin(az) * (R + FWD_FLAP_SPAN * 0.35) + 0.12,
+      z + FWD_FLAP_CHORD * 0.2,
+    ],
+    [
+      Math.cos(az) * (R + FWD_FLAP_SPAN * 0.8),
+      Math.sin(az) * R - 0.12,
+      z - FWD_FLAP_CHORD * 0.35,
+    ],
   );
 }
 
@@ -425,7 +572,7 @@ function addHullCam(ship: THREE.Group): void {
     ship,
     "hull-cam",
     "hull-cam-look",
-    [R + 0.42, 0.08, SHIP_H * 0.64],
+    [R + 0.42, 0.08, SHIP_OGIVE_BASE_Z * 0.92],
     [R * 0.12, -0.04, 0.04],
   );
 }
@@ -447,22 +594,25 @@ function addNamedCam(
   host.add(look);
 }
 
-/** One aft elevon + tile face on a named hinge pivot. */
+/** Aft elevon + tile face on a named hinge pivot. */
 function addAftFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
-  const pivot = new THREE.Group();
-  pivot.name = side < 0 ? "aft-elevon-L" : "aft-elevon-R";
-  pivot.position.set(side * (R + 0.01), 0, 0.32);
-  pivot.rotation.z = side * 0.16;
-  pivot.userData.restX = 0;
-  const flap = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.24, 0.32), mats.steelDark);
-  flap.position.set(side * 0.018, 0, 0);
-  pivot.add(flap);
-  const flapTile = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.2, 0.28), mats.tile);
-  flapTile.position.set(side * 0.03, 0.02, 0);
-  pivot.add(flapTile);
-  // Hex patch on the metallic face (Flight 13 flap-tile experiment).
+  const spec: FlapSpec = {
+    chord: AFT_FLAP_CHORD,
+    span: AFT_FLAP_SPAN,
+    thickness: FLAP_T * 1.15,
+    sweepFwd: AFT_FLAP_CHORD * 0.1,
+    sweepAft: AFT_FLAP_CHORD * 0.02,
+  };
+  const az = side > 0 ? 0 : Math.PI;
+  const pivot = makeFlapPivot(
+    side < 0 ? "aft-elevon-L" : "aft-elevon-R",
+    az,
+    6.5 * U,
+    0,
+  );
+  addFlapChildren(pivot, spec, mats, false);
   const steelPatch = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.07, 0.11), mats.tile);
-  steelPatch.position.set(side * 0.01, -0.055, 0.03);
+  steelPatch.position.set(spec.span * 0.35, -0.04, spec.chord * 0.08);
   pivot.add(steelPatch);
   ship.add(pivot);
 }
@@ -483,16 +633,14 @@ function addShipEngines(ship: THREE.Group, mats: CraftMats): void {
 }
 
 function addShipSlBells(g: THREE.Group, mats: CraftMats, engZ: number): void {
-  const slR = 0.65 * U * 1.35;
   for (const [x, y] of [[0, 0.028], [0.024, -0.014], [-0.024, -0.014]] as [number, number][]) {
-    g.add(makeBell(slR * 0.55, slR, 0.1, x, y, engZ, mats.engine, mats.engineRim));
+    g.add(makeBell(SL_BELL_R * 0.55, SL_BELL_R, SL_BELL_H, x, y, engZ, mats.engine, mats.engineRim));
   }
 }
 
 function addShipVacBells(g: THREE.Group, mats: CraftMats, engZ: number): void {
-  const vacR = 1.15 * U * 1.35;
   for (const [x, y] of [[0.07, 0.02], [-0.07, 0.02], [0, -0.075]] as [number, number][]) {
-    g.add(makeBell(vacR * 0.45, vacR, 0.14, x, y, engZ - 0.02, mats.engine, mats.engineRim));
+    g.add(makeBell(VAC_BELL_R * 0.45, VAC_BELL_R, VAC_BELL_H, x, y, engZ - 0.01, mats.engine, mats.engineRim));
   }
 }
 
@@ -893,6 +1041,20 @@ function makeBarrelRing(
   const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 6, 36), mat);
   ring.position.z = z;
   return ring;
+}
+
+/** Thin open cylinder flush to the barrel (ship welds — not a hovering torus). */
+function makeFlushWeldBand(
+  radius: number,
+  height: number,
+  z: number,
+  mat: THREE.Material,
+): THREE.Mesh {
+  return zCylinder(
+    new THREE.CylinderGeometry(radius, radius, height, 36, 1, true),
+    mat,
+    z,
+  );
 }
 
 /** Super Heavy grid fin with dark outer frame + denser lattice (V4). */
