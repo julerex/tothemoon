@@ -34,6 +34,7 @@ function renderFrame(ctx: F13Ctx): void {
     burning: ctx.cinemaState.burning,
     brownout,
     phase: ctx.cinemaState.phase,
+    focus: ctx.director.getMode(),
   });
 }
 

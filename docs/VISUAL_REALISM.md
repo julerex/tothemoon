@@ -56,9 +56,11 @@ Related:
 
 **Shipped (V17):** white splash steam + warm core, ocean glitter on splash/Gulf plates, wet hull roughness punch.
 
-**Next (photorealism):** engine-bay / onboard look, gated LEO clouds, optional Moon albedo. See **V18+**.
+**Shipped (V18):** engine-bay MLI / plumbing / skirt ribs / bell stencil IDs; mild fisheye + grain on fin/gridfin only.
 
-Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor}.ts`.
+**Next (photorealism):** gated LEO clouds, optional Moon albedo. See **V19+**.
+
+Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost}.ts`.
 
 ---
 
@@ -95,7 +97,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V15** | Entry plasma palette | **Done** — magenta/violet flap wrap + violet tile fill |
 | **V16** | Payload Pez deploy | **Done** — hatch + sat silhouettes + ticker beats |
 | **V17** | Splash / ocean steam | **Done** — white contact cloud + glitter + wet hull |
-| **V18** | Engine-bay / onboard | Gridfin stills: MLI, stencil IDs, mild fisheye |
+| **V18** | Engine-bay / onboard | **Done** — MLI, stencil IDs, mild fisheye on fin/gridfin |
 | **V19** | LEO Earth from hull-cam | Gated cloud shell + ocean glitter (does not undo #14) |
 | **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
 
@@ -229,7 +231,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 16. ~~**V15** — magenta/violet entry plasma on flap leading edges~~ **done**  
 17. ~~**V16** — Flight 13 Pez / Starlink V3 deploy theater~~ **done**  
 18. ~~**V17** — splash steam + ocean glitter (ship + Super Heavy gulf)~~ **done**  
-19. **V18** — engine-bay interior + onboard-cam post (fin/gridfin)  
+19. ~~**V18** — engine-bay interior + onboard-cam post (fin/gridfin)~~ **done**  
 20. **V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)  
 21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
 
@@ -501,22 +503,30 @@ volumetric contact cloud**; Super Heavy T+6:40 is an ocean glitter path.
 
 ---
 
-## V18 — Engine-bay and onboard-cam look
+## V18 — Engine-bay and onboard-cam look — **done 2026-08-16**
 
 Hot-stage and booster stills are **split engine-bay / hull**. Theater gridfin
-cam sees exterior bells and a 6×6 lattice, not the bay.
+cam previously saw exterior bells and a 6×6 lattice, not the bay.
 
-- Lightweight bay interior: a few Raptor bells with stencil IDs, crinkled MLI
-  foil canvas, visible through the skirt for gridfin / a dedicated look-down.
-- Onboard post **only** on fin + gridfin: mild fisheye, restrained grain,
-  dirt/bloom already partly from V5. Off for Earth/Sun/Free.
-- Do not add a webcast split-screen compositor.
+### V18.1 Engine-bay interior — **done**
+
+- Thrust puck + open sleeve above the bells; plumbing between rings
+- Crinkled gold/amber MLI foil canvas on cavity patches
+- Inner-skirt ribs; outer-ring stencil IDs including `142` / `150` / `158`
+- Group `engine-bay` parented on the booster (survives StagingFx detach)
+
+### V18.2 Onboard post — **done**
+
+- Mild barrel + UV-hashed grain + static dirt `ShaderPass`
+- Gated to **fin + gridfin only** (`onboardPostEnabled`); hull keeps wide FOV
+- Off for trench / pad / chase / Earth / Sun / Free
 
 **Done when:** gridfin at hot-stage / boostback shows bay structure vs empty
 skirt; fin-cam has a slight onboard character without breaking pad/Earth
 cams. No bake.
 
-**Files:** `craft.ts`, `cinema.ts`, camera mode hooks.
+**Files:** `engineBay.ts` (+ tests), `onboardPost.ts` (+ tests), `craft.ts`,
+`cinema.ts`, Flight 13 / lunar `loop.ts`.
 
 ---
 
@@ -594,3 +604,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-16 | V15 shipped: magenta/violet entry plasma (belly + flap edges), violet tile fill, warm residual grout |
 | 2026-08-16 | V16 shipped: Pez hatch + 20 Starlink V3 silhouettes + payload ticker/scrub beats |
 | 2026-08-16 | V17 shipped: white splash steam, ocean glitter, wet hull roughness |
+| 2026-08-16 | V18 shipped: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |

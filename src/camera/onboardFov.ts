@@ -3,8 +3,9 @@
  *
  * Flight 13 fin-cam stills are a wide-angle (slight barrel) look along the
  * hull — the default 50° chase FOV crops to a tight barrel slice and loses
- * the Earth limb. Theater-grade: a wider perspective FOV, not a real fisheye
- * mesh (V18). Trench / pad / chase stay at the default.
+ * the Earth limb. Theater-grade: a wider perspective FOV; mild fisheye + grain
+ * for fin/gridfin live in onboardPost.ts (V18). Trench / pad / chase stay at
+ * the default.
  */
 
 /** Opening / chase / body cameras (set at bootstrap). */

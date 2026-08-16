@@ -2,6 +2,9 @@
  * Visual V5 cinema: tight sun shadows (pad + craft), mild bloom, exposure
  * adaptation, and altitude-aware atmosphere / star fade.
  *
+ * V18: optional onboard fisheye/grain pass gated to fin + gridfin
+ * ({@link onboardPostEnabled}).
+ *
  * Theater-grade — not film-grade. Scrub-safe (driven by mission state /
  * camera altitude). Scene unit = 1 km.
  *
@@ -15,7 +18,9 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import type { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { R_EARTH, R_MOON } from "../physics/constants";
+import { createOnboardPostPass, onboardPostEnabled } from "./onboardPost";
 
 /** Full soft shadows below this camera altitude (km above mean surface). */
 export const SHADOW_FULL_ALT_KM = 12;
@@ -35,6 +40,8 @@ export type CinemaBundle = {
   composer: EffectComposer;
   bloom: UnrealBloomPass;
   renderPass: RenderPass;
+  /** V18 onboard fisheye/grain — enabled only for fin / gridfin. */
+  onboardPost: ShaderPass;
 };
 
 /**
@@ -403,7 +410,9 @@ export function shadowAltitudeKm(earthAltKm: number, moonAltKm: number): number 
 }
 
 /**
- * Build EffectComposer with mild Unreal bloom + OutputPass (tone map / color).
+ * Build EffectComposer with mild Unreal bloom, optional onboard post (V18),
+ * and OutputPass (tone map / color). Onboard pass sits before OutputPass and
+ * starts disabled — {@link renderCinema} gates it by camera focus.
  */
 function makeBloomPass(size: THREE.Vector2): UnrealBloomPass {
   return new UnrealBloomPass(
@@ -424,8 +433,10 @@ export function createCinemaComposer(
   composer.addPass(renderPass);
   const bloom = makeBloomPass(size);
   composer.addPass(bloom);
+  const onboardPost = createOnboardPostPass();
+  composer.addPass(onboardPost);
   composer.addPass(new OutputPass());
-  return { composer, bloom, renderPass };
+  return { composer, bloom, renderPass, onboardPost };
 }
 
 /**
@@ -443,7 +454,8 @@ export function resizeCinema(
 }
 
 /**
- * Apply per-frame cinema uniforms: exposure, bloom, star dome, then render.
+ * Apply per-frame cinema uniforms: exposure, bloom, star dome, onboard post
+ * gate (V18), then render.
  */
 export function renderCinema(
   bundle: CinemaBundle,
@@ -454,11 +466,14 @@ export function renderCinema(
     burning: boolean;
     brownout: number;
     phase?: string;
+    /** CameraDirector focus — gates fin/gridfin onboard look. */
+    focus?: string;
   },
 ): void {
   renderer.toneMappingExposure = cinemaExposure(opts.camAltKm);
   bundle.bloom.strength = cinemaBloomStrength(opts.camAltKm, opts.burning, opts.phase);
   bundle.bloom.threshold = cinemaBloomThreshold(opts.camAltKm);
+  bundle.onboardPost.enabled = onboardPostEnabled(opts.focus);
   updateStarDomeCinema(scene, opts.camAltKm, opts.brownout);
   bundle.composer.render();
 }

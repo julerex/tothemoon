@@ -30,6 +30,7 @@ function renderFrame(ctx: MoonCtx): void {
     burning: ctx.cinemaState.burning,
     brownout,
     phase: ctx.cinemaState.phase,
+    focus: ctx.director.getMode(),
   });
 }
 

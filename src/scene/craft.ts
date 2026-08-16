@@ -31,6 +31,7 @@ import {
 } from "./craftHullMaps";
 import { entryHeatEmissiveRgb } from "./entryPlasma";
 import { hullWetStrength } from "./terminalFx";
+import { addEngineBay } from "./engineBay";
 
 /**
  * Near-true-scale Super Heavy + Starship stack plus STARSHIP / SUPER HEAVY name
@@ -65,6 +66,9 @@ import { hullWetStrength } from "./terminalFx";
  * live in entryFx); residual grout glow into descent stays warm.
  *
  * V17 splash: wet / charred hull roughness punch after water contact.
+ *
+ * V18 engine-bay: thrust puck, MLI, plumbing, skirt ribs, bell stencil IDs
+ * (see engineBay.ts) for gridfin / engines-cam stills.
  */
 /** World km = mesh units × this. 1 mesh unit ≈ 40 m. */
 export const CRAFT_MESH_SCALE = 0.04;
@@ -983,6 +987,8 @@ function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
   addEnginesDownCam(booster);
   addBoostSkirtAndRaceway(booster, mats);
   addBoostEngines(booster, mats);
+  // Parent on booster so StagingFx detached clone keeps the bay (V18).
+  addEngineBay(booster);
 }
 
 function buildBooster(mats: CraftMats): THREE.Group {
