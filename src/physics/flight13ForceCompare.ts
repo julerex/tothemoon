@@ -4,8 +4,8 @@
  * Re-integrates the same theater profile with `{ gravity: "earth" }` (Earth μ +
  * J₂ + atmosphere/drag, no Moon / solar tide) and compares sample paths at
  * matched mission times. On a ~1 h suborbital arc third-body accelerations are
- * tiny, so large deviations flag a bug in the shared force model or integrator
- * rather than expected physics.
+ * tiny, so large deviations (before the theater landing seat) flag a bug in
+ * the shared force model or integrator rather than expected physics.
  *
  * Pure + deterministic (no I/O beyond the mission logger).
  */
@@ -23,7 +23,12 @@ const _d = v3();
 
 /** Summary of n-body vs Earth-only Flight 13 paths. */
 export type Flight13ForceCompare = {
-  /** Peak |r_nbody − r_earth| over matched samples (km). */
+  /**
+   * Peak |r_nbody − r_earth| over matched samples before the theater
+   * landing seat (km). Descent teleports the ship ~30° onto the sunlit
+   * splash fix; models can enter land a few seconds apart, so that
+   * window is not a force-model signal.
+   */
   maxPosDevKm: number;
   /** Peak |v_nbody − v_earth| (km/s). */
   maxVelDevKmS: number;
@@ -117,8 +122,13 @@ function bumpMax(acc: DevAcc, d: { dPos: number; dVel: number; dAlt: number }): 
   acc.n++;
 }
 
-function accumulatePair(acc: DevAcc, s: ReadonlySample, d: { dPos: number; dVel: number; dAlt: number }): void {
-  bumpMax(acc, d);
+function accumulatePair(
+  acc: DevAcc,
+  s: ReadonlySample,
+  d: { dPos: number; dVel: number; dAlt: number },
+  includeFull: boolean,
+): void {
+  if (includeFull) bumpMax(acc, d);
   if (s.t < F13.SECO + 30 || s.t > F13.RELIGHT - 30) return;
   if (d.dPos > acc.coastMaxPos) acc.coastMaxPos = d.dPos;
   if (d.dVel > acc.coastMaxVel) acc.coastMaxVel = d.dVel;
@@ -126,12 +136,26 @@ function accumulatePair(acc: DevAcc, s: ReadonlySample, d: { dPos: number; dVel:
   acc.coastN++;
 }
 
+/** First theater-seat sample (land mode / splash snap). */
+function firstSeatT(samples: readonly ReadonlySample[]): number {
+  for (const s of samples) {
+    if (s.phase === "descent" || s.phase === "splashdown") return s.t;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
 function scanDeviations(nbodySamples: readonly ReadonlySample[], earthSamples: readonly ReadonlySample[]): DevAcc {
   const tEnd = Math.min(nbodySamples[nbodySamples.length - 1]!.t, earthSamples[earthSamples.length - 1]!.t);
+  const tSeat = Math.min(firstSeatT(nbodySamples), firstSeatT(earthSamples));
   const acc = emptyDevAcc();
   for (const s of nbodySamples) {
     if (s.t > tEnd + 1e-9) break;
-    accumulatePair(acc, s, pairDev(s, sampleAtTime(earthSamples, s.t)));
+    accumulatePair(
+      acc,
+      s,
+      pairDev(s, sampleAtTime(earthSamples, s.t)),
+      s.t < tSeat,
+    );
   }
   return acc;
 }
@@ -220,12 +244,13 @@ export function formatForceCompareLine(c: Flight13ForceCompare): string {
  * Flight 13 pair (suborbital ~1 h). Not a certification table — gates CI
  * against integrator / force-model regressions.
  *
- * Full-mission bounds are looser: SECO / relight / land triggers are
- * state-dependent, so tiny third-body drifts can shift burn timing and
- * amplify |Δv|. The free-coast window is the pure physics check.
+ * Full-arc bounds apply through entry, before the theater landing seat.
+ * SECO / relight triggers are state-dependent, so tiny third-body drifts
+ * can shift burn timing and amplify |Δv|. The free-coast window is the
+ * pure physics check.
  */
 export const FLIGHT13_FORCE_AGREE = {
-  /** Full-arc peak |Δr| (km) — guidance-amplified OK within this. */
+  /** Pre-seat peak |Δr| (km) — guidance-amplified OK within this. */
   maxPosDevKm: 500,
   /** Full-arc peak |Δv| (km/s). */
   maxVelDevKmS: 0.5,

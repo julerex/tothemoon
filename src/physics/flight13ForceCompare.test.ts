@@ -17,8 +17,10 @@ import {
   FLIGHT13_FORCE_AGREE,
   formatForceCompareLine,
   sampleAtTime,
+  summarizeForceDeviation,
 } from "./flight13ForceCompare.ts";
 import { runFlight13Mission } from "./flight13Mission.ts";
+import type { ReadonlySample } from "./missionTypes.ts";
 
 describe("acceleration gravity models", () => {
   it("earth model omits Moon / solar tide relative to nbody", () => {
@@ -89,6 +91,47 @@ describe("sampleAtTime", () => {
     const mid = sampleAtTime(samples, 5);
     assert.equal(mid.t, 5);
     assert.ok(Math.abs(mid.pos.x - 5) < 1e-9);
+  });
+});
+
+function stubSample(
+  t: number,
+  x: number,
+  phase: ReadonlySample["phase"],
+): ReadonlySample {
+  return {
+    t,
+    pos: { x, y: 0, z: 0 },
+    vel: { x: 0, y: 0, z: 0 },
+    phase,
+    burning: false,
+    fuelBooster: 0,
+    fuelShip: 0.5,
+    thrustN: 0,
+    staged: true,
+  };
+}
+
+describe("summarizeForceDeviation", () => {
+  it("does not let the theater landing seat dominate full-arc |Δr|", () => {
+    // One model seats ~30° / 3300 km east a few seconds before the other.
+    const nbody = [
+      stubSample(3000, 0, "entry"),
+      stubSample(3220, 10, "entry"),
+      stubSample(3228, 3310, "descent"),
+      stubSample(3240, 3310, "descent"),
+    ];
+    const earth = [
+      stubSample(3000, 0, "entry"),
+      stubSample(3220, 10, "entry"),
+      stubSample(3228, 10, "entry"),
+      stubSample(3240, 3310, "descent"),
+    ];
+    const cmp = summarizeForceDeviation(nbody, earth);
+    assert.ok(
+      cmp.maxPosDevKm < 50,
+      `seat teleport leaked into full-arc max (${cmp.maxPosDevKm.toFixed(1)} km)`,
+    );
   });
 });
 
