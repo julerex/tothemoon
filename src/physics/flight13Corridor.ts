@@ -28,12 +28,17 @@ import {
 } from "./vec3";
 
 /**
- * Indian Ocean splash (theater — west of Western Australia; not a surveyed fix).
- * 115°E sits just offshore of Perth so T+1:05 is a winter morning, matching
- * the Flight 13 webcast daylight splash (95°E at the same UTC is still night).
+ * Indian Ocean splash, northwest of Western Australia.
+ *
+ * Flight 13 has no surveyed buoy in the public recap. This is the published
+ * Flight 11 McDowell fix (19°S 107°E) for the same Starbase → Indian Ocean
+ * family; Spaceflight Now placed Flight 13 “northwest of Australia”, and
+ * recovery steamed toward Dampier, WA. Not a GPS tag of Ship 40.
  */
-export const FLIGHT13_SPLASH_LAT = (-31.5 * Math.PI) / 180;
-export const FLIGHT13_SPLASH_LON = (115.0 * Math.PI) / 180;
+export const FLIGHT13_SPLASH_LAT_DEG = -19;
+export const FLIGHT13_SPLASH_LON_DEG = 107;
+export const FLIGHT13_SPLASH_LAT = (FLIGHT13_SPLASH_LAT_DEG * Math.PI) / 180;
+export const FLIGHT13_SPLASH_LON = (FLIGHT13_SPLASH_LON_DEG * Math.PI) / 180;
 
 /** Johannesburg / Gauteng province (rad) — corridor waypoint. */
 export const GAUTENG_LAT = (-26.2041 * Math.PI) / 180;

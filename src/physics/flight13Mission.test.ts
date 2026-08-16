@@ -13,6 +13,10 @@ import {
 } from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
+import {
+  FLIGHT13_SPLASH_LAT,
+  FLIGHT13_SPLASH_LON_DEG,
+} from "./flight13Corridor.ts";
 import { F13, firstSplashdownT, runFlight13Mission } from "./flight13Mission.ts";
 import { cross, dot, len, set, sub, v3 } from "./vec3.ts";
 
@@ -64,7 +68,10 @@ describe("runFlight13Mission", () => {
     const alt = altitudeEarth(last.t, last.pos, epoch);
     assert.ok(alt < 0.5, `float alt ${alt} km`);
     const lon = sampleLonDeg(last.t, last.pos, epoch);
-    assert.ok(Math.abs(lon - 115) < 8, `float lon ${lon}° — expected Indian Ocean ~115°E`);
+    assert.ok(
+      Math.abs(lon - FLIGHT13_SPLASH_LON_DEG) < 12,
+      `float lon ${lon}° — expected Indian Ocean ~${FLIGHT13_SPLASH_LON_DEG}°E`,
+    );
     const splashSamples = result.samples.filter((s) => s.phase === "splashdown");
     assert.ok(splashSamples.length > 20, `float samples ${splashSamples.length}`);
     assert.ok(last.t - splash0!.t > 200, `float hold ${last.t - splash0!.t}s`);
@@ -78,18 +85,35 @@ describe("runFlight13Mission", () => {
     );
     const lon = sampleLonDeg(land.t, land.pos, epoch);
     assert.ok(
-      Math.abs(lon - 115) < 8,
-      `landing lon ${lon}° — expected splash site ~115°E, not a night-side hover`,
+      Math.abs(lon - FLIGHT13_SPLASH_LON_DEG) < 12,
+      `landing lon ${lon}° — expected splash site ~${FLIGHT13_SPLASH_LON_DEG}°E, not a night-side hover`,
     );
     const sun = sunElevAtGeodetic(
       land.t,
-      (-31.5 * Math.PI) / 180,
+      FLIGHT13_SPLASH_LAT,
       (lon * Math.PI) / 180,
       epoch,
     );
     assert.ok(
-      sun > 0.2,
+      sun > 0,
       `landing should be in daylight, sin(el)=${sun.toFixed(3)}`,
+    );
+  });
+
+  it("does not teleport onto the splash fix", () => {
+    let maxLonJump = 0;
+    for (let i = 1; i < result.samples.length; i++) {
+      const a = result.samples[i - 1]!;
+      const b = result.samples[i]!;
+      if (a.t < F13.ENTRY) continue;
+      let dLon = sampleLonDeg(b.t, b.pos, epoch) - sampleLonDeg(a.t, a.pos, epoch);
+      while (dLon > 180) dLon -= 360;
+      while (dLon < -180) dLon += 360;
+      if (Math.abs(dLon) > maxLonJump) maxLonJump = Math.abs(dLon);
+    }
+    assert.ok(
+      maxLonJump < 8,
+      `max post-entry Δlon ${maxLonJump.toFixed(1)}° — expected a flyable arc, not a 30° seat`,
     );
   });
 
@@ -172,7 +196,7 @@ describe("runFlight13Mission", () => {
     );
   });
 
-  it("fires a retrograde relight deorbit near the public mark", () => {
+  it("fires an in-space relight demo near the public mark", () => {
     const relight = result.samples.filter(
       (s) =>
         s.burning &&
@@ -215,7 +239,7 @@ describe("runFlight13Mission", () => {
   });
 
   it("ascends eastward along the Flight 13 corridor (not west across the Pacific)", () => {
-    // Regression: short geodetic path Starbase → 115°E splash is westward; steering
+    // Regression: short geodetic path Starbase → Indian Ocean splash is westward; steering
     // must follow the Earth GC plane (Starbase → Gauteng → Indian Ocean) instead.
     const padLonDeg = -97.156;
     const s = result.samples.reduce((best, cur) =>

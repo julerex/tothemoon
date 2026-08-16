@@ -5,10 +5,9 @@
  * Sun–Earth–Moon geometry is tuned to that date (waning gibbous Moon).
  * Preferred runtime ephemeris: JPL Horizons DE441 in `horizons-epoch.json`.
  *
- * **Flight 13:** liftoff at the public window open (theater) — 2026-07-23
- * 22:45 UTC = 5:45 p.m. CDT — so Starbase is in daytime. Uses analytic
- * Earth/Sun (Horizons table is the July 2027 lunar window only) plus a
- * small sun-phase nudge so splash is webcast daylight.
+ * **Flight 13:** liftoff at the flown instant — 2026-07-24 22:51 UTC =
+ * 5:51 p.m. CDT (docs/STARSHIP_13.md). Analytic Earth/Sun only (Horizons
+ * table is the July 2027 lunar window). No theater sun-phase offset.
  *
  * Pure: wall-clock mapping takes an explicit UTC epoch or landing map —
  * no module mutable state.
@@ -22,11 +21,10 @@ import type { EphemerisEpoch } from "./ephemerisEpoch";
 export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
 
 /**
- * Flight 13 theater liftoff (UTC).
- * Public window: 5:45 p.m. CT (CDT = UTC−5 in July) → 22:45 UTC, 2026-07-23.
- * See docs/STARSHIP_13.md.
+ * Flight 13 flown liftoff (UTC).
+ * 5:51 p.m. CDT 24 July 2026 → 22:51 UTC. See docs/STARSHIP_13.md.
  */
-export const FLIGHT13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 23, 22, 45, 0);
+export const FLIGHT13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 24, 22, 51, 0);
 
 /**
  * Full-Moon reference: penumbral eclipse greatest eclipse
@@ -148,7 +146,7 @@ export function formatMissionDateUtc(
 export const TEXAS_TIME_ZONE = "America/Chicago";
 
 /**
- * Texas civil time for the HUD, e.g. "2026-07-23 5:45 p.m. CDT".
+ * Texas civil time for the HUD, e.g. "2026-07-24 5:51 p.m. CDT".
  * Uses America/Chicago so DST follows the civil clock.
  */
 export function formatMissionDateTexas(

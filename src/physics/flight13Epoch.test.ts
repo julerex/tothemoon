@@ -14,13 +14,13 @@ import {
 import { F13 } from "./flight13Mission.ts";
 
 describe("applyFlight13Epoch", () => {
-  it("puts the Sun above the Starbase horizon at the real window-open time", () => {
+  it("puts the Sun above the Starbase horizon at the flown liftoff time", () => {
     const { epoch, padSunElev } = applyFlight13Epoch(0, 3600);
     const elev = starbaseSunElev(0, epoch);
-    // Afternoon at Starbase (theater lighting also keeps splash in daylight)
+    // Afternoon at Starbase (5:51 p.m. CDT)
     assert.ok(
       elev > 0.2,
-      `expected daytime sun elev at 5:45 p.m. CDT, got sin(el)=${elev.toFixed(3)}`,
+      `expected daytime sun elev at 5:51 p.m. CDT, got sin(el)=${elev.toFixed(3)}`,
     );
     assert.ok(Math.abs(elev - padSunElev) < 1e-9);
     assert.equal(epoch.useHorizons, false);
@@ -35,10 +35,15 @@ describe("applyFlight13Epoch", () => {
       FLIGHT13_SPLASH_LON,
       epoch,
     );
-    // Webcast splash is full daylight (blue sky, sun-glint ocean), not night
+    // Winter morning at 107°E / 23:56 UTC — sun is up, not high noon.
+    // A theater sun-phase nudge would push this toward 0.25+.
     assert.ok(
-      splash > 0.25,
+      splash > 0,
       `expected daylight at splash, got sin(el)=${splash.toFixed(3)}`,
+    );
+    assert.ok(
+      splash < 0.22,
+      `splash sun too high (sin(el)=${splash.toFixed(3)}) — possible sun-phase nudge`,
     );
     const pad = starbaseSunElev(0, epoch);
     assert.ok(pad > 0.2, `pad must stay in afternoon sun, sin(el)=${pad.toFixed(3)}`);

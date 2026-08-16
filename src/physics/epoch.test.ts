@@ -67,10 +67,10 @@ describe("epoch · July 2027 theater", () => {
 });
 
 describe("epoch · Flight 13 daytime launch", () => {
-  it("liftoff is 2026-07-23 22:45 UTC (5:45 p.m. CDT)", () => {
+  it("liftoff is 2026-07-24 22:51 UTC (5:51 p.m. CDT)", () => {
     assert.equal(
       new Date(FLIGHT13_LIFTOFF_UTC_MS).toISOString(),
-      "2026-07-23T22:45:00.000Z",
+      "2026-07-24T22:51:00.000Z",
     );
   });
 
@@ -83,11 +83,11 @@ describe("epoch · Flight 13 daytime launch", () => {
     );
     assert.match(
       formatMissionDateUtc(0, 0, clock),
-      /^2026-07-23 22:45 UTC$/,
+      /^2026-07-24 22:51 UTC$/,
     );
     assert.equal(
       formatMissionDateTexas(0, 0, clock),
-      "2026-07-23 5:45 p.m. CDT",
+      "2026-07-24 5:51 p.m. CDT",
     );
   });
 

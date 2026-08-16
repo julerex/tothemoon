@@ -15,15 +15,17 @@
  * - Gravity-turn ascent + hot-stage along the corridor
  * - Upper burn builds near-circular horizontal speed (low radial rate at SECO)
  * - Free coast is pure ballistic (no midcourse PD / altitude-hold glide)
- * - In-space relight is a real retrograde deorbit burn (theater-lengthened
- *   vs the public ~12 s demo so periapsis drops before the entry mark)
+ * - In-space relight is the public ~12 s single-engine demo. Theater insert
+ *   is closer to circular than the flown 8×195 km, so the burn is a modest
+ *   retrograde (not the old 20 s deorbit) so aero can finish over the
+ *   Indian Ocean without a longitude teleport.
  * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
- * - Landing burn brakes near the splash fix; late descent is seated at the
- *   sunlit theater splash site (dynamics dump energy ~30° west, at night)
+ * - Landing burn brakes near the splash fix; no longitude teleport
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
  *   (T+1:10) so the theater can hold a sea-level drone shot
  *
- * Splash coordinates are theater (west of Australia), not a surveyed buoy.
+ * Splash coordinates are the published Flight 11 Indian Ocean fix
+ * (19°S 107°E, northwest of Western Australia) — not a surveyed Flight 13 buoy.
  */
 
 import {
@@ -38,6 +40,7 @@ import {
   EARTH_SPIN_RATE,
   earthNorthPole,
   geodeticToMeshLocal,
+  inertialRelToMeshLocal,
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame";
@@ -98,13 +101,10 @@ export const F13 = {
   SECO: 485,
   PAYLOAD_START: 1000,
   PAYLOAD_END: 1659,
-  /** Public table ~T+38:58; burn window theater-lengthened for deorbit Δv. */
+  /** Public table ~T+38:58; single-engine in-space relight demo. */
   RELIGHT: 2338,
-  /**
-   * End of single-engine deorbit. Public demo is ~12 s; theater uses ~20 s
-   * for a modest periapsis drop (~0.15–0.3 km/s) without killing the coast.
-   */
-  RELIGHT_END: 2358,
+  /** ~10 s single-engine demo (public table ~12 s). */
+  RELIGHT_END: 2348,
   ENTRY: 2850,
   TRANSONIC: 3743,
   SUBSONIC: 3781,
@@ -128,11 +128,10 @@ const SHIP_PROP_RESERVE = 0.07;
 
 /**
  * Target horizontal speed fraction of local circular at SECO.
- * Near-circular for a long eastbound coast to the Indian Ocean; deorbit is
- * the relight's job. (Slightly under-circular + theater drag reenters over
- * the Atlantic before splash.)
+ * Near-circular for a long eastbound coast. Relight is a small prograde
+ * demo, not a deorbit — entry is aero after a slightly under-circular insert.
  */
-const SECO_VCIRC_FRAC = 0.998;
+const SECO_VCIRC_FRAC = 1.0;
 
 /**
  * Max |v_radial| (km/s) at SECO energy cut — keep loft modest without
@@ -296,7 +295,7 @@ function steerLand(
   set(out, _up.x, _up.y, _up.z);
 }
 
-/** Retrograde deorbit aim. */
+/** Modest retrograde so the near-circular insert can reenter over the IO. */
 function steerRelight(vHoriz: number, along: V3, out: V3): void {
   if (vHoriz > 0.05) {
     set(out, -_horiz.x / vHoriz, -_horiz.y / vHoriz, -_horiz.z / vHoriz);
@@ -479,6 +478,9 @@ type F13Loop = {
   splashed: boolean;
   /** Mission time of the splash snap (s). */
   splashT: number;
+  /** Geodetic pose of the float (set at splash; no target teleport). */
+  floatLat: number;
+  floatLon: number;
 };
 
 /**
@@ -749,8 +751,9 @@ function landStartRangeKm(loop: F13Loop): { vRel: number; rangeKm: number } {
 }
 
 function shouldStartLand(t: number, alt: number, vRel: number, rangeKm: number): boolean {
-  if (t >= F13.LAND_BURN) return true;
-  if (alt < 12 && vRel < 0.9 && rangeKm < 600 && t >= F13.ENTRY - 60) return true;
+  if (rangeKm > 600) return false;
+  if (t >= F13.LAND_BURN && alt < 40) return true;
+  if (alt < 12 && vRel < 0.9 && t >= F13.ENTRY - 60) return true;
   return alt < 4 && vRel < 0.55 && t >= F13.ENTRY;
 }
 
@@ -865,14 +868,26 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
   return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
 }
 
-/** Earth-fixed pose at the theater splash lat/lon, `altKm` above the water. */
-function placeAtSplash(loop: F13Loop, altKm: number): void {
+function geodeticOf(loop: F13Loop): { lat: number; lon: number } {
   const b = getBodies(loop.state.t, loop.epoch);
-  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
+  sub(_relP, loop.state.pos, b.earth);
+  inertialRelToMeshLocal(_relP, loop.state.t, _tmp, loop.epoch);
+  const r = len(_tmp) || 1;
+  const lat = Math.asin(Math.max(-1, Math.min(1, _tmp.y / r)));
+  let lon = Math.atan2(_tmp.z, -_tmp.x) - Math.PI;
+  while (lon > Math.PI) lon -= 2 * Math.PI;
+  while (lon < -Math.PI) lon += 2 * Math.PI;
+  return { lat, lon };
+}
+
+function placeAtGeodetic(loop: F13Loop, lat: number, lon: number, altKm: number): void {
+  const b = getBodies(loop.state.t, loop.epoch);
+  geodeticToMeshLocal(lat, lon, 1, _splashLocal);
+  meshLocalToInertial(_splashLocal, loop.state.t, _tmp, loop.epoch);
   placeOnSphere(
     loop.state.pos,
     b.earth,
-    surf,
+    _tmp,
     1,
     EARTH_SURFACE_RADIUS_KM + Math.max(0, altKm),
   );
@@ -880,25 +895,21 @@ function placeAtSplash(loop: F13Loop, altKm: number): void {
   surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
 }
 
-function snapSplash(loop: F13Loop, _surf: V3, _L: number, _rangeKm: number): void {
-  placeAtSplash(loop, 0);
+function snapSplash(loop: F13Loop, _surf: V3, _L: number, rangeKm: number): void {
+  if (rangeKm < 200) {
+    loop.floatLat = FLIGHT13_SPLASH_LAT;
+    loop.floatLon = FLIGHT13_SPLASH_LON;
+  } else {
+    const g = geodeticOf(loop);
+    loop.floatLat = g.lat;
+    loop.floatLon = g.lon;
+  }
+  placeAtGeodetic(loop, loop.floatLat, loop.floatLon, 0);
 }
 
-/**
- * Late descent / landing burn play out over the sunlit splash site.
- * Dynamics dump energy ~30° west (night); without this seat the webcast
- * landing sequence is on the dark side of Earth.
- */
-function seatLandingAtSplash(loop: F13Loop, alt: number): void {
-  if (loop.splashed) return;
-  if (loop.mode !== "land" && loop.state.t < F13.LAND_BURN) return;
-  if (alt > 25) return;
-  placeAtSplash(loop, alt);
-}
-
-/** Earth-fixed float at the theater splash lat/lon (co-rotating ocean). */
+/** Earth-fixed float at the recorded splash lat/lon (co-rotating ocean). */
 function placeFloating(loop: F13Loop): void {
-  placeAtSplash(loop, 0);
+  placeAtGeodetic(loop, loop.floatLat, loop.floatLon, 0);
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
@@ -915,7 +926,9 @@ function trySplashdown(loop: F13Loop): boolean {
   if (loop.splashed) return false;
   const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
   const geo = splashRangeKm(loop, surf);
-  if (!(naturalSplashDone(loop, geo) || loop.state.t >= F13.SPLASH - 0.1)) return false;
+  const clockSplash =
+    loop.state.t >= F13.SPLASH - 0.1 && geo.curAlt < 8 && geo.vRel < 0.8;
+  if (!(naturalSplashDone(loop, geo) || clockSplash)) return false;
   snapSplash(loop, surf, geo.L, geo.rangeKm);
   loop.splashed = true;
   loop.splashT = loop.state.t;
@@ -994,6 +1007,7 @@ function emptyF13Loop(epoch: EphemerisEpoch, gravity: GravityModel): F13Loop {
     state: padLiftoffState(epoch), samples: [], prop: createPropState(0), epoch,
     mode: "boost", hotStageT0: -1, lastThrustN: 0, lastBoostN: 0, lastShipN: 0,
     thrAcc: v3(), accelOpts: { gravity, epoch }, splashed: false, splashT: 0,
+    floatLat: FLIGHT13_SPLASH_LAT, floatLon: FLIGHT13_SPLASH_LON,
   };
 }
 
@@ -1018,8 +1032,6 @@ function stepFlight13Float(loop: F13Loop, maxT: number): boolean {
 function flight13PostStep(loop: F13Loop, phase: PhaseId): boolean {
   surfaceClamp(loop);
   bookFlight13Prop(loop);
-  const alt = altitudeEarth(loop.state.t, loop.state.pos, loop.epoch);
-  seatLandingAtSplash(loop, alt);
   if (trySplashdown(loop)) return true;
   maybePushFlight13Sample(loop, phase);
   return true;
