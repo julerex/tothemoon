@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PhaseId, Sample } from "../physics/mission.ts";
 import { v3 } from "../physics/vec3.ts";
-import { buildTimeline } from "./timeline.ts";
+import { buildTimeline, phaseContextAt } from "./timeline.ts";
 
 function sample(
   t: number,
@@ -153,5 +153,52 @@ describe("buildTimeline", () => {
     const tl = buildTimeline(samples, 300);
     const liftoff = tl.events.filter((e) => e.id === "liftoff");
     assert.equal(liftoff.length, 1);
+  });
+});
+
+describe("phaseContextAt", () => {
+  it("returns empty context when there are no segments", () => {
+    const ctx = phaseContextAt([], 10);
+    assert.equal(ctx.phase, null);
+    assert.equal(ctx.label, "—");
+    assert.equal(ctx.nextLabel, null);
+    assert.equal(ctx.remainingS, 0);
+  });
+
+  it("reports time until the first segment when t is early", () => {
+    const tl = buildTimeline(
+      [sample(0, "launch"), sample(50, "ascent"), sample(100, "coast", { staged: true })],
+      200,
+    );
+    const ctx = phaseContextAt(tl.segments, -30);
+    assert.equal(ctx.nextLabel, tl.segments[0]!.label);
+    assert.equal(ctx.elapsedS, 0);
+    assert.equal(ctx.remainingS, 30);
+  });
+
+  it("names the next phase and remaining time inside a segment", () => {
+    const tl = buildTimeline(
+      [sample(0, "launch"), sample(50, "ascent"), sample(100, "coast", { staged: true })],
+      200,
+    );
+    const launch = tl.segments[0]!;
+    const mid = (launch.t0 + launch.t1) / 2;
+    const ctx = phaseContextAt(tl.segments, mid);
+    assert.equal(ctx.phase, "launch");
+    assert.equal(ctx.nextLabel, tl.segments[1]!.label);
+    assert.ok(Math.abs(ctx.elapsedS - (mid - launch.t0)) < 1e-9);
+    assert.ok(Math.abs(ctx.remainingS - (launch.t1 - mid)) < 1e-9);
+  });
+
+  it("has no next phase on the last segment", () => {
+    const tl = buildTimeline(
+      [sample(0, "launch"), sample(50, "ascent"), sample(100, "coast", { staged: true })],
+      200,
+    );
+    const last = tl.segments[tl.segments.length - 1]!;
+    const ctx = phaseContextAt(tl.segments, last.t0 + 1);
+    assert.equal(ctx.phase, last.phase);
+    assert.equal(ctx.nextLabel, null);
+    assert.ok(ctx.remainingS >= 0);
   });
 });

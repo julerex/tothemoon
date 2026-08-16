@@ -10,6 +10,7 @@ import {
   landingBeatCompleteSubtitle,
   type LandingBeatKind,
 } from "../mission/landingBeat";
+import { phaseContextAt, type PhaseSegment } from "../mission/timeline";
 import type { PhaseId } from "../physics/missionTypes";
 import {
   BOOSTER_DRY_KG,
@@ -26,6 +27,7 @@ import { CAMERA_LABELS } from "./hudCameraLabels";
 import {
   clamp01,
   formatAccelG,
+  formatCompactDuration,
   formatDistance,
   formatDistancePrecise,
   formatFocusDistance,
@@ -106,7 +108,10 @@ export type Telemetry = {
 /** Main chrome telemetry strip. */
 export type MainTelemetryLabels = Readonly<{
   phase: string;
+  nextPhase: string;
+  phaseLeft: string;
   cameraMode: string;
+  cameraDetail: string;
   missionClock: string;
   dateUtc: string;
   distance: string;
@@ -193,6 +198,8 @@ export type TelemetryViewOptions = {
   skyLine?: (missionT: number) => string;
   /** Ephemeris for default sky geometry when `skyLine` is omitted. */
   epoch?: EphemerisEpoch;
+  /** Timeline segments for next-phase / time-left on the left rail. */
+  segments?: readonly PhaseSegment[];
 };
 
 function safeSkyLine(
@@ -255,7 +262,7 @@ export function buildTelemetryView(
   const skyLive = safeSkyLine(Math.max(0, tel.t), opts);
   const skyTerminal = safeSkyLine(terminalSkyT(tel), opts);
   return Object.freeze({
-    main: buildMainLabels(tel, skyLive),
+    main: buildMainLabels(tel, skyLive, opts?.segments),
     complete: buildCompleteLabels(tel, skyTerminal),
     metrics: buildMetricsLabels(tel, skyLive),
   });
@@ -274,24 +281,35 @@ function progressUOf(tel: Telemetry): number {
 function buildMainLabels(
   tel: Telemetry,
   skyLive: string,
+  segments?: readonly PhaseSegment[],
 ): MainTelemetryLabels {
   return Object.freeze({
-    ...mainClockFields(tel),
+    ...mainClockFields(tel, segments),
     ...mainRangeFields(tel),
     ...mainPropFields(tel, skyLive),
     ...mainControlFields(tel),
   });
 }
 
-function mainClockFields(tel: Telemetry) {
+function mainClockFields(tel: Telemetry, segments?: readonly PhaseSegment[]) {
+  const phase = phaseContextAt(segments ?? [], tel.t);
+  const cam = CAMERA_LABELS[tel.cameraMode];
   return {
     phase: tel.phase,
-    cameraMode: CAMERA_LABELS[tel.cameraMode].title,
+    nextPhase: phase.nextLabel ?? "—",
+    phaseLeft: phaseLeftLabel(phase.remainingS, phase.nextLabel),
+    cameraMode: cam.title,
+    cameraDetail: cam.detail,
     missionClock: formatWebcastMissionTime(tel.t),
     dateUtc: tel.dateUtc,
     distance: formatDistance(tel.distanceToMoon),
     progress: formatProgressPercent(tel.t, tel.durationS),
   };
+}
+
+function phaseLeftLabel(remainingS: number, nextLabel: string | null): string {
+  if (nextLabel == null && remainingS <= 0) return "—";
+  return `${formatCompactDuration(remainingS)} left`;
 }
 
 function mainRangeFields(tel: Telemetry) {

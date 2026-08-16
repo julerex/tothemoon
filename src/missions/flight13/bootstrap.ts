@@ -481,7 +481,11 @@ function makeHudWire(
 ): TheaterHudWire {
   return {
     clock: w.clock, director: w.director, autoCam: w.autoCam, cache: w.cache,
-    disableAutoCam, toggleOrbits: () => setOrbitsVisible(!w.flags.orbitsVisible),
+    disableAutoCam, toggleOrbits: () => {
+      const next = !w.flags.orbitsVisible;
+      setOrbitsVisible(next);
+      return next;
+    },
   };
 }
 

@@ -37,7 +37,7 @@ export type TheaterHudWire = {
   cache: Trajectory;
   /** Drop out of guided cameras (also updates the HUD toggle). */
   disableAutoCam: () => void;
-  toggleOrbits: () => void;
+  toggleOrbits: () => boolean;
 };
 
 function onSpeedNudge(w: TheaterHudWire, dir: Parameters<HudHandlers["onSpeedNudge"]>[0]): number {

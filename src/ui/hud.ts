@@ -54,13 +54,17 @@ import {
 } from "./telemetryView";
 import { drawVisualKeymap } from "./visualKeymap";
 import {
+  applyAutoCamChrome,
+  applyCameraGridPressed,
   applyCompleteCardLabels,
   applyMainTelemetryLabels,
   applyMetricsLabels,
+  applyPressed,
 } from "./hudApply";
 import {
   CAM_DOUBLE_TAP_MS,
   CAMERA_CYCLE,
+  CAMERA_DIGIT_MODES,
   CAMERA_LABELS,
 } from "./hudCameraLabels";
 import {
@@ -101,9 +105,9 @@ export type HudHandlers = {
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
   /** L — toggle scene labels (Earth, Moon, Starship, poles, …) */
-  onToggleLabels?: () => void;
+  onToggleLabels?: () => boolean;
   /** O — toggle orbit overlays (grids, Moon path, craft trail, ground track) */
-  onToggleOrbits?: () => void;
+  onToggleOrbits?: () => boolean;
   /**
    * Toggle guided phase cameras. Returns the new enabled state.
    * Default on; manual camera picks and mouse orbit turn it off.
@@ -131,6 +135,8 @@ type HudFlags = {
   hudVisible: boolean;
   lastCamMode: CameraMode;
   autoCamEnabled: boolean;
+  labelsEnabled: boolean;
+  orbitsEnabled: boolean;
   lastCamKey: string | null;
   lastCamKeyT: number;
   lastNewsId: string | null;
@@ -183,6 +189,8 @@ function createHudFlagsB(): Pick<
   | "hudVisible"
   | "lastCamMode"
   | "autoCamEnabled"
+  | "labelsEnabled"
+  | "orbitsEnabled"
   | "lastCamKey"
   | "lastCamKeyT"
 > {
@@ -190,6 +198,8 @@ function createHudFlagsB(): Pick<
     hudVisible: true,
     lastCamMode: "earth",
     autoCamEnabled: true,
+    labelsEnabled: true,
+    orbitsEnabled: true,
     lastCamKey: null,
     lastCamKeyT: 0,
   };
@@ -254,19 +264,17 @@ function createHudRuntime(
 function setAutoCamEnabled(rt: HudRuntime, enabled: boolean): void {
   if (rt.flags.autoCamEnabled === enabled) return;
   rt.flags.autoCamEnabled = enabled;
-  syncAutoCamButton(rt.dom.btnAutoCam, enabled);
+  applyAutoCamChrome(rt.dom.btnAutoCam, rt.dom.autoCamEl, enabled);
 }
 
-function syncAutoCamButton(
-  btn: HTMLButtonElement | null,
-  enabled: boolean,
-): void {
-  if (!btn) return;
-  btn.setAttribute("aria-pressed", enabled ? "true" : "false");
-  btn.title = enabled
-    ? "Auto-cam on — Flight 13 follows the webcast left pane (G)"
-    : "Auto-cam off — press G or click to re-enable";
-  btn.textContent = enabled ? "Auto-cam" : "Auto-cam off";
+function setLabelsEnabled(rt: HudRuntime, enabled: boolean): void {
+  rt.flags.labelsEnabled = enabled;
+  applyPressed(rt.dom.btnLabels, enabled);
+}
+
+function setOrbitsEnabled(rt: HudRuntime, enabled: boolean): void {
+  rt.flags.orbitsEnabled = enabled;
+  applyPressed(rt.dom.btnOrbits, enabled);
 }
 
 function toggleAutoCam(rt: HudRuntime): void {
@@ -319,6 +327,7 @@ function setKeymapOpen(rt: HudRuntime, open: boolean): void {
 function setMetricsOpen(rt: HudRuntime, open: boolean): void {
   rt.flags.metricsOpen = open;
   if (rt.dom.metricsEl) rt.dom.metricsEl.hidden = !open;
+  applyPressed(rt.dom.btnMetrics, open);
   if (open) closeOtherPanels(rt, "metrics");
 }
 
@@ -434,6 +443,7 @@ function redrawCrossSection(rt: HudRuntime, missionT: number): void {
 
 function setTelemetryDimmed(rt: HudRuntime, dimmed: boolean): void {
   rt.dom.telemetryEl?.classList.toggle("tel-dimmed", dimmed);
+  rt.dom.cameraRailEl?.classList.toggle("tel-dimmed", dimmed);
 }
 
 function setActiveEventTick(rt: HudRuntime, id: string | null): void {
@@ -556,22 +566,27 @@ function showCameraToast(
   playCamToast(rt.dom.camToast, rt.dom.camToastTitle, rt.dom.camToastDetail, title, detail, rt.camToastTimer, CAM_TOAST_MS);
 }
 
+function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
+  rt.flags.lastCamMode = mode;
+  applyCameraGridPressed(rt.dom.camGridEl, mode);
+}
+
 function noteCameraMode(rt: HudRuntime, mode: CameraMode): void {
   if (mode === rt.flags.lastCamMode) return;
-  rt.flags.lastCamMode = mode;
+  rememberCameraMode(rt, mode);
   showCameraToast(rt, mode);
 }
 
 function switchCamera(rt: HudRuntime, mode: CameraMode): void {
   rt.data.handlers.onCamera(mode);
-  rt.flags.lastCamMode = mode;
+  rememberCameraMode(rt, mode);
   showCameraToast(rt, mode, false);
 }
 
 function frameCamera(rt: HudRuntime, mode: CameraMode): void {
   if (rt.data.handlers.onCameraFrame) rt.data.handlers.onCameraFrame(mode);
   else rt.data.handlers.onCamera(mode);
-  rt.flags.lastCamMode = mode;
+  rememberCameraMode(rt, mode);
   showCameraToast(rt, mode, true);
 }
 
@@ -589,7 +604,7 @@ function toastAutoCam(rt: HudRuntime, mode: CameraMode): void {
 
 /** Auto-cam cut: toast only (does not disable Auto-cam). */
 function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
-  rt.flags.lastCamMode = mode;
+  rememberCameraMode(rt, mode);
   toastAutoCam(rt, mode);
 }
 
@@ -768,9 +783,10 @@ function applyUpdateChrome(rt: HudRuntime, tel: Telemetry, view: TelemetryView):
 }
 
 function update(rt: HudRuntime, tel: Telemetry): void {
-  const view = buildTelemetryView(tel);
+  const view = buildTelemetryView(tel, { segments: rt.data.timeline.segments });
   applyMainTelemetryLabels(rt.dom, view);
   applyCompleteCardLabels(rt.dom, view, completeShownBag(rt));
+  if (tel.cameraMode !== rt.flags.lastCamMode) rememberCameraMode(rt, tel.cameraMode);
   applyUpdateChrome(rt, tel, view);
 }
 
@@ -779,10 +795,45 @@ function update(rt: HudRuntime, tel: Telemetry): void {
 function wireAutoCamButton(rt: HudRuntime): void {
   if (!rt.dom.btnAutoCam) return;
   rt.dom.btnAutoCam.addEventListener("click", () => toggleAutoCam(rt));
-  setAutoCamEnabled(rt, true);
+  applyAutoCamChrome(rt.dom.btnAutoCam, rt.dom.autoCamEl, true);
+}
+
+function toggleLabels(rt: HudRuntime): void {
+  const on = rt.data.handlers.onToggleLabels?.();
+  if (typeof on === "boolean") setLabelsEnabled(rt, on);
+}
+
+function toggleOrbits(rt: HudRuntime): void {
+  const on = rt.data.handlers.onToggleOrbits?.();
+  if (typeof on === "boolean") setOrbitsEnabled(rt, on);
+}
+
+function wireSceneToggleButtons(rt: HudRuntime): void {
+  rt.dom.btnLabels?.addEventListener("click", () => toggleLabels(rt));
+  rt.dom.btnOrbits?.addEventListener("click", () => toggleOrbits(rt));
+  applyPressed(rt.dom.btnLabels, rt.flags.labelsEnabled);
+  applyPressed(rt.dom.btnOrbits, rt.flags.orbitsEnabled);
+}
+
+function onCamGridClick(rt: HudRuntime, btn: HTMLButtonElement): void {
+  const mode = btn.dataset.cam as CameraMode | undefined;
+  if (!mode) return;
+  handleCameraKey(rt, mode, `cam:${mode}`);
+}
+
+function wireCameraRail(rt: HudRuntime): void {
+  rt.dom.camGridEl?.addEventListener("click", (ev) => {
+    const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-cam]");
+    if (btn) onCamGridClick(rt, btn);
+  });
+  rt.dom.btnCamCycle?.addEventListener("click", () => cycleCamera(rt));
+  applyCameraGridPressed(rt.dom.camGridEl, rt.flags.lastCamMode);
 }
 
 function wirePanelOpenButtons(rt: HudRuntime): void {
+  rt.dom.btnMetrics?.addEventListener("click", () =>
+    setMetricsOpen(rt, !rt.flags.metricsOpen),
+  );
   rt.dom.btnCrossSection?.addEventListener("click", () =>
     setCrossSectionOpen(rt, !rt.flags.crossSectionOpen),
   );
@@ -794,6 +845,8 @@ function wirePanelOpenButtons(rt: HudRuntime): void {
 function wireTransportControls(rt: HudRuntime): void {
   rt.dom.btnPlay?.addEventListener("click", () => rt.data.handlers.onPlayToggle());
   wireAutoCamButton(rt);
+  wireSceneToggleButtons(rt);
+  wireCameraRail(rt);
   wirePanelOpenButtons(rt);
   rt.dom.speed.addEventListener("change", () => {
     rt.data.handlers.onSpeedMode(parseSpeedMode(rt.dom.speed.value));
@@ -904,17 +957,7 @@ function handleUiKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   return false;
 }
 
-const CAM_DIGIT_MODES: Record<string, CameraMode> = {
-  "1": "sun",
-  "2": "moon",
-  "3": "earth",
-  "4": "starbase",
-  "5": "trench",
-  "6": "gridfin",
-  "7": "chase",
-  "8": "fin",
-  "9": "hull",
-};
+
 
 function handleShiftBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (!e.shiftKey || !e.code.startsWith("Digit")) return false;
@@ -938,7 +981,7 @@ function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 }
 
 function handleCameraDigitKey(rt: HudRuntime, e: KeyboardEvent): boolean {
-  const mode = CAM_DIGIT_MODES[e.key];
+  const mode = CAMERA_DIGIT_MODES[e.key];
   if (!mode) return false;
   handleCameraKey(rt, mode, e.key);
   return true;
@@ -984,10 +1027,10 @@ function handleSpeedNudgeKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 
 function handleLabelOrbitKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.key === "l" || e.key === "L") {
-    return preventAnd(e, () => rt.data.handlers.onToggleLabels?.());
+    return preventAnd(e, () => toggleLabels(rt));
   }
   if (e.key === "o" || e.key === "O") {
-    return preventAnd(e, () => rt.data.handlers.onToggleOrbits?.());
+    return preventAnd(e, () => toggleOrbits(rt));
   }
   return false;
 }

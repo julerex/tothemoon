@@ -168,7 +168,7 @@
 
         <section
           class="panel telemetry hud-chrome"
-          aria-label="Mission details"
+          aria-label="Flight physics"
           aria-live="polite"
         >
           <div
@@ -182,11 +182,11 @@
             <span id="mission-clock-rate" class="mission-clock-rate">1×</span>
           </div>
           <div><span class="label">Phase</span> <span id="phase">—</span></div>
-          <div><span class="label">Cam</span> <span id="tel-cam-mode">—</span></div>
+          <div><span class="label">Next</span> <span id="tel-next">—</span></div>
+          <div><span class="label">In phase</span> <span id="tel-phase-left">—</span></div>
           <div><span class="label">Date</span> <span id="date">—</span></div>
           <div><span class="label">Range</span> <span id="distance">—</span></div>
           <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
-          <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
           <div><span class="label">Speed</span> <span id="tel-speed">—</span></div>
           <div class="fuel-row">
             <span class="label">Booster</span>
@@ -206,6 +206,102 @@
           <div><span class="label">Progress</span> <span id="progress">0%</span></div>
           <div class="tel-sky">
             <span class="label">Sky</span> <span id="tel-sky">—</span>
+          </div>
+          <div class="tel-actions">
+            <button
+              type="button"
+              id="btn-metrics"
+              aria-pressed="false"
+              title="Mission metrics (M)"
+            >
+              Metrics
+            </button>
+          </div>
+        </section>
+
+        <section
+          id="camera-rail"
+          class="panel camera-rail hud-chrome"
+          aria-label="Camera and view"
+        >
+          <div><span class="label">Cam</span> <span id="tel-cam-mode">—</span></div>
+          <div>
+            <span class="label">View</span>
+            <span id="tel-cam-detail">—</span>
+          </div>
+          <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
+          <div><span class="label">Auto-cam</span> <span id="tel-auto-cam">On</span></div>
+          <div class="cam-grid" id="cam-grid" role="group" aria-label="Camera focus">
+            <button type="button" data-cam="sun" title="Sun (1)">Sun</button>
+            <button type="button" data-cam="moon" title="Moon (2)">Moon</button>
+            <button type="button" data-cam="earth" title="Earth (3)">Earth</button>
+            <button type="button" data-cam="starbase" title="Starbase (4)">Pad</button>
+            <button type="button" data-cam="trench" title="Launchpad (5)">Trench</button>
+            <button type="button" data-cam="gridfin" title="Booster (6)">Booster</button>
+            <button type="button" data-cam="chase" title="Starship (7)">Ship</button>
+            <button type="button" data-cam="fin" title="Ship fin (8)">Fin</button>
+            <button type="button" data-cam="hull" title="Ship hull (9)">Hull</button>
+          </div>
+          <button type="button" id="btn-cam-cycle" title="Cycle cameras (`)">
+            Cycle
+          </button>
+          <div class="cam-toggles" role="group" aria-label="View toggles">
+            <button
+              type="button"
+              id="btn-auto-cam"
+              aria-pressed="true"
+              title="Auto-cam (G)"
+            >
+              Auto-cam
+            </button>
+            <button
+              type="button"
+              id="btn-labels"
+              aria-pressed="true"
+              title="Scene labels (L)"
+            >
+              Labels
+            </button>
+            <button
+              type="button"
+              id="btn-orbits"
+              aria-pressed="true"
+              title="Orbit overlays (O)"
+            >
+              Orbits
+            </button>
+            <button
+              type="button"
+              id="btn-keymap"
+              aria-pressed="false"
+              title="KeyMap (K)"
+            >
+              KeyMap
+            </button>
+            <button
+              type="button"
+              id="btn-cross-section"
+              aria-pressed="false"
+              title="Ascent cross-section (Tab)"
+            >
+              Ascent CS
+            </button>
+            <button
+              type="button"
+              id="btn-earth-gc"
+              aria-pressed="false"
+              title="Earth great circle (Tab)"
+            >
+              Earth GC
+            </button>
+            <button
+              type="button"
+              id="btn-polar-map"
+              aria-pressed="false"
+              title="Ecliptic polar map (Tab)"
+            >
+              Polar
+            </button>
           </div>
         </section>
 

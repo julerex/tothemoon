@@ -10,6 +10,7 @@ import {
   PLAYBACK_SPEED_STEPS,
   clamp01,
   formatAccelG,
+  formatCompactDuration,
   formatDistance,
   formatDistancePrecise,
   formatFocusDistance,
@@ -154,6 +155,14 @@ describe("fuel / mass", () => {
 });
 
 describe("progress / optional / complete card", () => {
+  it("formatCompactDuration", () => {
+    assert.equal(formatCompactDuration(9), "9s");
+    assert.equal(formatCompactDuration(90), "1m 30s");
+    assert.equal(formatCompactDuration(3600), "1h");
+    assert.equal(formatCompactDuration(3660), "1h 1m");
+    assert.equal(formatCompactDuration(90000), "1d 1h");
+  });
+
   it("formatProgressPercent", () => {
     assert.equal(formatProgressPercent(0, 100), "0%");
     assert.equal(formatProgressPercent(50, 100), "50%");

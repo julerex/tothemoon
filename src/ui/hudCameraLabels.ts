@@ -48,5 +48,11 @@ export const CAMERA_CYCLE: readonly CameraMode[] = [
   "hull",
 ];
 
+/** Digit keys 1–9 → {@link CAMERA_CYCLE} (single source for HUD + keyboard). */
+export const CAMERA_DIGIT_MODES: Readonly<Record<string, CameraMode>> =
+  Object.fromEntries(
+    CAMERA_CYCLE.map((mode, i) => [String(i + 1), mode]),
+  ) as Readonly<Record<string, CameraMode>>;
+
 /** Double-tap window for number-key frame zoom (ms). */
 export const CAM_DOUBLE_TAP_MS = 380;

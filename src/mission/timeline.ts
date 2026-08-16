@@ -338,3 +338,59 @@ function dedupeEvents(events: MissionEvent[]): MissionEvent[] {
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
+
+/** Live phase window around mission time `t` (for the left HUD rail). */
+export type PhaseContext = Readonly<{
+  phase: PhaseId | null;
+  label: string;
+  /** Next segment label, or null on the last / empty timeline. */
+  nextLabel: string | null;
+  elapsedS: number;
+  remainingS: number;
+}>;
+
+const EMPTY_PHASE_CONTEXT: PhaseContext = {
+  phase: null,
+  label: "—",
+  nextLabel: null,
+  elapsedS: 0,
+  remainingS: 0,
+};
+
+/**
+ * Current / next phase at mission time `t`.
+ * `t` before the first segment is treated as “time until that phase starts”.
+ */
+export function phaseContextAt(
+  segments: readonly PhaseSegment[],
+  t: number,
+): PhaseContext {
+  if (segments.length === 0) return EMPTY_PHASE_CONTEXT;
+  const first = segments[0]!;
+  if (t < first.t0) {
+    return {
+      phase: first.phase,
+      label: first.label,
+      nextLabel: first.label,
+      elapsedS: 0,
+      remainingS: Math.max(0, first.t0 - t),
+    };
+  }
+  const i = segmentIndexAt(segments, t);
+  const seg = segments[i]!;
+  const next = segments[i + 1];
+  return {
+    phase: seg.phase,
+    label: seg.label,
+    nextLabel: next?.label ?? null,
+    elapsedS: Math.max(0, t - seg.t0),
+    remainingS: Math.max(0, seg.t1 - t),
+  };
+}
+
+function segmentIndexAt(segments: readonly PhaseSegment[], t: number): number {
+  for (let i = 0; i < segments.length; i++) {
+    if (t < segments[i]!.t1 || i === segments.length - 1) return i;
+  }
+  return segments.length - 1;
+}

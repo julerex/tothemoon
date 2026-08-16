@@ -237,6 +237,24 @@ export function formatThrustDetailed(newtons: number): string {
   return `${n.toFixed(1)} N`;
 }
 
+/**
+ * Compact remaining / elapsed duration for the left rail (ascent seconds
+ * through multi-day coasts).
+ */
+export function formatCompactDuration(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (s < 3600) return sec > 0 ? `${m}m ${pad2(sec)}s` : `${m}m`;
+  const h = Math.floor(s / 3600);
+  const min = Math.floor((s % 3600) / 60);
+  if (s < 86400) return min > 0 ? `${h}h ${min}m` : `${h}h`;
+  const d = Math.floor(s / 86400);
+  const hh = Math.floor((s % 86400) / 3600);
+  return hh > 0 ? `${d}d ${hh}h` : `${d}d`;
+}
+
 /** Progress bar label: "0%" … "100%" from mission t / duration. */
 export function formatProgressPercent(t: number, durationS: number): string {
   const u = durationS > 0 ? t / durationS : 0;

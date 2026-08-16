@@ -75,7 +75,10 @@ describe("buildTelemetryView", () => {
       skyLine: () => "sky-test",
     });
     assert.equal(v.main.phase, "Ascent");
+    assert.equal(v.main.nextPhase, "—");
+    assert.equal(v.main.phaseLeft, "—");
     assert.equal(v.main.cameraMode, "Earth");
+    assert.match(v.main.cameraDetail, /key 3/i);
     assert.equal(v.main.missionClock, "T+00:02:00");
     assert.equal(v.main.progress, "12%");
     assert.equal(v.main.playLabel, "Pause");
@@ -88,6 +91,34 @@ describe("buildTelemetryView", () => {
     assert.equal(v.metrics.sky, "sky-test");
     assert.match(v.metrics.playback, /10×/);
     assert.equal(v.metrics.forceCheckVisible, false);
+  });
+
+  it("maps next phase from timeline segments", () => {
+    const v = buildTelemetryView(baseTel({ t: 10, phase: "Launch", phaseId: "launch" }), {
+      skyLine: () => "sky-test",
+      segments: [
+        {
+          phase: "launch",
+          label: "Launch",
+          shortLabel: "Lift",
+          t0: 0,
+          t1: 20,
+          u0: 0,
+          u1: 0.02,
+        },
+        {
+          phase: "ascent",
+          label: "Ascent",
+          shortLabel: "Ascent",
+          t0: 20,
+          t1: 1000,
+          u0: 0.02,
+          u1: 1,
+        },
+      ],
+    });
+    assert.equal(v.main.nextPhase, "Ascent");
+    assert.equal(v.main.phaseLeft, "10s left");
   });
 
   it("maps cameraMode to the HUD Cam title", () => {

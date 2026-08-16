@@ -5,10 +5,14 @@
 export type HudButtons = {
   btnPlay: HTMLButtonElement | null;
   btnAutoCam: HTMLButtonElement | null;
+  btnLabels: HTMLButtonElement | null;
+  btnOrbits: HTMLButtonElement | null;
+  btnMetrics: HTMLButtonElement | null;
   btnCrossSection: HTMLButtonElement | null;
   btnEarthGc: HTMLButtonElement | null;
   btnPolarMap: HTMLButtonElement | null;
   btnKeymap: HTMLButtonElement | null;
+  btnCamCycle: HTMLButtonElement | null;
 };
 
 export type HudTransport = {
@@ -21,7 +25,11 @@ export type HudTransport = {
 
 export type HudTelStrip = {
   phaseEl: HTMLElement;
+  nextPhaseEl: HTMLElement | null;
+  phaseLeftEl: HTMLElement | null;
   camModeEl: HTMLElement | null;
+  camDetailEl: HTMLElement | null;
+  autoCamEl: HTMLElement | null;
   missionClockEl: HTMLElement | null;
   missionClockRateEl: HTMLElement | null;
   newsTickerEl: HTMLElement | null;
@@ -41,6 +49,8 @@ export type HudTelStrip = {
   barBooster: HTMLElement | null;
   barShip: HTMLElement | null;
   telemetryEl: HTMLElement | null;
+  cameraRailEl: HTMLElement | null;
+  camGridEl: HTMLElement | null;
 };
 
 export type HudCalloutToast = {
@@ -134,10 +144,14 @@ function collectButtons(): HudButtons {
   return {
     btnPlay: q("#btn-play"),
     btnAutoCam: q("#btn-auto-cam"),
+    btnLabels: q("#btn-labels"),
+    btnOrbits: q("#btn-orbits"),
+    btnMetrics: q("#btn-metrics"),
     btnCrossSection: q("#btn-cross-section"),
     btnEarthGc: q("#btn-earth-gc"),
     btnPolarMap: q("#btn-polar-map"),
     btnKeymap: q("#btn-keymap"),
+    btnCamCycle: q("#btn-cam-cycle"),
   };
 }
 
@@ -154,7 +168,11 @@ function collectTransport(): HudTransport {
 function collectTelStripA(): Pick<
   HudTelStrip,
   | "phaseEl"
+  | "nextPhaseEl"
+  | "phaseLeftEl"
   | "camModeEl"
+  | "camDetailEl"
+  | "autoCamEl"
   | "missionClockEl"
   | "missionClockRateEl"
   | "newsTickerEl"
@@ -167,7 +185,11 @@ function collectTelStripA(): Pick<
 > {
   return {
     phaseEl: el("#phase"),
+    nextPhaseEl: q("#tel-next"),
+    phaseLeftEl: q("#tel-phase-left"),
     camModeEl: q("#tel-cam-mode"),
+    camDetailEl: q("#tel-cam-detail"),
+    autoCamEl: q("#tel-auto-cam"),
     missionClockEl: q("#mission-clock-value"),
     missionClockRateEl: q("#mission-clock-rate"),
     newsTickerEl: q("#news-ticker"), newsTextEl: q("#news-ticker-text"),
@@ -185,6 +207,8 @@ function collectTelStripB(): Omit<
     boosterEl: el("#tel-booster"), shipEl: el("#tel-ship"), thrustEl: el("#tel-thrust"),
     skyEl: q("#tel-sky"), barBooster: q("#bar-booster"), barShip: q("#bar-ship"),
     telemetryEl: q(".telemetry"),
+    cameraRailEl: q("#camera-rail"),
+    camGridEl: q("#cam-grid"),
   };
 }
 

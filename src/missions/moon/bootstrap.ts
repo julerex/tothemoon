@@ -401,7 +401,7 @@ function makeMoonHudWire(
   autoCam: MoonAutoCam,
   cache: Trajectory,
   disableAutoCam: () => void,
-  toggleOrbits: () => void,
+  toggleOrbits: () => boolean,
 ): TheaterHudWire {
   return { clock, director, autoCam, cache, disableAutoCam, toggleOrbits };
 }
@@ -416,7 +416,11 @@ function bindHudPack(
   let setAutoCamUi: (e: boolean) => void = () => {};
   const disableAutoCam = makeDisableAutoCam(autoCam, () => setAutoCamUi);
   const setOrbits = makeSetOrbitsVisible(flags, world.sceneParts.orbitGroup, world.orbits.orbitExtras);
-  const wire = makeMoonHudWire(clockPack.clock, world.director, autoCam, cache, disableAutoCam, () => setOrbits(!flags.orbitsVisible));
+  const wire = makeMoonHudWire(clockPack.clock, world.director, autoCam, cache, disableAutoCam, () => {
+    const next = !flags.orbitsVisible;
+    setOrbits(next);
+    return next;
+  });
   const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());

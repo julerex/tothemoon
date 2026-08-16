@@ -81,7 +81,10 @@ function applyMainPlayButton(dom: HudDom, m: MainTelemetryLabels): void {
 
 function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.phaseEl.textContent = m.phase;
+  if (dom.nextPhaseEl) dom.nextPhaseEl.textContent = m.nextPhase;
+  if (dom.phaseLeftEl) dom.phaseLeftEl.textContent = m.phaseLeft;
   if (dom.camModeEl) dom.camModeEl.textContent = m.cameraMode;
+  if (dom.camDetailEl) dom.camDetailEl.textContent = m.cameraDetail;
   if (dom.missionClockEl) dom.missionClockEl.textContent = m.missionClock;
   if (dom.missionClockRateEl) {
     dom.missionClockRateEl.textContent = formatRate(m.playbackSpeed);
@@ -90,6 +93,40 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.distEl.textContent = m.distance;
   dom.progEl.textContent = m.progress;
   dom.altEl.textContent = m.altitude;
+}
+
+/** Highlight the active camera-focus button on the right rail. */
+export function applyCameraGridPressed(
+  grid: HTMLElement | null,
+  mode: string,
+): void {
+  if (!grid) return;
+  for (const btn of grid.querySelectorAll<HTMLButtonElement>("[data-cam]")) {
+    btn.setAttribute("aria-pressed", btn.dataset.cam === mode ? "true" : "false");
+  }
+}
+
+/** Sync Auto-cam readout + button chrome. */
+export function applyAutoCamChrome(
+  btn: HTMLButtonElement | null,
+  statusEl: HTMLElement | null,
+  enabled: boolean,
+): void {
+  if (btn) {
+    btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    btn.title = enabled
+      ? "Auto-cam on — Flight 13 follows the webcast left pane (G)"
+      : "Auto-cam off — press G or click to re-enable";
+    btn.textContent = enabled ? "Auto-cam" : "Auto-cam off";
+  }
+  if (statusEl) statusEl.textContent = enabled ? "On" : "Off";
+}
+
+export function applyPressed(
+  btn: HTMLButtonElement | null,
+  pressed: boolean,
+): void {
+  btn?.setAttribute("aria-pressed", pressed ? "true" : "false");
 }
 
 function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {
