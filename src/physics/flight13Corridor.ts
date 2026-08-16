@@ -27,9 +27,13 @@ import {
   v3,
 } from "./vec3";
 
-/** Indian Ocean splash (theater — west of Australia; not a surveyed fix). */
+/**
+ * Indian Ocean splash (theater — west of Western Australia; not a surveyed fix).
+ * 115°E sits just offshore of Perth so T+1:05 is a winter morning, matching
+ * the Flight 13 webcast daylight splash (95°E at the same UTC is still night).
+ */
 export const FLIGHT13_SPLASH_LAT = (-31.5 * Math.PI) / 180;
-export const FLIGHT13_SPLASH_LON = (95.0 * Math.PI) / 180;
+export const FLIGHT13_SPLASH_LON = (115.0 * Math.PI) / 180;
 
 /** Johannesburg / Gauteng province (rad) — corridor waypoint. */
 export const GAUTENG_LAT = (-26.2041 * Math.PI) / 180;

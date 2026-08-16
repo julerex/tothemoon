@@ -23,7 +23,7 @@ import {
 } from "./terminalSiteFx";
 
 export const SPLASH_SITE_LABEL = "Indian Ocean";
-export const SPLASH_SITE_DETAIL = "Theater splash · west of Australia";
+export const SPLASH_SITE_DETAIL = "Theater splash · west of Western Australia";
 
 const SPLASH_SITE: EarthTerminalSiteSpec = {
   name: "splash-fx",

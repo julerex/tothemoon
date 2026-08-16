@@ -9,6 +9,7 @@ import {
   earthNorthPole,
   enuAtPosition,
   inertialRelToMeshLocal,
+  sunElevAtGeodetic,
 } from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
@@ -63,10 +64,33 @@ describe("runFlight13Mission", () => {
     const alt = altitudeEarth(last.t, last.pos, epoch);
     assert.ok(alt < 0.5, `float alt ${alt} km`);
     const lon = sampleLonDeg(last.t, last.pos, epoch);
-    assert.ok(Math.abs(lon - 95) < 8, `float lon ${lon}° — expected Indian Ocean ~95°E`);
+    assert.ok(Math.abs(lon - 115) < 8, `float lon ${lon}° — expected Indian Ocean ~115°E`);
     const splashSamples = result.samples.filter((s) => s.phase === "splashdown");
     assert.ok(splashSamples.length > 20, `float samples ${splashSamples.length}`);
     assert.ok(last.t - splash0!.t > 200, `float hold ${last.t - splash0!.t}s`);
+  });
+
+  it("plays the landing sequence over the sunlit splash site", () => {
+    const land = result.samples.reduce((best, cur) =>
+      Math.abs(cur.t - F13.LAND_BURN) < Math.abs(best.t - F13.LAND_BURN)
+        ? cur
+        : best,
+    );
+    const lon = sampleLonDeg(land.t, land.pos, epoch);
+    assert.ok(
+      Math.abs(lon - 115) < 8,
+      `landing lon ${lon}° — expected splash site ~115°E, not a night-side hover`,
+    );
+    const sun = sunElevAtGeodetic(
+      land.t,
+      (-31.5 * Math.PI) / 180,
+      (lon * Math.PI) / 180,
+      epoch,
+    );
+    assert.ok(
+      sun > 0.2,
+      `landing should be in daylight, sin(el)=${sun.toFixed(3)}`,
+    );
   });
 
   it("stages near the public hot-stage mark", () => {
@@ -191,7 +215,7 @@ describe("runFlight13Mission", () => {
   });
 
   it("ascends eastward along the Flight 13 corridor (not west across the Pacific)", () => {
-    // Regression: short geodetic path Starbase → 95°E splash is westward; steering
+    // Regression: short geodetic path Starbase → 115°E splash is westward; steering
     // must follow the Earth GC plane (Starbase → Gauteng → Indian Ocean) instead.
     const padLonDeg = -97.156;
     const s = result.samples.reduce((best, cur) =>

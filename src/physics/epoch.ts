@@ -7,7 +7,8 @@
  *
  * **Flight 13:** liftoff at the public window open (theater) — 2026-07-23
  * 22:45 UTC = 5:45 p.m. CDT — so Starbase is in daytime. Uses analytic
- * Earth/Sun (Horizons table is the July 2027 lunar window only).
+ * Earth/Sun (Horizons table is the July 2027 lunar window only) plus a
+ * small sun-phase nudge so splash is webcast daylight.
  *
  * Pure: wall-clock mapping takes an explicit UTC epoch or landing map —
  * no module mutable state.

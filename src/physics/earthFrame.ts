@@ -63,11 +63,36 @@ export function starbaseSunElev(
 ): number {
   const b = bodyPositions(t, epoch);
   const pad = starbasePadState(t, epoch);
+  return sunDotUp(b, pad.up);
+}
+
+/**
+ * Sun elevation sine at a geodetic site (sun · local up, −1…1).
+ *
+ * @param t - Mission time (s)
+ * @param lat - Geodetic latitude (rad)
+ * @param lon - Geodetic longitude (rad, east-positive)
+ */
+export function sunElevAtGeodetic(
+  t: number,
+  lat: number,
+  lon: number,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const b = bodyPositions(t, epoch);
+  localUpInertial(t, lat, lon, _tmp, epoch);
+  return sunDotUp(b, _tmp);
+}
+
+function sunDotUp(
+  b: ReturnType<typeof bodyPositions>,
+  up: { x: number; y: number; z: number },
+): number {
   const sx = b.sun.x - b.earth.x;
   const sy = b.sun.y - b.earth.y;
   const sz = b.sun.z - b.earth.z;
   const sl = Math.hypot(sx, sy, sz) || 1;
-  return (sx * pad.up.x + sy * pad.up.y + sz * pad.up.z) / sl;
+  return (sx * up.x + sy * up.y + sz * up.z) / sl;
 }
 
 /**

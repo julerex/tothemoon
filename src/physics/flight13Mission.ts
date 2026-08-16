@@ -18,7 +18,8 @@
  * - In-space relight is a real retrograde deorbit burn (theater-lengthened
  *   vs the public ~12 s demo so periapsis drops before the entry mark)
  * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
- * - Landing burn brakes near the splash fix; soft snap only in the last ~1 s
+ * - Landing burn brakes near the splash fix; late descent is seated at the
+ *   sunlit theater splash site (dynamics dump energy ~30° west, at night)
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
  *   (T+1:10) so the theater can hold a sea-level drone shot
  *
@@ -864,22 +865,40 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
   return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
 }
 
-function snapSplash(loop: F13Loop, surf: V3, L: number, rangeKm: number): void {
+/** Earth-fixed pose at the theater splash lat/lon, `altKm` above the water. */
+function placeAtSplash(loop: F13Loop, altKm: number): void {
   const b = getBodies(loop.state.t, loop.epoch);
-  const targetR = EARTH_SURFACE_RADIUS_KM;
-  if (rangeKm < 200) placeOnSphere(loop.state.pos, b.earth, surf, 1, targetR);
-  else placeOnSphere(loop.state.pos, b.earth, _relP, L, targetR);
+  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
+  placeOnSphere(
+    loop.state.pos,
+    b.earth,
+    surf,
+    1,
+    EARTH_SURFACE_RADIUS_KM + Math.max(0, altKm),
+  );
   sub(_relP, loop.state.pos, b.earth);
   surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
 }
 
+function snapSplash(loop: F13Loop, _surf: V3, _L: number, _rangeKm: number): void {
+  placeAtSplash(loop, 0);
+}
+
+/**
+ * Late descent / landing burn play out over the sunlit splash site.
+ * Dynamics dump energy ~30° west (night); without this seat the webcast
+ * landing sequence is on the dark side of Earth.
+ */
+function seatLandingAtSplash(loop: F13Loop, alt: number): void {
+  if (loop.splashed) return;
+  if (loop.mode !== "land" && loop.state.t < F13.LAND_BURN) return;
+  if (alt > 25) return;
+  placeAtSplash(loop, alt);
+}
+
 /** Earth-fixed float at the theater splash lat/lon (co-rotating ocean). */
 function placeFloating(loop: F13Loop): void {
-  const b = getBodies(loop.state.t, loop.epoch);
-  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
-  placeOnSphere(loop.state.pos, b.earth, surf, 1, EARTH_SURFACE_RADIUS_KM);
-  sub(_relP, loop.state.pos, b.earth);
-  surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
+  placeAtSplash(loop, 0);
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
@@ -999,6 +1018,8 @@ function stepFlight13Float(loop: F13Loop, maxT: number): boolean {
 function flight13PostStep(loop: F13Loop, phase: PhaseId): boolean {
   surfaceClamp(loop);
   bookFlight13Prop(loop);
+  const alt = altitudeEarth(loop.state.t, loop.state.pos, loop.epoch);
+  seatLandingAtSplash(loop, alt);
   if (trySplashdown(loop)) return true;
   maybePushFlight13Sample(loop, phase);
   return true;

@@ -241,7 +241,7 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight as a real retrograde deorbit** (theater ~20 s vs public ~12 s demo); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive (may be before the public T+65:21 mark). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Not ops ephemerides.
 
-**Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window open, **5:45 p.m. CDT** — no time shift). Actual liftoff on the SpaceX page is **2026-07-24 22:51 UTC** (5:51 p.m. CT). Solar longitude matches the theater UTC. Analytic Earth/Sun (not the July 2027 Horizons table). Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
+**Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window open, **5:45 p.m. CDT**). Actual liftoff on the SpaceX page is **2026-07-24 22:51 UTC** (5:51 p.m. CT). Analytic Earth/Sun (not the July 2027 Horizons table) plus a small theater **sun-phase nudge** so the Indian Ocean splash is in webcast daylight (raw UTC at this site is a low southern-winter morning) while Starbase stays in afternoon sun. Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Hull-cam (hex TPS / S40 / oil-canning) and pink launch plumes shipped; remaining photorealism vs the webcast stills: [VISUAL_REALISM.md](./VISUAL_REALISM.md) V15+.
 
@@ -255,7 +255,7 @@ Theater whole-Earth cross-section plane is a **best-fit great circle** through:
 |------|-------------------------------|
 | Starbase | 25.997°N, 97.156°W |
 | Gauteng (Johannesburg) | 26.20°S, 28.05°E |
-| Indian Ocean splashdown | 31.5°S, 95.0°E (west of Australia; not a surveyed fix) |
+| Indian Ocean splashdown | 31.5°S, 115.0°E (west of Western Australia; not a surveyed fix) |
 | Australia (label) | 25.27°S, 133.78°E |
 
 Open from Flight 13 briefing (**Earth great circle**) or the theater **Earth GC** button / **Tab** cycle.
