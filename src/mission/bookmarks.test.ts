@@ -4,7 +4,7 @@ import type { PhaseId, Sample } from "../physics/mission.ts";
 import { v3 } from "../physics/vec3.ts";
 import {
   BOOKMARK_IDS,
-  bookmarkForShiftDigit,
+  bookmarkForDigit,
   buildBookmarks,
 } from "./bookmarks.ts";
 import { buildTimeline } from "./timeline.ts";
@@ -164,14 +164,14 @@ describe("buildBookmarks", () => {
   });
 });
 
-describe("bookmarkForShiftDigit", () => {
-  it("maps 1-based Shift digits onto the built list", () => {
+describe("bookmarkForDigit", () => {
+  it("maps 1-based digits onto the built list", () => {
     const tl = buildTimeline(landingArcSamples(), 1000);
     const marks = buildBookmarks(tl);
-    assert.equal(bookmarkForShiftDigit(marks, 1)?.id, "pad");
-    assert.equal(bookmarkForShiftDigit(marks, 3)?.id, "translunarInjection");
-    assert.equal(bookmarkForShiftDigit(marks, marks.length)?.id, "touchdown");
-    assert.equal(bookmarkForShiftDigit(marks, 0), null);
-    assert.equal(bookmarkForShiftDigit(marks, 99), null);
+    assert.equal(bookmarkForDigit(marks, 1)?.id, "pad");
+    assert.equal(bookmarkForDigit(marks, 3)?.id, "translunarInjection");
+    assert.equal(bookmarkForDigit(marks, marks.length)?.id, "touchdown");
+    assert.equal(bookmarkForDigit(marks, 0), null);
+    assert.equal(bookmarkForDigit(marks, 99), null);
   });
 });

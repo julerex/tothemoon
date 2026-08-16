@@ -79,7 +79,7 @@ describe("buildTelemetryView", () => {
     assert.equal(v.main.nextPhase, "—");
     assert.equal(v.main.phaseLeft, "—");
     assert.equal(v.main.cameraMode, "Earth");
-    assert.match(v.main.cameraDetail, /key 3/i);
+    assert.match(v.main.cameraDetail, /Focus/i);
     assert.equal(v.main.missionClock, "T+00:02:00");
     assert.equal(v.main.dateUtc, "2027-07-18 12:00 UTC");
     assert.equal(v.main.dateTexas, "2027-07-18 7:00 a.m. CDT");

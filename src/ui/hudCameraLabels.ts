@@ -12,30 +12,30 @@ export const CAMERA_LABELS: Record<
     title: "Free camera",
     detail: "No subject track · WASD pan · drag to look",
   },
-  sun: { title: "Sun", detail: "Focus · key 1 · double-tap to frame" },
-  moon: { title: "Moon", detail: "Focus · key 2 · double-tap to frame" },
-  earth: { title: "Earth", detail: "Focus · key 3 · double-tap to frame" },
+  sun: { title: "Sun", detail: "Focus · double-tap rail to frame" },
+  moon: { title: "Moon", detail: "Focus · double-tap rail to frame" },
+  earth: { title: "Earth", detail: "Focus · double-tap rail to frame" },
   starbase: {
     title: "Starbase",
-    detail: "Pad · key 4 · double-tap to frame",
+    detail: "Pad · double-tap rail to frame",
   },
   trench: {
     title: "Launchpad",
-    detail: "Flame trench · engines side · key 5",
+    detail: "Flame trench · engines side",
   },
   gridfin: {
     title: "Booster",
-    detail: "Grid fin · aft engines · key 6",
+    detail: "Grid fin · aft engines",
   },
   chase: {
     title: "Starship",
-    detail: "Chase · key 7 · double-tap to frame",
+    detail: "Chase · double-tap rail to frame",
   },
-  fin: { title: "Ship fin", detail: "Aft engines · key 8" },
-  hull: { title: "Ship hull", detail: "Barrel cam · key 9" },
+  fin: { title: "Ship fin", detail: "Aft engines" },
+  hull: { title: "Ship hull", detail: "Barrel cam" },
 };
 
-/** Focus modes cycled by − / = — same order as number keys 1–9. */
+/** Focus modes cycled by − / =. */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
   "sun",
   "moon",
@@ -59,11 +59,5 @@ export function cycleCameraMode(current: CameraMode, dir: -1 | 1): CameraMode {
   return CAMERA_CYCLE[(from + dir + n) % n]!;
 }
 
-/** Digit keys 1–9 → {@link CAMERA_CYCLE} (single source for HUD + keyboard). */
-export const CAMERA_DIGIT_MODES: Readonly<Record<string, CameraMode>> =
-  Object.fromEntries(
-    CAMERA_CYCLE.map((mode, i) => [String(i + 1), mode]),
-  ) as Readonly<Record<string, CameraMode>>;
-
-/** Double-tap window for number-key frame zoom (ms). */
+/** Double-tap window for rail-button frame zoom (ms). */
 export const CAM_DOUBLE_TAP_MS = 380;

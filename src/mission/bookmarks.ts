@@ -30,7 +30,7 @@ export type CinematicBookmark = Readonly<{
   frameScale?: number;
 }>;
 
-/** Preset id order for UI buttons and Shift+1… keys. */
+/** Preset id order for UI buttons and 1… keys. */
 export const BOOKMARK_IDS = [
   "pad",
   "staging",
@@ -168,10 +168,10 @@ export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
 }
 
 /**
- * Map Shift+1…Shift+N (1-based) to a bookmark in the built list.
+ * Map 1…N (1-based digit key) to a bookmark in the built list.
  * Returns null when the key index is out of range.
  */
-export function bookmarkForShiftDigit(
+export function bookmarkForDigit(
   bookmarks: readonly CinematicBookmark[],
   digit: number,
 ): CinematicBookmark | null {

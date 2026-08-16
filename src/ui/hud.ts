@@ -6,7 +6,7 @@
 import type { MissionClock } from "../mission/clock";
 import type { CameraMode } from "../camera/modes";
 import {
-  bookmarkForShiftDigit,
+  bookmarkForDigit,
   buildBookmarks,
   type CinematicBookmark,
 } from "../mission/bookmarks";
@@ -63,7 +63,6 @@ import {
 } from "./hudApply";
 import {
   CAM_DOUBLE_TAP_MS,
-  CAMERA_DIGIT_MODES,
   CAMERA_LABELS,
   cycleCameraMode,
 } from "./hudCameraLabels";
@@ -957,10 +956,10 @@ function handleUiKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 
 
 
-function handleShiftBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {
-  if (!e.shiftKey || !e.code.startsWith("Digit")) return false;
+function handleDigitBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {
+  if (!e.code.startsWith("Digit")) return false;
   const digit = Number(e.code.slice("Digit".length));
-  const bm = bookmarkForShiftDigit(rt.data.bookmarks, digit);
+  const bm = bookmarkForDigit(rt.data.bookmarks, digit);
   if (bm) {
     e.preventDefault();
     jumpToBookmark(rt, bm);
@@ -978,14 +977,7 @@ function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.code === "Equal") {
     return preventAnd(e, () => cycleCamera(rt, 1));
   }
-  return handleShiftBookmark(rt, e);
-}
-
-function handleCameraDigitKey(rt: HudRuntime, e: KeyboardEvent): boolean {
-  const mode = CAMERA_DIGIT_MODES[e.key];
-  if (!mode) return false;
-  handleCameraKey(rt, mode, e.key);
-  return true;
+  return handleDigitBookmark(rt, e);
 }
 
 function isOrbitKey(k: string): k is "q" | "e" | "r" | "f" | "c" | "v" {
@@ -1050,7 +1042,6 @@ function onKeyDown(rt: HudRuntime, e: KeyboardEvent): void {
   if (e.repeat || isFormTypingTarget(e.target)) return;
   if (handleUiKey(rt, e)) return;
   if (handleTransportKey(rt, e)) return;
-  if (handleCameraDigitKey(rt, e)) return;
   if (handleHoldKeyDown(rt, e)) return;
   handleMiscKey(rt, e);
 }

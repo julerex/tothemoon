@@ -140,7 +140,7 @@ export function renderEventTicks(
 }
 
 function bookmarkTitle(bm: CinematicBookmark, index: number): string {
-  const keyHint = index < 9 ? `Shift+${index + 1}` : "";
+  const keyHint = index < 9 ? String(index + 1) : "";
   const base = `${bm.label} · ${formatMissionTime(bm.t)}`;
   return keyHint ? `${base} · ${keyHint}` : base;
 }
