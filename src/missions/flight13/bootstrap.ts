@@ -99,7 +99,6 @@ export type F13Ctx = {
   moonRelOrbit: Line2;
   orbitExtras: THREE.Object3D[];
   craft: THREE.Group;
-  locator: THREE.Sprite;
   cinema: ReturnType<typeof createCinemaComposer>;
   cinemaState: F13CinemaState;
   vectorArrows: ReturnType<typeof createVectorArrows>;
@@ -270,11 +269,11 @@ function mountMoonOrbits(
 }
 
 function mountCraft(scene: THREE.Scene, director: CameraDirector) {
-  const { group: craft, locator } = createCraft();
+  const { group: craft } = createCraft();
   scene.add(craft);
   director.setCraft(craft);
   markShadowMeshes(craft, { cast: true, receive: true });
-  return { craft, locator };
+  return { craft };
 }
 
 function mountStaging(
@@ -415,8 +414,8 @@ function assembleOverlays(
   const orbits = mountMoonOrbits(
     core.sceneParts.orbitGroup, core.bodies, cache, epoch, pad.craftTrail,
   );
-  const { craft, locator } = mountCraft(core.sceneParts.scene, core.director);
-  return { pad, orbits, craft, locator };
+  const { craft } = mountCraft(core.sceneParts.scene, core.director);
+  return { pad, orbits, craft };
 }
 
 function assembleCinema(
@@ -558,7 +557,6 @@ function craftSliceA(world: ReturnType<typeof assembleWorld>) {
     moonRelOrbit: world.orbits.moonRelOrbit,
     orbitExtras: world.orbits.orbitExtras,
     craft: world.craft,
-    locator: world.locator,
     cinema: world.cinema,
   };
 }

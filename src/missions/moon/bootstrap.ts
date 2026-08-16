@@ -92,7 +92,6 @@ export type MoonCtx = {
   moonRelOrbit: Line2;
   orbitExtras: THREE.Object3D[];
   craft: THREE.Group;
-  locator: THREE.Sprite;
   cinema: ReturnType<typeof createCinemaComposer>;
   cinemaState: MoonCinemaState;
   vectorArrows: ReturnType<typeof createVectorArrows>;
@@ -245,11 +244,11 @@ function mountOrbits(
 }
 
 function mountCraft(scene: THREE.Scene, director: CameraDirector) {
-  const { group: craft, locator } = createCraft();
+  const { group: craft } = createCraft();
   scene.add(craft);
   director.setCraft(craft);
   markShadowMeshes(craft, { cast: true, receive: true });
-  return { craft, locator };
+  return { craft };
 }
 
 function mountStagingFx(
@@ -357,7 +356,7 @@ function assembleCraftCinema(
   cache: Trajectory,
   orbits: ReturnType<typeof assemblePadOrbits>["orbits"],
 ) {
-  const { craft, locator } = mountCraft(core.sceneParts.scene, core.director);
+  const { craft } = mountCraft(core.sceneParts.scene, core.director);
   const cinema = createCinemaComposer(core.renderer, core.sceneParts.scene, core.camera);
   const vectorArrows = createVectorArrows();
   if (vectorArrows.group.visible) {
@@ -365,7 +364,7 @@ function assembleCraftCinema(
     orbits.orbitExtras.push(vectorArrows.group);
   }
   const fx = mountFx(core.sceneParts.scene, craft, core.director, cache, cache.epoch);
-  return { craft, locator, cinema, vectorArrows, fx };
+  return { craft, cinema, vectorArrows, fx };
 }
 
 function assembleWorld(canvas: HTMLCanvasElement, cache: Trajectory) {
@@ -477,7 +476,6 @@ function craftFieldsA(world: ReturnType<typeof assembleWorld>) {
     moonRelOrbit: world.orbits.moonRelOrbit,
     orbitExtras: world.orbits.orbitExtras,
     craft: world.craft,
-    locator: world.locator,
   };
 }
 

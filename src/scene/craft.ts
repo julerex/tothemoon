@@ -31,9 +31,8 @@ import {
 } from "./craftHullMaps";
 
 /**
- * Near-true-scale Super Heavy + Starship stack plus a red locator for system
- * views (hidden when the camera is closer than {@link CRAFT_LOCATOR_MIN_DIST_KM}).
- * Scene unit = 1 km. Mesh units × CRAFT_MESH_SCALE ≈ real meters / 1000.
+ * Near-true-scale Super Heavy + Starship stack plus a STARSHIP name plate for
+ * system views. Scene unit = 1 km. Mesh units × CRAFT_MESH_SCALE ≈ real meters / 1000.
  *
  * Local +Z = nose, −Z = engines (matches velocity look-at in main).
  *
@@ -1010,24 +1009,20 @@ function buildCraftMesh(mats: CraftMats): THREE.Group {
   return mesh;
 }
 
-/** Root group with mesh, locator, and name plate. */
+/** Root group with mesh and STARSHIP name plate. */
 function assembleCraftRoot(mesh: THREE.Group): {
   group: THREE.Group;
   mesh: THREE.Group;
-  locator: THREE.Sprite;
 } {
   const group = new THREE.Group();
   group.add(mesh);
-  const locator = createLocatorSprite();
-  group.add(locator);
   addShipNameLabel(group);
-  return { group, mesh, locator };
+  return { group, mesh };
 }
 
 export function createCraft(): {
   group: THREE.Group;
   mesh: THREE.Group;
-  locator: THREE.Sprite;
 } {
   return assembleCraftRoot(buildCraftMesh(makeCraftMaterials()));
 }
@@ -2342,9 +2337,6 @@ export function boosterLengthKm(): number {
   return BOOST_H_M / 1000;
 }
 
-/** Hide the Starship red locator when the camera is closer than this (km). */
-export const CRAFT_LOCATOR_MIN_DIST_KM = 10;
-
 /** Hide a locator once the real geometry subtends this many pixels. */
 export const LOCATOR_HIDE_ABOVE_PX = 5;
 
@@ -2353,7 +2345,7 @@ export const LOCATOR_HIDE_ABOVE_PX = 5;
  *
  * @param distKm camera-to-target distance (scene units = km)
  * @param bodyPx on-screen pixels subtended by the body's characteristic size
- * @param minDistKm optional near-range hide (Starship red dot uses 10 km)
+ * @param minDistKm optional near-range hide
  */
 export function locatorShouldShow(
   distKm: number,
@@ -2365,13 +2357,11 @@ export function locatorShouldShow(
 }
 
 /**
- * Locator dot: constant on-screen marker whenever the body/craft is too small
- * to read. Hide once the real geometry subtends enough pixels, and (for the
- * Starship red dot) whenever the camera is closer than
- * {@link CRAFT_LOCATOR_MIN_DIST_KM}.
+ * Locator dot: constant on-screen marker whenever a body is too small to read.
+ * Hide once the real geometry subtends enough pixels.
  *
- * `sizeKm` — characteristic size in scene units (craft length, body diameter).
- * `minDistKm` — optional camera-distance floor; the craft locator passes 10 km.
+ * `sizeKm` — characteristic size in scene units (body diameter, booster length).
+ * `minDistKm` — optional camera-distance floor.
  */
 export function updateLocatorVisibility(
   locator: THREE.Sprite,

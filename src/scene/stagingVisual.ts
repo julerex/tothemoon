@@ -26,8 +26,8 @@ import type { PlumeLook } from "./plumeRegime";
 export const STAGE_FLASH_S = 3.5;
 
 /**
- * Peak material opacity for the free-flyer locator vs ship red (~1.0).
- * Dimmer so the ship remains the primary subject in system views.
+ * Peak material opacity for the free-flyer locator vs body locators (~1.0).
+ * Dimmer so the ship label remains the primary subject in system views.
  */
 export const LOCATOR_OPACITY = 0.55;
 

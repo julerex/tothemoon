@@ -67,7 +67,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 ### 3. Booster fallaway readability — **done**
 
-- Short free-flyer **locator** (dim amber, dimmer than ship red) for ~30 s of mission time after stage-out; pixel-size heuristic matches the ship locator.
+- Short free-flyer **locator** (dim amber, dimmer than body locators) for ~30 s of mission time after stage-out; pixel-size heuristic matches Earth / Moon locators.
 - Tiny boostback ignition flash (theater-only, non-physical) when reverse burn lights.
 - Pure helpers: `boosterLocatorStrength` / `boostbackFlashStrength` in `boosterRecovery.ts` (+ unit tests); rendered by `StagingFx`.
 

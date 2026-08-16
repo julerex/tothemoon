@@ -37,8 +37,6 @@ import {
   applySunLight,
 } from "../../scene/sunLight";
 import {
-  CRAFT_LOCATOR_MIN_DIST_KM,
-  craftLengthKm,
   updateCraftVisuals,
   updateLocatorVisibility,
 } from "../../scene/craft";
@@ -227,11 +225,7 @@ function updateLights(ctx: F13Ctx, simT: number, b: BodyState): void {
   ctx.skyEarth.copy(ctx.earthPos);
 }
 
-function updateLocators(ctx: F13Ctx, frame: SampleFrame, b: BodyState): void {
-  updateLocatorVisibility(ctx.locator, ctx.camera, ctx.craftPos, {
-    sizeKm: craftLengthKm(frame.staged),
-    minDistKm: CRAFT_LOCATOR_MIN_DIST_KM,
-  });
+function updateLocators(ctx: F13Ctx, b: BodyState): void {
   updateLocatorVisibility(ctx.bodies.earthLocator, ctx.camera, ctx.earthPos, {
     sizeKm: R_EARTH * 2,
   });
@@ -484,14 +478,13 @@ function updateFxStack(
 
 function updateSceneStack(
   ctx: F13Ctx,
-  frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
   b: BodyState,
   simT: number,
   physicsT: number,
 ): void {
   updateLights(ctx, simT, b);
-  updateLocators(ctx, frame, b);
+  updateLocators(ctx, b);
   applyAutoCam(ctx, d, b, physicsT);
 }
 
@@ -528,6 +521,6 @@ export function applyMissionState(ctx: F13Ctx, u: number): void {
   const d = displayFields(prelaunch, frame);
   writeCinema(ctx, d);
   updateFxStack(ctx, physicsT, prelaunch, frame, d, b);
-  updateSceneStack(ctx, frame, d, b, simT, physicsT);
+  updateSceneStack(ctx, d, b, simT, physicsT);
   finishFrame(ctx, u, physicsT, prelaunch, frame, d, b, simT);
 }

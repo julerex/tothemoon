@@ -268,7 +268,7 @@ export function createStagingFx(
     if (pose.visible) landingFlash.mesh.position.copy(booster.position);
   }
 
-  /** Pixel sizing matches the ship red locator so both read the same on screen. */
+  /** Pixel sizing matches Earth / Moon locators so all read the same on screen. */
   function applyLocator(opacity: number, camera?: THREE.Camera): void {
     if (opacity <= 0 || !camera) {
       locator.visible = false;

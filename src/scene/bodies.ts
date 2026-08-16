@@ -38,7 +38,7 @@ export type Bodies = {
   sunGroup: THREE.Group;
   /** Rayleigh-ish multi-shell limb (sun dir updated each frame). */
   earthAtmo: EarthAtmosphere;
-  /** Far-range green locator (same on-screen size as craft red dot). */
+  /** Far-range green locator (constant on-screen size). */
   earthLocator: THREE.Sprite;
   /** Far-range light-blue locator. */
   moonLocator: THREE.Sprite;
