@@ -58,9 +58,11 @@ Related:
 
 **Shipped (V18):** engine-bay MLI / plumbing / skirt ribs / bell stencil IDs; mild fisheye + grain on fin/gridfin only.
 
-**Next (photorealism):** gated LEO clouds, optional Moon albedo. See **V19+**.
+**Shipped (V19):** altitude-gated LEO cloud shell + ocean sun-glint; Earth-cam stays cloudless Blue Marble (#14).
 
-Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost}.ts`.
+**Next (photorealism):** optional Moon albedo. See **V20**.
+
+Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
 ---
 
@@ -98,7 +100,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V16** | Payload Pez deploy | **Done** — hatch + sat silhouettes + ticker beats |
 | **V17** | Splash / ocean steam | **Done** — white contact cloud + glitter + wet hull |
 | **V18** | Engine-bay / onboard | **Done** — MLI, stencil IDs, mild fisheye on fin/gridfin |
-| **V19** | LEO Earth from hull-cam | Gated cloud shell + ocean glitter (does not undo #14) |
+| **V19** | LEO Earth from hull-cam | **Done** — gated cloud shell + ocean glitter (does not undo #14) |
 | **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
 
 ---
@@ -232,7 +234,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 17. ~~**V16** — Flight 13 Pez / Starlink V3 deploy theater~~ **done**  
 18. ~~**V17** — splash steam + ocean glitter (ship + Super Heavy gulf)~~ **done**  
 19. ~~**V18** — engine-bay interior + onboard-cam post (fin/gridfin)~~ **done**  
-20. **V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)  
+20. ~~**V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)~~ **done**  
 21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
 
 ---
@@ -349,7 +351,7 @@ later FX sit on a hull that already reads as S40.
 | T+16 tracking + engines-down, T+56 max-Q hull | **Pink-magenta** atmospheric plume, ice/frost shed, Boca Chica under haze | `BOOSTER_ATMO` rim is orange `[1, 0.45, 0.18]`; condensation cloud only | V14 |
 | T+2:38–8:21 hull / SECO / coast (`S40`) | Hexagonal TPS, oil-canning stainless, **S40** stencil, Earth limb | **V13** hex TPS + S40 + oil-canning; Earth limb is V2 / V19 | V13 |
 | T+2:21 hot-stage split, T+4:32–5:50 engine bay | Raptor bells + MLI foil, stencil IDs, fisheye, lens dirt/flare | Exterior bells only; no bay interior or onboard post | V18 |
-| T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | No cloud deck (#14); Gulf plate is a beacon, not glitter water | V17 / V19 |
+| T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | **V19** gated LEO clouds + glitter (Earth-cam stays cloudless); Gulf plate glitter is V17 | V17 / V19 |
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
 | T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | **V13** heat-tint / hex / missing+white tiles; **V14** pink landing plume | V13 / V14 / V15 |
@@ -530,22 +532,22 @@ cams. No bake.
 
 ---
 
-## V19 — LEO Earth from hull-cam (gated clouds + glitter)
+## V19 — LEO Earth from hull-cam (gated clouds + glitter) — **done 2026-08-16**
 
 #14 removed the procedural **globe** cloud deck so Blue Marble land/ocean stay
 visible from Earth-cam. Hull-cam stills (T+2:38, T+8:21, T+1:02:19) still need
 **cloud depth** and a bright limb; Super Heavy over water needs glitter (pairs
 with V17).
 
-- Thin high-altitude cloud **shell** (or camera-distance sprites), visible
-  from LEO hull/fin/chase, **hidden** for Earth-cam / low pad so #14 stands.
-- Optional cheap glitter on open ocean from those same cameras.
+- Thin high-altitude cloud **shell**, visible from LEO hull/fin/chase, **hidden**
+  for Earth-cam / low pad so #14 stands.
+- Cheap sun-path glitter on a slightly lower shell from those same cameras.
 - Not a tile-server, not real-time volumetric Mie, not a full-sphere overlay.
 
 **Done when:** coast hull-cam shows broken cloud over ocean; Earth-cam globe
 stays cloudless Blue Marble. Tests on the visibility gate. No bake.
 
-**Files:** `bodies.ts` / `groundSky.ts` or a small `leoClouds.ts`, `cinema.ts`.
+**Files:** `leoClouds.ts` (+ tests), `bodies.ts`, Flight 13 / lunar `loop.ts`.
 
 ---
 
@@ -605,3 +607,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-16 | V16 shipped: Pez hatch + 20 Starlink V3 silhouettes + payload ticker/scrub beats |
 | 2026-08-16 | V17 shipped: white splash steam, ocean glitter, wet hull roughness |
 | 2026-08-16 | V18 shipped: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
+| 2026-08-16 | V19 shipped: altitude-gated LEO cloud shell + ocean glitter; Earth-cam stays cloudless Blue Marble |

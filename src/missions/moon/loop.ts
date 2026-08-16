@@ -14,6 +14,7 @@ import {
   updateSunShadowFocus,
 } from "../../scene/cinema";
 import { updateGroundSky } from "../../scene/groundSky";
+import { updateLeoClouds } from "../../scene/leoClouds";
 import { startMissionLoop } from "../missionLoop";
 import type { MoonCtx } from "./bootstrap";
 import { applyMissionState } from "./applyState";
@@ -24,6 +25,11 @@ function renderFrame(ctx: MoonCtx): void {
   const camAltKm = shadowAltitudeKm(camAltEarth, camAltMoon);
   const brownout = atmosphereBrownout(ctx.cinemaState.phase, camAltKm);
   updateGroundSky(ctx.groundSky, ctx.camera, ctx.skyEarth, ctx.skySun, brownout);
+  updateLeoClouds(ctx.bodies.leoClouds, {
+    focus: ctx.director.getMode(),
+    camAltKm: camAltEarth,
+    sunDir: ctx.skySun,
+  });
   updateSunShadowFocus(ctx.sunLight, ctx.craftPos, ctx.skySun, camAltKm);
   renderCinema(ctx.cinema, ctx.renderer, ctx.scene, {
     camAltKm,

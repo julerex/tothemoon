@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V18 shipped; **next:** gated LEO clouds): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V19 shipped; **next:** optional Moon albedo): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
 
@@ -208,7 +208,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
 4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-5. **Visual photorealism V13+** — V13–V18 **done**; **next** gated LEO clouds (V19) ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+5. **Visual photorealism V13+** — V13–V19 **done**; **next** optional Moon albedo (V20) ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 6. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
@@ -273,3 +273,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-13 | Visual V6–V12: multi-layer terminal FX, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast watchability |
 | 2026-08-15 | Visual photorealism V13+ locked from Flight 13 webcast stills (hex TPS, pink plumes, magenta plasma, payload, splash steam) |
 | 2026-08-16 | Visual V18: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
+| 2026-08-16 | Visual V19: altitude-gated LEO cloud shell + ocean glitter (Earth-cam stays cloudless) |
