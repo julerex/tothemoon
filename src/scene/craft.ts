@@ -31,8 +31,8 @@ import {
 } from "./craftHullMaps";
 
 /**
- * Near-true-scale Super Heavy + Starship stack plus a STARSHIP name plate for
- * system views. Scene unit = 1 km. Mesh units × CRAFT_MESH_SCALE ≈ real meters / 1000.
+ * Near-true-scale Super Heavy + Starship stack plus STARSHIP / SUPER HEAVY name
+ * plates for system views. Scene unit = 1 km. Mesh units × CRAFT_MESH_SCALE ≈ real meters / 1000.
  *
  * Local +Z = nose, −Z = engines (matches velocity look-at in main).
  *
@@ -978,6 +978,7 @@ function buildBooster(mats: CraftMats): THREE.Group {
   booster.name = "booster";
   addBoostUpper(booster, mats);
   addBoostLower(booster, mats);
+  addBoosterNameLabel(booster);
   return booster;
 }
 
@@ -988,14 +989,20 @@ function addExhaustLight(mesh: THREE.Group): void {
   mesh.add(exhaustLight);
 }
 
+const CRAFT_LABEL_OPTS = { targetPx: 16, aspect: 256 / 64, minH: 0.015 } as const;
+
 function addShipNameLabel(group: THREE.Group): void {
-  const shipLabel = createNameLabel("STARSHIP", "#ff8a7a", {
-    targetPx: 16,
-    aspect: 256 / 64,
-    minH: 0.015,
-  });
+  const shipLabel = createNameLabel("STARSHIP", "#ff8a7a", CRAFT_LABEL_OPTS);
   shipLabel.position.set(0, 0, (BOOST_H + SHIP_H) * CRAFT_MESH_SCALE * 0.92);
   group.add(shipLabel);
+}
+
+/** Rides the booster mesh so the detached free-flyer clone keeps the plate. */
+function addBoosterNameLabel(booster: THREE.Group): void {
+  const label = createNameLabel("SUPER HEAVY", "#e8b86d", CRAFT_LABEL_OPTS);
+  label.name = "label-super-heavy";
+  label.position.set(0, 0, BOOST_H * 0.92);
+  booster.add(label);
 }
 
 function buildCraftMesh(mats: CraftMats): THREE.Group {

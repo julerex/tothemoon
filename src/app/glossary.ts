@@ -199,7 +199,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "True scale",
     category: "physics",
     definition:
-      "Scene unit is 1 km: Earth/Moon radii and cislunar distances match real orders of magnitude. Craft length is tens of meters, so system views use the STARSHIP name plate when the mesh is tiny.",
+      "Scene unit is 1 km: Earth/Moon radii and cislunar distances match real orders of magnitude. Craft length is tens of meters, so system views use STARSHIP and SUPER HEAVY name plates when the mesh is tiny.",
   },
 ] as const;
 

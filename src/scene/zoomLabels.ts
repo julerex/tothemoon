@@ -16,6 +16,7 @@ export type ZoomLabelSpec = {
 };
 
 const _worldPos = new THREE.Vector3();
+const _parentScale = new THREE.Vector3(1, 1, 1);
 
 /** Global visibility for all marked zoom labels (toggled with L). */
 let labelsVisible = true;
@@ -64,8 +65,17 @@ function roundPillPath(
   ctx.closePath();
 }
 
+function nameLabelFontPx(ctx: CanvasRenderingContext2D, text: string): void {
+  let fontPx = 34;
+  ctx.font = `bold ${fontPx}px system-ui, sans-serif`;
+  while (fontPx > 22 && ctx.measureText(text).width + 28 > 240) {
+    fontPx -= 2;
+    ctx.font = `bold ${fontPx}px system-ui, sans-serif`;
+  }
+}
+
 function fillNamePill(ctx: CanvasRenderingContext2D, text: string): void {
-  ctx.font = "bold 34px system-ui, sans-serif";
+  nameLabelFontPx(ctx, text);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   // Soft pill background
@@ -129,6 +139,25 @@ function zoomWorldHeight(
   return h;
 }
 
+/**
+ * Local sprite scale so the plate reads as `worldH` km after a parent transform.
+ * Needed when the label sits on the scaled craft / detached-booster mesh.
+ */
+export function labelLocalScale(
+  worldH: number,
+  aspect: number,
+  parentScale: number,
+): { w: number; h: number } {
+  const s = Math.max(parentScale, 1e-6);
+  return { w: (worldH * aspect) / s, h: worldH / s };
+}
+
+function parentWorldScaleX(obj: THREE.Object3D): number {
+  if (!obj.parent) return 1;
+  obj.parent.getWorldScale(_parentScale);
+  return _parentScale.x;
+}
+
 function scaleZoomSprite(
   obj: THREE.Sprite,
   spec: ZoomLabelSpec,
@@ -141,7 +170,8 @@ function scaleZoomSprite(
   obj.getWorldPosition(_worldPos);
   const dist = Math.max(1e-3, camera.position.distanceTo(_worldPos));
   const h = zoomWorldHeight(spec, dist, viewH, tanHalf);
-  obj.scale.set(h * spec.aspect, h, 1);
+  const local = labelLocalScale(h, spec.aspect, parentWorldScaleX(obj));
+  obj.scale.set(local.w, local.h, 1);
 }
 
 /**
