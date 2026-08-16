@@ -63,9 +63,9 @@ import {
 } from "./hudApply";
 import {
   CAM_DOUBLE_TAP_MS,
-  CAMERA_CYCLE,
   CAMERA_DIGIT_MODES,
   CAMERA_LABELS,
+  cycleCameraMode,
 } from "./hudCameraLabels";
 import {
   collectHudDom,
@@ -608,10 +608,8 @@ function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
   toastAutoCam(rt, mode);
 }
 
-function cycleCamera(rt: HudRuntime): void {
-  const i = CAMERA_CYCLE.indexOf(rt.flags.lastCamMode);
-  const next = CAMERA_CYCLE[(i < 0 ? 0 : i + 1) % CAMERA_CYCLE.length]!;
-  switchCamera(rt, next);
+function cycleCamera(rt: HudRuntime, dir: -1 | 1 = 1): void {
+  switchCamera(rt, cycleCameraMode(rt.flags.lastCamMode, dir));
 }
 
 /** Single tap: switch focus. Double-tap same key: frame object. */
@@ -974,8 +972,11 @@ function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.code === "Space") {
     return preventAnd(e, () => rt.data.handlers.onPlayToggle());
   }
-  if (e.code === "Backquote" || e.key === "`" || e.key === "~") {
-    return preventAnd(e, () => cycleCamera(rt));
+  if (e.code === "Minus") {
+    return preventAnd(e, () => cycleCamera(rt, -1));
+  }
+  if (e.code === "Equal") {
+    return preventAnd(e, () => cycleCamera(rt, 1));
   }
   return handleShiftBookmark(rt, e);
 }

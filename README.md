@@ -37,7 +37,7 @@ Texture credits (NASA Blue Marble, Sentinel-2 cloudless, NASA star map) live in 
 - **KeyMap** (**K**, **Tab** cycle, or button) — white-outline keyboard on black with the action under each key
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
-- Cameras: **Auto-cam** (toggle **G**; Flight 13 follows the official webcast left-pane cuts: pad aerial → ground track → hull / engine-bay → splash chase → sea-level drone orbit of the floating ship) · Free orbit · **1** Sun · **2** Moon · **3** Earth · **4** Starbase · **5** Launchpad (trench) · **6** Booster (grid fin) · **7** Starship (chase look-ahead + bank) · **8** Ship fin · **9** Ship hull · **C**/**V** roll · mouse / WASD leave a locked mount (same on both missions)
+- Cameras: **Auto-cam** (toggle **G**; Flight 13 follows the official webcast left-pane cuts: pad aerial → ground track → hull / engine-bay → splash chase → sea-level drone orbit of the floating ship) · Free orbit · **1** Sun · **2** Moon · **3** Earth · **4** Starbase · **5** Launchpad (trench) · **6** Booster (grid fin) · **7** Starship (chase look-ahead + bank) · **8** Ship fin · **9** Ship hull · **−** / **=** cycle cameras · **C**/**V** roll · mouse / WASD leave a locked mount (same on both missions)
 - HUD: phase, mission time, **Sky** (Moon phase % lit + Sun λ), distance, altitude, speed, fuel bars + thrust
 - Metrics (**M**): full telemetry; Flight 13 also shows **Force check** (n-body vs Earth-only coast |Δr|)
 - Logarithmic depth buffer for near craft + far Moon

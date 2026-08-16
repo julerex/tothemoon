@@ -60,7 +60,9 @@ describe("visualKeymap layout", () => {
         if (k.action) actions.set(k.label, k.action);
       }
     }
-    assert.equal(actions.get("`"), "Cycle cameras");
+    assert.equal(actions.get("-"), "Prev camera");
+    assert.equal(actions.get("="), "Next camera");
+    assert.equal(actions.has("`"), false);
     assert.equal(actions.get("1"), "Sun");
     assert.equal(actions.get("2"), "Moon");
     assert.equal(actions.get("3"), "Earth");

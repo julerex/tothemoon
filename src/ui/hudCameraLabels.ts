@@ -35,7 +35,7 @@ export const CAMERA_LABELS: Record<
   hull: { title: "Ship hull", detail: "Barrel cam · key 9" },
 };
 
-/** Focus modes cycled by ` (backtick) — same order as number keys 1–9. */
+/** Focus modes cycled by − / = — same order as number keys 1–9. */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
   "sun",
   "moon",
@@ -47,6 +47,17 @@ export const CAMERA_CYCLE: readonly CameraMode[] = [
   "fin",
   "hull",
 ];
+
+/**
+ * Next or previous focus in {@link CAMERA_CYCLE}.
+ * Unknown / free current wraps from the start (`dir > 0`) or end (`dir < 0`).
+ */
+export function cycleCameraMode(current: CameraMode, dir: -1 | 1): CameraMode {
+  const n = CAMERA_CYCLE.length;
+  const i = CAMERA_CYCLE.indexOf(current);
+  const from = i < 0 ? (dir > 0 ? -1 : 0) : i;
+  return CAMERA_CYCLE[(from + dir + n) % n]!;
+}
 
 /** Digit keys 1–9 → {@link CAMERA_CYCLE} (single source for HUD + keyboard). */
 export const CAMERA_DIGIT_MODES: Readonly<Record<string, CameraMode>> =
