@@ -223,7 +223,7 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Epoch / lighting:** mission t = 0 is **2026-07-23 22:45 UTC** (public window open, **5:45 p.m. CDT** — no time shift). Actual liftoff on the SpaceX page is **2026-07-24 22:51 UTC** (5:51 p.m. CT). Solar longitude matches the theater UTC. Analytic Earth/Sun (not the July 2027 Horizons table). Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
 
-**Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Photorealism next steps vs the webcast stills: [VISUAL_REALISM.md](./VISUAL_REALISM.md) V13+.
+**Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Hull-cam (hex TPS / S40 / oil-canning) and pink launch plumes shipped; remaining photorealism vs the webcast stills: [VISUAL_REALISM.md](./VISUAL_REALISM.md) V15+.
 
 **Booster recovery:** kinematic **Gulf of America** offshore soft-land path (`recovery: "gulf"`) — boostback ~T+2:25–3:03 and landing burn ~T+6:27–6:53 after stage-out, targeting ~25.55°N 96.15°W (theater, not a surveyed buoy). Chopsticks RTLS remains the default for the lunar mission.
 

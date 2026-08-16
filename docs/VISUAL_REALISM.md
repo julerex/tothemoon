@@ -48,7 +48,9 @@ Related:
 
 **Shipped (V14):** pink-magenta atmosphere / landing plumes, Super Heavy cryo frost + ice shed, denser ground-hugging pad steam with engine-warm core.
 
-**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — hex TPS / **S40**, magenta entry plasma, Pez payload, splash steam. See **V13+**.
+**Shipped (V13):** hexagonal TPS (grout + experiment / missing tiles), **S40** stencil, stainless oil-canning + heat tint, residual grout glow, wide onboard fin/gridfin FOV.
+
+**Next (photorealism):** match Flight 13 webcast stills without claiming ops imagery — magenta entry plasma, Pez payload, splash steam. See **V15+**.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor}.ts`.
 
@@ -82,7 +84,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V10** | Coast / LOI watchability | **Done** — trail dim/pulse, whiskers, LOI bloom |
 | **V11** | Pad horizon depth | **Done** — Sentinel-2 plate + Blue Marble |
 | **V12** | Finale camera beats | **Done** — Auto-cam splash + last-30s lunar widen |
-| **V13** | Hull-cam materials | Hex TPS, S40, oil-canning — most of the webcast is this shot |
+| **V13** | Hull-cam materials | **Done** — hex TPS, S40, oil-canning, wide fin-cam FOV |
 | **V14** | Ascent plume / frost / steam | **Done** — pink-magenta atmo plumes, Super Heavy frost, denser pad steam |
 | **V15** | Entry plasma palette | Magenta/violet flap wrap, not orange sprites |
 | **V16** | Payload Pez deploy | Unique Flight 13 mid-coast act; theater has none |
@@ -215,7 +217,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 **Next (photorealism vs Flight 13 stills):**
 
-14. **V13** — hex TPS / S40 / oil-canning / experiment tiles (every fin/hull cam)  
+14. ~~**V13** — hex TPS / S40 / oil-canning / experiment tiles (every fin/hull cam)~~ **done**  
 15. **V14** — pink-magenta atmosphere plumes + cryo frost/ice + denser pad steam  
 16. **V15** — magenta/violet entry plasma on flap leading edges  
 17. **V16** — Flight 13 Pez / Starlink V3 deploy theater  
@@ -331,12 +333,12 @@ later FX sit on a hull that already reads as S40.
 |---|---|---|---|
 | T−42 pad wide, T−2 ignition, T+0 liftoff | Opaque ground-hugging cryo/deluge steam, engine orange in the cloud, chopsticks open | V3 multi-tier steam sprites — thinner, less self-shadowed | V14 |
 | T+16 tracking + engines-down, T+56 max-Q hull | **Pink-magenta** atmospheric plume, ice/frost shed, Boca Chica under haze | `BOOSTER_ATMO` rim is orange `[1, 0.45, 0.18]`; condensation cloud only | V14 |
-| T+2:38–8:21 hull / SECO / coast (`S40`) | Hexagonal TPS, oil-canning stainless, **S40** stencil, Earth limb | Offset-rect “hex-ish” canvas; no hull number; brush maps without panel ripple | V13 |
+| T+2:38–8:21 hull / SECO / coast (`S40`) | Hexagonal TPS, oil-canning stainless, **S40** stencil, Earth limb | **V13** hex TPS + S40 + oil-canning; Earth limb is V2 / V19 | V13 |
 | T+2:21 hot-stage split, T+4:32–5:50 engine bay | Raptor bells + MLI foil, stencil IDs, fisheye, lens dirt/flare | Exterior bells only; no bay interior or onboard post | V18 |
 | T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | No cloud deck (#14); Gulf plate is a beacon, not glitter water | V17 / V19 |
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
-| T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | Generic wear boxes; landing plume still orange-class | V13 / V14 / V15 |
+| T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | **V13** heat-tint / hex / missing+white tiles; **V14** pink landing plume | V13 / V14 / V15 |
 | T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | Cyan spray discs + site beacon (`splashFx.ts`) | V17 |
 
 ### Working agreements (photorealism)
@@ -350,48 +352,43 @@ Same as the top of this file, plus:
 
 ---
 
-## V13 — Hull-cam materials (hex TPS, S40, oil-canning) — **next**
+## V13 — Hull-cam materials (hex TPS, S40, oil-canning) — **done 2026-08-15**
 
 Highest ROI: almost every still after tower-clear is a hull or flap close-up.
-V4 already has anisotropy + weld rings + edge wear; the stills still beat the
+V4 already had anisotropy + weld rings + edge wear; the stills still beat the
 mesh on **tile shape**, **hull identity**, and **panel ripple**.
 
-### V13.1 Hexagonal TPS
+### V13.1 Hexagonal TPS — **done**
 
-`makeHeatTileTexture` / `paintTileField` is a brick-offset rectangle field
-labeled “hex-ish.” Webcast TPS is a clear **hex grid** (coast `S40`, transonic
-flap, post-splash close-up).
+`paintTileField` was a brick-offset rectangle field labeled “hex-ish.” Webcast
+TPS is a clear **hex grid** (coast `S40`, transonic flap, post-splash close-up).
 
-- Canvas hex cells with per-tile albedo/roughness jitter and visible grout.
-- Keep windward-only coverage; do not tile the stainless leeward.
+- Canvas pointy-top hex cells with per-tile albedo/roughness jitter and grout.
+- Windward-only coverage (existing TPS arc); stainless leeward stays metal.
 - Readable at fin cam without a geometry explosion (texture, not 20k meshes).
 
-### V13.2 Hull identity + oil-canning
+### V13.2 Hull identity + oil-canning — **done**
 
-- **S40** (and a quieter booster cue if it stays readable) as a decal on the
-  stainless barrel — Flight 13 stills; lunar stack may keep a generic or
-  mission-specific mark.
-- Stainless maps: low-frequency **panel oil-canning** (dents that break
-  cylindrical reflections). Still `MeshPhysicalMaterial` anisotropy, not a
-  second shader stack.
+- **S40** decal on the stainless barrel (Flight 13 stills). Lunar stack shares
+  the same ship mesh / mark.
+- Stainless maps: low-frequency **panel oil-canning** bump + heat-tint bands
+  that break cylindrical reflections. Still `MeshPhysicalMaterial` anisotropy.
+- Fin / gridfin mounts use a wider onboard FOV (`onboardFov.ts`) so the hull +
+  Earth limb match the webcast crop.
 
-### V13.3 Experiment / missing tiles (was a later-only idea)
+### V13.3 Experiment / missing tiles — **done**
 
-Flight 13 page + post-splash still: white **missing-tile imaging targets**,
-gaps showing structure, a few tiles on the metallic face of aft flaps.
-`addOneTileMarker` is three gray boxes.
-
-- A handful of high-contrast white hexes on the windward belly.
-- A few missing-tile holes (dark underlayer, not more gray boxes).
-- Optional small tile patches on the stainless side of aft flaps.
-- After entry, residual **grout glow** (driven by plasma strength decaying
-  into descent) so T+1:04:55 matches without extra sprites.
+- High-contrast white hexes on the windward belly + a `00` stencil.
+- Missing-tile holes (dark underlayer, not gray boxes).
+- Small tile patches on the stainless side of aft flaps.
+- Residual **grout glow** into descent (`tileGroutGlow`) so T+1:04:55 keeps
+  warm tile-gap light without extra sprites.
 
 **Done when:** fin-cam at SECO/coast reads as hexagonal TPS + S40 + rippled
 steel vs the T+8:21 still; experiment tiles visible at landing-approach
 (T+1:04:55). Unit tests on tile-layout / marker counts. No bake.
 
-**Files:** `craft.ts`, `craftMaterials.test.ts`.
+**Files:** `craftHullMaps.ts` (+ tests), `craft.ts`, `onboardFov.ts` (+ tests).
 
 ---
 
@@ -593,3 +590,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-13 | V6–V10 + V12 shipped: terminal dust/splash, F13 entry craft, recovery catch, Malapert plate, finale Auto-cam, coast whiskers/LOI bloom |
 | 2026-08-15 | Photorealism track V13–V20 from Flight 13 webcast stills: hex TPS/S40, pink plumes, magenta plasma, Pez deploy, splash steam, engine-bay, gated LEO clouds |
 | 2026-08-15 | V14 shipped (launch scene): pink-magenta atmo/landing plumes, Super Heavy frost + ice shed, denser pad steam with engine-warm core |
+| 2026-08-15 | V13 shipped (fin / hull cam): hex TPS, S40, oil-canning + heat tint, experiment / missing tiles, wide onboard FOV |

@@ -22,6 +22,7 @@ import {
 import { panAxesFromHeld } from "./panAxes";
 import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
+import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
 import { THEATER_DEFAULT_FOV, type WebcastMount } from "./webcastShots";
 
@@ -537,6 +538,11 @@ export class CameraDirector {
     this.trackAnchorValid = false;
     this.controls.enabled = true;
     this.applyClipPlanes();
+    // Manual digit-key mounts (variant still "default") get the wide onboard
+    // lens. Auto-cam already set a per-shot FOV in applyGuidedPose.
+    if (this.mountVariant === "default") {
+      this.setVerticalFov(cameraFovForFocus(mode));
+    }
     this.applyLockedMountPose();
   }
 
@@ -907,8 +913,9 @@ export class CameraDirector {
   }
 
   /**
-   * Lock camera to the Starship starboard forward flap, looking aft at the
-   * engine bells (craft +Z = nose, −Z = engines).
+   * Lock camera to the Starship starboard TPS/steel chine, looking aft along
+   * the barrel (craft +Z = nose, −Z = engines). Up is outboard so the
+   * windward tiles sit left and stainless / S40 sit right — Flight 13 hull-cam.
    */
   private applyFinCam(): void {
     if (!this.craft) return;
@@ -918,7 +925,18 @@ export class CameraDirector {
     const look = this.craft.getObjectByName(lookName);
     if (!mount || !look) return;
     this.craft.updateMatrixWorld(true);
-    this.seatMountCam(mount, look, this.craft);
+    mount.getWorldPosition(this.finPos);
+    look.getWorldPosition(this.finLook);
+    this.finUp.set(mount.position.x, mount.position.y, 0);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.set(1, 0, 0);
+    const upHost = mount.parent ?? this.craft;
+    this.finUp.transformDirection(upHost.matrixWorld);
+    if (this.finUp.lengthSq() < 1e-12) this.finUp.copy(ECLIPTIC_NORTH);
+    this.camera.position.copy(this.finPos);
+    this.camera.up.copy(this.finUp);
+    this.camera.lookAt(this.finLook);
+    this.controls.target.copy(this.finLook);
+    this.syncOrbitControlsUp();
   }
 
   private seatMountCam(
