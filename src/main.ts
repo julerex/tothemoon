@@ -13,11 +13,13 @@ import { bindMenus } from "./app/menus";
 import { missionByPath, type MissionDef, type MissionId } from "./app/missionCatalog";
 import { applyTheaterSeek, type MissionStartOpts } from "./app/seekUrl";
 import { navigate, parseRoute, setShellView } from "./app/shell";
+import { installTheaterBridgeStub } from "./debug/theaterBridge";
 
 /** Once a full theater is running we avoid double-start without reload. */
 let theaterStarted = false;
 
 bindMenus();
+installTheaterBridgeStub();
 
 /** Lazy theater entry point per mission — keeps physics packs out of the shell bundle. */
 const MISSION_THEATERS: Readonly<

@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts --max-warnings 0",
     "lint:fix": "eslint src scripts --fix",
-    "test": "tsx --test src/physics/*.test.ts src/mission/*.test.ts src/camera/*.test.ts src/ui/*.test.ts src/app/*.test.ts src/scene/*.test.ts",
+    "test": "tsx --test src/physics/*.test.ts src/mission/*.test.ts src/camera/*.test.ts src/ui/*.test.ts src/app/*.test.ts src/scene/*.test.ts src/debug/*.test.ts",
     "coverage": "c8 --reporter=text --reporter=text-summary --include='src/**' --exclude='src/**/*.test.ts' --exclude='src/data/**' npm test",
     "build": "npm run precompute && npm run typecheck && vite build",
     "ci": "npm run typecheck && npm run lint && npm test",

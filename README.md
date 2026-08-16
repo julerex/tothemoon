@@ -70,6 +70,8 @@ Linting uses ESLint flat config (`eslint.config.js`) with `typescript-eslint`.
 
 Runtime recompute (slow, for physics debugging): open the site with `?recompute=1`.
 
+Browser agents (Chrome DevTools MCP / CDP): [`docs/AGENT_BROWSER.md`](docs/AGENT_BROWSER.md) — `window.__theater` snapshot/seek/camera, plus `scripts/theater-devtools.sh`.
+
 Base path is `/tothemoon/` (GitHub project Pages).
 
 ## Roadmap
