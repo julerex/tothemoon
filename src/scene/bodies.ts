@@ -11,7 +11,6 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthSpinAngle } from "../physics/earthFrame";
 import {
-  makeEarthNightLightsTexture,
   makeEarthRoughnessMap,
   makeEarthTexture,
   makeMoonRoughnessMap,
@@ -250,31 +249,23 @@ function makeEarthAlbedoMap(texSize: number): {
   return { canvas, map: canvasMap(canvas, 8) };
 }
 
-/** Earth roughness + night-lights maps from albedo canvas size. */
-function makeEarthExtraMaps(
-  earthCanvas: HTMLCanvasElement,
-  texSize: number,
-): { rough: THREE.CanvasTexture; night: THREE.CanvasTexture } {
-  return {
-    rough: canvasDataMap(makeEarthRoughnessMap(earthCanvas), 4),
-    night: canvasMap(makeEarthNightLightsTexture(texSize), 4),
-  };
+/** Earth roughness map from albedo canvas size. */
+function makeEarthRoughnessTex(earthCanvas: HTMLCanvasElement): THREE.CanvasTexture {
+  return canvasDataMap(makeEarthRoughnessMap(earthCanvas), 4);
 }
 
 /** Base params for Earth MeshStandardMaterial (before soft terminator). */
 function earthMaterialParams(
   map: THREE.Texture,
   rough: THREE.Texture,
-  night: THREE.Texture,
 ): THREE.MeshStandardMaterialParameters {
   return {
     map,
     roughnessMap: rough,
     roughness: 0.9,
     metalness: 0.02,
-    emissiveMap: night,
-    emissive: new THREE.Color(0xffb878),
-    emissiveIntensity: 1.05,
+    emissive: new THREE.Color(0x000000),
+    emissiveIntensity: 0,
   };
 }
 
@@ -282,11 +273,8 @@ function earthMaterialParams(
 function makeEarthMaterial(
   map: THREE.Texture,
   rough: THREE.Texture,
-  night: THREE.Texture,
 ): THREE.MeshStandardMaterial {
-  const mat = new THREE.MeshStandardMaterial(
-    earthMaterialParams(map, rough, night),
-  );
+  const mat = new THREE.MeshStandardMaterial(earthMaterialParams(map, rough));
   applySoftTerminator(mat);
   return mat;
 }
@@ -299,8 +287,7 @@ function makeEarthMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
 /** Earth surface mesh with albedo / roughness / night maps. */
 function makeTexturedEarth(texSize: number): THREE.Mesh {
   const { canvas, map } = makeEarthAlbedoMap(texSize);
-  const { rough, night } = makeEarthExtraMaps(canvas, texSize);
-  const earth = makeEarthMesh(makeEarthMaterial(map, rough, night));
+  const earth = makeEarthMesh(makeEarthMaterial(map, makeEarthRoughnessTex(canvas)));
   loadEarthPhotoAlbedo(earth);
   return earth;
 }
