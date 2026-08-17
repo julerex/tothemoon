@@ -108,6 +108,8 @@ export type SplashSprayDerived = Readonly<{
   contact: ContactCuePose;
   /** Ocean sun-glint strength [0, 1] for splash / Gulf plates. */
   glitter: number;
+  /** Local sunlit sea plate [0, 1] — splash zone only. */
+  ocean: number;
 }>;
 
 /** Dust / spray visible below this altitude (km). */
@@ -415,6 +417,18 @@ export function deriveLunarDust(state: LunarDustState): LunarDustDerived {
 }
 
 /**
+ * Local sunlit sea plate at the splash zone [0, 1].
+ * Full hull-down (the globe PBR ocean goes black at dawn); fade out by ~75 km
+ * so Earth-cam does not grow a bright disc.
+ */
+export function splashOceanPlateOpacity(altKm: number): number {
+  if (!Number.isFinite(altKm) || altKm < 0) return 0;
+  if (altKm <= 18) return 1;
+  if (altKm >= 75) return 0;
+  return clamp01((75 - altKm) / (75 - 18));
+}
+
+/**
  * Ocean sun-glint on splash / Gulf plates [0, 1].
  * Strongest hull-down (~0.1–20 km); soft out to ~60 km. Scrub-safe shimmer.
  */
@@ -479,5 +493,6 @@ export function deriveSplashSpray(state: SplashSprayState): SplashSprayDerived {
     glitter: siteVisible
       ? oceanGlitterOpacity(state.altEarth, state.missionT)
       : 0,
+    ocean: siteVisible ? splashOceanPlateOpacity(state.altEarth) : 0,
   };
 }

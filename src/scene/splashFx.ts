@@ -5,6 +5,7 @@
  * co-rotates. Spray expands near terminal splash — scrub-deterministic.
  *
  * V17: white volumetric contact steam + warm core + ocean glitter (not cyan discs).
+ * Sunlit sea plate: globe PBR ocean goes black at the winter-morning splash.
  *
  * @see terminalFx.ts — pure strength / pose helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
@@ -34,7 +35,7 @@ const SPLASH_SITE: EarthTerminalSiteSpec = {
     topRadius: 0.2, bottomRadius: 0.4, height: 10, color: 0xa8c8e0,
     opacity: 0.55, nearKm: 800, idleOpacity: 0.3,
   },
-  disc: { radius: 1.2, color: 0x1a2838, opacity: 0.35 },
+  disc: { radius: 1.2, color: 0x7aadc4, opacity: 0.16 },
   label: {
     name: "splash-site-label", text: SPLASH_SITE_LABEL, color: "#c8dce8",
     detail: SPLASH_SITE_DETAIL, height: 12,
@@ -45,6 +46,7 @@ const SPLASH_SITE: EarthTerminalSiteSpec = {
     outerColor: 0xf0f4f8, contactColor: 0x081018, sheetColor: 0xffffff,
   },
   oceanGlitter: true,
+  sunlitOcean: true,
 };
 
 /**
@@ -84,11 +86,13 @@ export function createSplashFx(): SplashFx {
       site.setVisible(derived.siteVisible);
       if (!derived.siteVisible) {
         site.setGlitter(0);
+        site.setOceanPlate(0);
         return;
       }
       site.pulseBeacon(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
+      site.setOceanPlate(derived.ocean);
     },
   });
 }

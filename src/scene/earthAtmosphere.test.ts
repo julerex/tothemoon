@@ -3,7 +3,13 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { softTerminatorNl } from "./earthAtmosphere.ts";
+import {
+  splashOceanCapCos,
+  splashOceanWeight,
+  softTerminatorNl,
+  SPLASH_OCEAN_CAP_KM,
+} from "./earthAtmosphere.ts";
+import { R_EARTH } from "../physics/constants.ts";
 
 describe("softTerminatorNl", () => {
   it("is 0 deep on the night side", () => {
@@ -35,7 +41,27 @@ describe("softTerminatorNl", () => {
     assert.equal(softTerminatorNl(-0.18), 0);
     assert.equal(softTerminatorNl(0.42), 1);
   });
+});
 
+describe("splash ocean cap", () => {
+  it("is full at the splash site and off well outside the cap", () => {
+    const outer = splashOceanCapCos(SPLASH_OCEAN_CAP_KM);
+    const inner = splashOceanCapCos(SPLASH_OCEAN_CAP_KM * 0.35);
+    assert.ok(outer < 1 && outer > 0.99);
+    assert.equal(splashOceanWeight(1, outer, inner), 1);
+    assert.equal(splashOceanWeight(0, outer, inner), 0);
+    assert.ok(inner > outer);
+  });
+
+  it("covers the recovery-drone horizon (~110 km)", () => {
+    assert.ok(SPLASH_OCEAN_CAP_KM > 110);
+    const outer = splashOceanCapCos(SPLASH_OCEAN_CAP_KM);
+    const atHorizon = Math.cos(110 / R_EARTH);
+    assert.ok(atHorizon > outer, `110 km still inside cap (${atHorizon} vs ${outer})`);
+  });
+});
+
+describe("softTerminatorNl extra", () => {
   it("handles inverted range without NaN (hard step at softEnd)", () => {
     // softEnd ≤ softStart → binary step, never NaN
     assert.equal(softTerminatorNl(-0.5, 1, 0), 0);

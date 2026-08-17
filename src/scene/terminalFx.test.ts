@@ -26,6 +26,7 @@ import {
   nearMoonPhase,
   nearSplash,
   oceanGlitterOpacity,
+  splashOceanPlateOpacity,
   sheetLayerPose,
   shouldShowSplashSite,
   splashdownSpray,
@@ -179,6 +180,15 @@ describe("oceanGlitterOpacity / hullWetStrength", () => {
     assert.equal(oceanGlitterOpacity(80, 100), 0);
   });
 
+  it("sunlit ocean plate is full near the surface and off at high alt", () => {
+    assert.equal(splashOceanPlateOpacity(0.05), 1);
+    assert.equal(splashOceanPlateOpacity(18), 1);
+    assert.equal(splashOceanPlateOpacity(75), 0);
+    assert.equal(splashOceanPlateOpacity(-1), 0);
+    const mid = splashOceanPlateOpacity(40);
+    assert.ok(mid > 0.3 && mid < 0.8, `mid ${mid}`);
+  });
+
   it("is scrub-deterministic", () => {
     assert.equal(oceanGlitterOpacity(5, 42.5), oceanGlitterOpacity(5, 42.5));
   });
@@ -273,6 +283,7 @@ describe("deriveSplashSpray", () => {
     assert.equal(a.active, true);
     assert.equal(a.inner.visible, true);
     assert.ok(a.glitter > 0);
+    assert.equal(a.ocean, 1);
 
     const high = deriveSplashSpray({
       ...splash,
@@ -280,6 +291,17 @@ describe("deriveSplashSpray", () => {
       altEarth: TERMINAL_ALT_GATE_KM,
     });
     assert.equal(high.active, false);
+    assert.ok(high.ocean > 0 && high.ocean < 1);
+
+    const far = deriveSplashSpray({
+      ...splash,
+      phase: "coast",
+      missionT: 0,
+      landT: 4000,
+      altEarth: 200,
+    });
+    assert.equal(far.siteVisible, false);
+    assert.equal(far.ocean, 0);
   });
 });
 

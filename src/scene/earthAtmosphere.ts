@@ -10,6 +10,11 @@
 
 import * as THREE from "three";
 import { R_EARTH } from "../physics/constants";
+import { geodeticToMeshLocal } from "../physics/earthFrame";
+import {
+  FLIGHT13_SPLASH_LAT,
+  FLIGHT13_SPLASH_LON,
+} from "../physics/flight13Corridor";
 
 export type EarthAtmosphere = {
   group: THREE.Group;
@@ -38,20 +43,106 @@ export function softTerminatorNl(
 }
 
 /**
- * Inject a soft day/night terminator into MeshStandardMaterial's direct light.
- * Call once after constructing the material; sets customProgramCacheKey.
+ * Angular half-width of the Flight 13 splash sea-brighten cap (km on the
+ * surface). Covers the recovery-drone horizon (~110 km from 1 km AGL).
  */
-export function applySoftTerminator(material: THREE.MeshStandardMaterial): void {
-  material.customProgramCacheKey = () => "earth-soft-terminator-v2";
-  material.onBeforeCompile = injectSoftTerminator;
+export const SPLASH_OCEAN_CAP_KM = 260;
+
+/** Cosine of the cap's outer angle (smoothstep start). */
+export function splashOceanCapCos(
+  radiusKm: number,
+  rEarth = R_EARTH,
+): number {
+  if (!(radiusKm > 0) || !(rEarth > 0)) return 1;
+  return Math.cos(radiusKm / rEarth);
 }
 
-/** onBeforeCompile hook: soft N·L for direct light irradiance. */
-function injectSoftTerminator(shader: THREE.WebGLProgramParametersWithUniforms): void {
-  shader.fragmentShader = shader.fragmentShader.replace(
-    "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );",
-    "float dotNL = smoothstep( -0.18, 0.42, dot( geometryNormal, directLight.direction ) );",
+/**
+ * 0…1 weight for the splash-zone ocean lift.
+ * `nDotSplash` is mesh-local `dot(normalize(position), splashDir)`.
+ */
+export function splashOceanWeight(
+  nDotSplash: number,
+  cosOuter: number,
+  cosInner: number,
+): number {
+  if (cosInner <= cosOuter) return nDotSplash >= cosInner ? 1 : 0;
+  const t = Math.max(
+    0,
+    Math.min(1, (nDotSplash - cosOuter) / (cosInner - cosOuter)),
   );
+  return t * t * (3 - 2 * t);
+}
+
+function splashDirMeshLocal(): THREE.Vector3 {
+  const p = geodeticToMeshLocal(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, 1);
+  return new THREE.Vector3(p.x, p.y, p.z).normalize();
+}
+
+/**
+ * Inject a soft day/night terminator into MeshStandardMaterial's direct light
+ * and lift the Flight 13 splash-zone ocean so winter-morning water is not
+ * a black PBR mirror. Call once after constructing the material.
+ */
+export function applySoftTerminator(material: THREE.MeshStandardMaterial): void {
+  material.customProgramCacheKey = () => "earth-soft-terminator-splash-ocean-v1";
+  material.onBeforeCompile = injectEarthSurface;
+}
+
+/** onBeforeCompile hook: soft N·L + splash-zone sea lift. */
+function injectEarthSurface(shader: THREE.WebGLProgramParametersWithUniforms): void {
+  const cosOuter = splashOceanCapCos(SPLASH_OCEAN_CAP_KM);
+  const cosInner = splashOceanCapCos(SPLASH_OCEAN_CAP_KM * 0.35);
+  shader.uniforms.uSplashDir = { value: splashDirMeshLocal() };
+  shader.uniforms.uSplashCosOuter = { value: cosOuter };
+  shader.uniforms.uSplashCosInner = { value: cosInner };
+  shader.vertexShader = shader.vertexShader
+    .replace(
+      "#include <common>",
+      `#include <common>
+       varying vec3 vSplashObj;`,
+    )
+    .replace(
+      "#include <begin_vertex>",
+      `#include <begin_vertex>
+       vSplashObj = normalize(transformed);`,
+    );
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      "#include <common>",
+      `#include <common>
+       uniform vec3 uSplashDir;
+       uniform float uSplashCosOuter;
+       uniform float uSplashCosInner;
+       varying vec3 vSplashObj;
+       float splashOceanW() {
+         float d = dot(normalize(vSplashObj), uSplashDir);
+         return smoothstep(uSplashCosOuter, uSplashCosInner, d);
+       }`,
+    )
+    .replace(
+      "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );",
+      "float dotNL = smoothstep( -0.18, 0.42, dot( geometryNormal, directLight.direction ) );",
+    )
+    .replace(
+      "#include <map_fragment>",
+      `#include <map_fragment>
+       {
+         float sw = splashOceanW();
+         vec3 splashSea = vec3(0.46, 0.66, 0.76);
+         diffuseColor.rgb = mix(diffuseColor.rgb, splashSea, sw * 0.9);
+       }`,
+    )
+    .replace(
+      "#include <roughnessmap_fragment>",
+      `#include <roughnessmap_fragment>
+       roughnessFactor = mix(roughnessFactor, 0.68, splashOceanW());`,
+    )
+    .replace(
+      "#include <emissivemap_fragment>",
+      `#include <emissivemap_fragment>
+       totalEmissiveRadiance += vec3(0.18, 0.30, 0.38) * splashOceanW() * 0.12;`,
+    );
 }
 
 type AtmoShellOpts = {
