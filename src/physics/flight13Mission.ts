@@ -8,19 +8,25 @@
  * no Moon/Sun) — used to cross-check that third-body terms stay small on a
  * ~1 h suborbital arc.
  *
- * Steering aims along the Starbase → Indian Ocean great-circle corridor
- * (same plane as the Earth GC view).
+ * Ascent follows the Earth-fixed Starbase → Gauteng → splash corridor
+ * with a modest out-of-plane pull toward the inertial plane through the
+ * pad at liftoff and the splash site at {@link F13.SPLASH}. Flying the
+ * rotating GC alone and then coasting inertial left the ship ~5° north of
+ * the site; the landing burn then hooked ~120° south. A full intercept
+ * insert overshoots east onto Australia, so the blend keeps the original
+ * loft and only slides latitude into the Indian Ocean.
  *
  * Profile (theater-grade, not ops — but intentionally more ballistic):
- * - Gravity-turn ascent + hot-stage along the corridor
+ * - Gravity-turn ascent + hot-stage in the intercept plane
  * - Upper burn builds near-circular horizontal speed (low radial rate at SECO)
  * - Free coast is pure ballistic (no midcourse PD / altitude-hold glide)
  * - In-space relight is the public ~12 s single-engine demo. Theater insert
  *   is closer to circular than the flown 8×195 km, so the burn is a modest
  *   retrograde (not the old 20 s deorbit) so aero can finish over the
  *   Indian Ocean without a longitude teleport.
- * - Entry: high-AoA belly drag (+ modest lift) only — no powered cruise
- * - Landing burn brakes near the splash fix; no longitude teleport
+ * - Entry: high-AoA belly drag (+ modest lift) and a light bank back onto
+ *   the intercept plane — no powered cruise
+ * - Landing burn brakes near the splash fix; no long-range divert / teleport
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
  *   (T+1:10) so the theater can hold a sea-level drone shot
  *
@@ -239,20 +245,103 @@ function fillEarthRelGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
   return { r, vRad, vHoriz: len(_horiz) };
 }
 
+/**
+ * Inertial plane through the pad at liftoff and the splash site at
+ * {@link F13.SPLASH}. Oriented so the pad tangent matches the eastward
+ * Earth-fixed corridor.
+ */
+function makeInterceptNormal(epoch: EphemerisEpoch): V3 {
+  const pad = starbasePadState(0, epoch);
+  const b0 = getBodies(0, epoch);
+  sub(_relP, pad.pos, b0.earth);
+  normalize(_relP, _relP);
+  splashSurfaceInertial(F13.SPLASH, _tmp2, epoch);
+  cross(_tmp3, _relP, _tmp2);
+  const n = normalize(v3(), _tmp3);
+  cross(_along, n, _relP);
+  corridorAlongAt(0, pad.pos, _tmp, epoch);
+  if (dot(_along, _tmp) < 0) {
+    n.x = -n.x;
+    n.y = -n.y;
+    n.z = -n.z;
+  }
+  return n;
+}
+
+/** Horizontal unit along the intercept plane at `pos` (inertial). */
+function interceptAlongAt(
+  t: number,
+  pos: V3,
+  interceptN: V3,
+  out: V3,
+  epoch: EphemerisEpoch,
+): V3 {
+  const b = getBodies(t, epoch);
+  sub(_relP, pos, b.earth);
+  const r = len(_relP) || 1;
+  set(_up, _relP.x / r, _relP.y / r, _relP.z / r);
+  cross(out, interceptN, _up);
+  if (len(out) < 1e-8) return corridorAlongAt(t, pos, out, epoch);
+  normalize(out, out);
+  const d = dot(out, _up);
+  out.x -= _up.x * d;
+  out.y -= _up.y * d;
+  out.z -= _up.z * d;
+  if (len(out) < 1e-8) return corridorAlongAt(t, pos, out, epoch);
+  normalize(out, out);
+  return out;
+}
+
+/**
+ * Corridor heading plus a pull onto the intercept plane. Full intercept
+ * steering circularizes on a shallower plane and skips past 107°E; a
+ * modest out-of-plane blend keeps the original loft and slides latitude
+ * south toward the splash site.
+ */
+function blendAlongIntercept(
+  t: number,
+  pos: V3,
+  interceptN: V3,
+  epoch: EphemerisEpoch,
+  xtWeight: number,
+  out: V3,
+): V3 {
+  corridorAlongAt(t, pos, out, epoch);
+  const off = dot(_up, interceptN);
+  const offKm = Math.abs(off) * (R_EARTH + 200);
+  if (offKm < 8 || xtWeight <= 0) return out;
+  const s = off > 0 ? -1 : 1;
+  set(_tmp, interceptN.x * s, interceptN.y * s, interceptN.z * s);
+  const rd = dot(_tmp, _up);
+  _tmp.x -= _up.x * rd;
+  _tmp.y -= _up.y * rd;
+  _tmp.z -= _up.z * rd;
+  if (len(_tmp) < 1e-8) return out;
+  normalize(_tmp, _tmp);
+  const w = Math.min(xtWeight, offKm / 80);
+  out.x += _tmp.x * w;
+  out.y += _tmp.y * w;
+  out.z += _tmp.z * w;
+  normalize(out, out);
+  return out;
+}
+
 /** Local ENU-ish geometry for steering. */
 function fillSteerFrame(
   t: number,
   pos: V3,
   vel: V3,
   epoch: EphemerisEpoch,
+  interceptN: V3,
 ): SteerGeo {
   const g = fillEarthRelGeo(t, pos, vel, epoch);
+  const xt = t < F13.SECO ? 0.45 : 0.15;
   return {
     alt: g.r - R_EARTH,
     vRad: g.vRad,
     vHoriz: g.vHoriz,
     vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)),
-    along: corridorAlongAt(t, pos, _along, epoch),
+    along: blendAlongIntercept(t, pos, interceptN, epoch, xt, _along),
   };
 }
 
@@ -274,8 +363,10 @@ function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
 function steerLandBrake(out: V3, distSplash: number): void {
   const v = len(_relV);
   set(out, -_relV.x / v, -_relV.y / v, -_relV.z / v);
-  if (distSplash <= 2) return;
-  const w = Math.min(0.55, distSplash / 80);
+  // Only nibble toward the site in the last tens of km. A 500 km
+  // landing-burn divert is the late hook on the Earth-fixed trail.
+  if (distSplash > 40) return;
+  const w = Math.min(0.4, (40 - distSplash) / 90);
   out.x = out.x * (1 - w) + _tmp3.x * w;
   out.y = out.y * (1 - w) + _tmp3.y * w;
   out.z = out.z * (1 - w) + _tmp3.z * w;
@@ -403,8 +494,9 @@ function steer(
   mode: BurnMode,
   out: V3,
   epoch: EphemerisEpoch,
+  interceptN: V3,
 ): void {
-  const geo = fillSteerFrame(t, pos, vel, epoch);
+  const geo = fillSteerFrame(t, pos, vel, epoch, interceptN);
   if (mode === "idle") { set(out, 0, 0, 0); return; }
   if (mode === "land") { steerLand(t, pos, geo.alt, out, epoch); return; }
   if (mode === "relight") { steerRelight(geo.vHoriz, geo.along, out); return; }
@@ -481,6 +573,11 @@ type F13Loop = {
   /** Geodetic pose of the float (set at splash; no target teleport). */
   floatLat: number;
   floatLon: number;
+  /**
+   * Inertial Earth-relative plane normal through pad@T+0 and splash@
+   * {@link F13.SPLASH}. Frozen for the run.
+   */
+  interceptN: V3;
 };
 
 /**
@@ -505,31 +602,38 @@ function bellyEntryActive(
     alt > 8 && alt < 120 && vRel > 0.8;
 }
 
-function bellyLiftBand(alt: number): number {
+function bellyLiftBand(alt: number, rangeKm: number): number {
+  // Soften the skip once the Indian Ocean site is in reach so leftover
+  // energy does not carry the ship onto Australia.
+  if (rangeKm < 500) return 0.15;
   if (alt > 25 && alt < 65) return 1.1;
   if (alt < 25) return 0.65;
   return 1.0;
 }
 
 function applyBellyLift(
-  alt: number, vRel: number, vRad: number, aDrag: number, a: { ax: number; ay: number; az: number },
+  alt: number, vRel: number, vRad: number, aDrag: number, rangeKm: number,
+  a: { ax: number; ay: number; az: number },
 ): void {
-  if (!(vRad < 0 && vRel > 1.5 && alt > 12 && alt < 95)) return;
-  const aLift = Math.min(0.015, aDrag * BELLY_L_OVER_D * bellyLiftBand(alt));
+  if (!(vRel > 1.2 && alt > 10 && alt < 95)) return;
+  if (!((vRad < 0 && vRel > 1.5) || rangeKm < 500)) return;
+  const raw = aDrag * BELLY_L_OVER_D * bellyLiftBand(alt, rangeKm);
+  const aLift = Math.max(-0.006, Math.min(0.015, raw));
   a.ax += _up.x * aLift; a.ay += _up.y * aLift; a.az += _up.z * aLift;
 }
 
 function bellyDragLift(
-  alt: number, vRel: number, vRad: number,
+  alt: number, vRel: number, vRad: number, rangeKm: number,
 ): { ax: number; ay: number; az: number; aDrag: number } {
-  const aDrag = Math.min(0.04, 0.5 * BELLY_CD_A_OVER_M * atmDensity(alt) * vRel);
+  const near = rangeKm < 500 ? 1.4 : 1;
+  const aDrag = Math.min(0.04, 0.5 * BELLY_CD_A_OVER_M * atmDensity(alt) * vRel * near);
   const a = { ax: 0, ay: 0, az: 0, aDrag };
   if (aDrag > 1e-9) {
     a.ax -= (_relV.x / vRel) * aDrag;
     a.ay -= (_relV.y / vRel) * aDrag;
     a.az -= (_relV.z / vRel) * aDrag;
   }
-  applyBellyLift(alt, vRel, vRad, aDrag, a);
+  applyBellyLift(alt, vRel, vRad, aDrag, rangeKm, a);
   return a;
 }
 
@@ -545,12 +649,18 @@ function fillEarthUpVel(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
 }
 
 function bellyAeroAccel(
-  t: number, pos: V3, vel: V3, prop: PropState, mode: BurnMode, epoch: EphemerisEpoch,
+  t: number, pos: V3, vel: V3, prop: PropState, mode: BurnMode,
+  epoch: EphemerisEpoch, interceptN: V3,
 ): { ax: number; ay: number; az: number } {
   const g = fillEarthUpVel(t, pos, vel, epoch);
   if (!bellyEntryActive(t, g.alt, g.vRel, prop, mode)) return { ax: 0, ay: 0, az: 0 };
-  const dl = bellyDragLift(g.alt, g.vRel, g.vRad);
-  const bank = bellyBankAccel(t, pos, g.alt, g.vRel, g.vRad, dl.aDrag, epoch);
+  const splash = splashSurfaceInertial(t, _tmp2, epoch);
+  const earth = getBodies(t, epoch).earth;
+  sub(_relP, pos, earth);
+  const L = len(_relP) || 1;
+  const rangeKm = Math.acos(Math.min(1, Math.max(-1, dot(_relP, splash) / L))) * R_EARTH;
+  const dl = bellyDragLift(g.alt, g.vRel, g.vRad, rangeKm);
+  const bank = bellyBankAccel(t, pos, g.alt, g.vRel, g.vRad, dl.aDrag, epoch, interceptN);
   return { ax: dl.ax + bank.ax, ay: dl.ay + bank.ay, az: dl.az + bank.az };
 }
 
@@ -563,13 +673,54 @@ function projectHorizOntoUp(vec: V3): boolean {
   return true;
 }
 
-/** Horizontal bank toward splash during entry. */
-function fillDesiredHorizHeading(t: number, pos: V3, alt: number, epoch: EphemerisEpoch): boolean {
+/**
+ * Horizontal bank target: stay in the intercept plane, then home to splash
+ * when close. Pure pursuit at the site from 1000 km out overshoots north
+ * and forces the landing-burn hook.
+ */
+function fillDesiredHorizHeading(
+  t: number, pos: V3, alt: number, epoch: EphemerisEpoch, interceptN: V3,
+): boolean {
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const earth = getBodies(t, epoch).earth;
   const r = R_EARTH + alt;
   set(_tmp3, earth.x + splash.x * r - pos.x, earth.y + splash.y * r - pos.y, earth.z + splash.z * r - pos.z);
-  return projectHorizOntoUp(_tmp3);
+  const hasSplash = projectHorizOntoUp(_tmp3);
+  const sx = _horiz.x, sy = _horiz.y, sz = _horiz.z;
+  interceptAlongAt(t, pos, interceptN, _along, epoch);
+  const off = dot(_up, interceptN);
+  const offKm = Math.abs(off) * r;
+  let tx = 0, ty = 0, tz = 0;
+  let hasXt = false;
+  if (offKm > 2) {
+    const s = off > 0 ? -1 : 1;
+    set(_tmp, interceptN.x * s, interceptN.y * s, interceptN.z * s);
+    const rd = dot(_tmp, _up);
+    _tmp.x -= _up.x * rd; _tmp.y -= _up.y * rd; _tmp.z -= _up.z * rd;
+    if (len(_tmp) > 1e-6) {
+      normalize(_tmp, _tmp);
+      tx = _tmp.x; ty = _tmp.y; tz = _tmp.z;
+      hasXt = true;
+    }
+  }
+  sub(_relP, pos, earth);
+  const L = len(_relP) || 1;
+  const ang = Math.acos(Math.min(1, Math.max(-1, dot(_relP, splash) / L)));
+  const rangeKm = ang * R_EARTH;
+  const wSplash = hasSplash ? smoothstep(800, 80, rangeKm) : 0;
+  const wXt = hasXt ? Math.min(0.7, offKm / 80) : 0;
+  set(
+    _horiz,
+    _along.x * (1 - wSplash) * (1 - 0.35 * wXt) + tx * wXt + sx * wSplash,
+    _along.y * (1 - wSplash) * (1 - 0.35 * wXt) + ty * wXt + sy * wSplash,
+    _along.z * (1 - wSplash) * (1 - 0.35 * wXt) + tz * wXt + sz * wSplash,
+  );
+  if (len(_horiz) < 1e-8) {
+    if (hasSplash) { set(_horiz, sx, sy, sz); return true; }
+    return false;
+  }
+  normalize(_horiz, _horiz);
+  return true;
 }
 
 function zeroAccel(): { ax: number; ay: number; az: number } {
@@ -594,10 +745,11 @@ function bankLateralAccel(vRad: number, aDrag: number): { ax: number; ay: number
 }
 
 function bellyBankAccel(
-  t: number, pos: V3, alt: number, vRel: number, vRad: number, aDrag: number, epoch: EphemerisEpoch,
+  t: number, pos: V3, alt: number, vRel: number, vRad: number, aDrag: number,
+  epoch: EphemerisEpoch, interceptN: V3,
 ): { ax: number; ay: number; az: number } {
-  if (!(vRel > 1.0 && alt > 12 && alt < 90)) return { ax: 0, ay: 0, az: 0 };
-  if (!fillDesiredHorizHeading(t, pos, alt, epoch)) return { ax: 0, ay: 0, az: 0 };
+  if (!(vRel > 1.0 && alt > 10 && alt < 110)) return { ax: 0, ay: 0, az: 0 };
+  if (!fillDesiredHorizHeading(t, pos, alt, epoch, interceptN)) return { ax: 0, ay: 0, az: 0 };
   return bankLateralAccel(vRad, aDrag);
 }
 
@@ -618,7 +770,7 @@ function engineThrustAccel(
   vel: V3,
   thr: number,
 ): number {
-  steer(t, pos, vel, loop.mode, _steer, loop.epoch); const tank = tankFor(loop.mode, loop.prop.staged);
+  steer(t, pos, vel, loop.mode, _steer, loop.epoch, loop.interceptN); const tank = tankFor(loop.mode, loop.prop.staged);
   const aCmd = peakForceN(loop.mode, thr) / Math.max(wetMassKg(loop.prop), 1) / 1000;
   const lim = limitAccelByThrust(loop.prop, aCmd, tank);
   loop.lastBoostN = tank === "booster" ? lim.forceN : 0;
@@ -657,7 +809,7 @@ function makeFlight13ThrustFn(loop: F13Loop): ThrustFn {
   return (t, pos, vel) => {
     const alt = altitudeEarth(t, pos, loop.epoch);
     const thr = throttleFor(t, alt, loop.mode);
-    const aero = bellyAeroAccel(t, pos, vel, loop.prop, loop.mode, loop.epoch);
+    const aero = bellyAeroAccel(t, pos, vel, loop.prop, loop.mode, loop.epoch, loop.interceptN);
     if (loop.mode === "idle" || thr < 1e-4) return aeroOnlyAcc(loop, aero);
     return combineThrustAero(loop, engineThrustAccel(loop, t, pos, vel, thr), aero);
   };
@@ -751,7 +903,7 @@ function landStartRangeKm(loop: F13Loop): { vRel: number; rangeKm: number } {
 }
 
 function shouldStartLand(t: number, alt: number, vRel: number, rangeKm: number): boolean {
-  if (rangeKm > 600) return false;
+  if (rangeKm > 280) return false;
   if (t >= F13.LAND_BURN && alt < 40) return true;
   if (alt < 12 && vRel < 0.9 && t >= F13.ENTRY - 60) return true;
   return alt < 4 && vRel < 0.55 && t >= F13.ENTRY;
@@ -896,11 +1048,13 @@ function placeAtGeodetic(loop: F13Loop, lat: number, lon: number, altKm: number)
 }
 
 function snapSplash(loop: F13Loop, _surf: V3, _L: number, rangeKm: number): void {
-  if (rangeKm < 200) {
+  const g = geodeticOf(loop);
+  // Seat onto the published fix only when already in the zone — a 200 km
+  // hop was the old "landing seat" and looks like a kink on the trail.
+  if (rangeKm < 12) {
     loop.floatLat = FLIGHT13_SPLASH_LAT;
     loop.floatLon = FLIGHT13_SPLASH_LON;
   } else {
-    const g = geodeticOf(loop);
     loop.floatLat = g.lat;
     loop.floatLon = g.lon;
   }
@@ -932,6 +1086,8 @@ function trySplashdown(loop: F13Loop): boolean {
   snapSplash(loop, surf, geo.L, geo.rangeKm);
   loop.splashed = true;
   loop.splashT = loop.state.t;
+  loop.mode = "idle";
+  clearThrustBook(loop);
   pushSample(loop.samples, loop.state, "splashdown", false, loop.prop, 0);
   return true;
 }
@@ -1008,6 +1164,7 @@ function emptyF13Loop(epoch: EphemerisEpoch, gravity: GravityModel): F13Loop {
     mode: "boost", hotStageT0: -1, lastThrustN: 0, lastBoostN: 0, lastShipN: 0,
     thrAcc: v3(), accelOpts: { gravity, epoch }, splashed: false, splashT: 0,
     floatLat: FLIGHT13_SPLASH_LAT, floatLon: FLIGHT13_SPLASH_LON,
+    interceptN: makeInterceptNormal(epoch),
   };
 }
 
