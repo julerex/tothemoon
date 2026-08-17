@@ -70,8 +70,10 @@ export type Telemetry = {
   thrustN: number;
   playing: boolean;
   dateUtc: string;
-  /** Texas civil time (America/Chicago), shown under UTC. */
+  /** Texas civil time (America/Chicago), shown above UTC. */
   dateTexas: string;
+  /** Western Australia civil time (Australia/Perth), third date row. */
+  dateAustralia: string;
   /** Effective playback speed currently applied to the clock */
   playbackSpeed: number;
   /** True once the craft has landed (and landing-beat hold has elapsed) */
@@ -117,6 +119,7 @@ export type MainTelemetryLabels = Readonly<{
   missionClock: string;
   dateUtc: string;
   dateTexas: string;
+  dateAustralia: string;
   distance: string;
   progress: string;
   altitude: string;
@@ -157,6 +160,7 @@ export type MetricsLabels = Readonly<{
   time: string;
   date: string;
   dateTexas: string;
+  dateAustralia: string;
   sky: string;
   progress: string;
   playback: string;
@@ -307,6 +311,7 @@ function mainClockFields(tel: Telemetry, segments?: readonly PhaseSegment[]) {
     missionClock: formatWebcastMissionTime(tel.t),
     dateUtc: tel.dateUtc,
     dateTexas: tel.dateTexas,
+    dateAustralia: tel.dateAustralia,
     distance: formatDistance(tel.distanceToMoon),
     progress: formatProgressPercent(tel.t, tel.durationS),
   };
@@ -421,6 +426,7 @@ function metricsClockFields(tel: Telemetry, skyLive: string) {
     time: formatMissionTimeDetailed(tel.t),
     date: tel.dateUtc,
     dateTexas: tel.dateTexas,
+    dateAustralia: tel.dateAustralia,
     sky: skyLive,
     progress: formatProgressRemainingLine(tel.t, tel.durationS),
     playback: formatPlaybackLine(tel.playbackSpeed, tel.playing),

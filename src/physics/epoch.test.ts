@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   daysPastFullAtLanding,
   FLIGHT13_LIFTOFF_UTC_MS,
+  formatMissionDateAustralia,
   formatMissionDateTexas,
   formatMissionDateUtc,
   FULL_MOON_UTC_MS,
@@ -89,12 +90,23 @@ describe("epoch · Flight 13 daytime launch", () => {
       formatMissionDateTexas(0, 0, clock),
       "2026-07-24 5:51 p.m. CDT",
     );
+    assert.equal(
+      formatMissionDateAustralia(0, 0, clock),
+      "2026-07-25 6:51 a.m. AWST",
+    );
   });
 
-  it("formatMissionDateTexas uses CDT in July and sits under UTC", () => {
+  it("formatMissionDateTexas uses CDT in July (shown above UTC on the HUD)", () => {
     assert.equal(
       formatMissionDateTexas(1000, 1000),
       "2027-07-20 7:00 a.m. CDT",
+    );
+  });
+
+  it("formatMissionDateAustralia uses AWST at the lunar landing epoch", () => {
+    assert.equal(
+      formatMissionDateAustralia(1000, 1000),
+      "2027-07-20 8:00 p.m. AWST",
     );
   });
 

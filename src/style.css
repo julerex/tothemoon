@@ -891,12 +891,14 @@ body.menus-active {
 }
 
 .telemetry #date,
-.telemetry #date-texas {
+.telemetry #date-texas,
+.telemetry #date-australia {
   font-size: 0.72rem;
   letter-spacing: 0.01em;
 }
 
-.telemetry #date-texas {
+.telemetry #date,
+.telemetry #date-australia {
   color: var(--muted);
   font-size: 0.68rem;
 }

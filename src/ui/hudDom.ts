@@ -38,6 +38,7 @@ export type HudTelStrip = {
   newsTrackEl: HTMLElement | null;
   dateEl: HTMLElement | null;
   dateTexasEl: HTMLElement | null;
+  dateAustraliaEl: HTMLElement | null;
   distEl: HTMLElement;
   progEl: HTMLElement;
   altEl: HTMLElement;
@@ -86,6 +87,7 @@ export type MetricsDom = {
   time: HTMLElement | null;
   date: HTMLElement | null;
   dateTexas: HTMLElement | null;
+  dateAustralia: HTMLElement | null;
   progress: HTMLElement | null;
   playback: HTMLElement | null;
   altEarth: HTMLElement | null;
@@ -173,6 +175,7 @@ function collectTelStripA(): Pick<
   | "newsTrackEl"
   | "dateEl"
   | "dateTexasEl"
+  | "dateAustraliaEl"
   | "distEl"
   | "progEl"
 > {
@@ -188,6 +191,7 @@ function collectTelStripA(): Pick<
     newsTickerEl: q("#news-ticker"), newsTextEl: q("#news-ticker-text"),
     newsTextDupEl: q("#news-ticker-text-dup"), newsTrackEl: q("#news-ticker-track"),
     dateEl: q("#date"), dateTexasEl: q("#date-texas"),
+    dateAustraliaEl: q("#date-australia"),
     distEl: el("#distance"), progEl: el("#progress"),
   };
 }
@@ -291,6 +295,7 @@ function collectMetricsDomA(): Pick<
   | "time"
   | "date"
   | "dateTexas"
+  | "dateAustralia"
   | "progress"
   | "playback"
   | "altEarth"
@@ -305,7 +310,7 @@ function collectMetricsDomA(): Pick<
 > {
   return {
     phase: q("#mx-phase"), time: q("#mx-time"), date: q("#mx-date"),
-    dateTexas: q("#mx-date-texas"),
+    dateTexas: q("#mx-date-texas"), dateAustralia: q("#mx-date-australia"),
     progress: q("#mx-progress"), playback: q("#mx-playback"),
     altEarth: q("#mx-alt-earth"), rEarth: q("#mx-r-earth"),
     altMoon: q("#mx-alt-moon"), distMoon: q("#mx-dist-moon"), rMoon: q("#mx-r-moon"),

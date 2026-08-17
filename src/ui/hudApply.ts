@@ -22,6 +22,7 @@ const METRIC_KEYS = [
   "time",
   "date",
   "dateTexas",
+  "dateAustralia",
   "sky",
   "progress",
   "playback",
@@ -92,6 +93,7 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   }
   if (dom.dateEl) dom.dateEl.textContent = m.dateUtc;
   if (dom.dateTexasEl) dom.dateTexasEl.textContent = m.dateTexas;
+  if (dom.dateAustraliaEl) dom.dateAustraliaEl.textContent = m.dateAustralia;
   dom.distEl.textContent = m.distance;
   dom.progEl.textContent = m.progress;
   dom.altEl.textContent = m.altitude;

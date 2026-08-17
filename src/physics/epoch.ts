@@ -146,6 +146,12 @@ export function formatMissionDateUtc(
 export const TEXAS_TIME_ZONE = "America/Chicago";
 
 /**
+ * IANA zone for Western Australia / Flight 13 splash-corridor civil time (AWST).
+ * Perth has no DST; `en-AU` yields AWST rather than GMT+8.
+ */
+export const AUSTRALIA_TIME_ZONE = "Australia/Perth";
+
+/**
  * Texas civil time for the HUD, e.g. "2026-07-24 5:51 p.m. CDT".
  * Uses America/Chicago so DST follows the civil clock.
  */
@@ -154,19 +160,41 @@ export function formatMissionDateTexas(
   landingMissionT: number,
   clockUtcMsAtT0: number | null = null,
 ): string {
-  return formatTexasFromUtcMs(
+  return formatCivilFromUtcMs(
     missionUtcMs(missionT, landingMissionT, clockUtcMsAtT0),
+    TEXAS_TIME_ZONE,
+    "en-US",
   );
 }
 
-function formatTexasFromUtcMs(utcMs: number): string {
-  const parts = texasDateParts(utcMs);
+/**
+ * Western Australia civil time for the HUD, e.g. "2026-07-25 6:51 a.m. AWST".
+ * Splash is northwest of WA; this is the landing-site analog of Texas.
+ */
+export function formatMissionDateAustralia(
+  missionT: number,
+  landingMissionT: number,
+  clockUtcMsAtT0: number | null = null,
+): string {
+  return formatCivilFromUtcMs(
+    missionUtcMs(missionT, landingMissionT, clockUtcMsAtT0),
+    AUSTRALIA_TIME_ZONE,
+    "en-AU",
+  );
+}
+
+function formatCivilFromUtcMs(
+  utcMs: number,
+  timeZone: string,
+  locale: string,
+): string {
+  const parts = civilDateParts(utcMs, timeZone, locale);
   const hour12 = ((parts.hour + 11) % 12) + 1;
   const ampm = parts.hour < 12 ? "a.m." : "p.m.";
   return `${parts.year}-${parts.month}-${parts.day} ${hour12}:${parts.minute} ${ampm} ${parts.zone}`;
 }
 
-type TexasDateParts = {
+type CivilDateParts = {
   year: string;
   month: string;
   day: string;
@@ -175,10 +203,14 @@ type TexasDateParts = {
   zone: string;
 };
 
-function texasDateParts(utcMs: number): TexasDateParts {
+function civilDateParts(
+  utcMs: number,
+  timeZone: string,
+  locale: string,
+): CivilDateParts {
   const bag = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: TEXAS_TIME_ZONE,
+    new Intl.DateTimeFormat(locale, {
+      timeZone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -196,7 +228,7 @@ function texasDateParts(utcMs: number): TexasDateParts {
     day: bag.day ?? "01",
     hour: Number(bag.hour ?? "0"),
     minute: bag.minute ?? "00",
-    zone: bag.timeZoneName ?? "CT",
+    zone: bag.timeZoneName ?? "UTC",
   };
 }
 

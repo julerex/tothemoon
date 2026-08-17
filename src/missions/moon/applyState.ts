@@ -8,7 +8,11 @@ import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { bodyPositions } from "../../physics/bodies";
 import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
 import { starbasePadState } from "../../physics/earthFrame";
-import { formatMissionDateTexas, formatMissionDateUtc } from "../../physics/epoch";
+import {
+  formatMissionDateAustralia,
+  formatMissionDateTexas,
+  formatMissionDateUtc,
+} from "../../physics/epoch";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
 import {
   physicsTToSampleU,
@@ -320,6 +324,7 @@ function hudPlayback(ctx: MoonCtx, physicsT: number, showCompleteCard: boolean) 
     playing: ctx.clock.playing,
     dateUtc: formatMissionDateUtc(physicsT, ctx.cache.horizonsLandingT, ctx.epoch.clockUtcMsAtT0),
     dateTexas: formatMissionDateTexas(physicsT, ctx.cache.horizonsLandingT, ctx.epoch.clockUtcMsAtT0),
+    dateAustralia: formatMissionDateAustralia(physicsT, ctx.cache.horizonsLandingT, ctx.epoch.clockUtcMsAtT0),
     playbackSpeed: ctx.clock.speed, missionComplete: showCompleteCard,
     completeKind: ctx.landingBeat.kind,
   };
