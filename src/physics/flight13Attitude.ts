@@ -5,6 +5,7 @@
  * Mesh convention (see craft.ts): local +Z = nose, −Z = engines, +Y ≈ windward tiles.
  */
 
+import { EARTH_SURFACE_RADIUS_KM } from "./constants";
 import type { PhaseId } from "./missionTypes";
 
 /** Official approximate T+ anchors used for attitude / engine cadence. */
@@ -26,41 +27,72 @@ export const F13_ATT = {
  * - belly: heat-shield (+Y) into wind — entry / terminal belly-flop
  * - engines_first: engines into wind (nose anti-velocity) — landing burn
  * - radial_up: stack upright (pad / touchdown settle)
+ * - afloat: hull in the water, nose horizontal, belly down
  */
 export type ShipAttitudeMode =
   | "prograde"
   | "belly"
   | "engines_first"
-  | "radial_up";
+  | "radial_up"
+  | "afloat";
 
 /**
  * Pick attitude mode from mission time, phase, and altitude.
  *
  * Entry interface → belly-flop; landing burn → engines-first after a short flip;
- * final meters → radial up for a readable splash settle.
+ * splash → lie horizontal in the water.
  */
 function landingAttitude(t: number): ShipAttitudeMode | null {
   if (t < F13_ATT.LAND_BURN || t >= F13_ATT.SPLASH) return null;
   return t < F13_ATT.LAND_FLIP ? "belly" : "engines_first";
 }
 
+/** Starship barrel radius (km). Engine origin sits this far from the belly. */
+export const SHIP_BARREL_RADIUS_KM = 4.5 / 1000;
+
+/** Visual waterline above the shared 50 m surface shell (km). */
+export const SPLASH_WATERLINE_ALT_KM = 0.001;
+
+/** Seconds after splash to finish the tip-over onto the belly. */
+export const SPLASH_LIE_S = 2.5;
+
 /**
- * Gentle swell rock while the ship floats engines-down (theater, not a wave model).
+ * 0 at splash contact (still engines-down), 1 once the hull is lying in the water.
+ */
+export function splashLieBlend(t: number): number {
+  if (t < F13_ATT.SPLASH) return 0;
+  const u = (t - F13_ATT.SPLASH) / SPLASH_LIE_S;
+  if (u >= 1) return 1;
+  return u * u * (3 - 2 * u);
+}
+
+/**
+ * Geocentric radius (km) of the engine origin while floating.
+ * Upright: engines at the waterline. Lying: belly slightly in the water.
+ */
+export function splashFloatRadiusKm(t: number): number {
+  const water = EARTH_SURFACE_RADIUS_KM + SPLASH_WATERLINE_ALT_KM;
+  return water + SHIP_BARREL_RADIUS_KM * 0.28 * splashLieBlend(t);
+}
+
+/**
+ * Gentle swell rock while the ship floats (theater, not a wave model).
  * Scrub-deterministic function of mission time.
  *
  * @param t - Mission time (s)
  */
 export function splashFloatBob(t: number): { pitchRad: number; rollRad: number } {
   return {
-    pitchRad: 0.028 * Math.sin(t * 0.74),
-    rollRad: 0.016 * Math.sin(t * 1.1 + 1.1),
+    pitchRad: 0.04 * Math.sin(t * 0.74),
+    rollRad: 0.022 * Math.sin(t * 1.1 + 1.1),
   };
 }
 
 export function shipAttitudeMode(
   t: number, phase: PhaseId, altKm: number, burning: boolean,
 ): ShipAttitudeMode {
-  if (phase === "splashdown" || (phase === "descent" && altKm < 0.15)) return "radial_up";
+  if (phase === "splashdown") return "afloat";
+  if (phase === "descent" && altKm < 0.15) return "engines_first";
   const land = landingAttitude(t);
   if (land) return land;
   if (phase === "descent") return burning ? "engines_first" : "belly";
@@ -161,7 +193,12 @@ export function entryFlapDeflectionRad(
   altKm: number,
   mode: ShipAttitudeMode,
 ): FlapDeflection {
-  if (!entryFlapsActive(t, phase) || mode === "prograde" || mode === "radial_up") {
+  if (
+    !entryFlapsActive(t, phase) ||
+    mode === "prograde" ||
+    mode === "radial_up" ||
+    mode === "afloat"
+  ) {
     return { fwd: FWD_FLAP_REST_RAD, aft: 0 };
   }
   let u = mode === "engines_first" ? 1 - landingFlipBlend(t) : 1;

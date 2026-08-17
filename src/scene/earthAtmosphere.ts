@@ -129,8 +129,8 @@ function injectEarthSurface(shader: THREE.WebGLProgramParametersWithUniforms): v
       `#include <map_fragment>
        {
          float sw = splashOceanW();
-         vec3 splashSea = vec3(0.46, 0.66, 0.76);
-         diffuseColor.rgb = mix(diffuseColor.rgb, splashSea, sw * 0.9);
+         vec3 splashSea = vec3(0.28, 0.46, 0.56);
+         diffuseColor.rgb = mix(diffuseColor.rgb, splashSea, sw * 0.7);
        }`,
     )
     .replace(
@@ -141,7 +141,7 @@ function injectEarthSurface(shader: THREE.WebGLProgramParametersWithUniforms): v
     .replace(
       "#include <emissivemap_fragment>",
       `#include <emissivemap_fragment>
-       totalEmissiveRadiance += vec3(0.18, 0.30, 0.38) * splashOceanW() * 0.12;`,
+       totalEmissiveRadiance += vec3(0.12, 0.22, 0.28) * splashOceanW() * 0.06;`,
     );
 }
 

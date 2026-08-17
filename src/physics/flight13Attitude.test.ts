@@ -15,7 +15,12 @@ import {
   plasmaBankOffset,
   shipAttitudeMode,
   splashFloatBob,
+  splashFloatRadiusKm,
+  splashLieBlend,
+  SHIP_BARREL_RADIUS_KM,
+  SPLASH_WATERLINE_ALT_KM,
 } from "./flight13Attitude.ts";
+import { EARTH_SURFACE_RADIUS_KM } from "./constants.ts";
 
 describe("shipAttitudeMode", () => {
   it("is prograde on ascent and early coast", () => {
@@ -39,10 +44,17 @@ describe("shipAttitudeMode", () => {
     );
   });
 
-  it("settles radial-up at splashdown", () => {
+  it("lies afloat after splashdown", () => {
     assert.equal(
       shipAttitudeMode(F13_ATT.SPLASH, "splashdown", 0.05, false),
-      "radial_up",
+      "afloat",
+    );
+  });
+
+  it("stays engines-first through the last meters of descent", () => {
+    assert.equal(
+      shipAttitudeMode(F13_ATT.LAND_BURN - 10, "descent", 0.08, false),
+      "engines_first",
     );
   });
 });
@@ -52,9 +64,26 @@ describe("splashFloatBob", () => {
     const a = splashFloatBob(4000);
     const b = splashFloatBob(4000);
     assert.deepEqual(a, b);
-    assert.ok(Math.abs(a.pitchRad) < 0.05);
-    assert.ok(Math.abs(a.rollRad) < 0.04);
+    assert.ok(Math.abs(a.pitchRad) < 0.06);
+    assert.ok(Math.abs(a.rollRad) < 0.05);
     assert.notEqual(splashFloatBob(4004).pitchRad, a.pitchRad);
+  });
+});
+
+describe("splashLieBlend / splashFloatRadiusKm", () => {
+  it("is upright at splash and fully down after the tip-over", () => {
+    assert.equal(splashLieBlend(F13_ATT.SPLASH), 0);
+    assert.equal(splashLieBlend(F13_ATT.SPLASH + 3), 1);
+    assert.ok(splashLieBlend(F13_ATT.SPLASH + 1) > 0.2);
+    assert.ok(splashLieBlend(F13_ATT.SPLASH + 1) < 0.9);
+  });
+
+  it("seats engines at the waterline, then lifts the origin as the hull lies down", () => {
+    const up = splashFloatRadiusKm(F13_ATT.SPLASH);
+    const down = splashFloatRadiusKm(F13_ATT.SPLASH + 4);
+    assert.ok(Math.abs(up - (EARTH_SURFACE_RADIUS_KM + SPLASH_WATERLINE_ALT_KM)) < 1e-12);
+    assert.ok(down > up);
+    assert.ok(down - up < SHIP_BARREL_RADIUS_KM * 0.4);
   });
 });
 

@@ -69,6 +69,23 @@ export function clampCraftAboveEarth(
 }
 
 /**
+ * Place `pos` on the sphere of radius `radius` about `earth`.
+ * No-op when the relative vector is degenerate.
+ */
+export function setCraftEarthRadius(
+  pos: Vec3Like,
+  earth: Vec3Like,
+  radius: number,
+): Vec3Like {
+  const dx = pos.x - earth.x;
+  const dy = pos.y - earth.y;
+  const dz = pos.z - earth.z;
+  const r = Math.hypot(dx, dy, dz);
+  if (!(r > 1e-6) || !Number.isFinite(radius) || radius <= 0) return pos;
+  return liftAboveSurface(earth, dx, dy, dz, radius / r);
+}
+
+/**
  * True for early mission phases that fly near Earth (surface-relative attitude,
  * Earth altitude clamp).
  */

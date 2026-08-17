@@ -162,7 +162,7 @@ const COPY_BY_ID: Record<string, CopySpec> = {
   splashdown: {
     wire: "SPLASH",
     line:
-      "Splashdown — Starship is floating upright in the Indian Ocean. Recovery drone is inbound.",
+      "Splashdown — Starship is in the water in the Indian Ocean. Recovery drone is inbound.",
   },
   "splash-drone": {
     wire: "DRONE",
@@ -260,7 +260,7 @@ const PHASE_AMBIENT: Partial<
   splashdown: () => ({
     wire: "SPLASH",
     line:
-      "Ship is floating engines-down in the Indian Ocean — recovery drone holding a sea-level orbit.",
+      "Ship is floating on its side in the Indian Ocean — recovery drone holding a sea-level orbit.",
   }),
   landed: () => ({
     wire: "LAND",

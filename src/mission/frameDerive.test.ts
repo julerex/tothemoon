@@ -7,6 +7,7 @@ import {
   TRAIL_STYLE_APPROACH,
   attitudeNearEarth,
   clampCraftAboveEarth,
+  setCraftEarthRadius,
   craftTrailStyle,
   isNearEarthPhase,
   relativeSpeedKmS,
@@ -34,6 +35,21 @@ describe("clampCraftAboveEarth", () => {
   it("returns original for zero-length relative vector", () => {
     const pos = { x: 0, y: 0, z: 0 };
     assert.equal(clampCraftAboveEarth(pos, earth, minR), pos);
+  });
+});
+
+describe("setCraftEarthRadius", () => {
+  const earth = { x: 0, y: 0, z: 0 };
+
+  it("puts the craft on the requested geocentric radius", () => {
+    const out = setCraftEarthRadius({ x: 10, y: 0, z: 0 }, earth, 6371);
+    assert.ok(Math.abs(Math.hypot(out.x, out.y, out.z) - 6371) < 1e-9);
+    assert.ok(out.x > 0);
+  });
+
+  it("can lower as well as lift", () => {
+    const out = setCraftEarthRadius({ x: 8000, y: 0, z: 0 }, earth, 6371);
+    assert.ok(Math.abs(out.x - 6371) < 1e-9);
   });
 });
 

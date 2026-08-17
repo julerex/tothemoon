@@ -24,6 +24,7 @@ import {
   entryPlasmaStrength,
   entryVisualBank,
   landingEngineCount,
+  splashFloatRadiusKm,
 } from "../../physics/flight13Attitude";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
 import type { PhaseId } from "../../physics/missionTypes";
@@ -31,7 +32,11 @@ import {
   physicsTToSampleU,
   transportUToPhysicsT,
 } from "../../mission/prelaunch";
-import { clampCraftAboveEarth, sunElevAtPad } from "../../mission/frameDerive";
+import {
+  clampCraftAboveEarth,
+  setCraftEarthRadius,
+  sunElevAtPad,
+} from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
 import { applyLandingBeatEffects } from "../theaterHandlers";
 import { nextAutoCamCut, finaleChaseBias, autoCamFromWebcastShot, type AutoCamSuggestion } from "../../camera/autoCam";
@@ -88,9 +93,17 @@ function syncEarth(ctx: F13Ctx, simT: number): BodyState {
   return b;
 }
 
-function clampCraft(ctx: F13Ctx, b: BodyState): void {
+function clampCraft(ctx: F13Ctx, b: BodyState, phase: PhaseId, physicsT: number): void {
   const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
+  if (phase === "splashdown") {
+    const seated = setCraftEarthRadius(
+      ctx.craftPos,
+      b.earth,
+      splashFloatRadiusKm(Math.max(0, physicsT)),
+    );
+    ctx.craftPos.set(seated.x, seated.y, seated.z);
+  }
   ctx.craft.position.copy(ctx.craftPos);
 }
 
@@ -507,7 +520,7 @@ function poseCraft(ctx: F13Ctx, u: number) {
   placeCraft(ctx, prelaunch, physicsT, frame);
   const simT = prelaunch ? physicsT : frame.t;
   const b = syncEarth(ctx, simT);
-  clampCraft(ctx, b);
+  clampCraft(ctx, b, prelaunch ? "launch" : frame.phase, physicsT);
   return { physicsT, prelaunch, frame, simT, b };
 }
 

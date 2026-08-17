@@ -347,11 +347,11 @@ function paintSunlitOcean(ctx: CanvasRenderingContext2D, size: number): void {
   const cy = size * 0.5;
   const r = size * 0.5;
   const g = ctx.createRadialGradient(cx, cy, r * 0.06, cx, cy, r);
-  g.addColorStop(0, "rgba(186, 220, 232, 1)");
-  g.addColorStop(0.28, "rgba(138, 188, 208, 0.98)");
-  g.addColorStop(0.58, "rgba(96, 154, 180, 0.88)");
-  g.addColorStop(0.82, "rgba(64, 118, 148, 0.45)");
-  g.addColorStop(1, "rgba(40, 84, 112, 0)");
+  g.addColorStop(0, "rgba(92, 148, 172, 1)");
+  g.addColorStop(0.28, "rgba(72, 128, 154, 0.98)");
+  g.addColorStop(0.58, "rgba(52, 108, 136, 0.9)");
+  g.addColorStop(0.82, "rgba(36, 84, 112, 0.5)");
+  g.addColorStop(1, "rgba(24, 60, 84, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   ctx.globalCompositeOperation = "soft-light";
@@ -416,7 +416,7 @@ function createSunlitOceanPlate(): { mesh: THREE.Mesh; mat: THREE.MeshBasicMater
   mat.userData.noShadow = true;
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = "splash-ocean-plate";
-  mesh.position.y = 0.012;
+  mesh.position.y = 0.001;
   mesh.renderOrder = 1;
   mesh.visible = false;
   mesh.castShadow = false;

@@ -1,5 +1,5 @@
 /**
- * Flight 13 craft attitude: pad radial, prograde, belly-flop, engines-first.
+ * Flight 13 craft attitude: pad radial, prograde, belly-flop, engines-first, splash afloat.
  * Scene unit = 1 km.
  */
 
@@ -8,6 +8,7 @@ import {
   landingFlipBlend,
   shipAttitudeMode,
   splashFloatBob,
+  splashLieBlend,
 } from "../../physics/flight13Attitude";
 import type { PhaseId } from "../../physics/missionTypes";
 
@@ -143,15 +144,27 @@ function orientPrograde(
   applyCraftHeading(s, vel);
 }
 
-function applySplashBob(s: OrientScratch, missionT: number): void {
-  const bob = splashFloatBob(missionT);
+function splashHorizonAxes(s: OrientScratch): void {
   s.side.set(0, 0, 1).cross(s.localUp);
   if (s.side.lengthSq() < 1e-12) s.side.set(1, 0, 0).cross(s.localUp);
   s.side.normalize();
   s.craftTan.copy(s.localUp).cross(s.side).normalize();
-  s.localUp.addScaledVector(s.craftTan, bob.pitchRad);
-  s.localUp.addScaledVector(s.side, bob.rollRad);
-  s.localUp.normalize();
+}
+
+/**
+ * Tip from engines-down onto the belly over {@link splashLieBlend}.
+ * Final pose: nose along the horizon, heat-shield in the water.
+ */
+function orientAfloat(s: OrientScratch, missionT: number): void {
+  splashHorizonAxes(s);
+  const u = splashLieBlend(missionT);
+  const bob = splashFloatBob(missionT);
+  s.lookTarget.copy(s.localUp).multiplyScalar(-1);
+  s.nose.copy(s.localUp).lerp(s.craftTan, u).normalize();
+  s.belly.copy(s.craftTan).lerp(s.lookTarget, u).normalize();
+  s.nose.addScaledVector(s.side, bob.rollRad).normalize();
+  s.belly.addScaledVector(s.side, bob.pitchRad).normalize();
+  applyCraftBasis(s, s.nose, s.belly);
 }
 
 function applyAttitudeMode(
@@ -160,10 +173,12 @@ function applyAttitudeMode(
   vel: THREE.Vector3,
   nearEarth: boolean,
   missionT: number,
-  phase: PhaseId,
 ): void {
+  if (mode === "afloat") {
+    orientAfloat(s, missionT);
+    return;
+  }
   if (mode === "radial_up" || (airTooSlow(s) && mode === "prograde")) {
-    if (phase === "splashdown") applySplashBob(s, missionT);
     applyCraftHeading(s, s.localUp);
     return;
   }
@@ -191,5 +206,5 @@ export function orientCraft(
   const r = computeLocalUp(s, earthPos);
   computeAirVel(s, vel, earthVel, r);
   const mode = shipAttitudeMode(missionT, phase, altEarth, burning);
-  applyAttitudeMode(s, mode, vel, nearEarth, missionT, phase);
+  applyAttitudeMode(s, mode, vel, nearEarth, missionT);
 }
