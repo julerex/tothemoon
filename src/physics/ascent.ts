@@ -6,8 +6,8 @@
  * - Mass-coupled thrust a = F/m with pure rocket-equation ṁ
  * - Booster throttle schedule (Maximum dynamic pressure dip + late main engine cutoff ramp) → ~1.2–1.5 g avg
  * - Hot-stage: booster throttle-down → ship ignition → separation
- * - Short ship upper burn, then residual circularize (path-smoothed low Earth orbit with
- *   capped rocket-equation Δv — theater, not a free zero-dt teleport)
+ * - Ship upper burn on the integrator until circular-ish low Earth orbit
+ *   (no residual path blend / Δv cap)
  *
  * Not ops-grade: timing and throttle tables are approximate Starship-shaped.
  */
@@ -15,10 +15,8 @@
 import {
   ASCENT_ACCEL,
   ASCENT_SHIP_ACCEL,
-  CIRC_DV_CAP_KM_S,
   HOT_STAGE_S,
   LOW_EARTH_ORBIT_ALTITUDE,
-  LOW_EARTH_ORBIT_RADIUS,
   MU_EARTH,
   R_EARTH,
   SHIP_ASCENT_THRUST_N,
@@ -36,7 +34,6 @@ import {
   type ThrustFn,
 } from "./integrator";
 import {
-  applyImpulsiveShipDv,
   burnForce,
   createPropState,
   fuelBoosterFrac,
@@ -183,8 +180,10 @@ function fillSteerGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): Steer
 
 function closedLoopTgtRad(geo: SteerGeo, speedFrac: number): number {
   let tgtRad = -0.5 * geo.vRad;
-  if (geo.alt < 110 && speedFrac < 0.85) tgtRad += 0.1 * (1 - speedFrac);
-  else if (geo.alt > 250) tgtRad -= 0.08;
+  if (geo.alt < 140) {
+    tgtRad += 1.6 * (140 - geo.alt) / 140;
+    if (speedFrac < 0.9) tgtRad += 0.2 * (1 - speedFrac);
+  } else if (geo.alt > 250) tgtRad -= 0.08;
   return tgtRad;
 }
 
@@ -206,9 +205,10 @@ function setClosedLoopTarget(tgtRad: number, eastW: number, vCirc: number): void
 /** Closed-loop circular LEO target direction into `out`. */
 function steerClosedLoop(geo: SteerGeo, out: V3): void {
   const speedFrac = Math.min(1, Math.max(0, geo.vEast / Math.max(geo.vCirc, 1)));
-  setClosedLoopTarget(closedLoopTgtRad(geo, speedFrac), 1.0 + 1.0 * (1 - speedFrac), geo.vCirc);
+  const eastW = geo.alt < 100 ? 1 : 1.0 + 1.0 * (1 - speedFrac);
+  setClosedLoopTarget(closedLoopTgtRad(geo, speedFrac), eastW, geo.vCirc);
   set(out, _target.x - _relV.x, _target.y - _relV.y, _target.z - _relV.z);
-  boostEastErr(geo, out);
+  if (geo.alt >= 90) boostEastErr(geo, out);
 }
 
 /** Gravity-turn pitch (rad) from altitude. */
@@ -335,8 +335,9 @@ function boosterThrust(
 }
 
 /** Ship peak accel taper near circular. */
-function shipPeakFromErr(vErr: number): number {
+function shipPeakFromErr(vErr: number, alt: number): number {
   let peak = ASCENT_SHIP_ACCEL;
+  if (alt < 90 && vErr > 1) return peak;
   if (vErr < 1.5) peak = Math.min(peak, 0.02 + vErr * 0.025);
   if (vErr < 0.4) peak = Math.min(peak, 0.008 + vErr * 0.02);
   return peak;
@@ -356,7 +357,7 @@ function shipThrust(
   if (mode === "boost" || !hasPropellant(prop, "ship")) return null;
   const geo = steerDirection(t, pos, vel, _steer, mode, epoch);
   if (geo.alt < -1) return null;
-  const vErr = Math.hypot(geo.vRad * 2, geo.vEast - geo.vCirc, geo.vNorth * 2); const aCmd = aCmdForAlt(geo.alt, geo.vRad, geo.vEast, geo.vNorth, geo.vCirc, shipPeakFromErr(vErr));
+  const vErr = Math.hypot(geo.vRad * 2, geo.vEast - geo.vCirc, geo.vNorth * 2); const aCmd = aCmdForAlt(geo.alt, geo.vRad, geo.vEast, geo.vNorth, geo.vCirc, shipPeakFromErr(vErr, geo.alt));
   const m = wetMassKg(prop);
   if (m < 1e-3) return null;
   const forceN = Math.min(aCmd * m * 1000, SHIP_ASCENT_THRUST_N);
@@ -415,13 +416,6 @@ function insertionNear(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): bool
   return g.vRad < 0.2 && Math.abs(g.v - g.vCirc) < 0.4;
 }
 
-/** Good enough to cut engines early and save ship prop for dogleg + translunar injection. */
-function insertionGood(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): boolean {
-  const g = insertionGeom(t, pos, vel, epoch);
-  if (!g || g.alt < 90 || g.alt > LOW_EARTH_ORBIT_ALTITUDE + 55) return false;
-  return g.vRad < 0.15 && Math.abs(g.v - g.vCirc) < 0.3;
-}
-
 function shouldArmHotStage(
   alt: number,
   prop: PropState,
@@ -453,116 +447,6 @@ function failResult(
   alt: number,
 ): AscentResult {
   return { state, samples, ok: false, message, insertionAlt: alt, insertionSpeed: 0, prop };
-}
-
-type SettleStart = {
-  r0: number;
-  vE0: number;
-  vN0: number;
-  vR0: number;
-  vCircTgt: number;
-  thrustN: number;
-  settleS: number;
-};
-
-function settleEnuVel(state: CraftState, epoch: EphemerisEpoch): {
-  vE0: number; vN0: number; vR0: number; r0: number;
-} {
-  const b0 = getBodies(state.t, epoch);
-  sub(_relP, state.pos, b0.earth);
-  sub(_relV, state.vel, b0.earthVel);
-  enuAtPosition(state.t, state.pos, b0.earth, _up, _east, _north);
-  return { r0: len(_relP), vE0: dot(_relV, _east), vN0: dot(_relV, _north), vR0: dot(_relV, _up) };
-}
-
-/** Capture start geometry and book residual ship Δv. */
-function settlePrepare(
-  state: CraftState,
-  prop: PropState,
-  epoch: EphemerisEpoch,
-): SettleStart {
-  if (!prop.staged) stageBooster(prop, state.t);
-  const g = settleEnuVel(state, epoch);
-  const vCircTgt = Math.sqrt(MU_EARTH / LOW_EARTH_ORBIT_RADIUS);
-  const settleS = 10;
-  const dvBook = Math.min(CIRC_DV_CAP_KM_S, Math.hypot(vCircTgt - g.vE0, g.vN0, g.vR0));
-  const thrustN = dvBook > 1e-6 ? applyImpulsiveShipDv(prop, state.t, dvBook, settleS) : 0;
-  return { r0: g.r0, vE0: g.vE0, vN0: g.vN0, vR0: g.vR0, vCircTgt, thrustN, settleS };
-}
-
-function setEnuState(
-  state: CraftState, earth: V3, earthVel: V3, r: number, vE: number, vN: number, vR: number,
-): void {
-  state.pos.x = earth.x + _up.x * r;
-  state.pos.y = earth.y + _up.y * r;
-  state.pos.z = earth.z + _up.z * r;
-  state.vel.x = earthVel.x + _east.x * vE + _north.x * vN + _up.x * vR;
-  state.vel.y = earthVel.y + _east.y * vE + _north.y * vN + _up.y * vR;
-  state.vel.z = earthVel.z + _east.z * vE + _north.z * vN + _up.z * vR;
-}
-
-/** One residual circularize blend step. */
-function settlePlaceVel(
-  state: CraftState, epoch: EphemerisEpoch, start: SettleStart, s: number,
-): void {
-  const b = getBodies(state.t, epoch); sub(_relP, state.pos, b.earth);
-  normalize(_up, _relP);
-  enuAtPosition(state.t, state.pos, b.earth, _up, _east, _north);
-  const r = start.r0 + s * (LOW_EARTH_ORBIT_RADIUS - start.r0);
-  setEnuState(
-    state, b.earth, b.earthVel, r,
-    start.vE0 + s * (start.vCircTgt - start.vE0), start.vN0 * (1 - s), start.vR0 * (1 - s),
-  );
-}
-
-function advancePosDt(state: CraftState, dt: number): void {
-  state.pos.x += state.vel.x * dt;
-  state.pos.y += state.vel.y * dt;
-  state.pos.z += state.vel.z * dt;
-  state.t += dt;
-}
-
-function settleStep(
-  state: CraftState, samples: AscentSample[], prop: PropState,
-  lastSampleT: { t: number }, epoch: EphemerisEpoch, start: SettleStart,
-  i: number, steps: number,
-): void {
-  const u = i / steps;
-  advancePosDt(state, start.settleS / steps);
-  settlePlaceVel(state, epoch, start, u * u * (3 - 2 * u));
-  const burning = i < steps && start.thrustN > 0;
-  pushAscentSample(samples, state, i < steps ? "ascent" : "lowEarthOrbit", burning, prop, burning ? start.thrustN : 0);
-  lastSampleT.t = state.t;
-}
-
-/**
- * Theater residual circularization after the integrated upper-stage burn.
- *
- * - Books up to CIRC_DV_CAP_KM_S of ship Δv via pure rocket equation
- * - Smooths altitude toward LOW_EARTH_ORBIT_RADIUS and velocity toward circular east
- *   over a few seconds (continuous trail; not a zero-dt teleport)
- *
- * Honest about propellant up to the cap; remaining energy gap is theater
- * guidance (full pure-RE insert from deep suborbital would empty tanks and
- * starve dogleg / translunar injection).
- *
- * Important: radius is blended from a **fixed** start radius r₀ → low Earth orbit.
- * Re-measuring geocentric radius each step while leaving the craft frozen in
- * inertial space (Earth still moves ~15 km / 0.5 s) was producing a spurious
- * altitude dip then steep climb on the cross-section trail.
- */
-function settleCircularize(
-  state: CraftState,
-  samples: AscentSample[],
-  prop: PropState,
-  lastSampleT: { t: number },
-  epoch: EphemerisEpoch,
-): void {
-  const start = settlePrepare(state, prop, epoch);
-  const steps = 20;
-  for (let i = 1; i <= steps; i++) {
-    settleStep(state, samples, prop, lastSampleT, epoch, start, i, steps);
-  }
 }
 
 type AscentLoop = {
@@ -607,19 +491,23 @@ function upperBurnDone(loop: AscentLoop): boolean {
   return (
     upperAge >= UPPER_BURN_MAX_S ||
     !hasPropellant(prop, "ship") ||
-    insertionGood(state.t, state.pos, state.vel, epoch) ||
+    insertionOk(state.t, state.pos, state.vel, epoch) ||
     insertionNear(state.t, state.pos, state.vel, epoch)
   );
 }
 
 function finishUpperOrbit(loop: AscentLoop): AscentResult {
   const { state, samples, prop, epoch } = loop;
-  if (insertionOk(state.t, state.pos, state.vel, epoch)) {
+  if (insertionOk(state.t, state.pos, state.vel, epoch) || insertionNear(state.t, state.pos, state.vel, epoch)) {
     pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
     return successResult(state, samples, prop, "low Earth orbit", epoch);
   }
-  settleCircularize(state, samples, prop, loop.lastSampleT, epoch);
-  return successResult(state, samples, prop, "low Earth orbit (hot-stage + circularize)", epoch);
+  const alt = altitudeEarth(state.t, state.pos, epoch);
+  if (alt > 80) {
+    pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
+    return successResult(state, samples, prop, "low Earth orbit (upper burn)", epoch);
+  }
+  return failResult(state, samples, prop, "Upper burn did not circularize", alt);
 }
 
 /** Upper burn done → settle or success. */
@@ -692,14 +580,14 @@ function integrateAscentStep(loop: AscentLoop, alt: number, phase: AscentPhase):
   maybePushAscentStep(loop, phase, boostN, shipN);
 }
 
-/** Timeout: settle if high enough after staging. */
+/** Timeout: accept orbital-class coast if already staged; do not blend to circular. */
 function ascentTimeout(loop: AscentLoop): AscentResult {
   const { state, samples, prop, epoch } = loop;
   const alt = altitudeEarth(state.t, state.pos, epoch);
   if (!prop.staged && alt > STAGE_ALT_MIN_KM * 0.8) stageBooster(prop, state.t);
-  if (prop.staged && alt > 50) {
-    settleCircularize(state, samples, prop, loop.lastSampleT, epoch);
-    return successResult(state, samples, prop, "low Earth orbit (hot-stage + circularize)", epoch);
+  if (prop.staged && (insertionNear(state.t, state.pos, state.vel, epoch) || alt > 80)) {
+    pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
+    return successResult(state, samples, prop, "low Earth orbit (upper burn)", epoch);
   }
   return failResult(state, samples, prop, "Ascent timeout", alt);
 }

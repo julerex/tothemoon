@@ -4,7 +4,7 @@ Interactive **Three.js** mission theaters. Open the site to a **main menu**, the
 
 | Mission | Status |
 |---------|--------|
-| **Starbase → Moon** | Full theater (ascent → low Earth orbit → translunar coast → lunar arrival) |
+| **Starbase → Moon** | Full theater (ascent → low Earth orbit → translunar coast → ballistic lunar flyby) |
 | **Starship Flight 13** | Full theater (staged ascent → suborbital coast → entry → Indian Ocean splashdown → sea-level drone hold through T+1:10); craft trail is **Earth-fixed** (co-rotates / revolves with the globe) |
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
@@ -17,10 +17,10 @@ Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `
 
 - **True scale** — scene unit = 1 km; real Earth/Moon radii and ~384 400 km semi-major axis
 - **Restricted n-body + Earth J₂** — craft integrated with **RK4** under **Earth + Moon** point-mass gravity, **solar tide** (residual about Earth), Earth **J₂**, and simple **exponential atmosphere / quadratic drag** below ~120 km
-- **Staged ascent (A5)** — booster throttle schedule (Maximum dynamic pressure dip + main engine cutoff ramp), **hot-stage** (booster throttle-down → ship ignition → separation), short ship upper burn, then **residual circularize** (path-smoothed low Earth orbit insert with capped rocket-equation Δv — theater, not a free teleport). Not flight-ops tables
-- **Translunar coast → capture** — after a **hot super-Hohmann translunar injection** the craft coasts **ballistically** under restricted n-body gravity, then fires a theater **lunar orbit insertion** into polar **low lunar orbit** (~¾ rev), **powered descent**, and soft land at the **south pole**. A low-opacity **Kepler 2-body corridor** (dashed amber + sparse whiskers, toggle **O**) shows how the n-body path diverges from the inject osculating ellipse; max |Δr| is in metrics (**M**)
+- **Staged ascent (A5)** — booster throttle schedule (Maximum dynamic pressure dip + main engine cutoff ramp), **hot-stage** (booster throttle-down → ship ignition → separation), then an **integrated ship circularize** on RK4 (no residual path blend / Δv cap). Not flight-ops tables
+- **Translunar coast → capture** — after a **hot super-Hohmann translunar injection** the craft coasts **ballistically** under restricted n-body gravity. Transfer search aims a **design perilune + south-pole B-plane** (not closest-approach-anywhere). LOI is a finite burn; if it does not bind, the pack is a **flyby** (no polar LLO teleport). Bound capture then coasts **low lunar orbit** (~¾ rev), **powered descent**, and a **sub-km surface floor** at the landing radial (no great-circle taxi). A low-opacity **Kepler 2-body corridor** (dashed amber + sparse whiskers, toggle **O**) shows how the n-body path diverges from the inject osculating ellipse; max |Δr| is in metrics (**M**)
 - Heliocentric theater (Sun ≈ origin): **JPL Horizons DE441** samples for Earth/Moon over July 2027 (`npm run horizons`); analytic circular Earth + Keplerian Moon as fallback
-- Mission: **Starbase pad** → staged ascent → low Earth orbit dogleg → finite translunar injection → **n-body coast** → **LOI** → **LLO** → **powered descent** → south-pole land
+- Mission: **Starbase pad** → staged ascent → **integrated** low Earth orbit dogleg (out-of-plane thrust on RK4, paid ship Δv) → finite translunar injection (no end-of-burn velocity snap) → **n-body coast** → **LOI** → **LLO** → **powered descent** → land
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through translunar injection; empty tanks cut engines
 - Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread). Pack **v2** also stores `minMoonAlt`, peak inertial speed, and stage-out time so the complete card never re-scans samples at load
 

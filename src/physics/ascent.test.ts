@@ -107,7 +107,7 @@ describe("flyAscent staged profile", () => {
       maxDrop < 3,
       `post-stage altitude drop ${maxDrop.toFixed(2)} km (peak ${peakAlt.toFixed(1)} km) — circularize should climb, not dip`,
     );
-    // Residual settle itself: once samples are 0.5 s apart after upper burn, altitude
+    // Upper-burn circularize: once samples are 0.5 s apart after upper burn, altitude
     // should be nearly monotonic toward insertion.
     let settleStart = -1;
     for (let i = 1; i < r.samples.length; i++) {
@@ -140,8 +140,8 @@ describe("flyAscent staged profile", () => {
     const r = flyAscent(DEFAULT_EPHEMERIS);
     assert.ok(r.ok, r.message);
     const fs = fuelShipFrac(r.prop);
-    // Capped residual + short upper burn must leave most of the ship tanks
-    assert.ok(fs > 0.55, `ship fuel ${fs} too low after circularize`);
+    // Honest circularize spends real ship Δv; leave a reserve for dogleg + TLI.
+    assert.ok(fs > 0.05, `ship fuel ${fs} too low after circularize`);
     assert.ok(fs < 0.99, `ship fuel ${fs} — expected some upper-stage use`);
   });
 

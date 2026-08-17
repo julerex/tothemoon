@@ -39,8 +39,6 @@ import {
   v3,
 } from "./vec3";
 
-const _radial = v3();
-const _tangent = v3();
 const _relP = v3();
 const _relV = v3();
 const _tmp = v3();
@@ -224,51 +222,6 @@ function progradeInPlane(relPos: V3, n: V3, out: V3): V3 {
   return normalize(out, out);
 }
 
-/**
- * @deprecated Prefer runFiniteTranslunarInjection — kept for reference / emergency snaps.
- * Impulsive lunar-transfer-style velocity set (may adjust position if poorly aligned).
- */
-function tliPeriDir(t0: number, epoch: EphemerisEpoch): void {
-  transferPlaneNormal(t0, _tangent, epoch);
-  moonArrivalDirection(t0, _tmp, epoch);
-  const nDot = dot(_tmp, _tangent);
-  _tmp.x -= _tangent.x * nDot; _tmp.y -= _tangent.y * nDot; _tmp.z -= _tangent.z * nDot;
-  normalize(_radial, _tmp);
-  set(_relP, -_radial.x, -_radial.y, -_radial.z);
-  cross(_tmp, _tangent, _relP);
-  normalize(_relV, _tmp);
-}
-
-function tliSnapAligned(state: CraftState, b0: ReturnType<typeof getBodies>, r: number, vPeri: number): void {
-  cross(_tmp, _tangent, _radial);
-  normalize(_relV, _tmp);
-  set(state.vel, b0.earthVel.x + _relV.x * vPeri, b0.earthVel.y + _relV.y * vPeri, b0.earthVel.z + _relV.z * vPeri);
-  set(state.pos, b0.earth.x + _radial.x * r, b0.earth.y + _radial.y * r, b0.earth.z + _radial.z * r);
-}
-
-function tliSnapPeri(state: CraftState, b0: ReturnType<typeof getBodies>, peri: V3, r: number, vPeri: number): void {
-  set(state.pos, b0.earth.x + peri.x * r, b0.earth.y + peri.y * r, b0.earth.z + peri.z * r);
-  set(state.vel, b0.earthVel.x + _relV.x * vPeri, b0.earthVel.y + _relV.y * vPeri, b0.earthVel.z + _relV.z * vPeri);
-}
-
-function tliAlignOk(b0: ReturnType<typeof getBodies>, periX: number, periY: number, periZ: number, state: CraftState): boolean {
-  sub(_relP, state.pos, b0.earth);
-  const rNow = len(_relP);
-  normalize(_radial, _relP);
-  return periX * _radial.x + periY * _radial.y + periZ * _radial.z > 0.8 && rNow > R_EARTH + 100;
-}
-
-export function applyTranslunarInjection(
-  state: CraftState, translunarInjectionDeltaV: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): void {
-  const b0 = getBodies(state.t, epoch);
-  tliPeriDir(state.t, epoch);
-  const periX = -_radial.x, periY = -_radial.y, periZ = -_radial.z;
-  const r = LOW_EARTH_ORBIT_RADIUS, vPeri = transferPeriapsisSpeed(r, translunarInjectionDeltaV);
-  if (tliAlignOk(b0, periX, periY, periZ, state)) tliSnapAligned(state, b0, r, vPeri);
-  else tliSnapPeri(state, b0, set(_tmp, periX, periY, periZ), r, vPeri);
-}
-
 export type FiniteTranslunarInjectionResult = {
   /** Delivered thrust Δv (km/s) */
   dvDelivered: number;
@@ -366,12 +319,6 @@ function tliBurnLoop(
   return delivered;
 }
 
-function tliSnapIdeal(state: CraftState, dv: number, epoch: EphemerisEpoch): void {
-  const b = getBodies(state.t, epoch), vIdeal = v3();
-  idealTliRelVel(state, dv, vIdeal, epoch);
-  set(state.vel, b.earthVel.x + vIdeal.x, b.earthVel.y + vIdeal.y, b.earthVel.z + vIdeal.z);
-}
-
 export function runFiniteTranslunarInjection(
   state: CraftState, translunarInjectionDeltaV: number,
   samples: Sample[] | null = null, lastT: { t: number } | null = null,
@@ -381,7 +328,6 @@ export function runFiniteTranslunarInjection(
   const tHardCap = tIgnition + TRANSLUNAR_INJECTION_BURN_MAX_S * 1.35;
   tliPush(samples, lastT, state, prop, aNom > 0, true, aNom, 0, true);
   const delivered = tliBurnLoop(state, tHardCap, aNom, translunarInjectionDeltaV, samples, lastT, prop, epoch);
-  tliSnapIdeal(state, translunarInjectionDeltaV, epoch);
   tliPush(samples, lastT, state, prop, false, true, 0, 0, true);
   return { dvDelivered: delivered, burnS: state.t - tIgnition, accel: aNom };
 }

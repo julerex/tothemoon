@@ -14,7 +14,6 @@ import {
   DESCENT_ALTITUDE,
   LOW_LUNAR_ORBIT_ALTITUDE_KM,
   LOW_LUNAR_ORBIT_COAST_REVS,
-  LUNAR_ORBIT_INSERTION_ACCEL,
   LUNAR_ORBIT_INSERTION_ALTITUDE_START_KM,
   R_MOON,
   TOUCHDOWN_SPEED,
@@ -22,10 +21,10 @@ import {
 import {
   finishLanding,
   lowLunarOrbitPeriodS,
+  lunarOrbitInsertionBound,
   lunarOrbitInsertionComplete,
   lunarOrbitInsertionThrust,
   poweredDescentThrust,
-  snapPolarLowLunarOrbit,
 } from "./capture";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
@@ -384,18 +383,19 @@ function runLoiBurn(ctx: CaptureCtx): MissionResult | null {
   return null;
 }
 
-function shouldSnapLoi(ctx: CaptureCtx): boolean {
-  if (lunarOrbitInsertionComplete(ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.epoch)) return false;
-  const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
-  return altM > 0 && altM < 80_000;
+/** After LOI: keep going only if the burn actually bound the craft. */
+function loiCaptureOk(ctx: CaptureCtx): boolean {
+  return (
+    lunarOrbitInsertionComplete(ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.epoch) ||
+    lunarOrbitInsertionBound(ctx.state.t, ctx.state.pos, ctx.state.vel, ctx.epoch)
+  );
 }
 
-/** Theater snap to polar circular low lunar orbit if still unbound/high. */
-function maybeSnapLoi(ctx: CaptureCtx): void {
-  if (!shouldSnapLoi(ctx)) return;
-  snapPolarLowLunarOrbit(ctx.state.t, ctx.state, ctx.samples, ctx.lastT, ctx.prop, ctx.epoch);
-  pushSample(ctx.samples, ctx.state, "approach", true, true, 0, ctx.lastT, ctx.prop, LUNAR_ORBIT_INSERTION_ACCEL * 0.5, "ship", false);
-  console.info(`[tothemoon] LOI snap · polar low lunar orbit @ ${LOW_LUNAR_ORBIT_ALTITUDE_KM} km`);
+function loiFlyby(ctx: CaptureCtx): MissionResult {
+  const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
+  const msg = `LOI incomplete · flyby at ${altM.toFixed(0)} km (no polar snap)`;
+  console.info(`[tothemoon] ${msg}`);
+  return packFromCtx(ctx, msg);
 }
 
 /** Low lunar orbit coast (phase braking). */
@@ -507,7 +507,7 @@ function landWithMeta(ctx: CaptureCtx): MissionResult {
 function captureAfterCoast(ctx: CaptureCtx): MissionResult {
   const loiImpact = runLoiBurn(ctx);
   if (loiImpact) return loiImpact;
-  maybeSnapLoi(ctx);
+  if (!loiCaptureOk(ctx)) return loiFlyby(ctx);
   runLowLunarOrbitCoast(ctx);
   runPoweredDescent(ctx);
   return landWithMeta(ctx);

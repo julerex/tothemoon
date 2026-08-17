@@ -26,7 +26,8 @@
  *   Indian Ocean without a longitude teleport.
  * - Entry: high-AoA belly drag (+ modest lift) and a light bank back onto
  *   the intercept plane — no powered cruise
- * - Landing burn brakes near the splash fix; no long-range divert / teleport
+ * - Landing burn brakes near the splash fix; splash is a sub-km floor at the
+ *   flown lat/lon (no published-fix seat, no clock-forced splash)
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
  *   (T+1:10) so the theater can hold a sea-level drone shot
  *
@@ -1047,17 +1048,10 @@ function placeAtGeodetic(loop: F13Loop, lat: number, lon: number, altKm: number)
   surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
 }
 
-function snapSplash(loop: F13Loop, _surf: V3, _L: number, rangeKm: number): void {
+function snapSplash(loop: F13Loop): void {
   const g = geodeticOf(loop);
-  // Seat onto the published fix only when already in the zone — a 200 km
-  // hop was the old "landing seat" and looks like a kink on the trail.
-  if (rangeKm < 12) {
-    loop.floatLat = FLIGHT13_SPLASH_LAT;
-    loop.floatLon = FLIGHT13_SPLASH_LON;
-  } else {
-    loop.floatLat = g.lat;
-    loop.floatLon = g.lon;
-  }
+  loop.floatLat = g.lat;
+  loop.floatLon = g.lon;
   placeAtGeodetic(loop, loop.floatLat, loop.floatLon, 0);
 }
 
@@ -1067,23 +1061,16 @@ function placeFloating(loop: F13Loop): void {
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
-  return (
-    loop.mode === "land" &&
-    geo.curAlt < 2.5 &&
-    geo.vRel < 0.35 &&
-    geo.rangeKm < 180 &&
-    loop.state.t >= F13.ENTRY
-  );
+  if (loop.state.t < F13.ENTRY) return false;
+  return geo.curAlt < 2.5 && geo.vRel < 0.45;
 }
 
 function trySplashdown(loop: F13Loop): boolean {
   if (loop.splashed) return false;
   const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
   const geo = splashRangeKm(loop, surf);
-  const clockSplash =
-    loop.state.t >= F13.SPLASH - 0.1 && geo.curAlt < 8 && geo.vRel < 0.8;
-  if (!(naturalSplashDone(loop, geo) || clockSplash)) return false;
-  snapSplash(loop, surf, geo.L, geo.rangeKm);
+  if (!naturalSplashDone(loop, geo)) return false;
+  snapSplash(loop);
   loop.splashed = true;
   loop.splashT = loop.state.t;
   loop.mode = "idle";

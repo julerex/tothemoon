@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { bodyPositions } from "./bodies.ts";
 import {
   lowLunarOrbitPeriodS,
+  lunarOrbitInsertionBound,
   lunarOrbitInsertionComplete,
   lunarOrbitInsertionThrust,
   southPoleAlign,
@@ -101,6 +102,25 @@ describe("capture helpers", () => {
     // at least exercise the near-circ path without throwing.
     const ok = lunarOrbitInsertionComplete(t, pos, vel);
     assert.equal(typeof ok, "boolean");
+  });
+
+  it("lunarOrbitInsertionBound is false on a hyperbolic lunar flyby", () => {
+    const t = 0;
+    const b = bodyPositions(t);
+    const r = R_MOON + 400;
+    const pos = v3(b.moon.x + r, b.moon.y, b.moon.z);
+    const vel = v3(b.moonVel.x, b.moonVel.y + 4, b.moonVel.z);
+    assert.equal(lunarOrbitInsertionBound(t, pos, vel), false);
+  });
+
+  it("lunarOrbitInsertionBound accepts a slow circular-ish LLO sample", () => {
+    const t = 0;
+    const b = bodyPositions(t);
+    const r = R_MOON + LOW_LUNAR_ORBIT_ALTITUDE_KM;
+    const pos = v3(b.moon.x + r, b.moon.y, b.moon.z);
+    const vCirc = Math.sqrt(MU_MOON / r);
+    const vel = v3(b.moonVel.x, b.moonVel.y + vCirc, b.moonVel.z);
+    assert.equal(lunarOrbitInsertionBound(t, pos, vel), true);
   });
 
   it("lunarOrbitInsertionThrust is null above the LOI start altitude", () => {

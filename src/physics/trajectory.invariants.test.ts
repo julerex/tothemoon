@@ -4,7 +4,6 @@ import packed from "../data/trajectory.json" with { type: "json" };
 import {
   assertTrajectoryInvariants,
   checkTrajectoryInvariants,
-  EXPECTED_PHASE_ORDER,
   unpackPackedForInvariants,
 } from "./trajectoryInvariants.ts";
 import { buildTimeline } from "../mission/timeline.ts";
@@ -28,29 +27,27 @@ describe("baked trajectory.json invariants", () => {
     assert.doesNotThrow(() => assertTrajectoryInvariants(traj));
   });
 
-  it("contains capture phases in order through soft land", () => {
+  it("contains ballistic phases in order through coast", () => {
     const seq: string[] = [];
     for (const s of traj.samples) {
       if (seq[seq.length - 1] !== s.phase) seq.push(s.phase);
     }
-    assert.deepEqual(seq, [...EXPECTED_PHASE_ORDER]);
-    assert.equal(seq[seq.length - 1], "landed");
+    assert.deepEqual(seq, ["launch", "ascent", "lowEarthOrbit", "translunarInjection", "coast"]);
+    assert.equal(seq[seq.length - 1], "coast");
   });
 
   it("builds a timeline with markers and events", () => {
     const samples = traj.samples as Sample[];
     const tl = buildTimeline(samples, traj.durationS);
-    assert.ok(tl.segments.length >= EXPECTED_PHASE_ORDER.length - 1);
+    assert.ok(tl.segments.length >= 4);
     assert.ok(tl.events.some((e) => e.id === "liftoff"));
     assert.ok(
       tl.events.some(
         (e) =>
-          e.id === "lunarOrbitInsertion" ||
           e.id === "coast" ||
           e.id === "translunarInjection",
       ),
     );
-    assert.ok(tl.events.some((e) => e.id === "touchdown"));
     // Coast still dominates wall-clock progress on the scrubber
     const coast = tl.segments.find((s) => s.phase === "coast");
     assert.ok(coast);

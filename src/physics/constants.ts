@@ -221,23 +221,15 @@ export const BOOSTER_PROP_KG = 9_000_000;
 export const SHIP_DRY_KG = 120_000;
 /**
  * Headroom for A5 upper-stage burn + paid dogleg + finite translunar injection.
- * Full pure-RE suborbital → low Earth orbit on the ship alone would empty tanks; circularize
- * uses a short integrated burn + capped RE residual (see ascent.ts).
  */
 export const SHIP_PROP_KG = 5_000_000;
 
 /**
- * Max integrated upper-stage burn after hot-stage (s) before residual settle.
- * Short on purpose: leave ship prop for dogleg + translunar injection.
+ * Max integrated upper-stage burn after hot-stage (s).
+ * Long enough for a mass-coupled circularize; leftover ship prop still funds
+ * dogleg + translunar injection.
  */
-export const UPPER_BURN_MAX_S = 18;
-
-/**
- * Cap on residual circularization Δv (km/s) booked via rocket equation after
- * the integrated upper burn. Theater: path is smoothed to circular low Earth orbit; prop
- * cost is real but not the full multi-km/s gravity-loss insert.
- */
-export const CIRC_DV_CAP_KM_S = 0.85;
+export const UPPER_BURN_MAX_S = 180;
 
 /** Specific impulse (s) — rocket-equation mass flow */
 export const SPECIFIC_IMPULSE_BOOSTER = 330;
@@ -268,13 +260,6 @@ export const SHIP_THRUST_N = SHIP_WET_KG * 0.012 * 1000;
  * loft falls back. Theater-only; not a Raptor count.
  */
 export const SHIP_ASCENT_THRUST_N = SHIP_WET_KG * 0.045 * 1000;
-
-/**
- * @deprecated A4 uses pure rocket equation (scale ≡ 1). Kept for any external refs.
- */
-export const BOOSTER_MDOT_SCALE = 1;
-/** @deprecated A4 uses pure rocket equation (scale ≡ 1). */
-export const SHIP_MDOT_SCALE = 1;
 
 /** Capture / approach guidance start distance from Moon center (km) */
 export const APPROACH_RANGE = 40_000;

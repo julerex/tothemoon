@@ -28,7 +28,7 @@ import { pushSample } from "./missionSample";
 import type { MissionResult, Sample } from "./missionTypes";
 import type { PropState } from "./propellant";
 import { orbitAfterTranslunarInjection, runFiniteTranslunarInjection, transferTimeEst } from "./translunarInjection";
-import { len, normalize, set, sub, v3, type V3 } from "./vec3";
+import { clone, len, normalize, set, sub, v3, type V3 } from "./vec3";
 
 const _relP = v3();
 const _relV = v3();
@@ -38,6 +38,10 @@ export type ProbeResult = {
   minAlt: number;
   periluneT: number;
   rEarth: number;
+  /** Moon-relative position at closest approach (km). */
+  periRel: V3;
+  /** Moon-relative velocity at closest approach (km/s). */
+  periVel: V3;
 };
 
 /** Probe step size by Moon distance. */
@@ -68,19 +72,26 @@ type ProbeTrack = {
   minAlt: number;
   periluneT: number;
   rEarthAtMin: number;
+  periRel: V3;
+  periVel: V3;
 };
 
-/** Update probe closest-approach track. */
+/** Update probe closest-approach track, including Moon-relative peri state. */
 function noteProbeAlt(
   altM: number,
   stateT: number,
   rE: number,
+  state: CraftState,
+  epoch: EphemerisEpoch,
   track: ProbeTrack,
 ): void {
   if (altM >= track.minAlt) return;
   track.minAlt = altM;
   track.periluneT = stateT;
   track.rEarthAtMin = rE;
+  const b = getBodies(stateT, epoch);
+  sub(track.periRel, state.pos, b.moon);
+  sub(track.periVel, state.vel, b.moonVel);
 }
 
 function earthHitProbe(coastT: number, T: number, epoch: EphemerisEpoch, state: CraftState): boolean {
@@ -99,9 +110,17 @@ function probeStepResult(
   const altM = altitudeMoon(state.t, state.pos, epoch);
   sub(_relP, state.pos, getBodies(state.t, epoch).earth);
   const rE = len(_relP);
-  noteProbeAlt(altM, state.t, rE, track);
+  noteProbeAlt(altM, state.t, rE, state, epoch, track);
   if (earthHitProbe(coastT, T, epoch, state)) return emptyProbe();
-  if (altM < 0) return { minAlt: Math.min(track.minAlt, 0), periluneT: state.t - tTli, rEarth: rE };
+  if (altM < 0) {
+    return {
+      minAlt: Math.min(track.minAlt, 0),
+      periluneT: state.t - tTli,
+      rEarth: rE,
+      periRel: clone(track.periRel),
+      periVel: clone(track.periVel),
+    };
+  }
   return probePastPerilune(coastT, T, state.t, track.periluneT, altM, track.minAlt) ? "break" : "continue";
 }
 
@@ -110,11 +129,17 @@ function probeStepResult(
  * Matches {@link runBallisticCoast} so search scores the path the bake will fly.
  */
 function emptyProbe(): ProbeResult {
-  return { minAlt: Infinity, periluneT: 0, rEarth: Infinity };
+  return { minAlt: Infinity, periluneT: 0, rEarth: Infinity, periRel: v3(0, 0, 1), periVel: v3(1, 0, 0) };
 }
 
 function probeFinal(track: ProbeTrack, tTli: number): ProbeResult {
-  return { minAlt: track.minAlt, periluneT: track.periluneT - tTli, rEarth: track.rEarthAtMin };
+  return {
+    minAlt: track.minAlt,
+    periluneT: track.periluneT - tTli,
+    rEarth: track.rEarthAtMin,
+    periRel: clone(track.periRel),
+    periVel: clone(track.periVel),
+  };
 }
 
 function runProbeLoop(
@@ -140,7 +165,10 @@ export function probePerilune(
   const state = restoreLowEarthOrbitRelative(lowEarthOrbitRelativeTemplate, epoch);
   runFiniteTranslunarInjection(state, translunarInjectionDeltaV, null, null, null, epoch);
   const tTli = state.t;
-  const track: ProbeTrack = { minAlt: Infinity, periluneT: tTli, rEarthAtMin: Infinity };
+  const track: ProbeTrack = {
+    minAlt: Infinity, periluneT: tTli, rEarthAtMin: Infinity,
+    periRel: v3(0, 0, 1), periVel: v3(1, 0, 0),
+  };
   return runProbeLoop(state, epoch, tTli, transferTimeEst(), track);
 }
 

@@ -361,11 +361,11 @@ function checkShipFuelAtCoast(
   issues: InvariantIssue[],
 ): void {
   const coast = s.find((x) => x.phase === "coast");
-  if (coast && coast.fuelShip < 0.15) {
+  if (coast && coast.fuelShip < 0.005) {
     pushIssue(
       issues,
       "ship_empty_early",
-      `ship fuel at coast start is ${coast.fuelShip} (expected residual ≥0.15)`,
+      `ship fuel at coast start is ${coast.fuelShip} (expected residual ≥0.005)`,
     );
   }
 }

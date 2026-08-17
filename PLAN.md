@@ -32,13 +32,13 @@ code comments. HUD may label theater values explicitly when helpful.
 |-------|----------|------------------|
 | **Gravity** | Restricted n-body (Earth + Moon + solar tide) + Earth J₂ + exponential drag, RK4 | No lunar harmonics; analytic fallback still Kepler Moon; Sun is a tide, not a free body |
 | **Ephemeris** | **JPL Horizons DE441** table for the July 2027 lunar window; analytic circular Earth + Kepler Moon fallback | Analytic Ω, ω still fixed; Flight 13 uses analytic Earth/Sun (table is lunar-window only) |
-| **Ascent** | Staged A5: throttle, max-Q dip, hot-stage, residual circularize (capped RE Δv) | Not ops throttle tables; circularize still theater-capped, not a full pure-RE insert |
-| **Low Earth orbit** | Paid dogleg Δv into the transfer plane | Geometry is still a kinematic slerp; cost booked impulsive, not an integrated out-of-plane burn |
-| **Translunar injection** | Finite prograde burn (~2–4 min, mass-coupled) | Gravity losses are theater; targeting is still a Δv / phase ladder |
-| **Coast** | Ballistic restricted n-body after TLI (live bake); Kepler corridor is overlay only | Search scores min Moon altitude, not a B-plane; discrete TCM helpers exist but are unused on the live path |
-| **Lunar orbit insertion / land** | Discrete LOI → ~¾ rev LLO → PDI → south pole | Polar LLO **snap** if still unbound; PDI is PD-to-site, not a gated descent profile |
+| **Ascent** | Staged A5: throttle, max-Q dip, hot-stage, integrated circularize | Not ops throttle tables; gravity losses on the ship insert are real |
+| **Low Earth orbit** | Integrated dogleg into the transfer plane | Guidance is PD-to-circular-in-plane, not ops-optimal |
+| **Translunar injection** | Finite prograde burn (~2–4 min, mass-coupled) | Gravity losses are theater; Δv search is 1-D golden-section after the grid |
+| **Coast** | Ballistic restricted n-body after TLI (live bake); Kepler corridor is overlay only | Search scores design perilune + south-pole B-plane; discrete TCM helpers exist but are unused on the live path |
+| **Lunar orbit insertion / land** | Discrete LOI → ~¾ rev LLO → PDI → surface floor | PDI is PD-to-site, not a gated descent profile; miss lands here (no taxi) |
 | **Propellant** | Mass-coupled a = F/m(t), pure rocket-equation ṁ | Theater loads / Isp; empty tanks cut engines |
-| **Flight 13** | RK4 n-body or Earth-only; belly-flop aero; corridor steering | Booster recovery is **kinematic**; splash **snap**; relight theater-lengthened vs public ~12 s |
+| **Flight 13** | RK4 n-body or Earth-only; belly-flop aero; corridor steering | Booster recovery is **kinematic**; splash is a sub-km surface floor (no published-fix seat) |
 
 Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,propellant,constants,lunarCapture,flight13Mission,boosterRecovery}.ts`,
 `scripts/precompute-trajectory.ts`, `src/physics/trajectoryInvariants.ts`.
@@ -58,19 +58,17 @@ Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,pr
 
 ## Next steps (locked 2026-08-13)
 
-Phase A–C1, D1, the Horizons July 2027 table, pack v2 meta, and Flight 13
-Earth-only force check are **shipped**. Remaining work is targeting, leftover
-snaps, Earth figure, Flight 13 dynamics honesty, then numerics.
+Phase A–C1, D1, B2 targeting, H1 snaps, the Horizons July 2027 table, pack v2
+meta, and Flight 13 Earth-only force check are **shipped**. Remaining work is
+Earth figure, Flight 13 recovery/aero, then numerics.
 
 **Locked order for the next slices:**
 
-1. **B2 — B-plane / perilune targeting** — design perilune altitude (optional i / node); converge TLI Δv and epoch instead of a min-alt + Δv ladder  
-2. **H1 — Remaining snaps and kinematic burns** — finite LOI circularize (no polar LLO teleport); dogleg as integrated out-of-plane thrust; Flight 13 splash without a late position snap  
-3. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)  
-4. **F1 — Flight 13 booster recovery on the force model** — gulf landing currently kinematic in `boosterRecovery.ts`  
-5. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack  
-6. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch  
-7. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor; relight closer to the public ~12 s if targeting still closes  
+1. **F1 — Flight 13 booster recovery on the force model** — gulf landing currently kinematic in `boosterRecovery.ts`  
+2. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)  
+3. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack  
+4. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch  
+5. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor  
 
 Then reassess. Full free-body n-body, engine-out tables, and ops-grade DE430
 + RCS stay deferred (see below).
@@ -185,12 +183,15 @@ C1 J₂/drag → B1 LOI/LLO/PDI → A5 staged ascent → Horizons DE441 lunar ta
 
 Timeline: Lunar orbit insertion burn → Low lunar orbit coast → powered descent initiation callouts; auto-speed tuned per segment.
 
-### B2. B-plane / perilune targeting — **next**
+### B2. B-plane / perilune targeting — **done 2026-08-17**
 
-**Today:** `missionSearch` / `probePerilune` score min Moon altitude + a TLI Δv /
-Moon-phase ladder, with a theater time-of-arrival window (~2–5 d) and a
-daytime-liftoff penalty. Live bake is ballistic after TLI (`lunarCapture`);
-discrete TCM helpers in `coast.ts` are unused on that path.
+**Shipped:** `bplane.ts` scores design perilune altitude (400 km) + south-pole
+B-plane (`bT` / `southAlign`). `probePerilune` returns Moon-relative peri
+state. Search still grids epoch/phase, then golden-section polishes TLI Δv.
+Live bake stays ballistic after TLI; TCM helpers unused.
+
+**Was:** `missionSearch` / `probePerilune` scored min Moon altitude vs an
+8_000 km flyby + a TLI Δv / Moon-phase ladder.
 
 **Target:**
 - Design targets: perilune altitude (and optional inclination / node), not
@@ -262,16 +263,19 @@ mean Earth.
 
 ## Leftover honesty (H) — snaps still in the bake
 
-Theater guidance that still teleports or books Δv without integrating it.
-Do **H1** before inventing new force-model terms.
+Position teleports and impulsive Δv books on the live path are **removed**
+(2026-08-17). Super Heavy recovery remains kinematic (F1).
 
-### H1. Remaining snaps and kinematic burns — **next (after B2)**
+### H1. Remaining snaps and kinematic burns — **done 2026-08-17**
 
-| Where | Today | Target |
-|-------|--------|--------|
-| **LOI** | Finite burn, then `snapPolarLowLunarOrbit` if still unbound/high (`lunarCapture`) | Finish circularize with mass-coupled thrust; bridge samples only if a tiny residual remains |
-| **LEO dogleg** | Path slerps the plane; each step books \(2 v \sin(\mathrm{d}i/2)\) via impulsive `applyImpulsiveShipDv` | Integrated out-of-plane thrust on the RK4 path (same paid Δv class; geometry may stay theater-smooth) |
-| **Flight 13 splash** | `snapSplash` in the last ~1 s (or at the public splash mark) | Natural surface intercept from the landing burn; snap only as a sub-km floor |
+| Where | Shipped |
+|-------|---------|
+| **LOI** | Finite burn only; unbound leftover is a flyby (no polar LLO teleport) |
+| **LEO dogleg** | RK4 + mass-coupled out-of-plane / circularize thrust |
+| **Flight 13 splash** | Natural intercept after entry; sub-km floor at the flown lat/lon (no published-fix seat) |
+| **Ascent circularize** | Integrated upper burn (no r/v blend, no `CIRC_DV_CAP`) |
+| **Landing** | Sub-km radial floor; no great-circle taxi |
+| **TLI** | Finite burn only (deleted impulsive `applyTranslunarInjection` / end-of-burn `tliSnapIdeal`) |
 
 `coast.ts` discrete TCM machinery can stay; the live lunar path is ballistic
 and should stay ballistic unless B2 reintroduces a small evented correction.
@@ -483,11 +487,13 @@ See “Definition of done (per slice)” above — precompute + tests + README +
 | 2026-08-13 | **Reassess:** next slices B2 → H1 snaps → C3 WGS84 → F1 F13 recovery → B3 integrator → C2 leftover → F2 entry aero |
 | 2026-08-13 | **Horizons DE441** July 2027 table is the lunar ephemeris; analytic Ω/ω rates and Flight 13 Horizons remain leftover |
 | 2026-08-13 | **Live lunar coast** stays ballistic (A2 TCM helpers unused unless B2 reintroduces a small evented burn) |
+| 2026-08-17 | **B2 + H1:** design perilune / B-plane search; delete polar LLO snap, LEO slerp, circularize blend, landing taxi, F13 splash seat, impulsive TLI |
 
 ## Changelog
 
 | Date | Note |
 |------|------|
+| 2026-08-17 | B2 targeting + H1 honesty: no live-path teleports; F1 gulf recovery still kinematic |
 | 2026-08-13 | Next-steps reassess: B-plane targeting, leftover snaps, WGS84, Flight 13 recovery/aero; baseline table brought current |
 | 2026-07-31 | A5 staged ascent shipped; golden stage/duration bands retuned |
 | 2026-07-23 | Initial plan: baseline gaps, A–D phases, sequence 1–7, deferred work |
