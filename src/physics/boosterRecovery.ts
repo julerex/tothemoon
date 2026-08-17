@@ -1,21 +1,36 @@
 /**
  * Theater Super Heavy recovery after stage-out.
  *
- * Kinematic (not N-body authoritative): flip → boostback burn → coast/entry →
- * landing burn → soft land. Two profiles:
+ * Force-model path: flip → boostback → coast/entry → landing burn → soft land.
+ * Integrated with the shared RK4 Earth μ + J₂ + drag model (same acceleration
+ * as the ship, Earth-only gravity — third-body terms are negligible on a
+ * ~5 min suborbital arc). Boostback and landing-burn Δv are mass-coupled on
+ * leftover booster propellant.
+ *
+ * Two profiles:
  * - **chopsticks** — return to launch site / tower catch at Starbase
  * - **gulf** — Flight 13 offshore soft landing in the Gulf of America
  *
- * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence
- * (~4–5 min from stage-out to landing burn).
+ * The last few km of descent are blended onto the chopsticks / gulf seat so
+ * the booster visually seats even when the ballistic miss is a few km.
  *
- * All path math is **Earth-relative** (heliocentric body motion is added back
- * at sample time) so multi-minute coasts stay near the planet.
+ * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence.
+ * Landing burn lights at the public mark (~T+6:27 Flight 13, ~T+6:30 Flight 5)
+ * from ~5 km AGL (Flight 13 webcast “Landing startup”).
  *
- * Scene unit = km. Pure + scrub-deterministic from (stage event, age).
+ * Samples are Earth-relative (heliocentric body motion is added back at
+ * sample time). Scene unit = km. Pure + scrub-deterministic from (stage, age).
  */
 
-import { EARTH_SURFACE_RADIUS_KM, MU_EARTH, R_EARTH } from "./constants";
+import {
+  BOOSTER_DRY_KG,
+  BOOSTER_THRUST_N,
+  EARTH_SURFACE_RADIUS_KM,
+  G0,
+  MU_EARTH,
+  R_EARTH,
+  SPECIFIC_IMPULSE_BOOSTER,
+} from "./constants";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
@@ -25,8 +40,16 @@ import {
   starbasePadState,
 } from "./earthFrame";
 import {
+  altitudeEarth,
+  getBodies,
+  rk4Step,
+  type CraftState,
+} from "./integrator";
+import {
   add,
+  clone,
   copy,
+  dot,
   len,
   madd,
   normalize,
@@ -106,7 +129,8 @@ export const GULF_SCHEDULE: RecoverySchedule = {
   holdS: 45,
   fadeS: 22,
   landAltKm: 0.03,
-  gateAltKm: 2.6,
+  /** Flight 13 webcast: ~5 km AGL at “Landing startup” (T+6:27). */
+  gateAltKm: 5.0,
   coastLoftKm: 14,
   landLat: GULF_LAND_LAT,
   landLon: GULF_LAND_LON,
@@ -123,7 +147,8 @@ export const CHOPSTICKS_SCHEDULE: RecoverySchedule = {
   holdS: CATCH_HOLD_S,
   fadeS: CATCH_FADE_S,
   landAltKm: CATCH_ALT_KM,
-  gateAltKm: 2.8,
+  /** Same ~5 km landing-burn gate as gulf / Flight 5–7 catch cadence. */
+  gateAltKm: 5.0,
   coastLoftKm: 12,
   // Filled from Starbase pad each sample (lat/lon unused when chopsticks)
   landLat: 0,
@@ -164,6 +189,27 @@ export const BOOSTBACK_FLASH_S = 2.8;
  */
 export const LANDING_CONTACT_FLASH_S = 2.2;
 
+/**
+ * Last few km of descent are blended onto the chopsticks / gulf seat.
+ * Force-model miss inside this bubble is faked so the booster seats visually.
+ */
+export const RECOVERY_SEAT_BLEND_KM = 4;
+
+/** Theater leftover booster prop after stage-out (kg) — funds boostback + landing. */
+const RECOVERY_PROP_KG = 1_600_000;
+
+/** Detached-booster ballistic factor (km²/kg) — lighter than the ascent stack. */
+const BOOSTER_CD_A_OVER_M = 4e-11;
+
+/** Grid-fin theater lateral accel during coast (km/s²). */
+const GRIDFIN_A = 0.003;
+
+/** RK4 step (s) while the booster is in free flight. */
+const RECOVERY_DT = 0.25;
+
+/** Late-window seat blend so chopsticks still close even on a large miss. */
+const SEAT_LATE_S = 8;
+
 export type BoosterRecoveryPhase =
   | "sep"
   | "flip"
@@ -198,13 +244,23 @@ export type BoosterRecoverySample = {
   fade: number;
 };
 
-/** Earth-relative keyframe (offsets from Earth center / Earth velocity). */
-type RelKeyframe = {
+/** Earth-relative sample from the force-model bake. */
+export type BoosterRecoveryKeyframe = {
   age: number;
   /** Position relative to Earth center (km). */
   p: V3;
   /** Velocity relative to Earth center velocity (km/s). */
   v: V3;
+};
+
+type RelKeyframe = BoosterRecoveryKeyframe;
+
+/** Packed recovery bake: force-model samples + leftover-prop bookkeeping. */
+export type BoosterRecoveryBake = {
+  keyframes: BoosterRecoveryKeyframe[];
+  startPropKg: number;
+  leftoverPropKg: number;
+  burnedPropKg: number;
 };
 
 const _tmp = v3();
@@ -216,6 +272,13 @@ const _pos = v3();
 const _vel = v3();
 const _pRel = v3();
 const _vRel = v3();
+const _thrustA = v3();
+const _aim = v3();
+const _up = v3();
+const _siteP = v3();
+const _siteV = v3();
+const _statePos = v3();
+const _stateVel = v3();
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x));
@@ -224,27 +287,6 @@ function clamp01(x: number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0 || 1));
   return t * t * (3 - 2 * t);
-}
-
-/** Earth-relative gravity g = −μ r̂ / r². */
-function gravityRel(pRel: V3, out: V3): V3 {
-  const r = len(pRel) || 1;
-  const g = MU_EARTH / (r * r);
-  return scale(out, pRel, -g / r);
-}
-
-/** p' = p + v Δt + ½ a Δt², v' = v + a Δt. */
-function ballisticStep(
-  p: V3,
-  v: V3,
-  a: V3,
-  dt: number,
-  outP: V3,
-  outV: V3,
-): void {
-  madd(outP, p, v, dt);
-  madd(outP, outP, a, 0.5 * dt * dt);
-  madd(outV, v, a, dt);
 }
 
 type HermiteWeights = { h00: number; h10: number; h01: number; h11: number };
@@ -319,16 +361,6 @@ function landRelAt(
   return siteRelAt(t, sched.landLat, sched.landLon, sched.landAltKm, sched.profile === "chopsticks", out, epoch);
 }
 
-/** Landing-gate point (high above land site) relative to Earth. */
-function gateRelAt(
-  t: number,
-  sched: RecoverySchedule,
-  out: V3 = v3(),
-  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
-): V3 {
-  return siteRelAt(t, sched.landLat, sched.landLon, sched.gateAltKm, sched.profile === "chopsticks", out, epoch);
-}
-
 /** Surface co-rotating velocity at the land site (Earth-relative). */
 function landSiteVelRel(
   t: number,
@@ -336,19 +368,10 @@ function landSiteVelRel(
   out: V3,
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  if (sched.profile === "chopsticks") {
-    const pad = starbasePadState(t, epoch);
-    const b = bodyPositions(t, epoch);
-    return sub(out, pad.vel, b.earthVel);
-  }
-  // Approximate ocean site as co-rotating with Earth: use pad spin rate scaled
-  // via mesh-local position difference from Earth center after spin.
-  const pad = starbasePadState(t, epoch);
-  const b = bodyPositions(t, epoch);
-  // Use pad's Earth-relative surface velocity magnitude pattern: ω×r ≈ pad.vel−earthVel
-  // scaled by land site radius ratio (same order).
-  sub(out, pad.vel, b.earthVel);
-  return out;
+  siteRelAt(t, sched.landLat, sched.landLon, sched.landAltKm, sched.profile === "chopsticks", _tmp2, epoch);
+  siteRelAt(t + 0.25, sched.landLat, sched.landLon, sched.landAltKm, sched.profile === "chopsticks", _tmp3, epoch);
+  sub(out, _tmp3, _tmp2);
+  return scale(out, out, 4);
 }
 
 /**
@@ -374,30 +397,7 @@ export function applySepKicksRel(
   madd(outVRel, outVRel, outPRel, SEP_RADIAL / r0);
 }
 
-/**
- * Build Earth-relative Hermite keyframes for the recovery arc.
- * Targets the moving land site so Earth rotation is honored.
- */
-/** Clamp velocity magnitude in place. */
-function clampVelMag(v: V3, maxMag: number): void {
-  const mag = len(v);
-  if (mag > maxMag) scale(v, v, maxMag / mag);
-}
-
-/** Coast velocity from p0 → p1 under constant gravity accel. */
-function coastVelBetween(
-  p0: V3,
-  p1: V3,
-  dt: number,
-  out: V3,
-): void {
-  gravityRel(p0, _acc);
-  sub(out, p1, p0);
-  madd(out, out, _acc, -0.5 * dt * dt);
-  scale(out, out, 1 / Math.max(dt, 1e-6));
-}
-
-/** Blend unit directions with weight `blend` into `_tmp`. */
+/** Blend unit directions with weight `blend` into `out`. */
 function blendUnits(a: V3, b: V3, blend: number, out: V3): void {
   set(
     out,
@@ -408,105 +408,292 @@ function blendUnits(a: V3, b: V3, blend: number, out: V3): void {
   normalize(out, out);
 }
 
-/** Blend ballistic direction toward gate for post-boostback aim. */
-function blendTowardGate(pBall: V3, pGate: V3, blend: number, out: V3): void {
-  const rBall = len(pBall) || 1;
-  normalize(_tmp2, pBall);
-  normalize(_tmp3, pGate);
-  blendUnits(_tmp2, _tmp3, blend, _tmp);
-  scale(out, _tmp, rBall);
+function boosterWetKg(propKg: number): number {
+  return BOOSTER_DRY_KG + Math.max(0, propKg);
 }
 
-/** Mid-coast lofted keyframe between boostback end and landing gate. */
-function midCoastKeyframe(
-  pBB1: V3, vBB1: V3, pGate: V3, sched: RecoverySchedule,
-): { ageMid: number; pMid: V3; vMid: V3 } {
-  const coastDt = sched.landingStartS - sched.boostbackEndS; const ageMid = sched.boostbackEndS + coastDt * 0.4;
-  const pMid = v3(); const vMid = v3();
-  gravityRel(pBB1, _acc);
-  ballisticStep(pBB1, vBB1, _acc, ageMid - sched.boostbackEndS, pMid, vMid);
-  scale(pMid, normalize(_tmp, pMid), (len(pMid) || 1) + sched.coastLoftKm);
-  coastVelBetween(pMid, pGate, sched.landingStartS - ageMid, vMid);
-  clampVelMag(vMid, 2.2);
-  return { ageMid, pMid, vMid };
+function limitBoosterAccel(propKg: number, aCmd: number): { a: number; forceN: number } {
+  const m = boosterWetKg(propKg);
+  if (m < 1 || aCmd <= 0) return { a: 0, forceN: 0 };
+  const forceN = Math.min(aCmd * m * 1000, BOOSTER_THRUST_N);
+  return { a: forceN / m / 1000, forceN };
 }
 
-function softGateHoriz(out: V3, radial: V3): void {
-  const vRad = out.x * radial.x + out.y * radial.y + out.z * radial.z;
-  set(_tmp2, out.x - radial.x * vRad, out.y - radial.y * vRad, out.z - radial.z * vRad);
-  set(out, radial.x * vRad + _tmp2.x * 0.4, radial.y * vRad + _tmp2.y * 0.4, radial.z * vRad + _tmp2.z * 0.4);
+function drainBoosterProp(propKg: number, forceN: number, dt: number): number {
+  if (forceN < 1e-3 || dt <= 0) return propKg;
+  const dm = (forceN / (SPECIFIC_IMPULSE_BOOSTER * G0)) * dt;
+  return Math.max(0, propKg - dm);
 }
 
-/** Gate velocity into soft land (mostly radial, capped). */
-function gateVelToCatch(pGate: V3, pCatch: V3, landDt: number, out: V3): void {
-  normalize(_tmp, pGate);
-  gravityRel(pGate, _acc);
-  sub(out, pCatch, pGate);
-  madd(out, out, _acc, -0.5 * landDt * landDt);
-  scale(out, out, 1 / Math.max(landDt, 1e-6));
-  softGateHoriz(out, _tmp);
-  clampVelMag(out, 0.2);
+function siteInertialAt(
+  t: number, sched: RecoverySchedule, altKm: number, out: V3, epoch: EphemerisEpoch,
+): V3 {
+  siteRelAt(t, sched.landLat, sched.landLon, altKm, sched.profile === "chopsticks", _tmp, epoch);
+  const b = getBodies(t, epoch);
+  return add(out, b.earth, _tmp);
+}
+
+function landInertialAt(t: number, sched: RecoverySchedule, out: V3, epoch: EphemerisEpoch): V3 {
+  return siteInertialAt(t, sched, sched.landAltKm, out, epoch);
+}
+
+function gateInertialAt(t: number, sched: RecoverySchedule, out: V3, epoch: EphemerisEpoch): V3 {
+  return siteInertialAt(t, sched, sched.gateAltKm, out, epoch);
+}
+
+function landVelInertialAt(t: number, sched: RecoverySchedule, out: V3, epoch: EphemerisEpoch): V3 {
+  const b = getBodies(t, epoch);
+  landSiteVelRel(t, sched, _tmp, epoch);
+  return add(out, b.earthVel, _tmp);
+}
+
+function fillUpAt(pos: V3, t: number, epoch: EphemerisEpoch): number {
+  const b = getBodies(t, epoch);
+  sub(_pRel, pos, b.earth);
+  const r = len(_pRel) || 1;
+  set(_up, _pRel.x / r, _pRel.y / r, _pRel.z / r);
+  return r - R_EARTH;
+}
+
+/** v so that pos + v·dt + ½ g dt² ≈ target (constant-g estimate). */
+function requiredVel(pos: V3, target: V3, dt: number, g: V3, out: V3): V3 {
+  sub(out, target, pos);
+  scale(out, out, 1 / Math.max(dt, 1e-3));
+  madd(out, out, g, -0.5 * dt);
+  return out;
+}
+
+function pointMassG(pos: V3, t: number, epoch: EphemerisEpoch, out: V3): V3 {
+  const b = getBodies(t, epoch);
+  sub(out, pos, b.earth);
+  const r = len(out) || 1;
+  return scale(out, out, -MU_EARTH / (r * r * r));
+}
+
+function writeThrustAlong(dir: V3, aMag: number): number {
+  if (aMag < 1e-9 || len(dir) < 1e-12) {
+    set(_thrustA, 0, 0, 0);
+    return 0;
+  }
+  normalize(_aim, dir);
+  scale(_thrustA, _aim, aMag);
+  return aMag;
 }
 
 /**
- * Build Earth-relative Hermite keyframes for the recovery arc.
- * Targets the moving land site so Earth rotation is honored.
+ * Boostback: close the velocity-to-be-gained to the landing gate at
+ * `landingStartS` so the coast arrives near ~5 km AGL at the public mark.
  */
-function boostbackKeyframes(
-  p0: V3, v0: V3, pGate: V3, sched: RecoverySchedule,
-): { pBB0: V3; vBB0: V3; pBB1: V3; vBB1: V3 } {
-  gravityRel(p0, _acc); const pBB0 = v3(); const vBB0 = v3(); const pBall = v3(); const vBall = v3();
-  const pBB1 = v3(); const vBB1 = v3();
-  ballisticStep(p0, v0, _acc, sched.boostbackStartS, pBB0, vBB0);
-  ballisticStep(p0, v0, _acc, sched.boostbackEndS, pBall, vBall);
-  blendTowardGate(pBall, pGate, sched.profile === "gulf" ? 0.38 : 0.55, pBB1);
-  coastVelBetween(pBB1, pGate, sched.landingStartS - sched.boostbackEndS, vBB1);
-  clampVelMag(vBB1, sched.profile === "gulf" ? 2.6 : 2.4);
-  return { pBB0, vBB0, pBB1, vBB1 };
+function steerBoostback(
+  state: CraftState, sched: RecoverySchedule, t0: number, propKg: number, epoch: EphemerisEpoch,
+): number {
+  const tGate = t0 + sched.landingStartS;
+  const dtGate = tGate - state.t;
+  if (dtGate < 0.5) return 0;
+  gateInertialAt(tGate, sched, _siteP, epoch);
+  pointMassG(state.pos, state.t, epoch, _acc);
+  requiredVel(state.pos, _siteP, dtGate, _acc, _aim);
+  sub(_aim, _aim, state.vel);
+  const need = len(_aim);
+  if (need < 0.015) return 0;
+  const dtBoost = Math.max(0.5, t0 + sched.boostbackEndS - state.t);
+  const lim = limitBoosterAccel(propKg, need / dtBoost);
+  writeThrustAlong(_aim, lim.a);
+  return lim.forceN;
 }
 
-function landingHoldKeyframes(
-  t0: number, pGate: V3, pCatch: V3, sched: RecoverySchedule, epoch: EphemerisEpoch,
-): { vGate: V3; vCatch: V3; pHold: V3; vHold: V3 } {
-  const vGate = v3(); gateVelToCatch(pGate, pCatch, sched.landingEndS - sched.landingStartS, vGate);
-  const vCatch = v3();
-  landSiteVelRel(t0 + sched.landingEndS, sched, vCatch, epoch);
-  const tHold = t0 + sched.landingEndS + sched.holdS;
-  const pHold = landRelAt(tHold, sched, undefined, epoch);
-  const vHold = v3();
-  landSiteVelRel(tHold, sched, vHold, epoch);
-  return { vGate, vCatch, pHold, vHold };
+/** Grid-fin theater: small lateral accel toward the gate during coast. */
+function steerGridFin(
+  state: CraftState, sched: RecoverySchedule, t0: number, epoch: EphemerisEpoch,
+): void {
+  const alt = fillUpAt(state.pos, state.t, epoch);
+  if (alt > 90 || alt < sched.gateAltKm) {
+    set(_thrustA, 0, 0, 0);
+    return;
+  }
+  gateInertialAt(t0 + sched.landingStartS, sched, _siteP, epoch);
+  sub(_aim, _siteP, state.pos);
+  const rad = dot(_aim, _up);
+  madd(_aim, _aim, _up, -rad);
+  if (len(_aim) < 1) {
+    set(_thrustA, 0, 0, 0);
+    return;
+  }
+  writeThrustAlong(_aim, GRIDFIN_A);
 }
 
-function packBoosterKeyframes(
-  sched: RecoverySchedule,
-  p0: V3, v0: V3,
-  bb: ReturnType<typeof boostbackKeyframes>,
-  mid: ReturnType<typeof midCoastKeyframe>,
-  pGate: V3, pCatch: V3,
-  land: ReturnType<typeof landingHoldKeyframes>,
-): RelKeyframe[] {
-  return [
-    { age: 0, p: p0, v: v0 }, { age: sched.boostbackStartS, p: bb.pBB0, v: bb.vBB0 },
-    { age: sched.boostbackEndS, p: bb.pBB1, v: bb.vBB1 }, { age: mid.ageMid, p: mid.pMid, v: mid.vMid },
-    { age: sched.landingStartS, p: pGate, v: land.vGate }, { age: sched.landingEndS, p: pCatch, v: land.vCatch },
-    { age: sched.landingEndS + sched.holdS, p: land.pHold, v: land.vHold },
-  ];
+/** Hoverslam + site-aim for the landing burn (13-engine then settle). */
+function steerLanding(
+  state: CraftState, sched: RecoverySchedule, t0: number, propKg: number, epoch: EphemerisEpoch,
+): number {
+  const alt = fillUpAt(state.pos, state.t, epoch);
+  landInertialAt(state.t, sched, _siteP, epoch);
+  landVelInertialAt(state.t, sched, _siteV, epoch);
+  sub(_vRel, state.vel, _siteV);
+  const vRad = dot(_vRel, _up);
+  const vDown = Math.max(0, -vRad);
+  const h = Math.max(alt - sched.landAltKm, 0.04);
+  const g = MU_EARTH / ((R_EARTH + Math.max(alt, 0)) ** 2);
+  const aSuicide = (vDown * vDown) / (2 * h) + g;
+  madd(_aim, _vRel, _up, -vRad);
+  const dtLeft = Math.max(0.8, t0 + sched.landingEndS - state.t);
+  const aHoriz = len(_aim) / dtLeft;
+  // Aim mostly anti-velocity, nibble toward the site in the last tens of km.
+  set(_tmp2, -_vRel.x, -_vRel.y, -_vRel.z);
+  if (len(_tmp2) < 1e-6) copy(_tmp2, _up);
+  normalize(_tmp2, _tmp2);
+  sub(_tmp3, _siteP, state.pos);
+  const dist = len(_tmp3);
+  if (dist > 1e-6 && dist < 40) {
+    normalize(_tmp3, _tmp3);
+    const w = Math.min(0.45, (40 - dist) / 90);
+    blendUnits(_tmp2, _tmp3, w, _tmp2);
+  }
+  const aCmd = Math.min(0.08, Math.max(aSuicide, aHoriz) + 0.004);
+  const lim = limitBoosterAccel(propKg, aCmd);
+  writeThrustAlong(_tmp2, lim.a);
+  return lim.forceN;
 }
 
+function applySeatBlend(
+  state: CraftState, age: number, sched: RecoverySchedule, epoch: EphemerisEpoch,
+): void {
+  if (age < sched.landingStartS) return;
+  landInertialAt(state.t, sched, _siteP, epoch);
+  landVelInertialAt(state.t, sched, _siteV, epoch);
+  const dist = Math.hypot(
+    state.pos.x - _siteP.x, state.pos.y - _siteP.y, state.pos.z - _siteP.z,
+  );
+  const late = smoothstep(sched.landingEndS - SEAT_LATE_S, sched.landingEndS, age);
+  const near = 1 - clamp01(dist / RECOVERY_SEAT_BLEND_KM);
+  const u = Math.max(late, near * near);
+  if (u <= 1e-6) return;
+  state.pos.x += (_siteP.x - state.pos.x) * u;
+  state.pos.y += (_siteP.y - state.pos.y) * u;
+  state.pos.z += (_siteP.z - state.pos.z) * u;
+  state.vel.x += (_siteV.x - state.vel.x) * u;
+  state.vel.y += (_siteV.y - state.vel.y) * u;
+  state.vel.z += (_siteV.z - state.vel.z) * u;
+}
+
+function clampAboveLand(state: CraftState, sched: RecoverySchedule, epoch: EphemerisEpoch): void {
+  const alt = altitudeEarth(state.t, state.pos, epoch);
+  if (alt >= sched.landAltKm) return;
+  fillUpAt(state.pos, state.t, epoch);
+  const b = getBodies(state.t, epoch);
+  const r = R_EARTH + sched.landAltKm;
+  set(
+    state.pos,
+    b.earth.x + _up.x * r,
+    b.earth.y + _up.y * r,
+    b.earth.z + _up.z * r,
+  );
+  const vr = dot(sub(_vRel, state.vel, b.earthVel), _up);
+  if (vr < 0) madd(state.vel, state.vel, _up, -vr);
+}
+
+function pushRelSample(kfs: RelKeyframe[], state: CraftState, t0: number, epoch: EphemerisEpoch): void {
+  const b = getBodies(state.t, epoch);
+  kfs.push({
+    age: state.t - t0,
+    p: sub(v3(), state.pos, b.earth),
+    v: sub(v3(), state.vel, b.earthVel),
+  });
+}
+
+function sepCraft(stage: StageState, epoch: EphemerisEpoch): CraftState {
+  applySepKicksRel(stage, _pRel, _vRel, epoch);
+  const b = getBodies(stage.t, epoch);
+  return {
+    t: stage.t,
+    pos: add(_statePos, b.earth, _pRel),
+    vel: add(_stateVel, b.earthVel, _vRel),
+  };
+}
+
+type RecoveryLoop = {
+  state: CraftState;
+  sched: RecoverySchedule;
+  t0: number;
+  epoch: EphemerisEpoch;
+  propKg: number;
+};
+
+function recoveryThrust(loop: RecoveryLoop, age: number): number {
+  set(_thrustA, 0, 0, 0);
+  if (age >= loop.sched.boostbackStartS && age < loop.sched.boostbackEndS) {
+    return steerBoostback(loop.state, loop.sched, loop.t0, loop.propKg, loop.epoch);
+  }
+  if (age >= loop.sched.landingStartS && age < loop.sched.landingEndS) {
+    return steerLanding(loop.state, loop.sched, loop.t0, loop.propKg, loop.epoch);
+  }
+  if (age >= loop.sched.boostbackEndS && age < loop.sched.landingStartS) {
+    steerGridFin(loop.state, loop.sched, loop.t0, loop.epoch);
+  }
+  return 0;
+}
+
+function stepRecovery(loop: RecoveryLoop, dt: number, forceN: number): void {
+  const frozen = clone(_thrustA);
+  rk4Step(
+    loop.state,
+    dt,
+    () => (len(frozen) > 1e-12 ? frozen : null),
+    { gravity: "earth", epoch: loop.epoch, dragCdAOverM: BOOSTER_CD_A_OVER_M },
+  );
+  loop.propKg = drainBoosterProp(loop.propKg, forceN, dt);
+}
+
+/**
+ * Integrate Super Heavy recovery on the Earth μ + J₂ + drag force model.
+ * Last few km (and the final {@link SEAT_LATE_S}) blend onto the land seat.
+ */
+export function bakeBoosterRecovery(
+  stage: StageState,
+  profile: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): BoosterRecoveryBake {
+  const sched = recoverySchedule(profile);
+  const state = sepCraft(stage, epoch);
+  // sepCraft aliases module scratch — snapshot so later site math is safe.
+  const loop: RecoveryLoop = {
+    state: { t: state.t, pos: clone(state.pos), vel: clone(state.vel) },
+    sched,
+    t0: stage.t,
+    epoch,
+    propKg: RECOVERY_PROP_KG,
+  };
+  const keyframes: RelKeyframe[] = [];
+  pushRelSample(keyframes, loop.state, loop.t0, epoch);
+
+  while (loop.state.t - loop.t0 < sched.landingEndS - 1e-9) {
+    const age = loop.state.t - loop.t0;
+    const dt = Math.min(RECOVERY_DT, sched.landingEndS - age);
+    const forceN = recoveryThrust(loop, age);
+    stepRecovery(loop, dt, forceN);
+    applySeatBlend(loop.state, loop.state.t - loop.t0, sched, epoch);
+    clampAboveLand(loop.state, sched, epoch);
+    pushRelSample(keyframes, loop.state, loop.t0, epoch);
+  }
+
+  return {
+    keyframes,
+    startPropKg: RECOVERY_PROP_KG,
+    leftoverPropKg: loop.propKg,
+    burnedPropKg: RECOVERY_PROP_KG - loop.propKg,
+  };
+}
+
+/**
+ * Earth-relative force-model samples for the recovery arc.
+ * Targets the moving land site; last few km seat onto chopsticks / gulf.
+ */
 export function buildBoosterKeyframes(
   stage: StageState,
   profile: RecoveryProfile = "chopsticks",
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): RelKeyframe[] {
-  const sched = recoverySchedule(profile); const p0 = v3(); const v0 = v3();
-  applySepKicksRel(stage, p0, v0, epoch);
-  const pGate = gateRelAt(stage.t + sched.landingStartS, sched, undefined, epoch);
-  const pCatch = landRelAt(stage.t + sched.landingEndS, sched, undefined, epoch);
-  const bb = boostbackKeyframes(p0, v0, pGate, sched);
-  const mid = midCoastKeyframe(bb.pBB1, bb.vBB1, pGate, sched);
-  const land = landingHoldKeyframes(stage.t, pGate, pCatch, sched, epoch);
-  return packBoosterKeyframes(sched, p0, v0, bb, mid, pGate, pCatch, land);
+  return bakeBoosterRecovery(stage, profile, epoch).keyframes;
 }
 
 function phaseAt(

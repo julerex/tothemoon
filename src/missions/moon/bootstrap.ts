@@ -260,7 +260,7 @@ function mountStagingFx(
   const boosterProto = craft.getObjectByName("booster");
   const stagingFx = createStagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
   const stageEvent = findStageEvent(cache.samples);
-  stagingFx.setStageEvent(stageEvent);
+  stagingFx.setStageEvent(stageEvent, "chopsticks", cache.epoch);
   scene.add(stagingFx.group);
   director.setDetachedBooster(stagingFx.detachedBooster);
   markShadowMeshes(stagingFx.group, { cast: true, receive: true });
@@ -421,7 +421,7 @@ function bindHudPack(
     setOrbits(next);
     return next;
   });
-  const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples);
+  const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples, "chopsticks", cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());
   return { hud, notifyAutoCamera: hud.notifyAutoCamera };

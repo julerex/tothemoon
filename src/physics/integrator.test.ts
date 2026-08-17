@@ -58,6 +58,18 @@ describe("atmosphere + drag", () => {
     assert.ok(atmDensity(50) < atmDensity(10));
   });
 
+  it("a larger ballistic factor increases drag", () => {
+    const earth = v3(0, 0, 0);
+    const earthVel = v3(0, 0, 0);
+    const pos = v3(R_EARTH + 20, 0, 0);
+    const vel = v3(0, 5, 0);
+    const aStack = v3();
+    const aHeavy = v3();
+    addEarthDrag(aStack, pos, earth, vel, earthVel);
+    addEarthDrag(aHeavy, pos, earth, vel, earthVel, 4e-11);
+    assert.ok(len(aHeavy) > len(aStack) * 2);
+  });
+
   it("drag opposes velocity relative to co-rotating air", () => {
     const earth = v3(0, 0, 0);
     const earthVel = v3(0, 0, 0);

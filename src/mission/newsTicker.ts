@@ -113,6 +113,13 @@ const COPY_BY_ID: Record<string, CopySpec> = {
         ? "Super Heavy flips and lights boostback — targeting an offshore soft landing in the Gulf of America."
         : "Super Heavy boostback burn — the booster is returning toward the tower.",
   },
+  "landing-burn": {
+    wire: "BOOSTER",
+    line: (ft) =>
+      ft
+        ? "Super Heavy landing burn — 13 engines from ~5 km above the Gulf recovery zone."
+        : "Landing burn — Super Heavy is hoverslamming toward the chopsticks at ~5 km AGL.",
+  },
   "booster-catch": {
     wire: "BOOSTER",
     line: (ft) =>

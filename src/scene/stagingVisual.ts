@@ -6,7 +6,7 @@
  * `stagingFx.ts` writes the results onto the cloned Super Heavy mesh.
  *
  * Scrub-deterministic — every scalar is a function of mission time and the
- * kinematic recovery sample from `physics/boosterRecovery.ts`.
+ * force-model recovery sample from `physics/boosterRecovery.ts`.
  *
  * @see stagingFx.ts — impure applicator
  * @see plumeRegime.ts — regime lookup and thrust lag

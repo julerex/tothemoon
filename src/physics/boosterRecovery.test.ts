@@ -11,6 +11,7 @@ import {
   boostbackFlashStrength,
   boosterLocatorStrength,
   boosterVisibleS,
+  bakeBoosterRecovery,
   buildBoosterKeyframes,
   boosterPhaseAt,
   CATCH_ALT_KM,
@@ -92,6 +93,12 @@ describe("buildBoosterKeyframes", () => {
       assert.ok(Number.isFinite(k.v.x) && Number.isFinite(k.v.y));
     }
   });
+
+  it("bakes a dense force-model path, not a handful of hermite keys", () => {
+    const kfs = buildBoosterKeyframes(syntheticStage());
+    // ~0.25 s RK4 through landing (~280 s) → hundreds of samples
+    assert.ok(kfs.length > 200, `expected dense bake, got ${kfs.length}`);
+  });
 });
 
 describe("sampleBoosterRecovery", () => {
@@ -161,6 +168,42 @@ describe("sampleBoosterRecovery", () => {
     assert.equal(after.fade, 0);
   });
 
+  it("coasts under force-model accel after boostback (no hermite snap)", () => {
+    const stage = syntheticStage();
+    const kfs = buildBoosterKeyframes(stage);
+    const a0 = BOOSTBACK_END_S + 12;
+    const a1 = a0 + 2;
+    const s0 = sampleBoosterRecovery(stage, a0, kfs);
+    const v0 = { x: s0.vel.x, y: s0.vel.y, z: s0.vel.z };
+    const s1 = sampleBoosterRecovery(stage, a1, kfs);
+    const ax = (s1.vel.x - v0.x) / (a1 - a0);
+    const ay = (s1.vel.y - v0.y) / (a1 - a0);
+    const az = (s1.vel.z - v0.z) / (a1 - a0);
+    const aMag = Math.hypot(ax, ay, az);
+    // Earth g ~ 0.009 km/s²; hermite keyframe snaps were often > 0.1
+    assert.ok(aMag > 0.002, `coast |a| too small ${aMag}`);
+    assert.ok(aMag < 0.05, `coast |a| too large for gravity+drag ${aMag}`);
+  });
+
+  it("starts the landing burn near 5 km AGL at the public mark", () => {
+    const stage = syntheticStage();
+    const kfs = buildBoosterKeyframes(stage);
+    const atGate = sampleBoosterRecovery(stage, LANDING_START_S, kfs);
+    assert.equal(atGate.phase, "landing");
+    const alt = earthAlt(stage.t + LANDING_START_S, atGate.pos);
+    assert.ok(alt > 2 && alt < 12, `landing-start alt ${alt} km (want ~5)`);
+    const lit = sampleBoosterRecovery(stage, LANDING_START_S + 2, kfs);
+    assert.ok(lit.burning);
+    assert.ok(lit.throttle > 0.3);
+  });
+
+  it("books leftover booster propellant on boostback and landing", () => {
+    const bake = bakeBoosterRecovery(syntheticStage());
+    assert.ok(bake.burnedPropKg > 5e4, `burned ${bake.burnedPropKg}`);
+    assert.ok(bake.leftoverPropKg < bake.startPropKg);
+    assert.ok(bake.leftoverPropKg > 0);
+  });
+
   it("is scrub-stable: same age ⇒ same sample", () => {
     const stage = syntheticStage();
     const kfs = buildBoosterKeyframes(stage);
@@ -178,6 +221,7 @@ describe("gulf recovery profile", () => {
     assert.equal(GULF_SCHEDULE.boostbackEndS, 42);
     assert.equal(GULF_SCHEDULE.landingStartS, 246);
     assert.equal(GULF_SCHEDULE.landingEndS, 272);
+    assert.equal(GULF_SCHEDULE.gateAltKm, 5);
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingStartS + 1, "gulf"), "landing");
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingEndS + 1, "gulf"), "caught");
   });
@@ -213,6 +257,21 @@ describe("gulf recovery profile", () => {
     // Farther from Starbase pad than chopsticks catch (~0.1 km)
     const dPad = distToPad(t, land.pos);
     assert.ok(dPad > 30, `should be offshore, pad dist ${dPad} km`);
+  });
+
+  it("lights the Flight 13 landing burn near 5 km AGL", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const lit = sampleBoosterRecovery(
+      stage,
+      GULF_SCHEDULE.landingStartS + 0.5,
+      kfs,
+      "gulf",
+    );
+    assert.equal(lit.phase, "landing");
+    assert.ok(lit.burning);
+    const alt = earthAlt(stage.t + GULF_SCHEDULE.landingStartS + 0.5, lit.pos);
+    assert.ok(alt > 2 && alt < 12, `gulf landing-start alt ${alt} km`);
   });
 
   it("stays above the surface for the gulf visible window", () => {

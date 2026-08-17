@@ -38,7 +38,7 @@ code comments. HUD may label theater values explicitly when helpful.
 | **Coast** | Ballistic restricted n-body after TLI (live bake); Kepler corridor is overlay only | Search scores design perilune + south-pole B-plane; discrete TCM helpers exist but are unused on the live path |
 | **Lunar orbit insertion / land** | Discrete LOI → ~¾ rev LLO → PDI → surface floor | PDI is PD-to-site, not a gated descent profile; miss lands here (no taxi) |
 | **Propellant** | Mass-coupled a = F/m(t), pure rocket-equation ṁ | Theater loads / Isp; empty tanks cut engines |
-| **Flight 13** | RK4 n-body or Earth-only; belly-flop aero; corridor steering | Booster recovery is **kinematic**; splash is a sub-km surface floor (no published-fix seat) |
+| **Flight 13** | RK4 n-body or Earth-only; belly-flop aero; corridor steering | Booster recovery is on the **Earth μ + J₂ + drag** force model (last few km seated); splash is a sub-km surface floor (no published-fix seat) |
 
 Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,propellant,constants,lunarCapture,flight13Mission,boosterRecovery}.ts`,
 `scripts/precompute-trajectory.ts`, `src/physics/trajectoryInvariants.ts`.
@@ -59,16 +59,16 @@ Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,pr
 ## Next steps (locked 2026-08-13)
 
 Phase A–C1, D1, B2 targeting, H1 snaps, the Horizons July 2027 table, pack v2
-meta, and Flight 13 Earth-only force check are **shipped**. Remaining work is
-Earth figure, Flight 13 recovery/aero, then numerics.
+meta, Flight 13 Earth-only force check, and F1 booster recovery on the force
+model are **shipped**. Remaining work is Earth figure, Flight 13 entry aero,
+then numerics.
 
 **Locked order for the next slices:**
 
-1. **F1 — Flight 13 booster recovery on the force model** — gulf landing currently kinematic in `boosterRecovery.ts`  
-2. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)  
-3. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack  
-4. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch  
-5. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor  
+1. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)
+2. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack
+3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch
+4. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor
 
 Then reassess. Full free-body n-body, engine-out tables, and ops-grade DE430
 + RCS stay deferred (see below).
@@ -264,7 +264,7 @@ mean Earth.
 ## Leftover honesty (H) — snaps still in the bake
 
 Position teleports and impulsive Δv books on the live path are **removed**
-(2026-08-17). Super Heavy recovery remains kinematic (F1).
+(2026-08-17). Super Heavy recovery is on the Earth force model (F1, 2026-08-17).
 
 ### H1. Remaining snaps and kinematic burns — **done 2026-08-17**
 
@@ -288,17 +288,15 @@ Flight 13 already integrates the stack under the shared RK4 force model
 (n-body or Earth-only check). Remaining gaps are recovery, entry aero, and
 timeline honesty — not a second gravity stack.
 
-### F1. Booster recovery on the force model — **next**
+### F1. Booster recovery on the force model — **done 2026-08-17**
 
-**Today:** `boosterRecovery.ts` is kinematic (flip → boostback → coast →
-landing burn → gulf / chopsticks). Non-authoritative; scrub-stable.
-
-**Target:**
-- Super Heavy gulf (Flight 13) path on the same Earth μ + J₂ + drag integrator
-  as the ship, or an Earth-relative ballistic subset — still theater timing.
-- Book boostback / landing-burn Δv on booster propellant (mass-coupled).
-- Chopsticks RTLS may stay kinematic until gulf recovery looks honest.
-- Keep scrub-deterministic samples; do not wall-clock the catch.
+`boosterRecovery.ts` now RK4-integrates flip → boostback → coast → landing
+burn on Earth μ + J₂ + drag (same `rk4Step` as the ship, `gravity: "earth"`).
+Boostback / landing-burn Δv is mass-coupled on leftover Super Heavy
+propellant. Landing burn lights at the public mark (~T+6:27 Flight 13 /
+~T+6:30 Flight 5) from ~5 km AGL (Flight 13 webcast “Landing startup”).
+The last few km blend onto the chopsticks / gulf seat so the booster
+visually seats. Scrub-deterministic; not wall-clocked.
 
 ### F2. Entry aero honesty
 
@@ -360,7 +358,7 @@ thrust, Horizons DE441. Next bullets as slices land:
 
 - “B-plane / perilune targeting (theater)”
 - “WGS84 pad / low-altitude figure”
-- “Flight 13 recovery on the force model”
+- ~~“Flight 13 recovery on the force model”~~ **done 2026-08-17**
 - “low Earth orbit dogleg as integrated burn” (when H1 lands)
 
 ---
@@ -493,7 +491,8 @@ See “Definition of done (per slice)” above — precompute + tests + README +
 
 | Date | Note |
 |------|------|
-| 2026-08-17 | B2 targeting + H1 honesty: no live-path teleports; F1 gulf recovery still kinematic |
+| 2026-08-17 | F1: Super Heavy recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
+| 2026-08-17 | B2 targeting + H1 honesty: no live-path teleports |
 | 2026-08-13 | Next-steps reassess: B-plane targeting, leftover snaps, WGS84, Flight 13 recovery/aero; baseline table brought current |
 | 2026-07-31 | A5 staged ascent shipped; golden stage/duration bands retuned |
 | 2026-07-23 | Initial plan: baseline gaps, A–D phases, sequence 1–7, deferred work |

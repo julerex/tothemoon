@@ -26,6 +26,12 @@ export type AccelOptions = {
    * Default {@link DEFAULT_EPHEMERIS} (analytic, no Horizons).
    */
   epoch?: EphemerisEpoch;
+  /**
+   * Quadratic-drag ballistic factor Cd·A/m (km²/kg).
+   * Default {@link DRAG_CD_A_OVER_M} (ascent stack). Detached Super Heavy is
+   * lighter, so recovery passes a larger value.
+   */
+  dragCdAOverM?: number;
 };
 
 import {
@@ -172,17 +178,20 @@ function dragRelVel(vel: V3, earthVel: V3): number {
   return len(_vRel);
 }
 
-function applyDrag(acc: V3, rho: number, speed: number): void {
-  const k = -0.5 * DRAG_CD_A_OVER_M * rho * speed;
+function applyDrag(acc: V3, rho: number, speed: number, cdAOverM: number): void {
+  const k = -0.5 * cdAOverM * rho * speed;
   acc.x += k * _vRel.x; acc.y += k * _vRel.y; acc.z += k * _vRel.z;
 }
 
-export function addEarthDrag(acc: V3, craft: V3, earth: V3, vel: V3, earthVel: V3): void {
+export function addEarthDrag(
+  acc: V3, craft: V3, earth: V3, vel: V3, earthVel: V3,
+  cdAOverM: number = DRAG_CD_A_OVER_M,
+): void {
   sub(_r, craft, earth);
   const rho = atmDensity(len(_r) - R_EARTH);
   if (rho < 1e-30) return;
   const speed = dragRelVel(vel, earthVel);
-  if (speed >= 1e-9) applyDrag(acc, rho, speed);
+  if (speed >= 1e-9) applyDrag(acc, rho, speed, cdAOverM);
 }
 
 /**
@@ -216,7 +225,12 @@ export function acceleration(
   set(out, 0, 0, 0);
   earthBaseAccel(out, pos);
   if (gravity === "nbody") addNbodyTerms(out, pos);
-  if (vel) addEarthDrag(out, pos, _bodies.earth, vel, _bodies.earthVel);
+  if (vel) {
+    addEarthDrag(
+      out, pos, _bodies.earth, vel, _bodies.earthVel,
+      opts?.dragCdAOverM ?? DRAG_CD_A_OVER_M,
+    );
+  }
   addThrust(out, thrust);
   return out;
 }

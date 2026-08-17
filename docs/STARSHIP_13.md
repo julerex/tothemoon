@@ -245,7 +245,7 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Hull-cam (hex TPS / S40 / oil-canning) and pink launch plumes shipped; remaining photorealism vs the webcast stills: [VISUAL_REALISM.md](./VISUAL_REALISM.md) V15+.
 
-**Booster recovery:** kinematic **Gulf of America** offshore soft-land path (`recovery: "gulf"`) — boostback ~T+2:25–3:03 and landing burn ~T+6:27–6:53 after stage-out, targeting ~25.55°N 96.15°W (theater, not a surveyed buoy). Chopsticks RTLS remains the default for the lunar mission.
+**Booster recovery:** force-model **Gulf of America** offshore soft-land path (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 and landing burn ~T+6:27–6:53 from ~5 km AGL (webcast “Landing startup”), targeting ~25.55°N 96.15°W (theater, not a surveyed buoy). Last few km seat onto the gulf floor. Chopsticks RTLS on the same force model is the default for the lunar mission.
 
 ### Earth great-circle section (app)
 

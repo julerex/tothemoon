@@ -39,6 +39,7 @@ describe("isSecondaryScrubEvent", () => {
     assert.equal(isSecondaryScrubEvent("staging"), true);
     assert.equal(isSecondaryScrubEvent("dogleg"), true);
     assert.equal(isSecondaryScrubEvent("boostback"), true);
+    assert.equal(isSecondaryScrubEvent("landing-burn"), true);
     assert.equal(isSecondaryScrubEvent("booster-catch"), true);
     assert.equal(isSecondaryScrubEvent("liftoff"), false);
     assert.equal(isSecondaryScrubEvent("translunarInjection"), false);

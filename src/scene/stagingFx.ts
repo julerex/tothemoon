@@ -2,7 +2,8 @@
  * Detached Super Heavy after stage-out: flip → boostback → coast → landing burn
  * → tower catch at Starbase. Fully deterministic in mission time so scrubbing works.
  *
- * Path is kinematic theater (see `boosterRecovery.ts`), not the mission integrator.
+ * Path is the force-model bake in `boosterRecovery.ts` (RK4 Earth μ + J₂ +
+ * drag, last few km seated onto the chopsticks / gulf).
  * Far-range dim locator (~30 s) + brief boostback ignition flash for readability.
  *
  * Every scalar comes from the pure helpers in `stagingVisual.ts`; this module
@@ -16,6 +17,8 @@ import {
   type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import {
   applyPlumeLayers,
   boosterLengthKm,
@@ -127,8 +130,13 @@ export type StagingFx = Readonly<{
   detachedBooster: THREE.Group;
   /**
    * @param recovery chopsticks (RTLS / tower) or gulf (Flight 13 offshore)
+   * @param epoch mission ephemeris — must match the stage-event frame
    */
-  setStageEvent: (ev: StageEvent | null, recovery?: RecoveryProfile) => void;
+  setStageEvent: (
+    ev: StageEvent | null,
+    recovery?: RecoveryProfile,
+    epoch?: EphemerisEpoch,
+  ) => void;
   /**
    * @param craftPos ship position (flash sticks near craft at t=0+)
    * @param craftQuat unused (kept for call-site compatibility)
@@ -167,6 +175,7 @@ export function createStagingFx(
   let stageState: StageState | null = null;
   let keyframes: ReturnType<typeof buildBoosterKeyframes> | null = null;
   let recoveryProfile: RecoveryProfile = "chopsticks";
+  let epoch: EphemerisEpoch = DEFAULT_EPHEMERIS;
   // Frame-to-frame plume lag: mechanical spin-up that survives scrub jumps.
   let plumeLagU = 0;
   let plumeLagT = 0;
@@ -308,9 +317,14 @@ export function createStagingFx(
   return Object.freeze({
     group,
     detachedBooster: booster,
-    setStageEvent(ev, recovery: RecoveryProfile = "chopsticks") {
+    setStageEvent(
+      ev,
+      recovery: RecoveryProfile = "chopsticks",
+      nextEpoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+    ) {
       stage = ev;
       recoveryProfile = recovery;
+      epoch = nextEpoch;
       if (!ev) {
         stageState = null;
         keyframes = null;
@@ -321,7 +335,7 @@ export function createStagingFx(
         pos: { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z },
         vel: { x: ev.vel.x, y: ev.vel.y, z: ev.vel.z },
       };
-      keyframes = buildBoosterKeyframes(stageState, recovery);
+      keyframes = buildBoosterKeyframes(stageState, recovery, epoch);
     },
     update(missionT, craftPos, _craftQuat, camera) {
       if (!stage || !stageState || !keyframes) {
@@ -333,7 +347,7 @@ export function createStagingFx(
         hideAllFx();
         return;
       }
-      const sample = sampleBoosterRecovery(stageState, age, keyframes, recoveryProfile);
+      const sample = sampleBoosterRecovery(stageState, age, keyframes, recoveryProfile, epoch);
       if (!boosterMeshVisible(sample)) {
         fadeOut(age, craftPos);
         return;

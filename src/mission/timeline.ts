@@ -7,6 +7,7 @@
 
 import { phaseLabel, type PhaseId } from "../physics/mission";
 import type { ReadonlySample } from "../physics/missionTypes";
+import { GULF_SCHEDULE } from "../physics/boosterRecovery";
 
 /** Scrubber / marker short labels (keep tight — scrubber is narrow). */
 const PHASE_SHORT: Record<PhaseId, string> = {
@@ -240,10 +241,16 @@ function pushStagingTrio(add: EventAdder, t: number): void {
   add("staging", t, "Staging", "Booster separation");
   add("boostback", t + 4, "Boostback", "Super Heavy flip · boostback burn");
   add(
+    "landing-burn",
+    t + GULF_SCHEDULE.landingStartS,
+    "Landing burn",
+    "Super Heavy landing burn · ~5 km AGL",
+  );
+  add(
     "booster-catch",
-    t + 272,
+    t + GULF_SCHEDULE.landingEndS,
     "Booster landing",
-    "Landing burn · recovery zone (chopsticks or Gulf)",
+    "Soft land · recovery zone (chopsticks or Gulf)",
   );
 }
 

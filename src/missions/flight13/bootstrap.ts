@@ -288,7 +288,7 @@ function mountStaging(
   const boosterProto = craft.getObjectByName("booster");
   const stagingFx = createStagingFx(boosterProto ?? new THREE.Group(), CRAFT_MESH_SCALE);
   const stageEvent = findStageEvent(cache.samples);
-  stagingFx.setStageEvent(stageEvent, "gulf");
+  stagingFx.setStageEvent(stageEvent, "gulf", cache.epoch);
   scene.add(stagingFx.group);
   director.setDetachedBooster(stagingFx.detachedBooster);
   markShadowMeshes(stagingFx.group, { cast: true, receive: true });
@@ -499,7 +499,7 @@ function bindRuntimeHud(w: RuntimeHudWire): {
   let setAutoCamUi: (e: boolean) => void = () => {};
   const disableAutoCam = makeDisableAutoCam(w.autoCam, () => setAutoCamUi);
   const wire = makeHudWire(w, disableAutoCam, makeSetOrbitsVisible(w));
-  const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.cache.samples, "gulf");
+  const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.cache.samples, "gulf", w.cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   w.director.setOnUserControl(() => disableAutoCam());
   return { hud, setAutoCamUi, notifyAutoCamera: hud.notifyAutoCamera, disableAutoCam };

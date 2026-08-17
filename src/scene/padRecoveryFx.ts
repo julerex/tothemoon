@@ -86,7 +86,7 @@ export function gulfSiteVisible(
 
 /**
  * Theater AGL (km) along the gulf landing burn — linear gate → land.
- * Used to drive spray without sampling the kinematic path twice.
+ * Used to drive spray without sampling the recovery path twice.
  */
 export function gulfLandingAltKm(
   age: number,

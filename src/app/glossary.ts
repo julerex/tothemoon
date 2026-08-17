@@ -45,7 +45,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Boostback burn",
     category: "vehicle",
     definition:
-      "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Shown as theater kinematics on Super Heavy recovery.",
+      "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Super Heavy recovery is integrated on the Earth force model; the last few km seat onto the chopsticks or gulf floor.",
   },
   {
     id: "chopsticks",

@@ -12,6 +12,7 @@ import type { MissionEvent } from "./timeline";
 const SECONDARY_IDS = new Set([
   "staging",
   "boostback",
+  "landing-burn",
   "booster-catch",
   "dogleg",
   "max-q",

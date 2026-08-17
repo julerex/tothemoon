@@ -25,6 +25,8 @@ import {
   type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import {
   buildCrossSectionModel,
   drawCrossSection,
@@ -148,6 +150,7 @@ type HudData = {
   stageState: StageState | null;
   crossModel: CrossSectionModel | null;
   boosterKeyframes: ReturnType<typeof buildBoosterKeyframes> | null;
+  epoch: EphemerisEpoch;
 };
 
 type HudRuntime = {
@@ -205,12 +208,16 @@ function createHudFlags(): HudFlags {
   return { ...createHudFlagsA(), ...createHudFlagsB(), ...createHudFlagsC() };
 }
 
-function stageDerived(samples: readonly ReadonlySample[], recoveryProfile: RecoveryProfile) {
+function stageDerived(
+  samples: readonly ReadonlySample[],
+  recoveryProfile: RecoveryProfile,
+  epoch: EphemerisEpoch,
+) {
   const stageState = stageStateFromSamples(samples);
   const crossModel =
-    samples.length > 0 ? buildCrossSectionModel(samples, stageState, recoveryProfile) : null;
+    samples.length > 0 ? buildCrossSectionModel(samples, stageState, recoveryProfile, epoch) : null;
   const boosterKeyframes =
-    stageState != null ? buildBoosterKeyframes(stageState, recoveryProfile) : null;
+    stageState != null ? buildBoosterKeyframes(stageState, recoveryProfile, epoch) : null;
   return { stageState, crossModel, boosterKeyframes };
 }
 
@@ -219,12 +226,13 @@ function buildHudData(
   handlers: HudHandlers,
   samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
+  epoch: EphemerisEpoch,
 ): HudData {
-  const derived = stageDerived(samples, recoveryProfile);
+  const derived = stageDerived(samples, recoveryProfile, epoch);
   return {
     timeline, handlers, samples, recoveryProfile,
     bookmarks: buildBookmarks(timeline), scrubEventTicks: buildScrubEventTicks(timeline.events),
-    newsBeats: buildNewsBeats(timeline), ...derived,
+    newsBeats: buildNewsBeats(timeline), ...derived, epoch,
   };
 }
 
@@ -233,13 +241,14 @@ function createHudRuntime(
   handlers: HudHandlers,
   samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
+  epoch: EphemerisEpoch,
 ): HudRuntime {
   ensureEarthGcOverlayBound();
   ensurePolarOverlayBound();
   setPolarOverlaySamples(samples);
   return {
     dom: collectHudDom(), mx: collectMetricsDom(), flags: createHudFlags(),
-    data: buildHudData(timeline, handlers, samples, recoveryProfile),
+    data: buildHudData(timeline, handlers, samples, recoveryProfile, epoch),
   };
 }
 
@@ -391,6 +400,7 @@ function liveFromRuntime(rt: HudRuntime, missionT: number) {
     missionT,
     d.boosterKeyframes,
     d.recoveryProfile,
+    d.epoch,
   );
 }
 
@@ -940,12 +950,13 @@ export function bindHud(
   handlers: HudHandlers,
   samples: readonly ReadonlySample[] = [],
   recoveryProfile: RecoveryProfile = "chopsticks",
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): {
   update: (tel: Telemetry) => void;
   setAutoCamEnabled: (enabled: boolean) => void;
   notifyAutoCamera: (mode: CameraMode) => void;
 } {
-  const rt = createHudRuntime(timeline, handlers, samples, recoveryProfile);
+  const rt = createHudRuntime(timeline, handlers, samples, recoveryProfile, epoch);
   wireHud(rt);
   return {
     update: (tel) => update(rt, tel),
