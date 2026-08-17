@@ -295,8 +295,9 @@ burn on Earth μ + J₂ + drag (same `rk4Step` as the ship, `gravity: "earth"`).
 Boostback / landing-burn Δv is mass-coupled on leftover Super Heavy
 propellant. Landing burn lights at the public mark (~T+6:27 Flight 13 /
 ~T+6:30 Flight 5) from ~5 km AGL (Flight 13 webcast “Landing startup”).
-The last few km blend onto the chopsticks / gulf seat so the booster
-visually seats. Scrub-deterministic; not wall-clocked.
+Chopsticks: last few km seat onto the tower. Flight 13 gulf: partial
+landing-burn relight then a hard ocean splash (as flown). Scrub-deterministic;
+not wall-clocked.
 
 ### F2. Entry aero honesty
 

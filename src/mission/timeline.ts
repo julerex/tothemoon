@@ -250,7 +250,7 @@ function pushStagingTrio(add: EventAdder, t: number): void {
     "booster-catch",
     t + GULF_SCHEDULE.landingEndS,
     "Booster landing",
-    "Soft land · recovery zone (chopsticks or Gulf)",
+    "Chopsticks catch or Gulf hard splash",
   );
 }
 

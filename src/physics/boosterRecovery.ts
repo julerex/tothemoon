@@ -1,7 +1,7 @@
 /**
  * Theater Super Heavy recovery after stage-out.
  *
- * Force-model path: flip → boostback → coast/entry → landing burn → soft land.
+ * Force-model path: flip → boostback → coast/entry → landing burn → land.
  * Integrated with the shared RK4 Earth μ + J₂ + drag model (same acceleration
  * as the ship, Earth-only gravity — third-body terms are negligible on a
  * ~5 min suborbital arc). Boostback and landing-burn Δv are mass-coupled on
@@ -9,10 +9,11 @@
  *
  * Two profiles:
  * - **chopsticks** — return to launch site / tower catch at Starbase
- * - **gulf** — Flight 13 offshore soft landing in the Gulf of America
+ * - **gulf** — Flight 13 offshore **hard splash** in the Gulf of America
+ *   (subset of landing engines; the booster falls into the ocean)
  *
- * The last few km of descent are blended onto the chopsticks / gulf seat so
- * the booster visually seats even when the ballistic miss is a few km.
+ * Chopsticks: the last few km blend onto the tower so the catch reads.
+ * Gulf: no soft seat — partial landing burn, then a water impact.
  *
  * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence.
  * Landing burn lights at the public mark (~T+6:27 Flight 13, ~T+6:30 Flight 5)
@@ -91,6 +92,11 @@ export type RecoverySchedule = {
   /** Landing site lat (rad), east-positive lon (rad). */
   landLat: number;
   landLon: number;
+  /**
+   * True for Flight 13 gulf: partial landing-burn relight, then a hard
+   * ocean splash (no hoverslam seat).
+   */
+  hardSplash: boolean;
 };
 
 /** Flip complete (s after stage) — chopsticks / default export. */
@@ -112,7 +118,7 @@ export const CATCH_FADE_S = 20;
 export const CATCH_ALT_KM = 0.08;
 
 /**
- * Gulf of America soft-landing zone (theater).
+ * Gulf of America splash zone (theater).
  * ~80–100 km SE of Starbase into the gulf — clearly offshore, not chopsticks.
  */
 export const GULF_LAND_LAT = (25.55 * Math.PI) / 180;
@@ -134,6 +140,7 @@ export const GULF_SCHEDULE: RecoverySchedule = {
   coastLoftKm: 14,
   landLat: GULF_LAND_LAT,
   landLon: GULF_LAND_LON,
+  hardSplash: true,
 };
 
 /** Default chopsticks / RTLS schedule. */
@@ -153,6 +160,7 @@ export const CHOPSTICKS_SCHEDULE: RecoverySchedule = {
   // Filled from Starbase pad each sample (lat/lon unused when chopsticks)
   landLat: 0,
   landLon: 0,
+  hardSplash: false,
 };
 
 export function recoverySchedule(
@@ -522,23 +530,8 @@ function steerGridFin(
   writeThrustAlong(_aim, GRIDFIN_A);
 }
 
-/** Hoverslam + site-aim for the landing burn (13-engine then settle). */
-function steerLanding(
-  state: CraftState, sched: RecoverySchedule, t0: number, propKg: number, epoch: EphemerisEpoch,
-): number {
-  const alt = fillUpAt(state.pos, state.t, epoch);
-  landInertialAt(state.t, sched, _siteP, epoch);
-  landVelInertialAt(state.t, sched, _siteV, epoch);
-  sub(_vRel, state.vel, _siteV);
-  const vRad = dot(_vRel, _up);
-  const vDown = Math.max(0, -vRad);
-  const h = Math.max(alt - sched.landAltKm, 0.04);
-  const g = MU_EARTH / ((R_EARTH + Math.max(alt, 0)) ** 2);
-  const aSuicide = (vDown * vDown) / (2 * h) + g;
-  madd(_aim, _vRel, _up, -vRad);
-  const dtLeft = Math.max(0.8, t0 + sched.landingEndS - state.t);
-  const aHoriz = len(_aim) / dtLeft;
-  // Aim mostly anti-velocity, nibble toward the site in the last tens of km.
+/** Anti-velocity aim, with a light nibble toward the site when close. */
+function landingAim(state: CraftState): void {
   set(_tmp2, -_vRel.x, -_vRel.y, -_vRel.z);
   if (len(_tmp2) < 1e-6) copy(_tmp2, _up);
   normalize(_tmp2, _tmp2);
@@ -549,6 +542,34 @@ function steerLanding(
     const w = Math.min(0.45, (40 - dist) / 90);
     blendUnits(_tmp2, _tmp3, w, _tmp2);
   }
+}
+
+/**
+ * Landing burn. Chopsticks: hoverslam to a catch. Gulf: subset of engines
+ * (Flight 13 recap — partial relight) so the booster still hits the water.
+ */
+function steerLanding(
+  state: CraftState, sched: RecoverySchedule, t0: number, propKg: number, epoch: EphemerisEpoch,
+): number {
+  const alt = fillUpAt(state.pos, state.t, epoch);
+  landInertialAt(state.t, sched, _siteP, epoch);
+  landVelInertialAt(state.t, sched, _siteV, epoch);
+  sub(_vRel, state.vel, _siteV);
+  landingAim(state);
+  if (sched.hardSplash) {
+    // ~5 of 13 planned landing engines — not enough to hoverslam.
+    const lim = limitBoosterAccel(propKg, 0.015);
+    writeThrustAlong(_tmp2, lim.a);
+    return lim.forceN;
+  }
+  const vRad = dot(_vRel, _up);
+  const vDown = Math.max(0, -vRad);
+  const h = Math.max(alt - sched.landAltKm, 0.04);
+  const g = MU_EARTH / ((R_EARTH + Math.max(alt, 0)) ** 2);
+  const aSuicide = (vDown * vDown) / (2 * h) + g;
+  madd(_aim, _vRel, _up, -vRad);
+  const dtLeft = Math.max(0.8, t0 + sched.landingEndS - state.t);
+  const aHoriz = len(_aim) / dtLeft;
   const aCmd = Math.min(0.08, Math.max(aSuicide, aHoriz) + 0.004);
   const lim = limitBoosterAccel(propKg, aCmd);
   writeThrustAlong(_tmp2, lim.a);
@@ -568,6 +589,19 @@ function applySeatBlend(
   const near = 1 - clamp01(dist / RECOVERY_SEAT_BLEND_KM);
   const u = Math.max(late, near * near);
   if (u <= 1e-6) return;
+  if (sched.hardSplash) {
+    // Slide the ground track onto the gulf; keep altitude and fall speed.
+    const alt = fillUpAt(state.pos, state.t, epoch);
+    const b = getBodies(state.t, epoch);
+    sub(_tmp, _siteP, b.earth);
+    if (len(_tmp) > 1e-6) {
+      normalize(_tmp, _tmp);
+      blendUnits(_up, _tmp, u, _tmp2);
+      const r = R_EARTH + Math.max(alt, sched.landAltKm);
+      set(state.pos, b.earth.x + _tmp2.x * r, b.earth.y + _tmp2.y * r, b.earth.z + _tmp2.z * r);
+    }
+    return;
+  }
   state.pos.x += (_siteP.x - state.pos.x) * u;
   state.pos.y += (_siteP.y - state.pos.y) * u;
   state.pos.z += (_siteP.z - state.pos.z) * u;
@@ -646,7 +680,8 @@ function stepRecovery(loop: RecoveryLoop, dt: number, forceN: number): void {
 
 /**
  * Integrate Super Heavy recovery on the Earth μ + J₂ + drag force model.
- * Last few km (and the final {@link SEAT_LATE_S}) blend onto the land seat.
+ * Chopsticks: last few km (and the final {@link SEAT_LATE_S}) seat onto the
+ * tower. Gulf: partial landing burn, then a hard ocean splash.
  */
 export function bakeBoosterRecovery(
   stage: StageState,
@@ -686,7 +721,7 @@ export function bakeBoosterRecovery(
 
 /**
  * Earth-relative force-model samples for the recovery arc.
- * Targets the moving land site; last few km seat onto chopsticks / gulf.
+ * Targets the moving land site; chopsticks seats, gulf hard-splashes.
  */
 export function buildBoosterKeyframes(
   stage: StageState,
@@ -716,7 +751,9 @@ function landingThrottle(age: number, sched: RecoverySchedule): number {
   const up = smoothstep(0, 1.5, u);
   const mid = 1 - 0.35 * smoothstep(dur * 0.45, dur * 0.85, u);
   const down = 1 - smoothstep(dur - 1.2, dur, u);
-  return 0.72 * up * mid * down;
+  // Flight 13 gulf: subset of the 13-engine landing burn.
+  const peak = sched.hardSplash ? 0.28 : 0.72;
+  return peak * up * mid * down;
 }
 
 function throttleAt(
@@ -750,7 +787,7 @@ export function catchPointAt(t: number, out: V3 = v3(), epoch: EphemerisEpoch = 
   return madd(out, pad.pos, pad.up, CATCH_ALT_KM);
 }
 
-/** Gulf soft-land point (heliocentric inertial) at mission time t. */
+/** Gulf splash point (heliocentric inertial) at mission time t. */
 export function gulfLandPointAt(t: number, out: V3 = v3(), epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): V3 {
   const b = bodyPositions(t, epoch);
   landRelAt(t, GULF_SCHEDULE, _tmp3, epoch);
@@ -805,6 +842,7 @@ function noseFlipAlongVel(flipU: number): void {
 }
 
 function noseSettleUp(age: number, phase: BoosterRecoveryPhase, sched: RecoverySchedule): void {
+  if (sched.hardSplash) return;
   if (!(phase === "caught" || age >= sched.landingEndS - 2)) return;
   normalize(_tmp, _pRel);
   const settle = smoothstep(sched.landingEndS - 4, sched.landingEndS + 1, age);

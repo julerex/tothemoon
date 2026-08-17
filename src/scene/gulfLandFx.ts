@@ -1,5 +1,5 @@
 /**
- * Gulf of America booster soft-land site plate for Flight 13.
+ * Gulf of America booster hard-splash site plate for Flight 13.
  *
  * Earth-fixed (lat/lon → mesh-local) so the beacon co-rotates. Spray uses the
  * shared terminal FX curves. Theater-grade — not a barge or CFD splash.
@@ -29,7 +29,7 @@ import {
 } from "./terminalSiteFx";
 
 export const GULF_SITE_LABEL = "Gulf of America";
-export const GULF_SITE_DETAIL = "Theater booster landing · offshore";
+export const GULF_SITE_DETAIL = "Hard splash · offshore";
 
 const GULF_SITE: EarthTerminalSiteSpec = {
   name: "gulf-land-fx",
@@ -57,7 +57,7 @@ export type GulfLandFx = Readonly<{
   group: THREE.Group;
   /**
    * @param stageT - Stage-out mission time (s)
-   * @param landT - Soft-land mission time (s); defaults to gulf schedule
+   * @param landT - Splash mission time (s); defaults to gulf schedule
    */
   setLandTime: (stageT: number, landT?: number) => void;
   update: (

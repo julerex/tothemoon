@@ -81,7 +81,7 @@ export function boostbackFlashPose(age: number): BoostbackFlashPose {
   });
 }
 
-/** Contact flash at the chopsticks catch / gulf soft-land. */
+/** Contact flash at the chopsticks catch / gulf hard splash. */
 export function landingFlashPose(age: number, profile: RecoveryProfile): FlashPose {
   const strength = landingContactFlashStrength(age, recoverySchedule(profile));
   if (strength < CUE_MIN) return HIDDEN_FLASH;

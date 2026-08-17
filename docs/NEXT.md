@@ -116,7 +116,7 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 ### 9. Booster recovery silhouette — done (theater)
 
-Force-model return after stage-out: flip → boostback plume → coast/entry → landing burn (~5 km AGL at the public mark) → chopsticks catch at Starbase (`boosterRecovery.ts` RK4 Earth μ + J₂ + drag + `StagingFx`). Last few km are seated onto the chopsticks / gulf so the catch reads. Scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate instead. Optional follow-up: dim free-flyer locator.
+Force-model return after stage-out: flip → boostback plume → coast/entry → landing burn (~5 km AGL at the public mark). Chopsticks catch at Starbase; Flight 13 gulf is a **hard splash** after a partial landing-burn relight (`boosterRecovery.ts` RK4 Earth μ + J₂ + drag + `StagingFx`). Last few km seat onto the chopsticks only. Scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate and ocean spray. Optional follow-up: dim free-flyer locator.
 
 ### 10. Epoch & lighting polish — **done**
 
@@ -274,3 +274,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-16 | Visual V18: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
 | 2026-08-16 | Visual V19: altitude-gated LEO cloud shell + ocean glitter (Earth-cam stays cloudless) |
 | 2026-08-17 | F1: booster recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
+| 2026-08-17 | Flight 13 gulf recovery is a hard splash (partial landing-burn relight), not a soft seat |

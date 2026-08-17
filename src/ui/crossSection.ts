@@ -3,7 +3,7 @@
  * Starbase launch plane (mesh-local up × east).
  *
  * Black & white diagram for reading booster altitude vs downrange from liftoff
- * through chopsticks catch or gulf soft-land. Live craft markers use the stacked launch
+ * through chopsticks catch or gulf hard splash. Live craft markers use the stacked launch
  * silhouette until hot-stage, then separate Super Heavy / Starship glyphs.
  * Pure helpers are scrub-safe; canvas draw is live.
  */
@@ -61,7 +61,7 @@ export type CrossSectionModel = {
   basis: LaunchPlaneBasis;
   /** Stack path until stage-out (and ship while still in frame). */
   shipTrail: TimedPlanePoint[];
-  /** Booster: stacked path + recovery (chopsticks RTLS or gulf soft-land). */
+  /** Booster: stacked path + recovery (chopsticks RTLS or gulf hard splash). */
   boosterTrail: TimedPlanePoint[];
   /** Stage-out mission time, or null if never staged. */
   stageT: number | null;
@@ -876,7 +876,7 @@ function fillCsLegend(
   ctx.textAlign = "right";
   ctx.globalAlpha = 0.8;
   ctx.fillText("white trails · true scale · launch plane", cssW - 12, 10);
-  const dest = recovery === "gulf" ? "Gulf soft-land" : "chopsticks";
+  const dest = recovery === "gulf" ? "Gulf splash" : "chopsticks";
   ctx.fillText(`Booster path: liftoff → ${dest}`, cssW - 12, 25);
   ctx.globalAlpha = 1;
 }

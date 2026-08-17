@@ -268,9 +268,9 @@ Physics and attitude already existed; chase shots still read as a rigid prop wit
 Completes the booster story Auto-cam already sells (gridfin → recovery).
 
 - Scrub-driven **chopsticks close** + carriage settle when recovery phase → `caught` (chopsticks profile only; Flight 13 gulf stays open).
-- **Gulf soft-land site plate** (beacon/ring like splash) at gulf lat/lon so offshore landing isn’t “vanish into ocean.”
+- **Gulf splash site plate** (beacon/ring like splash) at gulf lat/lon so the hard splash isn’t “vanish into ocean.”
 - Brief catch/land contact flash on booster (reuse staging flash vocabulary).
-- Cross-section legend follows the HUD recovery profile (`liftoff → Gulf soft-land` vs chopsticks).
+- Cross-section legend follows the HUD recovery profile (`liftoff → Gulf splash` vs chopsticks).
 
 **Files:** `padRecoveryFx.ts`, `gulfLandFx.ts`, `earthTheater.ts`, `stagingFx.ts`, Flight 13 bootstrap.
 

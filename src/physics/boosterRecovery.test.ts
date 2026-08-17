@@ -222,11 +222,12 @@ describe("gulf recovery profile", () => {
     assert.equal(GULF_SCHEDULE.landingStartS, 246);
     assert.equal(GULF_SCHEDULE.landingEndS, 272);
     assert.equal(GULF_SCHEDULE.gateAltKm, 5);
+    assert.equal(GULF_SCHEDULE.hardSplash, true);
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingStartS + 1, "gulf"), "landing");
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingEndS + 1, "gulf"), "caught");
   });
 
-  it("ends near the Gulf soft-land site, not the chopsticks", () => {
+  it("ends in the Gulf, not the chopsticks", () => {
     const stage = syntheticStage(141);
     const kfs = buildBoosterKeyframes(stage, "gulf");
     const land = sampleBoosterRecovery(
@@ -272,6 +273,30 @@ describe("gulf recovery profile", () => {
     assert.ok(lit.burning);
     const alt = earthAlt(stage.t + GULF_SCHEDULE.landingStartS + 0.5, lit.pos);
     assert.ok(alt > 2 && alt < 12, `gulf landing-start alt ${alt} km`);
+  });
+
+  it("falls into the ocean — landing burn is too weak to hoverslam", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const midAge = GULF_SCHEDULE.landingStartS + 2;
+    const mid = sampleBoosterRecovery(stage, midAge, kfs, "gulf");
+    assert.equal(mid.phase, "landing");
+    assert.ok(mid.burning);
+    assert.ok(mid.throttle > 0.05 && mid.throttle < 0.4, `gulf throttle ${mid.throttle}`);
+    const b = bodyPos(stage.t + midAge);
+    const upx = mid.pos.x - b.earth.x;
+    const upy = mid.pos.y - b.earth.y;
+    const upz = mid.pos.z - b.earth.z;
+    const r = Math.hypot(upx, upy, upz) || 1;
+    const vRad =
+      ((mid.vel.x - b.earthVel.x) * upx +
+        (mid.vel.y - b.earthVel.y) * upy +
+        (mid.vel.z - b.earthVel.z) * upz) /
+      r;
+    assert.ok(vRad < -0.2, `expected a real fall, vRad=${vRad} km/s`);
+    const hit = sampleBoosterRecovery(stage, GULF_SCHEDULE.landingStartS + 6, kfs, "gulf");
+    const hitAlt = earthAlt(stage.t + GULF_SCHEDULE.landingStartS + 6, hit.pos);
+    assert.ok(hitAlt < 0.2, `should already be in the water, alt=${hitAlt}`);
   });
 
   it("stays above the surface for the gulf visible window", () => {
