@@ -273,5 +273,6 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-15 | Visual photorealism V13+ locked from Flight 13 webcast stills (hex TPS, pink plumes, magenta plasma, payload, splash steam) |
 | 2026-08-16 | Visual V18: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
 | 2026-08-16 | Visual V19: altitude-gated LEO cloud shell + ocean glitter (Earth-cam stays cloudless) |
+| 2026-08-17 | Visual V21: splash swell + water texture; puffy cumulus at ~2 km AGL |
 | 2026-08-17 | F1: booster recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
 | 2026-08-17 | Flight 13 gulf recovery is a hard splash (partial landing-burn relight), not a soft seat |

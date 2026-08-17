@@ -25,13 +25,21 @@ import {
   landingWashStrength,
   nearMoonPhase,
   nearSplash,
+  oceanChopHeightKm,
   oceanGlitterOpacity,
+  oceanSwellHeightKm,
+  OCEAN_CHOP_AMP_KM,
+  OCEAN_SWELL_AMP_KM,
   splashOceanPlateOpacity,
+  splashWeatherCloudOpacity,
   sheetLayerPose,
   shouldShowSplashSite,
   splashdownSpray,
   sprayExpandOpacity,
   TERMINAL_ALT_GATE_KM,
+  WEATHER_CLOUD_ALT_KM,
+  WEATHER_CLOUD_FADE_KM,
+  WEATHER_CLOUD_FULL_KM,
   type LunarDustState,
   type SplashSprayState,
 } from "./terminalFx.ts";
@@ -284,6 +292,7 @@ describe("deriveSplashSpray", () => {
     assert.equal(a.inner.visible, true);
     assert.ok(a.glitter > 0);
     assert.equal(a.ocean, 1);
+    assert.equal(a.clouds, 1);
 
     const high = deriveSplashSpray({
       ...splash,
@@ -292,6 +301,7 @@ describe("deriveSplashSpray", () => {
     });
     assert.equal(high.active, false);
     assert.ok(high.ocean > 0 && high.ocean < 1);
+    assert.equal(high.clouds, 1);
 
     const far = deriveSplashSpray({
       ...splash,
@@ -302,6 +312,47 @@ describe("deriveSplashSpray", () => {
     });
     assert.equal(far.siteVisible, false);
     assert.equal(far.ocean, 0);
+    assert.equal(far.clouds, 0);
+  });
+});
+
+describe("splashWeatherCloudOpacity", () => {
+  it("sits at weather altitude, not the LEO shell", () => {
+    assert.ok(WEATHER_CLOUD_ALT_KM >= 1.5 && WEATHER_CLOUD_ALT_KM <= 3);
+    assert.ok(WEATHER_CLOUD_ALT_KM < 10);
+    assert.ok(WEATHER_CLOUD_FULL_KM < WEATHER_CLOUD_FADE_KM);
+  });
+
+  it("is full through descent and splash, off from far Earth-cam", () => {
+    assert.equal(splashWeatherCloudOpacity(0.05), 1);
+    assert.equal(splashWeatherCloudOpacity(WEATHER_CLOUD_ALT_KM), 1);
+    assert.equal(splashWeatherCloudOpacity(WEATHER_CLOUD_FULL_KM), 1);
+    assert.equal(splashWeatherCloudOpacity(WEATHER_CLOUD_FADE_KM), 0);
+    assert.equal(splashWeatherCloudOpacity(-1), 0);
+    const mid = splashWeatherCloudOpacity(
+      (WEATHER_CLOUD_FULL_KM + WEATHER_CLOUD_FADE_KM) / 2,
+    );
+    assert.ok(mid > 0.3 && mid < 0.8, `mid ${mid}`);
+  });
+});
+
+describe("ocean swell / chop", () => {
+  it("is scrub-deterministic and bounded", () => {
+    const a = oceanSwellHeightKm(3, -2, 100);
+    assert.equal(a, oceanSwellHeightKm(3, -2, 100));
+    assert.notEqual(a, oceanSwellHeightKm(3, -2, 101));
+    const cap = OCEAN_SWELL_AMP_KM * (1 + 0.55 + 0.28);
+    assert.ok(Math.abs(a) <= cap + 1e-12);
+    assert.equal(oceanSwellHeightKm(Number.NaN, 0, 0), 0);
+  });
+
+  it("keeps chop smaller than swell and time-varying", () => {
+    const c = oceanChopHeightKm(1.2, 0.4, 50);
+    assert.equal(c, oceanChopHeightKm(1.2, 0.4, 50));
+    assert.notEqual(c, oceanChopHeightKm(1.2, 0.4, 51));
+    const cap = OCEAN_CHOP_AMP_KM * (1 + 0.64);
+    assert.ok(Math.abs(c) <= cap + 1e-12);
+    assert.ok(OCEAN_CHOP_AMP_KM < OCEAN_SWELL_AMP_KM);
   });
 });
 

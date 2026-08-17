@@ -6,10 +6,11 @@
  *
  * V17: white volumetric contact steam + warm core + ocean glitter (not cyan discs).
  * Sunlit sea plate: globe PBR ocean goes black at the winter-morning splash.
+ * V21: swell + water texture on the sea plate; puffy cumulus at ~2 km AGL.
  *
  * @see terminalFx.ts — pure strength / pose helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
- * @see docs/VISUAL_REALISM.md — V17 splash steam
+ * @see docs/VISUAL_REALISM.md — V17 splash steam / V21 sea + weather deck
  */
 
 import type * as THREE from "three";
@@ -47,6 +48,7 @@ const SPLASH_SITE: EarthTerminalSiteSpec = {
   },
   oceanGlitter: true,
   sunlitOcean: true,
+  weatherClouds: true,
 };
 
 /**
@@ -87,12 +89,14 @@ export function createSplashFx(): SplashFx {
       if (!derived.siteVisible) {
         site.setGlitter(0);
         site.setOceanPlate(0);
+        site.setWeatherClouds(0);
         return;
       }
       site.pulseBeacon(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
-      site.setOceanPlate(derived.ocean);
+      site.setOceanPlate(derived.ocean, missionT);
+      site.setWeatherClouds(derived.clouds);
     },
   });
 }

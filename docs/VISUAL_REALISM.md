@@ -60,9 +60,11 @@ Related:
 
 **Shipped (V19):** altitude-gated LEO cloud shell + ocean sun-glint; Earth-cam stays cloudless Blue Marble (#14).
 
+**Shipped (V21):** splash-zone swell + water texture; puffy cumulus at ~2 km AGL that the ship falls through (local, not a globe deck).
+
 **Next (photorealism):** optional Moon albedo. See **V20**.
 
-Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
+Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
 ---
 
@@ -102,6 +104,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V18** | Engine-bay / onboard | **Done** — MLI, stencil IDs, mild fisheye on fin/gridfin |
 | **V19** | LEO Earth from hull-cam | **Done** — gated cloud shell + ocean glitter (does not undo #14) |
 | **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
+| **V21** | Splash sea + weather deck | **Done** — swell/texture + ~2 km cumulus the ship falls through |
 
 ---
 
@@ -236,6 +239,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 19. ~~**V18** — engine-bay interior + onboard-cam post (fin/gridfin)~~ **done**  
 20. ~~**V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)~~ **done**  
 21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
+22. ~~**V21** — splash swell / water texture + weather-altitude cumulus~~ **done**
 
 ---
 
@@ -355,7 +359,7 @@ later FX sit on a hull that already reads as S40.
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
 | T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | **V13** heat-tint / hex / missing+white tiles; **V14** pink landing plume | V13 / V14 / V15 |
-| T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | Cyan spray discs + site beacon (`splashFx.ts`) | V17 |
+| T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | **V17** steam + glitter; **V21** swell/texture + ~2 km cumulus | V17 / V21 |
 
 ### Working agreements (photorealism)
 
@@ -551,6 +555,28 @@ stays cloudless Blue Marble. Tests on the visibility gate. No bake.
 
 ---
 
+## V21 — Splash sea state + weather deck — **done 2026-08-17**
+
+The splash plate was a flat tinted disc; descent had no weather clouds, so the
+ship fell through empty air with no scale cue between the V19 LEO shell (~51 km)
+and the water.
+
+- Sunlit splash plate: canvas swell/foam texture, repeating ripple tile, GPU
+  vertex swell (scrub-safe from mission `t`). Inner 10 km chop mesh for the
+  recovery-drone near field.
+- Broken **cumulus** sprites at ~2 km AGL around the splash site, including the
+  descent corridor, so the ship falls through a recognizable weather deck.
+- Local only — gated with the splash site / craft altitude. Does **not** restore
+  a globe cloud overlay (#14 / V19).
+
+**Done when:** chase/drone at splash shows textured, moving water; descent chase
+passes through puffy clouds at ~2 km. Tests on opacity / swell helpers. No bake.
+
+**Files:** `splashWeather.ts` (+ tests), `terminalFx.ts` (+ tests),
+`terminalSiteFx.ts`, `splashFx.ts`.
+
+---
+
 ## V20 — Moon photo albedo (later, optional)
 
 Earth has NASA Blue Marble; the Moon is still a procedural canvas. A single
@@ -574,7 +600,8 @@ Not driven by the Flight 13 stills.
   `assets/` as look reference)
 - Cloning the SpaceX webcast HUD
 - Real-time volumetric clouds or a full atmospheric scattering path (V19 is a
-  cheap gated shell only — do not reverse #14’s globe cloud deck)
+  cheap gated shell only — do not reverse #14’s globe cloud deck; V21 is a
+  **local** splash-zone cumulus field, not a second globe overlay)
 - Ops-grade plume CFD tables
 - Non-deterministic particle systems that break scrubbing
 - WebGPU-only post path (keep WebGL first-class)
@@ -608,3 +635,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-16 | V17 shipped: white splash steam, ocean glitter, wet hull roughness |
 | 2026-08-16 | V18 shipped: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
 | 2026-08-16 | V19 shipped: altitude-gated LEO cloud shell + ocean glitter; Earth-cam stays cloudless Blue Marble |
+| 2026-08-17 | V21 shipped: splash swell + water texture; puffy cumulus at ~2 km AGL (local, not a globe deck) |

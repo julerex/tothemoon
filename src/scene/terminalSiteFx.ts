@@ -8,14 +8,18 @@
  * at build time.
  *
  * @see terminalFx.ts — pure strength / pose helpers
+ * @see splashWeather.ts — sea swell + weather deck
  * @see splashFx.ts, gulfLandFx.ts, landingFx.ts — per-site factories
  */
 
 import * as THREE from "three";
 import { EARTH_SURFACE_RADIUS_KM } from "../physics/constants";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
-import { drapePlatePoint } from "./starbasePlate";
 import { createNameLabel } from "./zoomLabels";
+import {
+  createSplashOcean,
+  createWeatherClouds,
+} from "./splashWeather";
 import {
   beaconPulseOpacity,
   type ContactCuePose,
@@ -271,6 +275,11 @@ export type EarthTerminalSiteSpec = Readonly<{
    * this plate is sky-reflected morning water for the recovery-drone view.
    */
   sunlitOcean?: boolean;
+  /**
+   * Puffy cumulus at weather altitude around the splash site (ship falls
+   * through on descent). Local only — not a globe cloud deck.
+   */
+  weatherClouds?: boolean;
 }>;
 
 export type EarthTerminalSite = Readonly<{
@@ -283,8 +292,13 @@ export type EarthTerminalSite = Readonly<{
   pulseBeacon: (craftPos: THREE.Vector3) => void;
   /** Set ocean glitter opacity [0, 1] (no-op when glitter was not requested). */
   setGlitter: (opacity: number) => void;
-  /** Set sunlit sea-plate opacity [0, 1] (no-op when the plate was not requested). */
-  setOceanPlate: (opacity: number) => void;
+  /**
+   * Set sunlit sea-plate opacity [0, 1] and scrub-safe swell time
+   * (no-op when the plate was not requested).
+   */
+  setOceanPlate: (opacity: number, missionT?: number) => void;
+  /** Set weather-deck opacity [0, 1] (no-op when clouds were not requested). */
+  setWeatherClouds: (opacity: number) => void;
 }>;
 
 function paintGlitterCanvas(): THREE.CanvasTexture {
@@ -336,95 +350,6 @@ function createOceanGlitterSprites(): {
 }
 
 /**
- * Splash-zone plate radius (km). Horizon from a 1 km recovery drone is
- * ~110 km; this fills the near field and fades before Earth-cam notices.
- */
-export const SPLASH_OCEAN_RADIUS_KM = 80;
-const SPLASH_OCEAN_SEGS = 36;
-
-function paintSunlitOcean(ctx: CanvasRenderingContext2D, size: number): void {
-  const cx = size * 0.5;
-  const cy = size * 0.5;
-  const r = size * 0.5;
-  const g = ctx.createRadialGradient(cx, cy, r * 0.06, cx, cy, r);
-  g.addColorStop(0, "rgba(92, 148, 172, 1)");
-  g.addColorStop(0.28, "rgba(72, 128, 154, 0.98)");
-  g.addColorStop(0.58, "rgba(52, 108, 136, 0.9)");
-  g.addColorStop(0.82, "rgba(36, 84, 112, 0.5)");
-  g.addColorStop(1, "rgba(24, 60, 84, 0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  ctx.globalCompositeOperation = "soft-light";
-  for (let i = 0; i < 16; i++) {
-    const y = (i + 0.35) * (size / 16);
-    ctx.strokeStyle = i % 2 === 0 ? "rgba(236, 248, 255, 0.22)" : "rgba(30, 64, 84, 0.14)";
-    ctx.lineWidth = size * 0.011;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    for (let x = 0; x <= size; x += 8) {
-      ctx.lineTo(x, y + Math.sin(x * 0.07 + i * 0.9) * size * 0.011);
-    }
-    ctx.stroke();
-  }
-  ctx.globalCompositeOperation = "destination-in";
-  const a = ctx.createRadialGradient(cx, cy, r * 0.22, cx, cy, r);
-  a.addColorStop(0, "rgba(0,0,0,1)");
-  a.addColorStop(0.62, "rgba(0,0,0,0.92)");
-  a.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = a;
-  ctx.fillRect(0, 0, size, size);
-  ctx.globalCompositeOperation = "source-over";
-}
-
-function drapeOceanPlate(geo: THREE.BufferGeometry): void {
-  const pos = geo.getAttribute("position");
-  if (!pos) return;
-  for (let i = 0; i < pos.count; i++) {
-    const p = drapePlatePoint(pos.getX(i), pos.getZ(i), EARTH_SURFACE_RADIUS_KM);
-    pos.setXYZ(i, p.x, p.y, p.z);
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
-}
-
-/** Sky-reflected morning sea; unlit so a 5° winter sun cannot crush it. */
-function createSunlitOceanPlate(): { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial } {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  paintSunlitOcean(canvas.getContext("2d")!, 256);
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  const geo = new THREE.PlaneGeometry(
-    SPLASH_OCEAN_RADIUS_KM * 2,
-    SPLASH_OCEAN_RADIUS_KM * 2,
-    SPLASH_OCEAN_SEGS,
-    SPLASH_OCEAN_SEGS,
-  );
-  geo.rotateX(-Math.PI / 2);
-  drapeOceanPlate(geo);
-  const mat = new THREE.MeshBasicMaterial({
-    map,
-    color: 0xffffff,
-    transparent: true,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -6,
-    polygonOffsetUnits: -6,
-    side: THREE.DoubleSide,
-  });
-  mat.userData.noShadow = true;
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.name = "splash-ocean-plate";
-  mesh.position.y = 0.001;
-  mesh.renderOrder = 1;
-  mesh.visible = false;
-  mesh.castShadow = false;
-  mesh.receiveShadow = false;
-  return { mesh, mat };
-}
-
-/**
  * Build an Earth-fixed site plate (ring, beacon, disc, label) with its spray
  * stack already parented in draw order.
  */
@@ -436,8 +361,10 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
   const beaconMat = beacon.material as THREE.MeshBasicMaterial;
   const layers = createTerminalLayers(spec.layers);
   const glitter = spec.oceanGlitter ? createOceanGlitterSprites() : null;
-  const ocean = spec.sunlitOcean ? createSunlitOceanPlate() : null;
-  if (ocean) site.add(ocean.mesh);
+  const ocean = spec.sunlitOcean ? createSplashOcean() : null;
+  const clouds = spec.weatherClouds ? createWeatherClouds() : null;
+  if (ocean) site.add(ocean.group);
+  if (clouds) site.add(clouds.group);
   site.add(
     createSiteRing(spec.ring),
     beacon,
@@ -473,12 +400,13 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
       if (!on) return;
       for (const mat of glitter.mats) mat.opacity = opacity;
     },
-    setOceanPlate(opacity) {
+    setOceanPlate(opacity, missionT = 0) {
       if (!ocean) return;
-      const on = opacity > 0.02;
-      ocean.mesh.visible = on;
-      if (!on) return;
-      ocean.mat.opacity = opacity;
+      ocean.setFrame(opacity, missionT);
+    },
+    setWeatherClouds(opacity) {
+      if (!clouds) return;
+      clouds.setOpacity(opacity);
     },
   });
 }
