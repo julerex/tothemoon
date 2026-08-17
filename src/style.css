@@ -1096,7 +1096,7 @@ select {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.35rem 0.5rem;
 }
 
@@ -1105,136 +1105,142 @@ select {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
-  padding-top: 1.05rem;
-  padding-bottom: 0.55rem;
+  height: 14px;
 }
 
 #scrub {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-width: 0;
+  height: 14px;
 }
 
-.scrub-markers {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1rem;
-  pointer-events: none;
-}
-
-/* Narrative event ticks under the range (callout beats) */
+.scrub-markers,
 .scrub-events {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 0.5rem;
+  inset: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
+.scrub-mark,
 .scrub-event {
   position: absolute;
-  top: 0;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   appearance: none;
   border: none;
-  background: transparent;
   padding: 0;
   margin: 0;
-  width: 10px;
-  height: 10px;
   cursor: pointer;
   pointer-events: auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  z-index: 1;
-}
-
-.scrub-event-tick {
-  display: block;
-  width: 5px;
-  height: 5px;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.35);
-  box-shadow: none;
-  transition: background 0.12s ease, transform 0.12s ease;
-}
-
-.scrub-event:hover .scrub-event-tick,
-.scrub-event:focus-visible .scrub-event-tick {
-  background: #ffffff;
-  transform: scale(1.2);
-}
-
-.scrub-event.active .scrub-event-tick {
-  background: #ffffff;
-}
-
-/* Mid-phase theater beats (staging, dogleg, return to launch site) — slightly taller ticks */
-.scrub-event-secondary .scrub-event-tick {
-  width: 3px;
-  height: 7px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.55);
 }
 
 .scrub-mark {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.62rem;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  cursor: pointer;
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  z-index: 1;
+  width: 3px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  z-index: 2;
+}
+
+.scrub-event {
+  width: 2px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.42);
+  z-index: 3;
+}
+
+.scrub-event-secondary {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.58);
 }
 
 .scrub-mark:hover,
-.scrub-mark.active {
+.scrub-mark:focus-visible,
+.scrub-mark.active,
+.scrub-event:hover,
+.scrub-event:focus-visible,
+.scrub-event.active {
+  background: #ffffff;
+}
+
+.scrub-mark::after,
+.scrub-event::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  transform: translateX(-50%);
+  padding: 0.32rem 0.5rem;
+  background: rgba(0, 0, 0, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: var(--text);
+  font-family: var(--font);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  white-space: normal;
+  width: max-content;
+  max-width: 16rem;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 6;
 }
 
-.scrub-mark.active .scrub-tick {
-  background: var(--text);
-  box-shadow: none;
-}
-
-.scrub-tick {
-  display: block;
-  width: 1px;
-  height: 7px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.scrub-lab {
-  white-space: nowrap;
-  max-width: 3.2rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+.scrub-mark:hover::after,
+.scrub-mark:focus-visible::after,
+.scrub-event:hover::after,
+.scrub-event:focus-visible::after {
+  opacity: 1;
 }
 
 input[type="range"] {
   flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
   accent-color: var(--accent);
   width: 100%;
   min-width: 0;
   margin: 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 1px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -2px;
+  border: none;
+  border-radius: 1px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  border: none;
+  border-radius: 1px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 1px;
+  background: #ffffff;
+  cursor: pointer;
 }
 
 /* ── Keymap overlay (K) ─────────────────────────────────────────── */
@@ -1721,10 +1727,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
   .scrubber {
     flex: 1 1 100%;
-  }
-
-  .scrub-lab {
-    display: none;
   }
 
   .footer-row {

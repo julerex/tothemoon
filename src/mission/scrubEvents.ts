@@ -1,6 +1,6 @@
 /**
- * Scrubber event ticks: which narrative beats get clickable marks under the
- * mission range (paired with phase marks above the track).
+ * Scrubber event ticks: which narrative beats get clickable marks on the
+ * mission range (paired with phase marks on the same track).
  *
  * Secondary beats (staging, dogleg, return to launch site theater) are flagged for slightly
  * different styling so they read as mid-phase callouts, not phase starts.

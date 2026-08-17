@@ -1,5 +1,5 @@
 /**
- * Scrubber phase markers, event ticks, and bookmark buttons (pure DOM builders).
+ * Scrubber phase / event ticks on the range track, plus bookmark buttons.
  */
 
 import type { CinematicBookmark } from "../mission/bookmarks";
@@ -20,24 +20,6 @@ const MAJOR_PHASES = new Set<PhaseId>([
   "impact",
 ]);
 
-/** Whether a phase segment gets a text label (not just a tick). */
-function phaseMarkHasLabel(seg: PhaseSegment, widthPct: number): boolean {
-  return widthPct >= 2.2 || seg.phase === "coast" || seg.phase === "ascent";
-}
-
-function appendScrubTick(mark: HTMLElement): void {
-  const tick = document.createElement("span");
-  tick.className = "scrub-tick";
-  mark.appendChild(tick);
-}
-
-function appendScrubLabel(mark: HTMLElement, text: string): void {
-  const lab = document.createElement("span");
-  lab.className = "scrub-lab";
-  lab.textContent = text;
-  mark.appendChild(lab);
-}
-
 function seekScrubToU(u: number): void {
   const scrub = document.querySelector<HTMLInputElement>("#scrub");
   if (!scrub) return;
@@ -50,21 +32,14 @@ function stylePhaseMark(mark: HTMLButtonElement, seg: PhaseSegment): void {
   mark.className = "scrub-mark";
   mark.dataset.phase = seg.phase;
   mark.style.left = `${(seg.u0 * 100).toFixed(3)}%`;
-  mark.title = `${seg.label} · ${formatMissionTime(seg.t0)}`;
+  const tip = `${seg.label} · ${formatMissionTime(seg.t0)}`;
+  mark.dataset.tip = tip;
   mark.setAttribute("aria-label", `Jump to ${seg.label}`);
-}
-
-function fillPhaseMark(mark: HTMLButtonElement, seg: PhaseSegment): void {
-  stylePhaseMark(mark, seg);
-  appendScrubTick(mark);
-  if (phaseMarkHasLabel(seg, (seg.u1 - seg.u0) * 100)) {
-    appendScrubLabel(mark, seg.shortLabel);
-  }
 }
 
 function buildPhaseMark(seg: PhaseSegment): HTMLButtonElement {
   const mark = document.createElement("button");
-  fillPhaseMark(mark, seg);
+  stylePhaseMark(mark, seg);
   mark.addEventListener("click", (e) => {
     e.preventDefault();
     seekScrubToU(seg.u0);
@@ -72,7 +47,7 @@ function buildPhaseMark(seg: PhaseSegment): HTMLButtonElement {
   return mark;
 }
 
-/** One marker per major phase start on the scrubber track. */
+/** One track tick per major phase start. */
 export function renderPhaseMarkers(
   root: HTMLElement,
   segments: readonly PhaseSegment[],
@@ -100,7 +75,8 @@ function styleEventTickPos(btn: HTMLButtonElement, tick: ScrubEventTick): void {
 }
 
 function styleEventTickLabels(btn: HTMLButtonElement, ev: MissionEvent): void {
-  btn.title = `${ev.title}${ev.detail ? ` · ${ev.detail}` : ""} · ${formatMissionTime(ev.t)}`;
+  const tip = `${ev.title}${ev.detail ? ` · ${ev.detail}` : ""} · ${formatMissionTime(ev.t)}`;
+  btn.dataset.tip = tip;
   btn.setAttribute(
     "aria-label",
     `Jump to ${ev.title} at ${formatMissionTime(ev.t)}`,
@@ -120,14 +96,11 @@ function buildEventTickButton(
   const btn = document.createElement("button");
   styleEventTickPos(btn, tick);
   styleEventTickLabels(btn, tick.event);
-  const dot = document.createElement("span");
-  dot.className = "scrub-event-tick";
-  btn.appendChild(dot);
   btn.addEventListener("click", (e) => onEventTickClick(e, onSeek, tick.event));
   return btn;
 }
 
-/** Subtle event ticks under the scrubber range (click → seek). */
+/** Event ticks on the scrubber track (click → seek). */
 export function renderEventTicks(
   root: HTMLElement,
   ticks: ScrubEventTick[],
