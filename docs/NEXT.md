@@ -153,15 +153,12 @@ Ascent / translunar injection / capture / low Earth orbit dogleg were already se
 
 Keep `stagingFx`, `landingFx`, `earthTheater` as the pattern: **deterministic in mission time**, scrub-safe, no wall-clock physics. New FX should follow that rule.
 
-### 14. HUD composition
+### 14. HUD composition — **done**
 
-`hud.ts` is becoming the kitchen sink. Optional split:
-
-- `hud/transport.ts` (play, speed, scrub)
-- `hud/telemetry.ts`
-- `hud/callouts.ts` + complete card
-
-Only worth it when the next UX feature would otherwise bloat a single file further.
+`bindHud` stays the public entry. Runtime types, camera chrome, exclusive panels,
+transport/scrub/news, and keyboard live in `hudTypes` / `hudCameraCtl` /
+`hudPanels` / `hudTransport` / `hudKeys`. Telemetry labels were already in
+`telemetryView` + `hudApply`.
 
 ### 15. Bundle size
 
@@ -209,7 +206,7 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 5. ~~**Visual photorealism V13+**~~ V13–V21 **done**; ~~**V20 Moon albedo**~~ **done** ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
 6. ~~**C3 WGS84 Earth figure**~~ **done** (`PLAN.md`) — pad / splash / drag on the ellipsoid, globe matches  
-7. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
+7. ~~**HUD split** (P3.14)~~ **done** (`hudTypes` / `hudCameraCtl` / `hudPanels` / `hudTransport` / `hudKeys`)
 
 ---
 
