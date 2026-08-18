@@ -21,7 +21,7 @@ Related:
 
 | Area | In place |
 |------|----------|
-| **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + Moon (albedo/roughness); true radii |
+| **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
 | **Pad** | OLP-2-inspired hardstand, tanks, Mechazilla, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
@@ -62,7 +62,7 @@ Related:
 
 **Shipped (V21):** splash-zone swell + water texture; puffy cumulus at ~2 km AGL that the ship falls through (local, not a globe deck).
 
-**Next (photorealism):** optional Moon albedo. See **V20**.
+**Shipped (V20):** LRO WAC color mosaic on the Moon (procedural canvas fallback).
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -71,7 +71,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 ## Working agreements
 
 - **Theater vs ops:** document approximations in README or short code comments when adding “realistic-looking” FX.
-- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe + Sentinel-2 Starbase plate, with procedural fallback) are the accepted exception — not a tile server or DEM.
+- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe, LRO WAC Moon, Sentinel-2 Starbase plate, with procedural fallback) are the accepted exception — not a tile server or DEM.
 - **Scrub-safe:** opacity/scale/position from mission `t`, phase, alt, burn flags — not `performance.now()` alone (wall-clock OK only for toast/UI animation).
 - **Scale honesty:** scene unit = 1 km; craft/pad true-scale; do not inflate the stack for “cinematics.”
 - **Performance:** pad/chase cameras are the hot path; avoid full-scene real-time shadows without a tight focus frustum.
@@ -103,7 +103,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V17** | Splash / ocean steam | **Done** — white contact cloud + glitter + wet hull |
 | **V18** | Engine-bay / onboard | **Done** — MLI, stencil IDs, mild fisheye on fin/gridfin |
 | **V19** | LEO Earth from hull-cam | **Done** — gated cloud shell + ocean glitter (does not undo #14) |
-| **V20** | Moon photo albedo | Later / optional — lunar V11 analogue |
+| **V20** | Moon photo albedo | **Done** — LRO WAC JPEG, V11 analogue |
 | **V21** | Splash sea + weather deck | **Done** — swell/texture + ~2 km cumulus the ship falls through |
 
 ---
@@ -238,7 +238,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 18. ~~**V17** — splash steam + ocean glitter (ship + Super Heavy gulf)~~ **done**  
 19. ~~**V18** — engine-bay interior + onboard-cam post (fin/gridfin)~~ **done**  
 20. ~~**V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)~~ **done**  
-21. **V20** — optional Moon albedo JPEG (after V9 plate; not Flight 13)
+21. ~~**V20** — Moon albedo JPEG (after V9 plate; not Flight 13)~~ **done**
 22. ~~**V21** — splash swell / water texture + weather-altitude cumulus~~ **done**
 
 ---
@@ -577,25 +577,26 @@ passes through puffy clouds at ~2 km. Tests on opacity / swell helpers. No bake.
 
 ---
 
-## V20 — Moon photo albedo (later, optional)
+## V20 — Moon photo albedo — **done 2026-08-18**
 
-Earth has NASA Blue Marble; the Moon is still a procedural canvas. A single
-theater-grade JPEG (Clementine / LRO WAC, procedural fallback) is the V11
-analogue — **not** a tile server or DEM.
+Earth has NASA Blue Marble; the Moon was a procedural canvas. A single
+theater-grade JPEG (LRO WAC color from the NASA SVS CGI Moon Kit, procedural
+fallback) is the V11 analogue — **not** a tile server or DEM.
 
-Do after V9 so the local Malapert plate sits on photo terrain. Same asset
-rules as Blue Marble: modest JPEG, credit in `public/textures/ATTRIBUTION.txt`.
-Not driven by the Flight 13 stills.
+The local Malapert plate (V9) still sits on the globe; photo albedo is the
+sphere map underneath.
 
-**Files:** `bodies.ts`, `textures.ts`, `public/textures/`.
+Same asset rules as Blue Marble: modest JPEG, credit in
+`public/textures/ATTRIBUTION.txt`. Not driven by the Flight 13 stills.
+
+**Files:** `bodies.ts`, `textures.ts`, `public/textures/moon_lroc_wac_4k.jpg`.
 
 ---
 
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
-  are the exception: Blue Marble + Starbase plate now; optional Clementine/LRO
-  Moon albedo is V20)
+  are the exception: Blue Marble + Starbase plate + LRO WAC Moon albedo)
 - Draping webcast stills as runtime textures (copyright; keep them in
   `assets/` as look reference)
 - Cloning the SpaceX webcast HUD
@@ -636,3 +637,4 @@ Not driven by the Flight 13 stills.
 | 2026-08-16 | V18 shipped: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
 | 2026-08-16 | V19 shipped: altitude-gated LEO cloud shell + ocean glitter; Earth-cam stays cloudless Blue Marble |
 | 2026-08-17 | V21 shipped: splash swell + water texture; puffy cumulus at ~2 km AGL (local, not a globe deck) |
+| 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |

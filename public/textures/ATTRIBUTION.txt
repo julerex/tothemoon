@@ -42,3 +42,18 @@ File: starbase_surrounds.jpg
 Contains modified Copernicus Sentinel data [2024].
 Sentinel-2 cloudless by EOX IT Services GmbH, licensed CC BY 4.0
   https://creativecommons.org/licenses/by/4.0/
+
+---
+
+NASA SVS CGI Moon Kit — LROC WAC color (2019)
+Source: https://svs.gsfc.nasa.gov/4720/
+File: moon_lroc_wac_4k.jpg
+  Downsampled/encoded from lroc_color_poles_4k.tif (4096×2048, 24-bit RGB)
+  to a theater-grade JPEG for web use. Equirectangular, centered on 0° longitude.
+
+Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio.
+  Color mosaic from Lunar Reconnaissance Orbiter Camera (LROC) Wide Angle
+  Camera data assembled by the LROC team.
+
+U.S. government works from NASA are generally not subject to copyright in the
+United States; please retain credit when redistributing.

@@ -394,8 +394,8 @@ function buildEarthBundle(): {
 
 /** Moon surface material. */
 function makeMoonMaterial(
-  map: THREE.CanvasTexture,
-  rough: THREE.CanvasTexture,
+  map: THREE.Texture,
+  rough: THREE.Texture,
 ): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     map,
@@ -434,12 +434,48 @@ function makeMoonMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
   return new THREE.Mesh(new THREE.SphereGeometry(R_MOON, 80, 56), mat);
 }
 
+function onMoonPhotoMissing(): void {
+  console.warn("[tothemoon] LRO WAC Moon albedo missing; using procedural Moon");
+}
+
+/** Swap procedural albedo for LRO WAC color; rebuild roughness from the photo. */
+function applyMoonPhotoAlbedo(moon: THREE.Mesh, tex: THREE.Texture): void {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  const mat = moon.material as THREE.MeshStandardMaterial;
+  const prevMap = mat.map;
+  const prevRough = mat.roughnessMap;
+  mat.map = tex;
+  const canvas = canvasFromTextureImage(tex);
+  if (canvas) {
+    mat.roughnessMap = canvasDataMap(makeMoonRoughnessMap(canvas), 4);
+  }
+  mat.needsUpdate = true;
+  prevMap?.dispose();
+  prevRough?.dispose();
+}
+
+/** Prefer committed LRO WAC color; keep procedural albedo if the JPEG is absent. */
+function loadMoonPhotoAlbedo(moon: THREE.Mesh): void {
+  const url = `${import.meta.env.BASE_URL}textures/moon_lroc_wac_4k.jpg`;
+  new THREE.TextureLoader().load(
+    url,
+    (tex) => applyMoonPhotoAlbedo(moon, tex),
+    undefined,
+    () => onMoonPhotoMissing(),
+  );
+}
+
 /** Textured moon sphere + limb under axis. */
 function populateMoonAxis(moonAxis: THREE.Group): THREE.Mesh {
   const maps = makeMoonMaps();
   const moon = makeMoonMesh(makeMoonMaterial(maps.map, maps.rough));
   moonAxis.add(moon);
   moonAxis.add(makeMoonLimb());
+  loadMoonPhotoAlbedo(moon);
   return moon;
 }
 
