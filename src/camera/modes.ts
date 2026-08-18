@@ -34,28 +34,8 @@ import {
   type WebcastMount,
 } from "./webcastShots";
 
-/**
- * Focus preset — camera stays free; these only choose what to track.
- * `"free"` is internal (no subject co-motion); not shown in the UI.
- * Pan / orbit / zoom keep the current focus and ride along with it, preserving
- * any look-target offset from the subject center.
- * `"fin"` / `"gridfin"` / `"trench"` / `"hull"` start as locked mounts
- * (onboard / webcast). The first mouse or orbit/pan/zoom key leaves the lock
- * and tracks the look-at like other focuses, so Flight 13 and the lunar
- * mission share the same controls.
- */
-export type CameraMode =
-  | "free"
-  | "sun"
-  | "earth"
-  | "chase"
-  | "moon"
-  | "starbase"
-  | "fin"
-  | "gridfin"
-  | "trench"
-  | "hull";
-
+export type { CameraMode } from "./cameraMode";
+import type { CameraMode } from "./cameraMode";
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 /** OrbitControls maps camera.up → +Y internally. */
