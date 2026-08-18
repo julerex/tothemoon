@@ -13,14 +13,15 @@ export const R_EARTH = 6371.0;
 export const EARTH_J2 = 1.082_626_68e-3;
 
 /**
- * Simple exponential atmosphere for ascent / low low Earth orbit drag (theater).
- * ρ = ρ₀ exp(−h / H) for h < ATM_H_MAX_KM; zero above.
+ * Atmosphere surface density and former single scale height (theater).
+ * Live density is the US76-ish piecewise table in `atmosphere.ts`
+ * (`atmDensity`); H = 7.5 km is kept for comparison tests.
  * ρ₀ in kg/km³ (1.225 kg/m³ = 1.225×10⁹ kg/km³).
  */
 export const ATM_RHO0_KG_KM3 = 1.225e9;
 export const ATM_SCALE_HEIGHT_KM = 7.5;
 /** Cutoff altitude (km) — drag ignored above this. */
-export const ATM_H_MAX_KM = 120;
+export const ATM_H_MAX_KM = 150;
 
 /**
  * Ballistic factor Cd·A/m for the stack (km²/kg).

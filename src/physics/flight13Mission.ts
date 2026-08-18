@@ -24,8 +24,8 @@
  *   is closer to circular than the flown 8×195 km, so the burn is a modest
  *   retrograde (not the old 20 s deorbit) so aero can finish over the
  *   Indian Ocean without a longitude teleport.
- * - Entry: high-AoA belly drag (+ modest lift) and a light bank back onto
- *   the intercept plane — no powered cruise
+ * - Entry: piecewise US76-ish density, altitude-varying CdA / L/D (theater
+ *   bounded) and a light bank back onto the intercept plane — no powered cruise
  * - Landing burn brakes near the splash fix; splash is a sub-km floor at the
  *   flown lat/lon (no published-fix seat, no clock-forced splash)
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
@@ -36,6 +36,7 @@
  */
 
 import {
+  ATM_H_MAX_KM,
   BOOSTER_THRUST_N,
   EARTH_SURFACE_ALT_KM,
   HOT_STAGE_S,
@@ -64,8 +65,12 @@ import {
 } from "./flight13Corridor";
 import { makeFlight13Epoch } from "./flight13Epoch";
 import {
-  altitudeEarth,
   atmDensity,
+  entryCdAOverM,
+  entryLiftToDrag,
+} from "./atmosphere";
+import {
+  altitudeEarth,
   getBodies,
   rk4Step,
   type AccelOptions,
@@ -140,8 +145,8 @@ const SHIP_PROP_RESERVE = 0.07;
 
 /**
  * Target horizontal speed fraction of local circular at SECO.
- * Near-circular for a long eastbound coast. Relight is a small prograde
- * demo, not a deorbit — entry is aero after a slightly under-circular insert.
+ * Slightly under-circular so US76's thinner mesosphere does not loft the
+ * Indian Ocean corridor onto Australia. Relight is a small prograde demo.
  */
 const SECO_VCIRC_FRAC = 1.0;
 
@@ -153,18 +158,6 @@ const SECO_VRAD_MAX = 0.18;
 
 /** Prefer not to declare SECO energy until this altitude (km). */
 const SECO_ALT_MIN_KM = 165;
-
-/**
- * Belly-flop Cd·A/m (km²/kg) — high-AoA entry (ascent stack factor is much
- * smaller). Theater only; not a CFD table.
- */
-const BELLY_CD_A_OVER_M = 1.6e-10;
-
-/**
- * Lift-to-drag fraction of belly drag (outward). Tuned so the hypersonic
- * corridor covers the last ~1–2e3 km to splash without a powered altitude-hold.
- */
-const BELLY_L_OVER_D = 0.42;
 
 const _up = v3();
 const _relP = v3();
@@ -626,7 +619,7 @@ function applyBellyLift(
 ): void {
   if (!(vRel > 1.2 && alt > 10 && alt < 95)) return;
   if (!((vRad < 0 && vRel > 1.5) || rangeKm < 500)) return;
-  const raw = aDrag * BELLY_L_OVER_D * bellyLiftBand(alt, rangeKm);
+  const raw = aDrag * entryLiftToDrag(alt) * bellyLiftBand(alt, rangeKm);
   const aLift = Math.max(-0.006, Math.min(0.015, raw));
   a.ax += _up.x * aLift; a.ay += _up.y * aLift; a.az += _up.z * aLift;
 }
@@ -635,7 +628,7 @@ function bellyDragLift(
   alt: number, vRel: number, vRad: number, rangeKm: number,
 ): { ax: number; ay: number; az: number; aDrag: number } {
   const near = rangeKm < 500 ? 1.4 : 1;
-  const aDrag = Math.min(0.04, 0.5 * BELLY_CD_A_OVER_M * atmDensity(alt) * vRel * near);
+  const aDrag = Math.min(0.04, 0.5 * entryCdAOverM(alt) * atmDensity(alt) * vRel * near);
   const a = { ax: 0, ay: 0, az: 0, aDrag };
   if (aDrag > 1e-9) {
     a.ax -= (_relV.x / vRel) * aDrag;
@@ -888,7 +881,9 @@ function secoShouldCut(loop: F13Loop, alt: number, g: SecoGeom): boolean {
   const t = loop.state.t; const vNeed = SECO_VCIRC_FRAC * g.vCirc;
   const energyOk =
     alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 0.998 && Math.abs(g.vRad) <= SECO_VRAD_MAX;
-  const speedCap = alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 1.025;
+  // Cut at 0.998 circular even if radial rate is still a bit lofted — a 0.1 s
+  // step in a thin mesosphere otherwise jumps ~15 m/s and skips Australia.
+  const speedCap = alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 0.998;
   const propLow = fuelShipFrac(loop.prop) <= SHIP_PROP_RESERVE;
   const clockCut =
     t >= F13.SECO && (Math.abs(g.vRad) <= SECO_VRAD_MAX * 1.5 || propLow || alt < 100);
@@ -934,17 +929,20 @@ function flight13Phase(loop: F13Loop, alt: number): PhaseId {
   if (t < 12) return "launch";
   if (t < F13.SECO) return "ascent";
   if (loop.mode === "land") return "descent";
-  if (loop.prop.staged && t >= F13.RELIGHT && alt < 120) return "entry";
+  if (loop.prop.staged && t >= F13.RELIGHT && alt < ATM_H_MAX_KM) return "entry";
   return "coast";
 }
 
 /** Integrator step size. */
 function flight13Dt(loop: F13Loop, phase: PhaseId, alt: number, maxT: number): number {
   let dt = 1.0;
-  if (loop.mode === "boost" || loop.mode === "hot_stage" || loop.mode === "upper") {
+  if (loop.mode === "boost" || loop.mode === "hot_stage") {
     dt = 0.25;
+  } else if (loop.mode === "upper") {
+    // Fine steps near circular so a thin mesosphere cannot jump 30 m/s over SECO.
+    dt = loop.state.t > 400 ? 0.1 : 0.25;
   } else if (loop.mode === "land" || loop.mode === "relight") dt = 0.15;
-  else if (phase === "entry" || alt < 120) dt = alt < 80 ? 0.25 : 0.4;
+  else if (phase === "entry" || alt < ATM_H_MAX_KM) dt = alt < 80 ? 0.25 : 0.4;
   else if (phase === "coast") dt = 2.0;
   return Math.min(dt, maxT - loop.state.t);
 }

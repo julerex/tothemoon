@@ -59,16 +59,16 @@ Key modules: `src/physics/{mission,missionFly,ascent,integrator,bodies,kepler,pr
 ## Next steps (locked 2026-08-13)
 
 Phase A–C1, D1, B2 targeting, H1 snaps, the Horizons July 2027 table, pack v2
-meta, Flight 13 Earth-only force check, and F1 booster recovery on the force
-model are **shipped**. Remaining work is Earth figure, Flight 13 entry aero,
-then numerics.
+meta, Flight 13 Earth-only force check, F1 booster recovery, C3 WGS84, B3
+integrator quality, C2 analytic rates / F13 Horizons pack, and F2 entry aero
+are **shipped**.
 
-**Locked order for the next slices:**
+**Locked order for the next slices:** all previously locked slices are done.
 
 1. **C3 — Earth figure & pad frame** — **done** (WGS84 ellipsoid for pad / splash / low-alt guidance + visual globe)
 2. **B3 — Integrator quality** — **done** (finer RK4 near the Moon / F13 entry; step-doubling residual in the pack)
 3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — **done** (Ω̇, ω̇ on Kepler fallback; Flight 13 Horizons launch window)
-4. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor
+4. **F2 — Entry aero honesty** — **done** (US76-ish piecewise atmosphere; altitude-varying entry CdA / L/D)
 
 Then reassess. Full free-body n-body, engine-out tables, and ops-grade DE430
 + RCS stay deferred (see below).
@@ -222,8 +222,9 @@ step-doubling |Δr| and Moon-relative |ΔE/E| inside 250_000 km (`maxNearMoonSte
 
 **Shipped:**
 - Earth **J₂** in `integrator.addEarthJ2` (pole-aligned to theater Earth axis).
-- Exponential atmosphere + quadratic drag vs co-rotating air below ~120 km
-  (`atmDensity`, `addEarthDrag`); fixed ballistic factor for the stack.
+- Atmosphere + quadratic drag vs co-rotating air (`atmDensity`, `addEarthDrag`);
+  F2 replaced the single exponential with a US76-ish piecewise table (cutoff
+  150 km). Stack ballistic factor stays fixed on ascent.
 - Applied on every `rk4Step` (ascent feels maximum dynamic pressure drag; low Earth orbit gets mild J₂).
 
 ### C2. Lunar / solar ephemeris — **done 2026-08-18**
@@ -291,19 +292,20 @@ Chopsticks: last few km seat onto the tower. Flight 13 gulf: partial
 landing-burn relight then a hard ocean splash (as flown). Scrub-deterministic;
 not wall-clocked.
 
-### F2. Entry aero honesty
+### F2. Entry aero honesty — **done 2026-08-18**
 
-**Today:** single exponential atmosphere + fixed stack ballistic factor on
-ascent; Flight 13 belly-flop uses a larger theater `BELLY_CD_A_OVER_M` and a
-constant L/D. Relight is lengthened vs the public ~12 s so periapsis drops
-before the entry mark. Splash coordinates are theater (west of Australia).
+**Shipped:**
+- Piecewise **US76-ish** density (`atmosphere.ts` / `atmDensity`) instead of a
+  single 7.5 km scale height. Cutoff 150 km. Ascent still uses the stack
+  ballistic factor; drag altitude is WGS84 geodetic height.
+- Flight 13 entry Cd·A/m and L/D vary with altitude (rarefied Cd a bit
+  higher; L/D peaks in the hypersonic continuum, theater-clamped). SECO
+  cuts at 0.998 circular on 0.1 s steps so the thinner mesosphere does not
+  skip east of the Indian Ocean site. Relight stays the public ~10–12 s
+  demo — already short enough that aero finishes the corridor without a
+  200 km-class splash snap.
 
-**Target:**
-- Piecewise / US76-ish density vs a single scale height (still analytic).
-- Altitude- or AoA-varying ballistic factor; keep L/D theater-bounded.
-- Shorten in-space relight toward the public demo if B2-style targeting (or a
-  simple periapsis search) still reaches the splash corridor.
-- Soft-land / splash without a 200 km-class position snap (pairs with H1).
+**Was:** single exponential + fixed `BELLY_CD_A_OVER_M` / constant L/D.
 
 ---
 
@@ -435,7 +437,7 @@ Shipped (2026-07 → 2026-08):
 4. F1  Flight 13 booster recovery on RK4 / Earth-relative ballistic
 5. B3  Adaptive / smaller steps + energy residual — **done 2026-08-18**
 6. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window — **done 2026-08-18**
-7. F2  Entry aero (atmosphere layers, Cd(h), shorter relight)
+7. F2  Entry aero (atmosphere layers, Cd(h), shorter relight) — **done 2026-08-18**
 ```
 
 ### A3 implementation sketch (after D1) — **done 2026-07-23**
@@ -478,12 +480,13 @@ See “Definition of done (per slice)” above — precompute + tests + README +
 | 2026-08-13 | **Reassess:** next slices B2 → H1 snaps → C3 WGS84 → F1 F13 recovery → B3 integrator → C2 leftover → F2 entry aero |
 | 2026-08-13 | **Horizons DE441** July 2027 table is the lunar ephemeris; analytic Ω/ω rates and Flight 13 Horizons remain leftover |
 | 2026-08-13 | **Live lunar coast** stays ballistic (A2 TCM helpers unused unless B2 reintroduces a small evented burn) |
-| 2026-08-17 | **B2 + H1:** design perilune / B-plane search; delete polar LLO snap, LEO slerp, circularize blend, landing taxi, F13 splash seat, impulsive TLI |
+| 2026-08-18 | **F2 complete:** US76-ish piecewise atmosphere; altitude-varying entry CdA / L/D |
 
 ## Changelog
 
 | Date | Note |
 |------|------|
+| 2026-08-18 | F2: piecewise US76-ish atmosphere + altitude-varying Flight 13 entry CdA / L/D |
 | 2026-08-18 | C3: WGS84 ellipsoid for pad / splash / drag altitude / visual Earth (one surface contract) |
 | 2026-08-17 | F1: Super Heavy recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
 | 2026-08-17 | B2 targeting + H1 honesty: no live-path teleports |

@@ -2,8 +2,8 @@
  * Restricted n-body craft integrator (RK4) and force model.
  *
  * Accelerations (default **nbody**): Earth + Moon point-mass gravity, solar
- * tide about Earth, Earth J₂, and simple exponential atmosphere + quadratic
- * drag below ~120 km.
+ * tide about Earth, Earth J₂, and a US76-ish piecewise atmosphere + quadratic
+ * drag below ~150 km.
  *
  * **earth** model: Earth point-mass + J₂ + atmosphere only (no Moon, no Sun
  * tide). Useful as an independent check that short suborbital flights are not
@@ -35,9 +35,6 @@ export type AccelOptions = {
 };
 
 import {
-  ATM_H_MAX_KM,
-  ATM_RHO0_KG_KM3,
-  ATM_SCALE_HEIGHT_KM,
   DRAG_CD_A_OVER_M,
   DT_COAST,
   DT_NEAR,
@@ -48,6 +45,7 @@ import {
   MU_SUN,
   R_MOON,
 } from "./constants";
+import { atmDensity } from "./atmosphere";
 import { bodyPositions, type BodyState } from "./bodies";
 import {
   DEFAULT_EPHEMERIS,
@@ -157,14 +155,7 @@ export function addEarthJ2(acc: V3, craft: V3, earth: V3): void {
   j2Accel(acc, r, dot(_r, _pole));
 }
 
-/**
- * Exponential atmosphere density (kg/km³) at altitude h (km). Zero above cutoff.
- */
-export function atmDensity(hKm: number): number {
-  if (hKm < 0) return ATM_RHO0_KG_KM3;
-  if (hKm > ATM_H_MAX_KM) return 0;
-  return ATM_RHO0_KG_KM3 * Math.exp(-hKm / ATM_SCALE_HEIGHT_KM);
-}
+export { atmDensity };
 
 /**
  * Quadratic drag vs co-rotating atmosphere.
