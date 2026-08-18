@@ -1,24 +1,51 @@
 /**
- * Sample JPL Horizons (DE441) for the July 2027 mission window and write
- * `src/data/horizons-epoch.json` for runtime interpolation.
+ * Sample JPL Horizons (DE441) and write a packed Earth/Moon table.
  *
- * Usage: npx tsx scripts/fetch-horizons-epoch.ts
+ *   npx tsx scripts/fetch-horizons-epoch.ts            # July 2027 lunar window
+ *   npx tsx scripts/fetch-horizons-epoch.ts --flight13  # Flight 13 launch window
  *
  * Frame: heliocentric ecliptic J2000, km / km/s.
- * Landing epoch: 2027-07-20 12:00 TDB (JD 2461607.0).
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.resolve(__dirname, "../src/data/horizons-epoch.json");
 
-const JD_LANDING = 2_461_607.0; // 2027-07-20 12:00 TDB
-// Wide enough for free-coast time of flight (~7 d) + epoch search (±10 d) + margin
-const START = "2027-06-20";
-const STOP = "2027-08-10";
-const STEP = "6%20h";
+type WindowCfg = {
+  outRel: string;
+  jdTau0: number;
+  tau0Utc: string;
+  start: string;
+  stop: string;
+  step: string;
+  stepHours: number;
+};
+
+const LUNAR_WINDOW: WindowCfg = {
+  outRel: "../src/data/horizons-epoch.json",
+  jdTau0: 2_461_607.0, // 2027-07-20 12:00 TDB
+  tau0Utc: "2027-07-20T12:00:00Z",
+  start: "2027-06-20",
+  stop: "2027-08-10",
+  step: "6%20h",
+  stepHours: 6,
+};
+
+/** Flight 13 liftoff 2026-07-24 22:51 UTC → JD (Unix / 86400 + 2440587.5). */
+const F13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 24, 22, 51, 0);
+const F13_WINDOW: WindowCfg = {
+  outRel: "../src/data/horizons-flight13-epoch.json",
+  jdTau0: F13_LIFTOFF_UTC_MS / 86_400_000 + 2_440_587.5,
+  tau0Utc: "2026-07-24T22:51:00Z",
+  start: "2026-07-24",
+  stop: "2026-07-25 12:00",
+  step: "1%20h",
+  stepHours: 1,
+};
+
+const cfg = process.argv.includes("--flight13") ? F13_WINDOW : LUNAR_WINDOW;
+const OUT = path.resolve(__dirname, cfg.outRel);
 
 const HORIZONS_FIXED = [
   "format=json", "OBJ_DATA='NO'", "MAKE_EPHEM='YES'", "EPHEM_TYPE='VECTORS'",
@@ -30,7 +57,7 @@ function horizonsQuery(cmd: string, center: string): string {
   return [
     ...HORIZONS_FIXED,
     `COMMAND='${cmd}'`, `CENTER='${center}'`,
-    `START_TIME='${START}'`, `STOP_TIME='${STOP}'`, `STEP_SIZE='${STEP}'`,
+    `START_TIME='${cfg.start}'`, `STOP_TIME='${cfg.stop}'`, `STEP_SIZE='${cfg.step}'`,
   ].join("&");
 }
 
@@ -87,7 +114,7 @@ function stateToVec6(s: State): number[] {
 
 function buildSamples(earth: State[], moon: State[]): SampleRow[] {
   return earth.map((e, i) => ({
-    dtS: Math.round((e.jd - JD_LANDING) * 86400),
+    dtS: Math.round((e.jd - cfg.jdTau0) * 86400),
     earth: stateToVec6(e),
     moonRel: stateToVec6(moon[i]!),
   }));
@@ -117,8 +144,8 @@ function horizonsMeta(earthTxt: string) {
     url: "https://ssd.jpl.nasa.gov/api/horizons.api",
     generatedAt: new Date().toISOString(),
     refPlane: "ECLIPTIC", refSystem: "J2000", outUnits: "KM-S",
-    landingUtc: "2027-07-20T12:00:00Z", landingJdTdb: JD_LANDING, stepHours: 6,
-    startUtc: "2027-07-06T00:00:00Z", stopUtc: "2027-07-22T00:00:00Z",
+    landingUtc: cfg.tau0Utc, landingJdTdb: cfg.jdTau0, stepHours: cfg.stepHours,
+    startUtc: cfg.start, stopUtc: cfg.stop,
   };
 }
 

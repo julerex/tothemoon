@@ -67,7 +67,7 @@ then numerics.
 
 1. **C3 — Earth figure & pad frame** — **done** (WGS84 ellipsoid for pad / splash / low-alt guidance + visual globe)
 2. **B3 — Integrator quality** — **done** (finer RK4 near the Moon / F13 entry; step-doubling residual in the pack)
-3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch
+3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — **done** (Ω̇, ω̇ on Kepler fallback; Flight 13 Horizons launch window)
 4. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor
 
 Then reassess. Full free-body n-body, engine-out tables, and ops-grade DE430
@@ -226,23 +226,17 @@ step-doubling |Δr| and Moon-relative |ΔE/E| inside 250_000 km (`maxNearMoonSte
   (`atmDensity`, `addEarthDrag`); fixed ballistic factor for the stack.
 - Applied on every `rk4Step` (ascent feels maximum dynamic pressure drag; low Earth orbit gets mild J₂).
 
-### C2. Lunar / solar ephemeris — **partial**
+### C2. Lunar / solar ephemeris — **done 2026-08-18**
 
-**Shipped (2026-07):** JPL Horizons **DE441** samples for Earth/Moon over the
-July 2027 lunar window (`npm run horizons` → `src/data/horizons-epoch.json`).
-Live lunar bake interpolates that table; analytic circular Earth + Kepler Moon
-is fallback.
+**Shipped:**
+- JPL Horizons **DE441** for the July 2027 lunar window (`npm run horizons`)
+- Analytic Kepler Moon now applies mean **Ω̇** (~18.6 yr retrograde) and **ω̇**
+  (~8.85 yr prograde) from the 2027-07-20 element epoch
+- Flight 13 launch window table (`npm run horizons:flight13` →
+  `horizons-flight13-epoch.json`). The F13 bake stays analytic so the pad
+  frame stays consistent; interpolate is wired when `useHorizons` is on.
 
-Analytic fallback still uses **fixed** Ω and ω in `constants.ts`. Flight 13
-pins launch UTC but does **not** use the Horizons pack (`useHorizons: false`;
-table coverage is the 2027 lunar window).
-
-| Step | Work | Status |
-|------|------|--------|
-| 1 | Mean rates Ω̇, ω̇ (node ~18.6 yr, apsides ~8.85 yr) on analytic fallback | **Next (leftover)** |
-| 2 | DE441 table for July 2027 lunar window | **Done** |
-| 3 | Keep Sun as ~1 AU circle / origin unless lighting/precision demands more | Keep |
-| 4 | Optional Horizons (or DE-lite) window for Flight 13 launch epoch | Later |
+Sun stays a ~1 AU circle / origin unless lighting needs more.
 
 ### C3. Earth figure & pad frame — **done 2026-08-18**
 
@@ -440,7 +434,7 @@ Shipped (2026-07 → 2026-08):
 3. C3  WGS84 Earth figure (shared pad / entry)
 4. F1  Flight 13 booster recovery on RK4 / Earth-relative ballistic
 5. B3  Adaptive / smaller steps + energy residual — **done 2026-08-18**
-6. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window
+6. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window — **done 2026-08-18**
 7. F2  Entry aero (atmosphere layers, Cd(h), shorter relight)
 ```
 

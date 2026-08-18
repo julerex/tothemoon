@@ -84,17 +84,35 @@ export const MOON_ECC = 0.0549;
 export const MOON_INCLINATION = (5.145 * Math.PI) / 180;
 
 /**
- * Longitude of the ascending node Ω (rad) in the ecliptic frame.
- * Fixed for this theater (real node regresses ~18.6 yr). Chosen so the
- * July-2027 mission geometry is easy to read from the default camera.
+ * Longitude of the ascending node Ω (rad) in the ecliptic frame at the
+ * lunar-theater element epoch (2027-07-20 landing). Real node regresses
+ * ~18.6 yr; {@link MOON_NODE_DOT} is applied on the analytic fallback.
  */
 export const MOON_NODE = (12.5 * Math.PI) / 180;
 
 /**
- * Argument of perigee ω (rad) — fixed for the theater (real apsides precess
- * ~8.85 yr). Periapsis near the ascending-node side of the orbit.
+ * Argument of perigee ω (rad) at the same element epoch. Real apsides
+ * precess ~8.85 yr; {@link MOON_ARG_PERI_DOT} is applied on the analytic fallback.
  */
 export const MOON_ARG_PERI = (30 * Math.PI) / 180;
+
+/**
+ * UTC of the analytic lunar elements / Horizons τ = 0 (2027-07-20 12:00).
+ * Flight 13 measures Ω̇, ω̇ from this instant via `clockUtcMsAtT0`.
+ */
+export const MOON_ELEMENT_EPOCH_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
+
+/** Mean nodal regression period (s), retrograde. */
+export const MOON_NODAL_PERIOD_S = 18.5996 * 365.25 * 86400;
+
+/** dΩ/dt (rad/s), retrograde. */
+export const MOON_NODE_DOT = (-2 * Math.PI) / MOON_NODAL_PERIOD_S;
+
+/** Mean apsidal advance period (s), prograde. */
+export const MOON_APSIDE_PERIOD_S = 8.850547 * 365.25 * 86400;
+
+/** dω/dt (rad/s), prograde. */
+export const MOON_ARG_PERI_DOT = (2 * Math.PI) / MOON_APSIDE_PERIOD_S;
 
 /** Mass ratio Moon/Earth (for barycenter) ≈ μ_m/μ_e */
 export const MASS_RATIO_ME = MU_MOON / MU_EARTH;

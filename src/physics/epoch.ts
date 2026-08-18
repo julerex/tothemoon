@@ -6,8 +6,8 @@
  * Preferred runtime ephemeris: JPL Horizons DE441 in `horizons-epoch.json`.
  *
  * **Flight 13:** liftoff at the flown instant — 2026-07-24 22:51 UTC =
- * 5:51 p.m. CDT (docs/STARSHIP_13.md). Analytic Earth/Sun only (Horizons
- * table is the July 2027 lunar window). No theater sun-phase offset.
+ * 5:51 p.m. CDT (docs/STARSHIP_13.md). Launch-window Horizons table is packed;
+ * the bake stays analytic (pad frame). No theater sun-phase offset.
  *
  * Pure: wall-clock mapping takes an explicit UTC epoch or landing map —
  * no module mutable state.

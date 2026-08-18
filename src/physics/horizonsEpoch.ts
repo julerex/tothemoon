@@ -1,20 +1,18 @@
 /**
- * Interpolated JPL Horizons sample table for the July 2027 mission window.
+ * Interpolated JPL Horizons sample tables (DE441).
  *
- * Data: `src/data/horizons-epoch.json` (regenerate with
- * `npx tsx scripts/fetch-horizons-epoch.ts`).
+ * Lunar window: `horizons-epoch.json` (`npm run horizons`) — τ = 0 at
+ * 2027-07-20 landing. Flight 13: `horizons-flight13-epoch.json`
+ * (`npm run horizons:flight13`) — τ = 0 at the flown liftoff.
  *
- * Times are seconds relative to landing (2027-07-20 12:00 TDB). Mission clock
- * t = 0 at launch; pass `horizonsLandingT` so absolute ephemeris time is
- *   τ = t − horizonsLandingT
- *
- * Pure: no module mutable state — landing map comes from {@link EphemerisEpoch}.
+ * Pure: no module mutable state — table pick comes from the epoch clock map.
  */
-import horizonsPack from "../data/horizons-epoch.json";
+import lunarPackJson from "../data/horizons-epoch.json";
+import flight13PackJson from "../data/horizons-flight13-epoch.json";
 import type { V3 } from "./vec3";
 
 export type HorizonsSample = {
-  /** Seconds from landing epoch (negative before landing). */
+  /** Seconds from the table τ = 0 epoch. */
   dtS: number;
   /** Earth heliocentric ecliptic J2000: [x,y,z,vx,vy,vz] km, km/s */
   earth: number[];
@@ -30,12 +28,19 @@ type HorizonsPack = {
   samples: HorizonsSample[];
 };
 
-const pack = horizonsPack as HorizonsPack;
-const samples = pack.samples;
+const lunarPack = lunarPackJson as HorizonsPack;
+const flight13Pack = flight13PackJson as HorizonsPack;
+const lunarSamples = lunarPack.samples;
+const flight13Samples = flight13Pack.samples;
 
-/** True when the packed Horizons table has enough samples to interpolate. */
+/** True when the July 2027 lunar Horizons table can interpolate. */
 export function hasHorizonsTable(): boolean {
-  return samples.length >= 2;
+  return lunarSamples.length >= 2;
+}
+
+/** True when the Flight 13 launch-window Horizons table can interpolate. */
+export function hasFlight13HorizonsTable(): boolean {
+  return flight13Samples.length >= 2;
 }
 
 /**
@@ -47,11 +52,11 @@ export function hasHorizonsEpoch(): boolean {
 }
 
 export function horizonsSource(): string {
-  return pack.source ?? "JPL Horizons";
+  return lunarPack.source ?? "JPL Horizons";
 }
 
 export function horizonsLandingUtc(): string {
-  return pack.landingUtc;
+  return lunarPack.landingUtc;
 }
 
 function lerp6(
@@ -70,14 +75,10 @@ function lerp6(
   outV.z = v * a[5]! + u * b[5]!;
 }
 
-/**
- * Interpolate Earth (heliocentric) and Moon (geocentric) at mission time t.
- * Returns false if τ is outside the table (caller may fall back to analytic).
- *
- * @param missionT mission clock (s from launch)
- * @param horizonsLandingT mission t at which Horizons τ = 0
- */
-function horizonsBracket(τ: number): { a: (typeof samples)[number]; b: (typeof samples)[number]; u: number } {
+function horizonsBracket(
+  samples: HorizonsSample[],
+  τ: number,
+): { a: HorizonsSample; b: HorizonsSample; u: number } {
   let lo = 0, hi = samples.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -87,20 +88,39 @@ function horizonsBracket(τ: number): { a: (typeof samples)[number]; b: (typeof 
   return { a, b, u: (τ - a.dtS) / (b.dtS - a.dtS || 1) };
 }
 
-export function interpolateHorizons(
-  missionT: number, horizonsLandingT: number,
+function interpolateTable(
+  samples: HorizonsSample[],
+  τ: number,
   earthPos: V3, earthVel: V3, moonRelPos: V3, moonRelVel: V3,
 ): boolean {
   if (samples.length < 2) return false;
-  const τ = missionT - horizonsLandingT;
   if (τ < samples[0]!.dtS || τ > samples[samples.length - 1]!.dtS) return false;
-  const { a, b, u } = horizonsBracket(τ);
+  const { a, b, u } = horizonsBracket(samples, τ);
   lerp6(a.earth, b.earth, u, earthPos, earthVel);
   lerp6(a.moonRel, b.moonRel, u, moonRelPos, moonRelVel);
   return true;
 }
 
-/** Diagnostics / tests: sample count and time span. */
+/**
+ * Interpolate Earth (heliocentric) and Moon (geocentric) at mission time t.
+ * Lunar table: τ = t − horizonsLandingT. Flight 13 (clockUtcMsAtT0 set): τ = t
+ * from liftoff. Returns false if τ is outside the table (analytic fallback).
+ */
+export function interpolateHorizons(
+  missionT: number,
+  epoch: { horizonsLandingT: number; clockUtcMsAtT0: number | null },
+  earthPos: V3, earthVel: V3, moonRelPos: V3, moonRelVel: V3,
+): boolean {
+  if (epoch.clockUtcMsAtT0 != null) {
+    return interpolateTable(flight13Samples, missionT, earthPos, earthVel, moonRelPos, moonRelVel);
+  }
+  return interpolateTable(
+    lunarSamples, missionT - epoch.horizonsLandingT,
+    earthPos, earthVel, moonRelPos, moonRelVel,
+  );
+}
+
+/** Diagnostics / tests: sample count and time span (lunar table). */
 export function horizonsTableMeta(): {
   n: number;
   t0: number;
@@ -108,9 +128,9 @@ export function horizonsTableMeta(): {
   source: string;
 } {
   return {
-    n: samples.length,
-    t0: samples[0]?.dtS ?? 0,
-    t1: samples[samples.length - 1]?.dtS ?? 0,
+    n: lunarSamples.length,
+    t0: lunarSamples[0]?.dtS ?? 0,
+    t1: lunarSamples[lunarSamples.length - 1]?.dtS ?? 0,
     source: horizonsSource(),
   };
 }

@@ -3,9 +3,12 @@ import {
   AU,
   MASS_RATIO_ME,
   MOON_ARG_PERI,
+  MOON_ARG_PERI_DOT,
   MOON_ECC,
+  MOON_ELEMENT_EPOCH_UTC_MS,
   MOON_INCLINATION,
   MOON_NODE,
+  MOON_NODE_DOT,
   MOON_OBLIQUITY,
   MU_EARTH,
   MU_EM_ORB,
@@ -88,7 +91,7 @@ function tryMoonRelHorizons(
   M0: number,
 ): MoonRel | null {
   if (!epochUsesHorizons(epoch) || Math.abs(M0 - epoch.moonPhase0) >= 1e-12) return null;
-  if (!interpolateHorizons(t, epoch.horizonsLandingT, _earth, _earthVel, _moon, _moonVel)) {
+  if (!interpolateHorizons(t, epoch, _earth, _earthVel, _moon, _moonVel)) {
     return null;
   }
   return moonRelFromScratch();
@@ -104,11 +107,31 @@ function perifocalRv(
   return { xp: r * cosNu_, yp: r * sinNu_, vxp: -sp * sinNu_, vyp: sp * (e + cosNu_) };
 }
 
+/** Seconds from the analytic lunar-element epoch (2027-07-20 landing). */
+function moonElementDtS(t: number, epoch: EphemerisEpoch): number {
+  if (epoch.clockUtcMsAtT0 != null) {
+    return (epoch.clockUtcMsAtT0 - MOON_ELEMENT_EPOCH_UTC_MS) / 1000 + t;
+  }
+  return t - epoch.horizonsLandingT;
+}
+
+/** Osculating Ω (rad) on the analytic Kepler Moon. */
+export function moonNodeAt(t: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): number {
+  return MOON_NODE + MOON_NODE_DOT * moonElementDtS(t, epoch);
+}
+
+/** Osculating ω (rad) on the analytic Kepler Moon. */
+export function moonArgPeriAt(t: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): number {
+  return MOON_ARG_PERI + MOON_ARG_PERI_DOT * moonElementDtS(t, epoch);
+}
+
 /** Rotate perifocal XY → ecliptic via R_z(Ω) R_x(i) R_z(ω). */
-function rotatePerifocalToEcliptic(xp: number, yp: number): { x: number; y: number; z: number } {
-  const cosΩ = Math.cos(MOON_NODE); const sinΩ = Math.sin(MOON_NODE);
+function rotatePerifocalToEcliptic(
+  xp: number, yp: number, Ω: number, ω: number,
+): { x: number; y: number; z: number } {
+  const cosΩ = Math.cos(Ω); const sinΩ = Math.sin(Ω);
   const cosi = Math.cos(MOON_INCLINATION); const sini = Math.sin(MOON_INCLINATION);
-  const cosω = Math.cos(MOON_ARG_PERI); const sinω = Math.sin(MOON_ARG_PERI);
+  const cosω = Math.cos(ω); const sinω = Math.sin(ω);
   const x1 = cosω * xp - sinω * yp;
   const y1 = sinω * xp + cosω * yp;
   return { x: cosΩ * x1 - sinΩ * y1 * cosi, y: sinΩ * x1 + cosΩ * y1 * cosi, z: y1 * sini };
@@ -122,14 +145,16 @@ function trueAnomalyFromE(E: number, e: number): number {
 }
 
 /** Analytic Keplerian Moon relative to Earth. */
-function moonRelAnalytic(t: number, M0: number): MoonRel {
+function moonRelAnalytic(t: number, epoch: EphemerisEpoch, M0: number): MoonRel {
   const a = A_EM; const e = MOON_ECC;
   const E = eccentricAnomaly(M0 + N_MOON * t, e);
   const r = a * (1 - e * Math.cos(E));
   const nu = trueAnomalyFromE(E, e);
   const pf = perifocalRv(r, nu, a, e);
-  const pos = rotatePerifocalToEcliptic(pf.xp, pf.yp);
-  const vel = rotatePerifocalToEcliptic(pf.vxp, pf.vyp);
+  const Ω = moonNodeAt(t, epoch);
+  const ω = moonArgPeriAt(t, epoch);
+  const pos = rotatePerifocalToEcliptic(pf.xp, pf.yp, Ω, ω);
+  const vel = rotatePerifocalToEcliptic(pf.vxp, pf.vyp, Ω, ω);
   return { pos, vel, r, nu, E };
 }
 
@@ -143,7 +168,7 @@ export function moonRelativeToEarth(
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
   M0: number = epoch.moonPhase0,
 ): { pos: V3; vel: V3; r: number; nu: number; E: number } {
-  return tryMoonRelHorizons(t, epoch, M0) ?? moonRelAnalytic(t, M0);
+  return tryMoonRelHorizons(t, epoch, M0) ?? moonRelAnalytic(t, epoch, M0);
 }
 
 /** Ecliptic longitude of Earth→Moon (atan2 of XY), for phase / Sun geometry. */
@@ -164,7 +189,7 @@ function addEarthToMoonScratch(): void {
 /** Fill scratch Earth/Moon from Horizons (heliocentric Moon). */
 function fillBodiesFromHorizons(t: number, epoch: EphemerisEpoch): boolean {
   if (!epochUsesHorizons(epoch)) return false;
-  if (!interpolateHorizons(t, epoch.horizonsLandingT, _earth, _earthVel, _moon, _moonVel)) {
+  if (!interpolateHorizons(t, epoch, _earth, _earthVel, _moon, _moonVel)) {
     return false;
   }
   addEarthToMoonScratch();
@@ -274,7 +299,7 @@ export function moonSouthPoleSurface(
 function earthPerihelionLongitude(epoch: EphemerisEpoch): number {
   const ep = v3(); const ev = v3(); const mp = v3(); const mv = v3();
   const tLand = epoch.horizonsLandingT;
-  if (!epochUsesHorizons(epoch) || !interpolateHorizons(tLand, tLand, ep, ev, mp, mv)) {
+  if (!epochUsesHorizons(epoch) || !interpolateHorizons(tLand, epoch, ep, ev, mp, mv)) {
     return (102.9 * Math.PI) / 180;
   }
   return fitPerihelionFromEarthPos(ep);

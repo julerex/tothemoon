@@ -9,14 +9,16 @@
  * - {@link makeFlight13Epoch} in `./flight13Epoch`
  */
 
-import { hasHorizonsTable } from "./horizonsEpoch";
+import { hasFlight13HorizonsTable, hasHorizonsTable } from "./horizonsEpoch";
 
 /**
  * Immutable ephemeris + mission-clock map for one integrate / theater session.
  *
  * - **Lunar:** `useHorizons` true when the DE441 table is available; `clockUtcMsAtT0` null
  *   so wall time is landing-relative (`LANDING_UTC` at `horizonsLandingT`).
- * - **Flight 13:** `useHorizons` false; `clockUtcMsAtT0` pins t=0 to launch window UTC.
+ * - **Flight 13:** `useHorizons` false on the bake (pad frame is analytic);
+ *   a launch-window DE441 table is packed for interpolate. `clockUtcMsAtT0`
+ *   pins t=0 to liftoff UTC.
  */
 export type EphemerisEpoch = Readonly<{
   /** Moon mean anomaly at mission t = 0 (rad). Analytic Kepler path. */
@@ -33,7 +35,8 @@ export type EphemerisEpoch = Readonly<{
   horizonsLandingT: number;
   /**
    * Prefer the packed Horizons sample table when in range.
-   * Flight 13 sets false (table is the July 2027 lunar window only).
+   * Lunar uses the 2027 landing window. Flight 13 packs a 2026 launch window
+   * but keeps `useHorizons` false on the bake so the pad frame stays analytic.
    */
   useHorizons: boolean;
   /**
@@ -57,7 +60,8 @@ export const DEFAULT_EPHEMERIS: EphemerisEpoch = Object.freeze({
  * Requires both the flag and a loaded pack with ≥2 samples.
  */
 export function epochUsesHorizons(epoch: EphemerisEpoch): boolean {
-  return epoch.useHorizons && hasHorizonsTable();
+  if (!epoch.useHorizons) return false;
+  return epoch.clockUtcMsAtT0 != null ? hasFlight13HorizonsTable() : hasHorizonsTable();
 }
 
 /** Re-export table probe for callers that only need pack presence. */

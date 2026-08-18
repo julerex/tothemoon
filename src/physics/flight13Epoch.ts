@@ -2,15 +2,16 @@
  * Flight 13 mission clock + lighting epoch.
  *
  * Pins mission t = 0 to the flown liftoff (**5:51 p.m. CDT** =
- * 2026-07-24 22:51 UTC — docs/STARSHIP_13.md). Analytic Earth/Sun only
- * (Horizons pack is the July 2027 lunar window). `sunPhase0` is the
- * USNO solar longitude at that UTC — no theater offset.
+ * 2026-07-24 22:51 UTC — docs/STARSHIP_13.md). A Flight 13 Horizons DE441
+ * window is packed (`horizons-flight13-epoch.json`) for interpolate when
+ * `useHorizons` is on; the bake stays analytic so the pad frame stays
+ * consistent. `sunPhase0` is the USNO solar longitude at that UTC.
  *
  * Pure factory — no module setters.
  */
 
-import { starbaseSunElev } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
+import { starbaseSunElev } from "./earthFrame";
 import {
   FLIGHT13_LIFTOFF_UTC_MS,
   sunPhase0ForUtc,
