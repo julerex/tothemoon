@@ -39,6 +39,8 @@ import {
   ATM_RHO0_KG_KM3,
   ATM_SCALE_HEIGHT_KM,
   DRAG_CD_A_OVER_M,
+  DT_COAST,
+  DT_NEAR,
   EARTH_J2,
   EARTH_SIDEREAL_DAY_S,
   MU_EARTH,
@@ -55,6 +57,7 @@ import { earthNorthPole } from "./earthFrame";
 import { radialHeightAboveEllipsoid, WGS84_A } from "./wgs84";
 import {
   add,
+  clone,
   copy,
   cross,
   dot,
@@ -294,6 +297,104 @@ export function rk4Step(state: CraftState, dt: number, thrustFn?: ThrustFn, opts
   rk4Combine(state.pos, k1r, k2r, k3r, k4r, dt);
   rk4Combine(state.vel, k1v, k2v, k3v, k4v, dt);
   state.t += dt;
+}
+
+/**
+ * Coast RK4 step (s) from distance to the nearby dominant body (Moon on
+ * translunar coast, Earth on suborbital entry). Finer than {@link DT_NEAR}
+ * inside ~8_000 km so perilune / low-alt curvature is not under-sampled.
+ */
+export function nearBodyCoastDt(distanceKm: number): number {
+  if (!(distanceKm > 0) || !Number.isFinite(distanceKm)) return DT_NEAR;
+  if (distanceKm < 8_000) return 0.5;
+  if (distanceKm < 40_000) return 1;
+  if (distanceKm < 120_000) return 5;
+  if (distanceKm < 250_000) return 12;
+  return DT_COAST;
+}
+
+/** Copy a craft state (new position/velocity objects). */
+export function cloneCraftState(state: CraftState): CraftState {
+  return { t: state.t, pos: clone(state.pos), vel: clone(state.vel) };
+}
+
+/**
+ * Moon-relative two-body specific energy (km²/s²). Not conserved under Earth
+ * perturbation; used as a Jacobi-ish integrator consistency check.
+ */
+export function moonRelativeSpecificEnergy(
+  t: number,
+  pos: V3,
+  vel: V3,
+  epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
+): number {
+  const b = getBodies(t, epoch);
+  sub(_r, pos, b.moon);
+  const r = len(_r);
+  if (r < 1e-6) return Number.NEGATIVE_INFINITY;
+  const vx = vel.x - b.moonVel.x;
+  const vy = vel.y - b.moonVel.y;
+  const vz = vel.z - b.moonVel.z;
+  return 0.5 * (vx * vx + vy * vy + vz * vz) - MU_MOON / r;
+}
+
+/** Radius (km) inside which near-Moon step-doubling diagnostics run. */
+export const NEAR_MOON_QUALITY_KM = 250_000;
+
+/** Peak RK4 step-doubling disagreement near the Moon. */
+export type NearMoonQuality = {
+  maxStepErrKm: number;
+  maxEnergyRelResidual: number;
+  samples: number;
+};
+
+/** Empty near-Moon integrator diagnostics. */
+export function createNearMoonQuality(): NearMoonQuality {
+  return { maxStepErrKm: 0, maxEnergyRelResidual: 0, samples: 0 };
+}
+
+/**
+ * Position (km) and Moon-relative energy disagreement between one RK4 step of
+ * `dt` and two of `dt/2`. Does not mutate `state`.
+ */
+export function rk4StepDoubling(
+  state: CraftState,
+  dt: number,
+  opts?: AccelOptions,
+): { posErrKm: number; energyRelResidual: number } {
+  const a = cloneCraftState(state);
+  const b = cloneCraftState(state);
+  rk4Step(a, dt, undefined, opts);
+  rk4Step(b, dt * 0.5, undefined, opts);
+  rk4Step(b, dt * 0.5, undefined, opts);
+  const posErrKm = Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y, a.pos.z - b.pos.z);
+  const epoch = opts?.epoch ?? DEFAULT_EPHEMERIS;
+  const eA = moonRelativeSpecificEnergy(a.t, a.pos, a.vel, epoch);
+  const eB = moonRelativeSpecificEnergy(b.t, b.pos, b.vel, epoch);
+  const denom = Math.max(Math.abs(eA), Math.abs(eB), 1e-12);
+  const energyRelResidual = Math.abs(eA - eB) / denom;
+  return { posErrKm, energyRelResidual };
+}
+
+const QUALITY_EVERY = 8;
+
+/**
+ * Sample step-doubling error near the Moon. Skip burns (non-conservative).
+ * Call on the pre-step state with the dt about to be taken.
+ */
+export function noteNearMoonQuality(
+  q: NearMoonQuality,
+  state: CraftState,
+  dt: number,
+  dMoon: number,
+  epoch: EphemerisEpoch,
+): void {
+  if (!(dMoon < NEAR_MOON_QUALITY_KM) || !(dt > 0)) return;
+  q.samples += 1;
+  if (q.samples !== 1 && q.samples % QUALITY_EVERY !== 0) return;
+  const { posErrKm, energyRelResidual } = rk4StepDoubling(state, dt, { epoch });
+  if (posErrKm > q.maxStepErrKm) q.maxStepErrKm = posErrKm;
+  if (energyRelResidual > q.maxEnergyRelResidual) q.maxEnergyRelResidual = energyRelResidual;
 }
 
 /** Surface collision / proximity checks. */

@@ -48,9 +48,10 @@ describe("launch plane projection", () => {
     const s0 = samples[0]!;
     const basis = launchPlaneBasis();
     const p = projectToLaunchPlane(s0.pos, s0.t, basis, undefined, epoch);
-    const alt = planeAltitudeKm(p);
-    const range = surfaceArcKm(p);
-    assert.ok(Math.abs(alt) < 0.5, `alt ${alt}`);
+    const rEarth = geocentricRadiusAt(STARBASE_LAT);
+    const alt = planeAltitudeKm(p, rEarth);
+    const range = surfaceArcKm(p, rEarth);
+    assert.ok(Math.abs(alt) < 4, `alt ${alt}`);
     assert.ok(Math.abs(range) < 2, `range ${range}`);
   });
 

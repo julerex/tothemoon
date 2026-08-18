@@ -97,6 +97,10 @@ export type PackedTrajectory = {
   stageT?: number | null;
   /** Peak |r_nbody − r_kepler| on translunar coast (km) */
   keplerRefMaxDevKm?: number;
+  /** Peak RK4 step-doubling |Δr| near the Moon (km) */
+  maxNearMoonStepErrKm?: number;
+  /** Peak Moon-relative |ΔE/E| on doubling samples */
+  maxMoonEnergyRelResidual?: number;
   samples: Array<{
     t: number;
     p: number[];
@@ -178,6 +182,8 @@ function packToMissionResult(
     moonPhase0: packed.moonPhase0, translunarInjectionDeltaV: packed.translunarInjectionDeltaV ?? packed.tliDv ?? 0,
     durationS: packed.durationS, horizonsLandingT: packed.horizonsLandingT, ok: packed.ok, message: packed.message,
     minMoonAlt: meta.minMoonAlt, peakSpeedKmS: meta.peakSpeedKmS, stageT: meta.stageT, keplerRefMaxDevKm, samples,
+    maxNearMoonStepErrKm: packed.maxNearMoonStepErrKm,
+    maxMoonEnergyRelResidual: packed.maxMoonEnergyRelResidual,
   };
 }
 
@@ -190,7 +196,9 @@ export function unpackPackedTrajectory(packed: PackedTrajectory): MissionResult 
   const samples = packed.samples.map(unpackSample);
   const epoch = epochFromResult(packedEpochArgs(packed));
   const meta = resolveTrajectoryMeta(
-    { minMoonAlt: packed.minMoonAlt, peakSpeedKmS: packed.peakSpeedKmS, stageT: packed.stageT }, samples, epoch,
+    { minMoonAlt: packed.minMoonAlt, peakSpeedKmS: packed.peakSpeedKmS, stageT: packed.stageT,
+      maxNearMoonStepErrKm: packed.maxNearMoonStepErrKm,
+      maxMoonEnergyRelResidual: packed.maxMoonEnergyRelResidual }, samples, epoch,
   );
   return packToMissionResult(packed, samples, meta, resolveKeplerDev(packed.keplerRefMaxDevKm, samples, epoch));
 }

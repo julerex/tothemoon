@@ -9,7 +9,6 @@
 
 import {
   DT_BURN,
-  DT_COAST,
   DT_NEAR,
   DESCENT_ALTITUDE,
   LOW_LUNAR_ORBIT_ALTITUDE_KM,
@@ -31,10 +30,14 @@ import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   altitudeEarth,
   altitudeMoon,
+  createNearMoonQuality,
   distanceToMoon,
   getBodies,
+  nearBodyCoastDt,
+  noteNearMoonQuality,
   rk4Step,
   type CraftState,
+  type NearMoonQuality,
   type ThrustFn,
 } from "./integrator";
 import { keplerRvAt } from "./kepler";
@@ -68,6 +71,7 @@ type CaptureTrack = {
   periluneT: number;
   keplerRefMaxDevKm: number;
   phase: PhaseId;
+  quality: NearMoonQuality;
 };
 
 function limitGuideThrust(prop: PropState, th: V3): V3 | null {
@@ -120,10 +124,7 @@ function trackKeplerDev(
 
 /** Coast step size by Moon distance. */
 function coastDt(dMoon: number): number {
-  if (dMoon < 40_000) return DT_NEAR;
-  if (dMoon < 100_000) return 5;
-  if (dMoon < 250_000) return 12;
-  return DT_COAST;
+  return nearBodyCoastDt(dMoon);
 }
 
 /** LOI handoff gate: near Moon and late enough in the transfer. */
@@ -194,10 +195,24 @@ function packResult(
 }
 
 function packFromCtx(ctx: CaptureCtx, message: string, minAlt?: number): MissionResult {
-  return packResult(
-    ctx.samples, ctx.moonPhase0, ctx.translunarInjectionDeltaV,
-    minAlt ?? ctx.track.minMoonAlt, message, ctx.track.keplerRefMaxDevKm,
-  );
+  const q = ctx.track.quality;
+  return {
+    ...packResult(
+      ctx.samples, ctx.moonPhase0, ctx.translunarInjectionDeltaV,
+      minAlt ?? ctx.track.minMoonAlt, message, ctx.track.keplerRefMaxDevKm,
+    ),
+    maxNearMoonStepErrKm: q.maxStepErrKm,
+    maxMoonEnergyRelResidual: q.maxEnergyRelResidual,
+  };
+}
+
+/** Unthrusted RK4 with near-Moon step-doubling diagnostics. */
+function captureRk4(ctx: CaptureCtx, dt: number, thrustFn?: ThrustFn): void {
+  if (!thrustFn) {
+    const dMoon = distanceToMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
+    noteNearMoonQuality(ctx.track.quality, ctx.state, dt, dMoon, ctx.epoch);
+  }
+  rk4Step(ctx.state, dt, thrustFn, { epoch: ctx.epoch });
 }
 
 function snapStateToMoon(state: CraftState, epoch: EphemerisEpoch): void {
@@ -271,7 +286,7 @@ function ballisticCoastOnce(
   trackKeplerDev(ctx.state, ctx.keplerRef, ctx.epoch, ctx.track);
   const early = coastLoopExit(ctx, altM, dMoon, ctx.state.t - tTli, Tcoast);
   if (early || ctx.track.phase !== "coast") return early;
-  rk4Step(ctx.state, coastDt(dMoon), undefined, { epoch: ctx.epoch });
+  captureRk4(ctx, coastDt(dMoon));
   pushCoastSample(ctx, dMoon);
   return null;
 }
@@ -400,7 +415,7 @@ function loiFlyby(ctx: CaptureCtx): MissionResult {
 
 /** Low lunar orbit coast (phase braking). */
 function lloCoastStep(ctx: CaptureCtx, tEnd: number): boolean {
-  rk4Step(ctx.state, Math.min(DT_NEAR * 2, tEnd - ctx.state.t), undefined, { epoch: ctx.epoch });
+  captureRk4(ctx, Math.min(DT_NEAR * 2, tEnd - ctx.state.t));
   const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
   noteLoiAlt(ctx, altM);
   if (altM < 5) return false;
@@ -463,7 +478,7 @@ function pdiStep(ctx: CaptureCtx, pdiFn: ThrustFn): "continue" | "break" {
   const altM = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch); noteLoiAlt(ctx, altM);
   if (altM < 0.05) return "break";
   const { thNow, aCmd } = pdiThrustNow(ctx);
-  rk4Step(ctx.state, pdiDt(altM), altM < DESCENT_ALTITUDE * 1.5 ? pdiFn : undefined, { epoch: ctx.epoch });
+  captureRk4(ctx, pdiDt(altM), altM < DESCENT_ALTITUDE * 1.5 ? pdiFn : undefined);
   sub(_relV, ctx.state.vel, getBodies(ctx.state.t, ctx.epoch).moonVel);
   const alt2 = altitudeMoon(ctx.state.t, ctx.state.pos, ctx.epoch);
   pushSample(ctx.samples, ctx.state, "descent", thNow !== null, false, alt2 < 30 ? 1 : 3, ctx.lastT, ctx.prop, aCmd, "ship", true);
@@ -489,6 +504,7 @@ function makeCaptureCtx(args: LunarCaptureArgs): CaptureCtx {
   const epoch = args.epoch ?? DEFAULT_EPHEMERIS;
   const track: CaptureTrack = {
     minMoonAlt: Infinity, periluneT: args.state.t, keplerRefMaxDevKm: 0, phase: "coast",
+    quality: createNearMoonQuality(),
   };
   return { state: args.state, samples: args.samples, lastT: args.lastT, prop: args.prop, moonPhase0: args.moonPhase0, translunarInjectionDeltaV: args.translunarInjectionDeltaV, epoch, track, keplerRef: orbitAfterTranslunarInjection(args.state, epoch) };
 }
@@ -498,7 +514,12 @@ function landWithMeta(ctx: CaptureCtx): MissionResult {
     ctx.state, ctx.samples, ctx.moonPhase0, ctx.translunarInjectionDeltaV,
     ctx.track.minMoonAlt, ctx.prop, ctx.epoch,
   );
-  return { ...landed, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm, trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0 };
+  const q = ctx.track.quality;
+  return {
+    ...landed, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm,
+    trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0,
+    maxNearMoonStepErrKm: q.maxStepErrKm, maxMoonEnergyRelResidual: q.maxEnergyRelResidual,
+  };
 }
 
 /**

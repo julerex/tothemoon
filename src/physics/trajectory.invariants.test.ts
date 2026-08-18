@@ -81,4 +81,22 @@ describe("baked trajectory.json invariants", () => {
       assert.ok(Math.abs(staged!.t - p.stageT) < 5);
     }
   });
+
+  it("ships near-Moon RK4 step-doubling diagnostics", () => {
+    const p = packed as {
+      maxNearMoonStepErrKm?: number;
+      maxMoonEnergyRelResidual?: number;
+    };
+    assert.ok(Number.isFinite(p.maxNearMoonStepErrKm), "missing maxNearMoonStepErrKm");
+    assert.ok(
+      (p.maxNearMoonStepErrKm as number) > 0,
+      "near-Moon step err should be sampled on the transfer",
+    );
+    assert.ok(
+      (p.maxNearMoonStepErrKm as number) < 25,
+      `near-Moon step err ${p.maxNearMoonStepErrKm} km looks unbounded`,
+    );
+    assert.ok(Number.isFinite(p.maxMoonEnergyRelResidual));
+    assert.ok((p.maxMoonEnergyRelResidual as number) >= 0);
+  });
 });

@@ -17,6 +17,7 @@ import type { V3 } from "./vec3";
  * Current pack schema version.
  * v1: samples + minMoonAlt + core fields
  * v2: + peakSpeedKmS + stageT (load must not re-scan when present)
+ * v2+ optional: maxNearMoonStepErrKm, maxMoonEnergyRelResidual (B3)
  */
 export const TRAJECTORY_PACK_VERSION = 2 as const;
 
@@ -28,6 +29,10 @@ export type TrajectoryPackMeta = Readonly<{
   peakSpeedKmS: number;
   /** Mission time (s) of first staged sample, or null if never staged */
   stageT: number | null;
+  /** Peak RK4 step-doubling |Δr| near the Moon (km), when baked */
+  maxNearMoonStepErrKm?: number;
+  /** Peak Moon-relative |ΔE/E| on the same doubling samples */
+  maxMoonEnergyRelResidual?: number;
 }>;
 
 export type SampleLikeForMeta = {
@@ -109,6 +114,14 @@ function resolveStageT(packed: Partial<TrajectoryPackMeta> | null | undefined, d
   return Number.isFinite(packed.stageT) ? packed.stageT : derived.stageT;
 }
 
+function resolveQuality(
+  packed: Partial<TrajectoryPackMeta> | null | undefined,
+  key: "maxNearMoonStepErrKm" | "maxMoonEnergyRelResidual",
+): number | undefined {
+  const v = packed?.[key];
+  return v != null && Number.isFinite(v) && v >= 0 ? v : undefined;
+}
+
 export function resolveTrajectoryMeta(
   packed: Partial<TrajectoryPackMeta> | null | undefined,
   samples: SampleLikeForMeta[], epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
@@ -118,5 +131,7 @@ export function resolveTrajectoryMeta(
     minMoonAlt: resolveMinAlt(packed, derived),
     peakSpeedKmS: resolvePeak(packed, derived),
     stageT: resolveStageT(packed, derived),
+    maxNearMoonStepErrKm: resolveQuality(packed, "maxNearMoonStepErrKm"),
+    maxMoonEnergyRelResidual: resolveQuality(packed, "maxMoonEnergyRelResidual"),
   };
 }

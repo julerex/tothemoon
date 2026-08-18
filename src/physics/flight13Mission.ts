@@ -944,7 +944,7 @@ function flight13Dt(loop: F13Loop, phase: PhaseId, alt: number, maxT: number): n
   if (loop.mode === "boost" || loop.mode === "hot_stage" || loop.mode === "upper") {
     dt = 0.25;
   } else if (loop.mode === "land" || loop.mode === "relight") dt = 0.15;
-  else if (phase === "entry" || alt < 120) dt = 0.4;
+  else if (phase === "entry" || alt < 120) dt = alt < 80 ? 0.25 : 0.4;
   else if (phase === "coast") dt = 2.0;
   return Math.min(dt, maxT - loop.state.t);
 }

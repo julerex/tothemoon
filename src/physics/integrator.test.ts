@@ -2,15 +2,22 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   ATM_H_MAX_KM,
+  DT_COAST,
+  DT_NEAR,
   EARTH_J2,
   MU_EARTH,
   R_EARTH,
+  R_MOON,
 } from "./constants.ts";
 import {
   addEarthDrag,
   addEarthJ2,
   atmDensity,
   acceleration,
+  getBodies,
+  moonRelativeSpecificEnergy,
+  nearBodyCoastDt,
+  rk4StepDoubling,
 } from "./integrator.ts";
 import { earthNorthPole } from "./earthFrame.ts";
 import { WGS84_A } from "./wgs84.ts";
@@ -91,5 +98,43 @@ describe("atmosphere + drag", () => {
     // Just check function runs and returns finite with thrust null
     const a = acceleration(t, pos, null, v3(), v3(0, 7, 0));
     assert.ok(Number.isFinite(a.x + a.y + a.z));
+  });
+});
+
+describe("nearBodyCoastDt", () => {
+  it("tightens the step toward the Moon", () => {
+    assert.equal(nearBodyCoastDt(300_000), DT_COAST);
+    assert.equal(nearBodyCoastDt(200_000), 12);
+    assert.equal(nearBodyCoastDt(80_000), 5);
+    assert.equal(nearBodyCoastDt(20_000), 1);
+    assert.equal(nearBodyCoastDt(4_000), 0.5);
+    assert.ok(nearBodyCoastDt(4_000) < DT_NEAR);
+  });
+});
+
+describe("RK4 step-doubling near a body", () => {
+  it("shrinks with a smaller coast step in low Earth orbit", () => {
+    const b = getBodies(0);
+    const r = R_EARTH + 400;
+    const vc = Math.sqrt(MU_EARTH / r);
+    const state = {
+      t: 0,
+      pos: v3(b.earth.x + r, b.earth.y, b.earth.z),
+      vel: v3(b.earthVel.x, b.earthVel.y + vc, b.earthVel.z),
+    };
+    const coarse = rk4StepDoubling(state, 20, { gravity: "earth" });
+    const fine = rk4StepDoubling(state, 2, { gravity: "earth" });
+    assert.ok(fine.posErrKm < coarse.posErrKm, `${fine.posErrKm} vs ${coarse.posErrKm}`);
+    assert.ok(coarse.posErrKm < 1, `LEO doubling ${coarse.posErrKm} km`);
+  });
+
+  it("moon-relative energy is more negative closer in", () => {
+    const b = getBodies(0);
+    const far = v3(b.moon.x + R_MOON + 50_000, b.moon.y, b.moon.z);
+    const near = v3(b.moon.x + R_MOON + 200, b.moon.y, b.moon.z);
+    const vel = v3(b.moonVel.x, b.moonVel.y, b.moonVel.z);
+    const eFar = moonRelativeSpecificEnergy(0, far, vel);
+    const eNear = moonRelativeSpecificEnergy(0, near, vel);
+    assert.ok(eNear < eFar, `${eNear} vs ${eFar}`);
   });
 });

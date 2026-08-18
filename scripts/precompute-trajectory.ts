@@ -54,6 +54,8 @@ export type PackedTrajectory = {
   stageT: number | null;
   /** Peak |r_nbody − r_kepler| on Translunar injection coast (km); corridor meta */
   keplerRefMaxDevKm?: number;
+  maxNearMoonStepErrKm?: number;
+  maxMoonEnergyRelResidual?: number;
   samples: PackedSample[];
 };
 
@@ -78,11 +80,15 @@ function packMeta(result: MissionResult) {
   // Prefer integration minMoonAlt when finite (full-rate coast); fall back to scan
   const stageT = result.stageT !== undefined ? result.stageT : meta.stageT;
   const kepler = finiteOr(result.keplerRefMaxDevKm, undefined as number | undefined);
+  const stepErr = finiteOr(result.maxNearMoonStepErrKm, undefined as number | undefined);
+  const energyRes = finiteOr(result.maxMoonEnergyRelResidual, undefined as number | undefined);
   return {
     minMoonAlt: finiteOr(result.minMoonAlt, meta.minMoonAlt),
     peakSpeedKmS: round(finiteOr(result.peakSpeedKmS, meta.peakSpeedKmS), 6),
     stageT: stageT == null ? null : round(stageT, 3),
     keplerRefMaxDevKm: kepler != null ? round(kepler, 1) : undefined,
+    maxNearMoonStepErrKm: stepErr != null ? roundDiag(stepErr) : undefined,
+    maxMoonEnergyRelResidual: energyRes != null ? roundDiag(energyRes) : undefined,
   };
 }
 
@@ -105,6 +111,12 @@ function round(n: number, digits: number): number {
   return Math.round(n * f) / f;
 }
 
+/** Keep sub-meter RK4 residuals instead of rounding them to 0. */
+function roundDiag(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Number(n.toExponential(6));
+}
+
 const t0 = performance.now();
 const result = runMission();
 const packed = pack(result);
@@ -122,6 +134,9 @@ console.info(
   `[precompute] meta v${packed.version}: minMoonAlt=${packed.minMoonAlt.toFixed(1)} km · peak|v|=${packed.peakSpeedKmS.toFixed(3)} km/s · stageT=${packed.stageT == null ? "—" : `${packed.stageT.toFixed(1)} s`}` +
     (packed.keplerRefMaxDevKm != null
       ? ` · Kepler max|Δr|=${packed.keplerRefMaxDevKm.toFixed(0)} km`
+      : "") +
+    (packed.maxNearMoonStepErrKm != null
+      ? ` · near-Moon RK4 |Δr|=${packed.maxNearMoonStepErrKm.toExponential(3)} km`
       : ""),
 );
 console.info(`[precompute] wrote ${outPath}`);

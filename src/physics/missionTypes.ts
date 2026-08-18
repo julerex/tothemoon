@@ -93,6 +93,10 @@ export type MissionResult = {
   trajectoryCorrectionCount?: number;
   /** Total trajectory correction |Δv| (km/s) */
   trajectoryCorrectionTotalDeltaV?: number;
+  /** Peak RK4 step-doubling |Δr| (km) inside ~250_000 km of the Moon */
+  maxNearMoonStepErrKm?: number;
+  /** Peak |ΔE/E| of Moon-relative energy on the same doubling samples */
+  maxMoonEnergyRelResidual?: number;
 };
 
 const PHASE_LABELS: Record<PhaseId, string> = {

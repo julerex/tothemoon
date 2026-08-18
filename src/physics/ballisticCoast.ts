@@ -6,8 +6,6 @@
  */
 
 import {
-  DT_COAST,
-  DT_NEAR,
   R_MOON,
 } from "./constants";
 import { bodyPositions } from "./bodies";
@@ -16,10 +14,14 @@ import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
   altitudeEarth,
   altitudeMoon,
+  createNearMoonQuality,
   distanceToMoon,
   getBodies,
+  nearBodyCoastDt,
+  noteNearMoonQuality,
   rk4Step,
   type CraftState,
+  type NearMoonQuality,
 } from "./integrator";
 import { keplerRvAt } from "./kepler";
 import type { LowEarthOrbitRelative } from "./lowEarthOrbitCoast";
@@ -186,6 +188,7 @@ type CoastTrack = {
   minMoonAlt: number;
   periluneT: number;
   keplerRefMaxDevKm: number;
+  quality: NearMoonQuality;
 };
 
 type CoastCtx = {
@@ -220,7 +223,14 @@ function trackKeplerDev(ctx: CoastCtx): void {
 
 /** Pack MissionResult for ballistic coast outcomes. */
 function coastResult(ctx: CoastCtx, message: string, minAlt?: number): MissionResult {
-  return { samples: ctx.samples, durationS: ctx.samples[ctx.samples.length - 1]!.t, moonPhase0: ctx.moonPhase0, translunarInjectionDeltaV: ctx.translunarInjectionDeltaV, minMoonAlt: minAlt ?? ctx.track.minMoonAlt, ok: true, message, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm, trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0 };
+  const q = ctx.track.quality;
+  return {
+    samples: ctx.samples, durationS: ctx.samples[ctx.samples.length - 1]!.t, moonPhase0: ctx.moonPhase0,
+    translunarInjectionDeltaV: ctx.translunarInjectionDeltaV, minMoonAlt: minAlt ?? ctx.track.minMoonAlt,
+    ok: true, message, keplerRefMaxDevKm: ctx.track.keplerRefMaxDevKm,
+    trajectoryCorrectionCount: 0, trajectoryCorrectionTotalDeltaV: 0,
+    maxNearMoonStepErrKm: q.maxStepErrKm, maxMoonEnergyRelResidual: q.maxEnergyRelResidual,
+  };
 }
 
 function placeOnMoonSurface(state: CraftState, moon: V3, moonVel: V3, dir: V3): void {
@@ -294,10 +304,7 @@ function transferDone(
 
 /** Coast step size by Moon distance. */
 function ballisticCoastDt(dMoon: number): number {
-  if (dMoon < 40_000) return DT_NEAR;
-  if (dMoon < 100_000) return 5;
-  if (dMoon < 250_000) return 12;
-  return DT_COAST;
+  return nearBodyCoastDt(dMoon);
 }
 
 /** Note min lunar alt and track Kepler deviation. */
@@ -356,7 +363,7 @@ function makeCoastCtx(args: BallisticCoastArgs): CoastCtx {
   return {
     state: args.state, samples: args.samples, lastT: args.lastT, prop: args.prop,
     moonPhase0: args.moonPhase0, translunarInjectionDeltaV: args.translunarInjectionDeltaV,
-    epoch, track: { minMoonAlt: Infinity, periluneT: args.state.t, keplerRefMaxDevKm: 0 },
+    epoch, track: { minMoonAlt: Infinity, periluneT: args.state.t, keplerRefMaxDevKm: 0, quality: createNearMoonQuality() },
     keplerRef: orbitAfterTranslunarInjection(args.state, epoch),
   };
 }
@@ -367,7 +374,9 @@ function coastIntegrateStep(ctx: CoastCtx, tTli: number, Tcoast: number): Missio
   noteCoastAlt(ctx, altM);
   const done = coastTerminal(ctx, altM, ctx.state.t - tTli, Tcoast);
   if (done) return done;
-  rk4Step(ctx.state, ballisticCoastDt(dMoon), undefined, { epoch: ctx.epoch });
+  const dt = ballisticCoastDt(dMoon);
+  noteNearMoonQuality(ctx.track.quality, ctx.state, dt, dMoon, ctx.epoch);
+  rk4Step(ctx.state, dt, undefined, { epoch: ctx.epoch });
   pushSample(ctx.samples, ctx.state, "coast", false, false, dMoon < 100_000 ? 8 : 25, ctx.lastT, ctx.prop, 0, "ship");
   return null;
 }

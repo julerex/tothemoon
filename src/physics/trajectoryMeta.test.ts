@@ -99,4 +99,13 @@ describe("resolveTrajectoryMeta", () => {
     assert.equal(d.peakSpeedKmS, computePeakSpeedKmS(samples));
     assert.equal(d.stageT, computeStageT(samples));
   });
+
+  it("keeps optional near-Moon integrator diagnostics when packed", () => {
+    const m = resolveTrajectoryMeta(
+      { minMoonAlt: 1, peakSpeedKmS: 2, stageT: 3, maxNearMoonStepErrKm: 0.02, maxMoonEnergyRelResidual: 1e-6 },
+      samples,
+    );
+    assert.equal(m.maxNearMoonStepErrKm, 0.02);
+    assert.equal(m.maxMoonEnergyRelResidual, 1e-6);
+  });
 });

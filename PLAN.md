@@ -66,7 +66,7 @@ then numerics.
 **Locked order for the next slices:**
 
 1. **C3 — Earth figure & pad frame** — **done** (WGS84 ellipsoid for pad / splash / low-alt guidance + visual globe)
-2. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack
+2. **B3 — Integrator quality** — **done** (finer RK4 near the Moon / F13 entry; step-doubling residual in the pack)
 3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch
 4. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor
 
@@ -204,17 +204,15 @@ Live bake stays ballistic after TLI; TCM helpers unused.
 - Golden tests on duration, Translunar injection Δv band, min lunar alt, stage
   time, and perilune vs design altitude.
 
-### B3. Integrator quality for multi-day coasts
+### B3. Integrator quality for multi-day coasts — **done 2026-08-18**
 
-**Today:** fixed RK4, `DT_COAST = 20` s, `DT_NEAR = 2` s inside ~40_000 km of
-the Moon (`ballisticCoast` / `lunarCapture`). Flight 13 uses finer steps near
-burns.
+**Shipped:** shared `nearBodyCoastDt` (0.5 s inside 8_000 km of the Moon, 1 s
+inside 40_000 km, then 5 / 12 / 20 s). Ballistic coast and lunar capture use
+it; Flight 13 entry drops to 0.25 s below 80 km. Pack meta stores peak RK4
+step-doubling |Δr| and Moon-relative |ΔE/E| inside 250_000 km (`maxNearMoonStepErrKm`,
+`maxMoonEnergyRelResidual`). Fixed RK4 stays; no higher-order scheme.
 
-**Target (after B2, or sooner if coasts fail golden bands):**
-- Adaptive step or smaller steps near the Moon (and Earth during F13 entry).
-- Precompute diagnostics: energy / relative Jacobi-ish residual, max step
-  error proxy; persist in pack meta when useful.
-- Optional higher-order or adaptive scheme only if fixed RK4 fails golden bands.
+**Today (was):** fixed RK4, `DT_COAST = 20` s, `DT_NEAR = 2` s inside ~40_000 km.
 
 ---
 
@@ -441,7 +439,7 @@ Shipped (2026-07 → 2026-08):
 2. H1  Remaining snaps (LOI circularize, dogleg integrated burn, F13 splash)
 3. C3  WGS84 Earth figure (shared pad / entry)
 4. F1  Flight 13 booster recovery on RK4 / Earth-relative ballistic
-5. B3  Adaptive / smaller steps + energy residual
+5. B3  Adaptive / smaller steps + energy residual — **done 2026-08-18**
 6. C2  Analytic Ω̇, ω̇; optional Flight 13 Horizons window
 7. F2  Entry aero (atmosphere layers, Cd(h), shorter relight)
 ```
