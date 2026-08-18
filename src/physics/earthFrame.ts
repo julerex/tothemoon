@@ -11,11 +11,11 @@
 import {
   EARTH_OBLIQUITY,
   EARTH_SIDEREAL_DAY_S,
-  R_EARTH,
   STARBASE_ALT,
   STARBASE_LAT,
   STARBASE_LON,
 } from "./constants";
+import { geodeticToEllipsoidMeshLocal } from "./wgs84";
 import { bodyPositions } from "./bodies";
 import {
   DEFAULT_EPHEMERIS,
@@ -204,12 +204,11 @@ export function localEastInertial(
   out: V3 = v3(),
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): V3 {
-  // East = ∂position/∂lon direction
-  const r = R_EARTH;
+  // East = ∂position/∂lon direction on the WGS84 ellipsoid
   const dLon = 1e-5;
-  geodeticToMeshLocal(lat, lon + dLon, r, _local);
+  geodeticToEllipsoidMeshLocal(lat, lon + dLon, 0, _local);
   meshLocalToInertial(_local, t, _tmp, epoch);
-  geodeticToMeshLocal(lat, lon, r, _local);
+  geodeticToEllipsoidMeshLocal(lat, lon, 0, _local);
   meshLocalToInertial(_local, t, _tmp2, epoch);
   set(out, _tmp.x - _tmp2.x, _tmp.y - _tmp2.y, _tmp.z - _tmp2.z);
   return normalize(out, out);
@@ -237,11 +236,11 @@ export type SurfaceState = {
 
 /**
  * Inertial position & velocity of a ground site (incl. Earth rotation).
- * `alt` is height above mean spherical Earth (km).
+ * `alt` is height above the WGS84 ellipsoid (km).
  */
 function surfacePos(lat: number, lon: number, alt: number, t: number, outPos: V3, epoch: EphemerisEpoch): ReturnType<typeof bodyPositions> {
   const b = bodyPositions(t, epoch);
-  geodeticToMeshLocal(lat, lon, R_EARTH + alt, _local);
+  geodeticToEllipsoidMeshLocal(lat, lon, alt, _local);
   meshLocalToInertial(_local, t, outPos, epoch);
   outPos.x += b.earth.x; outPos.y += b.earth.y; outPos.z += b.earth.z;
   return b;

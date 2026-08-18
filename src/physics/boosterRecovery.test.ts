@@ -25,13 +25,12 @@ import {
   sampleBoosterRecovery,
   type StageState,
 } from "./boosterRecovery.ts";
-import { R_EARTH } from "./constants.ts";
+import { altitudeEarth } from "./integrator.ts";
+import { geodeticToEllipsoidMeshLocal, WGS84_B } from "./wgs84.ts";
 import {
-  geodeticToMeshLocal,
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame.ts";
-import { bodyPositions as bodyPos } from "./bodies.ts";
 import { v3 } from "./vec3.ts";
 
 /** Synthetic stage-out ~100 km above Starbase with eastward Earth-relative velocity. */
@@ -54,11 +53,7 @@ function syntheticStage(t = 140): StageState {
 }
 
 function earthAlt(t: number, pos: { x: number; y: number; z: number }): number {
-  const b = bodyPositions(t);
-  return (
-    Math.hypot(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z) -
-    R_EARTH
-  );
+  return altitudeEarth(t, pos);
 }
 
 function distToPad(t: number, pos: { x: number; y: number; z: number }): number {
@@ -88,8 +83,7 @@ describe("buildBoosterKeyframes", () => {
       assert.ok(kfs[i]!.age > kfs[i - 1]!.age);
     }
     for (const k of kfs) {
-      const alt = Math.hypot(k.p.x, k.p.y, k.p.z) - R_EARTH;
-      assert.ok(alt > -1, `alt ${alt} at age ${k.age}`);
+      assert.ok(Math.hypot(k.p.x, k.p.y, k.p.z) > WGS84_B - 1, `r at age ${k.age}`);
       assert.ok(Number.isFinite(k.v.x) && Number.isFinite(k.v.y));
     }
   });
@@ -238,17 +232,16 @@ describe("gulf recovery profile", () => {
     );
     assert.equal(land.phase, "caught");
     const t = stage.t + GULF_SCHEDULE.landingEndS;
-    // Gulf site: mesh-local → Earth-centered inertial → heliocentric
     const local = v3();
-    geodeticToMeshLocal(
+    geodeticToEllipsoidMeshLocal(
       GULF_LAND_LAT,
       GULF_LAND_LON,
-      R_EARTH + GULF_SCHEDULE.landAltKm,
+      GULF_SCHEDULE.landAltKm,
       local,
     );
     const siteRel = v3();
     meshLocalToInertial(local, t, siteRel);
-    const b = bodyPos(t);
+    const b = bodyPositions(t);
     const dGulf = Math.hypot(
       land.pos.x - (b.earth.x + siteRel.x),
       land.pos.y - (b.earth.y + siteRel.y),
@@ -283,7 +276,7 @@ describe("gulf recovery profile", () => {
     assert.equal(mid.phase, "landing");
     assert.ok(mid.burning);
     assert.ok(mid.throttle > 0.05 && mid.throttle < 0.4, `gulf throttle ${mid.throttle}`);
-    const b = bodyPos(stage.t + midAge);
+    const b = bodyPositions(stage.t + midAge);
     const upx = mid.pos.x - b.earth.x;
     const upy = mid.pos.y - b.earth.y;
     const upz = mid.pos.z - b.earth.z;

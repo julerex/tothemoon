@@ -37,7 +37,7 @@
 
 import {
   BOOSTER_THRUST_N,
-  EARTH_SURFACE_RADIUS_KM,
+  EARTH_SURFACE_ALT_KM,
   HOT_STAGE_S,
   MU_EARTH,
   R_EARTH,
@@ -51,6 +51,11 @@ import {
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame";
+import {
+  earthSurfaceRadiusAlong,
+  geodeticToEllipsoidMeshLocal,
+  radialHeightAboveEllipsoid,
+} from "./wgs84";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import {
   corridorAlongAt,
@@ -337,8 +342,9 @@ function fillSteerFrame(
 ): SteerGeo {
   const g = fillEarthRelGeo(t, pos, vel, epoch);
   const xt = t < F13.SECO ? 0.45 : 0.15;
+  earthNorthPole(_tmp);
   return {
-    alt: g.r - R_EARTH,
+    alt: radialHeightAboveEllipsoid(_relP, _tmp),
     vRad: g.vRad,
     vHoriz: g.vHoriz,
     vCirc: Math.sqrt(MU_EARTH / Math.max(g.r, R_EARTH + 50)),
@@ -358,7 +364,9 @@ function aimToSurfPoint(pos: V3, earth: V3, surf: V3, rSurf: number, out: V3): n
 function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
   const splash = splashSurfaceInertial(t, _tmp2, epoch);
   const bL = getBodies(t, epoch);
-  return aimToSurfPoint(pos, bL.earth, splash, EARTH_SURFACE_RADIUS_KM, _tmp3);
+  earthNorthPole(_tmp);
+  const rSurf = earthSurfaceRadiusAlong(splash, _tmp, EARTH_SURFACE_ALT_KM);
+  return aimToSurfPoint(pos, bL.earth, splash, rSurf, _tmp3);
 }
 
 function steerLandBrake(out: V3, distSplash: number): void {
@@ -988,7 +996,8 @@ function surfaceClamp(loop: F13Loop): void {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
-  const floorR = EARTH_SURFACE_RADIUS_KM + SURFACE_CLAMP_ABOVE_PAD_KM;
+  earthNorthPole(_tmp);
+  const floorR = earthSurfaceRadiusAlong(_relP, _tmp, EARTH_SURFACE_ALT_KM + SURFACE_CLAMP_ABOVE_PAD_KM);
   if (!(L < floorR && loop.state.t < F13.SPLASH - 1)) return;
   placeOnSphere(loop.state.pos, b.earth, _relP, L, floorR);
   sub(_relP, loop.state.pos, b.earth);
@@ -1017,8 +1026,9 @@ function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vR
   sub(_relP, loop.state.pos, b.earth);
   const L = len(_relP) || 1;
   sub(_relV, loop.state.vel, b.earthVel);
+  earthNorthPole(_tmp);
   const ang = Math.acos(Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))));
-  return { L, curAlt: L - R_EARTH, vRel: len(_relV), rangeKm: ang * R_EARTH };
+  return { L, curAlt: radialHeightAboveEllipsoid(_relP, _tmp), vRel: len(_relV), rangeKm: ang * R_EARTH };
 }
 
 function geodeticOf(loop: F13Loop): { lat: number; lon: number } {
@@ -1035,15 +1045,9 @@ function geodeticOf(loop: F13Loop): { lat: number; lon: number } {
 
 function placeAtGeodetic(loop: F13Loop, lat: number, lon: number, altKm: number): void {
   const b = getBodies(loop.state.t, loop.epoch);
-  geodeticToMeshLocal(lat, lon, 1, _splashLocal);
+  geodeticToEllipsoidMeshLocal(lat, lon, EARTH_SURFACE_ALT_KM + Math.max(0, altKm), _splashLocal);
   meshLocalToInertial(_splashLocal, loop.state.t, _tmp, loop.epoch);
-  placeOnSphere(
-    loop.state.pos,
-    b.earth,
-    _tmp,
-    1,
-    EARTH_SURFACE_RADIUS_KM + Math.max(0, altKm),
-  );
+  set(loop.state.pos, b.earth.x + _tmp.x, b.earth.y + _tmp.y, b.earth.z + _tmp.z);
   sub(_relP, loop.state.pos, b.earth);
   surfaceFrameVel(b.earthVel, _relP, loop.state.vel);
 }

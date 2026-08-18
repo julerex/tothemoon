@@ -41,6 +41,6 @@ describe("corridorAlongAt", () => {
     assert.ok(n < 0.05, `north component ${n}`);
     assert.ok(azDeg > 85 && azDeg < 110, `azimuth ${azDeg}° from north`);
     assert.ok(Math.abs(len(along) - 1) < 1e-9);
-    assert.ok(Math.abs(dot(along, pad.up)) < 1e-6, `radial ${dot(along, pad.up)}`);
+    assert.ok(Math.abs(dot(along, up)) < 1e-6, `radial ${dot(along, up)}`);
   });
 });

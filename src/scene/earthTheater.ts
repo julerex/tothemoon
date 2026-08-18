@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import {
-  EARTH_SURFACE_RADIUS_KM,
-  R_EARTH,
+  EARTH_SURFACE_ALT_KM,
   STARBASE_LAT,
   STARBASE_LON,
 } from "../physics/constants";
@@ -9,6 +8,7 @@ import {
   geodeticToMeshLocal,
   inertialRelToMeshLocal,
 } from "../physics/earthFrame";
+import { earthSurfaceRadiusAlong, geocentricRadiusAt, geodeticToEllipsoidMeshLocal } from "../physics/wgs84";
 import {
   STARBASE_PLATE_HALF_KM,
   STARBASE_PLATE_INNER_KM,
@@ -68,7 +68,7 @@ export type { LaunchPadFxState } from "./padLaunchFx";
  * ## Parenting
  *
  * The returned group is parented under the spinning Earth mesh so it co-rotates.
- * Pad origin matches craft engines at t≈0 (`EARTH_SURFACE_RADIUS_KM`, the
+ * Pad origin matches craft engines at t≈0 (WGS84 ellipsoid + `EARTH_SURFACE_ALT_KM`).
  * shared physics/visual shell). Local frame: **+Y up**, tower at **+X**,
  * scene unit = **1 km**.
  *
@@ -119,9 +119,10 @@ const GROUND_OFFSET = {
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 function placePadOnEarth(pad: THREE.Group): void {
-  const local = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_RADIUS_KM);
+  const local = geodeticToEllipsoidMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
   pad.position.set(local.x, local.y, local.z);
-  const outward = new THREE.Vector3(local.x, local.y, local.z).normalize();
+  const up = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
+  const outward = new THREE.Vector3(up.x, up.y, up.z).normalize();
   pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
 }
 
@@ -473,7 +474,7 @@ function makeStarbasePlateGeometry(): THREE.PlaneGeometry {
   );
   geo.rotateX(-Math.PI / 2);
   applyStarbasePlateUvs(geo, half);
-  drapeStarbasePlate(geo, EARTH_SURFACE_RADIUS_KM);
+  drapeStarbasePlate(geo, geocentricRadiusAt(STARBASE_LAT, EARTH_SURFACE_ALT_KM));
   return geo;
 }
 
@@ -1441,7 +1442,7 @@ function applyChopstickArm(
  *
  * Built in **Earth mesh-local** coords so the line co-rotates with the surface
  * (same frame as the Starbase pad). Samples are projected to a thin shell just
- * above the ellipsoid (`R_EARTH + 1.5` km) and downsampled to ≤400 points.
+ * above the WGS84 ellipsoid (+ 1.5 km) and downsampled to ≤400 points.
  *
  * @param samples - Baked trajectory samples (mission time ascending)
  * @returns Fat line named `ascent-ground-track`, or `null` if too few points
@@ -1458,22 +1459,22 @@ function projectOntoShell(
   s: Sample, epoch: EphemerisEpoch, rel: ReturnType<typeof v3>,
 ): void {
   const b = bodyPositions(s.t, epoch);
-  const rx = s.pos.x - b.earth.x;
-  const ry = s.pos.y - b.earth.y;
-  const rz = s.pos.z - b.earth.z;
-  const r = Math.hypot(rx, ry, rz) || 1;
-  const shell = R_EARTH + 1.5;
-  rel.x = (rx / r) * shell;
-  rel.y = (ry / r) * shell;
-  rel.z = (rz / r) * shell;
+  rel.x = s.pos.x - b.earth.x;
+  rel.y = s.pos.y - b.earth.y;
+  rel.z = s.pos.z - b.earth.z;
 }
+
+const _meshNorth = { x: 0, y: 1, z: 0 };
 
 function projectSampleToMeshLocal(
   s: Sample, epoch: EphemerisEpoch, rel: ReturnType<typeof v3>, local: ReturnType<typeof v3>,
 ): THREE.Vector3 {
   projectOntoShell(s, epoch, rel);
   inertialRelToMeshLocal(rel, s.t, local, epoch);
-  return new THREE.Vector3(local.x, local.y, local.z);
+  const r = Math.hypot(local.x, local.y, local.z) || 1;
+  const shell = earthSurfaceRadiusAlong(local, _meshNorth, 1.5);
+  const sR = shell / r;
+  return new THREE.Vector3(local.x * sR, local.y * sR, local.z * sR);
 }
 
 function tryPushAscentSample(

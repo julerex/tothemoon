@@ -15,6 +15,7 @@
 import * as THREE from "three";
 import { R_EARTH } from "../physics/constants";
 import { altitudeFade } from "./cinema";
+import { applyWgs84ToGeometry } from "./wgs84Mesh";
 
 /** Named root for tests + scene queries. */
 export const LEO_CLOUDS_GROUP = "leo-clouds";
@@ -224,8 +225,10 @@ function makeCloudMaterial(map: THREE.CanvasTexture): THREE.MeshStandardMaterial
 }
 
 function makeCloudMesh(): THREE.Mesh {
+  const geo = new THREE.SphereGeometry(LEO_CLOUD_RADIUS, 64, 48);
+  applyWgs84ToGeometry(geo);
   const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(LEO_CLOUD_RADIUS, 64, 48),
+    geo,
     makeCloudMaterial(makeCloudMap(1024)),
   );
   mesh.name = LEO_CLOUD_MESH;
@@ -293,10 +296,9 @@ function makeGlitterMaterial(): THREE.ShaderMaterial {
 }
 
 function makeGlitterMesh(): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(LEO_GLITTER_RADIUS, 64, 48),
-    makeGlitterMaterial(),
-  );
+  const geo = new THREE.SphereGeometry(LEO_GLITTER_RADIUS, 64, 48);
+  applyWgs84ToGeometry(geo);
+  const mesh = new THREE.Mesh(geo, makeGlitterMaterial());
   mesh.name = LEO_GLITTER_MESH;
   mesh.renderOrder = 0.5;
   mesh.castShadow = false;

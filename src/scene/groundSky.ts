@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import { R_EARTH } from "../physics/constants";
+import { earthNorthPole } from "../physics/earthFrame";
+import { radialHeightAboveEllipsoid } from "../physics/wgs84";
+import { applyWgs84ToGeometry } from "./wgs84Mesh";
 
 /**
  * In-atmosphere sky shell for pad / low-altitude camera views.
@@ -155,10 +158,9 @@ function configureGroundSkyMesh(mesh: THREE.Mesh): void {
 
 export function createGroundSky(): GroundSky {
   const material = makeGroundSkyMaterial();
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(SHELL_R, 64, 48),
-    material,
-  );
+  const geo = new THREE.SphereGeometry(SHELL_R, 64, 48);
+  applyWgs84ToGeometry(geo);
+  const mesh = new THREE.Mesh(geo, material);
   configureGroundSkyMesh(mesh);
   return { mesh, material };
 }
@@ -198,9 +200,12 @@ function applyGroundSkyUniforms(
   sky.mesh.visible = true;
 }
 
-/** Opacity from geocentric radius: height fade × inside-shell gate. */
-function groundSkyOpacity(r: number): number {
-  const alt = r - R_EARTH;
+const _north = { x: 0, y: 0, z: 0 };
+
+/** Opacity from geodetic-ish height: height fade × inside-shell gate. */
+function groundSkyOpacity(r: number, rel: THREE.Vector3): number {
+  earthNorthPole(_north);
+  const alt = radialHeightAboveEllipsoid(rel, _north);
   const heightFade = 1 - smoothstep(SKY_FULL_ALT_KM, SKY_FADE_ALT_KM, alt);
   const insideShell = r < SHELL_R * 0.995 ? 1 : 0;
   return heightFade * insideShell;
@@ -229,10 +234,10 @@ export function updateGroundSky(
   sky.mesh.position.copy(earthPos);
   _camRel.copy(camera.position).sub(earthPos);
   const r = _camRel.length();
-  if (r < R_EARTH * 0.5 || groundSkyOpacity(r) < 0.01) {
+  if (r < R_EARTH * 0.5 || groundSkyOpacity(r, _camRel) < 0.01) {
     hideGroundSky(sky);
     return;
   }
   normalizeSunDir(sunWorldDir);
-  applyGroundSkyUniforms(sky, earthPos, groundSkyOpacity(r), groundSkyDayFactor(r), brownout);
+  applyGroundSkyUniforms(sky, earthPos, groundSkyOpacity(r, _camRel), groundSkyDayFactor(r), brownout);
 }

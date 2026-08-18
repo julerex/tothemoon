@@ -6,8 +6,10 @@
  * callers pass around rather than an object with behavior.
  */
 
-import { R_EARTH, R_MOON } from "./constants";
+import { R_MOON } from "./constants";
 import { bodyPositions } from "./bodies";
+import { earthNorthPole } from "./earthFrame";
+import { radialHeightAboveEllipsoid } from "./wgs84";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { makeFlight13Epoch } from "./flight13Epoch";
 import { makeLunarEpoch } from "./missionEpoch";
@@ -345,11 +347,20 @@ function frameFromSample(s: ReadonlySample, epoch: EphemerisEpoch): FrameState {
   return makeFrame(s.t, s.pos, s.vel, s.phase, s.burning, s.fuelBooster, s.fuelShip, s.thrustN, s.staged, epoch);
 }
 
+const _earthRel = v3();
+const _earthNorth = v3();
+
 function frameAlts(t: number, pos: V3, epoch: EphemerisEpoch) {
   const b = bodyPositions(t, epoch);
   const distMoon = Math.hypot(pos.x - b.moon.x, pos.y - b.moon.y, pos.z - b.moon.z);
-  const distEarth = Math.hypot(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z);
-  return { distMoon, altMoon: distMoon - R_MOON, altEarth: distEarth - R_EARTH };
+  _earthRel.x = pos.x - b.earth.x;
+  _earthRel.y = pos.y - b.earth.y;
+  _earthRel.z = pos.z - b.earth.z;
+  return {
+    distMoon,
+    altMoon: distMoon - R_MOON,
+    altEarth: radialHeightAboveEllipsoid(_earthRel, earthNorthPole(_earthNorth)),
+  };
 }
 
 function frameCore(

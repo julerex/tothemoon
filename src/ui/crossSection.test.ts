@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
 import { loadPrecomputedTrajectory } from "../physics/trajectoryCache.ts";
-import { ATM_H_MAX_KM, R_EARTH } from "../physics/constants.ts";
+import { ATM_H_MAX_KM, R_EARTH, STARBASE_LAT } from "../physics/constants.ts";
+import { geocentricRadiusAt } from "../physics/wgs84.ts";
 import {
   BOOSTER_VISIBLE_S,
   type StageState,
@@ -78,7 +79,7 @@ describe("buildCrossSectionModel", () => {
   });
 
   it("frames atmosphere and booster envelope at true scale", () => {
-    assert.equal(model.rAtm, R_EARTH + ATM_H_MAX_KM);
+    assert.equal(model.rAtm, geocentricRadiusAt(STARBASE_LAT) + ATM_H_MAX_KM);
     assert.ok(model.bounds.yMax >= model.rAtm - 5);
     assert.ok(model.bounds.xMax > 50);
     // Envelope stays low-Earth-orbit-local (not cislunar)

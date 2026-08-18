@@ -20,7 +20,9 @@ import {
   SHIP_BARREL_RADIUS_KM,
   SPLASH_WATERLINE_ALT_KM,
 } from "./flight13Attitude.ts";
-import { EARTH_SURFACE_RADIUS_KM } from "./constants.ts";
+import { EARTH_SURFACE_ALT_KM } from "./constants.ts";
+import { FLIGHT13_SPLASH_LAT } from "./flight13Corridor.ts";
+import { geocentricRadiusAt } from "./wgs84.ts";
 
 describe("shipAttitudeMode", () => {
   it("is prograde on ascent and early coast", () => {
@@ -81,7 +83,11 @@ describe("splashLieBlend / splashFloatRadiusKm", () => {
   it("seats engines at the waterline, then lifts the origin as the hull lies down", () => {
     const up = splashFloatRadiusKm(F13_ATT.SPLASH);
     const down = splashFloatRadiusKm(F13_ATT.SPLASH + 4);
-    assert.ok(Math.abs(up - (EARTH_SURFACE_RADIUS_KM + SPLASH_WATERLINE_ALT_KM)) < 1e-12);
+    const water = geocentricRadiusAt(
+      FLIGHT13_SPLASH_LAT,
+      EARTH_SURFACE_ALT_KM + SPLASH_WATERLINE_ALT_KM,
+    );
+    assert.ok(Math.abs(up - water) < 1e-9);
     assert.ok(down > up);
     assert.ok(down - up < SHIP_BARREL_RADIUS_KM * 0.4);
   });

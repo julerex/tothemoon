@@ -13,8 +13,8 @@
  */
 
 import * as THREE from "three";
-import { EARTH_SURFACE_RADIUS_KM } from "../physics/constants";
-import { geodeticToMeshLocal } from "../physics/earthFrame";
+import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
+import { geodeticToEllipsoidMeshLocal } from "../physics/wgs84";
 import { createNameLabel } from "./zoomLabels";
 import {
   createSplashOcean,
@@ -249,7 +249,7 @@ const MESH_UP = new THREE.Vector3(0, 1, 0);
  */
 export function placeSiteOnEarth(site: THREE.Object3D, lat: number, lon: number): void {
   const local = { x: 0, y: 0, z: 0 };
-  geodeticToMeshLocal(lat, lon, EARTH_SURFACE_RADIUS_KM, local);
+  geodeticToEllipsoidMeshLocal(lat, lon, EARTH_SURFACE_ALT_KM, local);
   site.position.set(local.x, local.y, local.z);
   site.quaternion.setFromUnitVectors(
     MESH_UP,

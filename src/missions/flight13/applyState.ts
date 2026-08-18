@@ -4,9 +4,9 @@
  */
 
 import { bodyPositions } from "../../physics/bodies";
-import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
+import { EARTH_SURFACE_ALT_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
 import {
-  geodeticToMeshLocal,
+  earthNorthPole,
   meshLocalToInertial,
   starbasePadState,
 } from "../../physics/earthFrame";
@@ -32,8 +32,8 @@ import {
   physicsTToSampleU,
   transportUToPhysicsT,
 } from "../../mission/prelaunch";
+import { clampAboveEllipsoid, geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import {
-  clampCraftAboveEarth,
   setCraftEarthRadius,
   sunElevAtPad,
 } from "../../mission/frameDerive";
@@ -93,8 +93,11 @@ function syncEarth(ctx: F13Ctx, simT: number): BodyState {
   return b;
 }
 
+const _north = { x: 0, y: 0, z: 0 };
+
 function clampCraft(ctx: F13Ctx, b: BodyState, phase: PhaseId, physicsT: number): void {
-  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
+  earthNorthPole(_north);
+  const lifted = clampAboveEllipsoid(ctx.craftPos, b.earth, _north, EARTH_SURFACE_ALT_KM);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
   if (phase === "splashdown") {
     const seated = setCraftEarthRadius(
@@ -305,10 +308,10 @@ function holdSplashDrone(ctx: F13Ctx, physicsT: number): void {
 }
 
 function splashWorldPoint(ctx: F13Ctx, simT: number): void {
-  geodeticToMeshLocal(
+  geodeticToEllipsoidMeshLocal(
     FLIGHT13_SPLASH_LAT,
     FLIGHT13_SPLASH_LON,
-    EARTH_SURFACE_RADIUS_KM,
+    EARTH_SURFACE_ALT_KM,
     ctx.splashMesh,
   );
   meshLocalToInertial(ctx.splashMesh, simT, ctx.splashWorld);

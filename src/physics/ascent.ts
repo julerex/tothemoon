@@ -24,7 +24,7 @@ import {
   STAGE_PROP_ARM,
   UPPER_BURN_MAX_S,
 } from "./constants";
-import { enuAtPosition, starbasePadState } from "./earthFrame";
+import { enuAtPosition, earthNorthPole, starbasePadState } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import {
   altitudeEarth,
@@ -33,6 +33,7 @@ import {
   type CraftState,
   type ThrustFn,
 } from "./integrator";
+import { radialHeightAboveEllipsoid } from "./wgs84";
 import {
   burnForce,
   createPropState,
@@ -106,6 +107,7 @@ function pushAscentSample(
 }
 
 const _up = v3();
+const _pole = v3();
 const _east = v3();
 const _north = v3();
 const _relP = v3();
@@ -175,7 +177,8 @@ function fillSteerGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): Steer
   const r = len(_relP);
   enuAtPosition(t, pos, b.earth, _up, _east, _north);
   sub(_relV, vel, b.earthVel);
-  return { alt: r - R_EARTH, vRad: dot(_relV, _up), vEast: dot(_relV, _east), vNorth: dot(_relV, _north), vCirc: Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50)) };
+  earthNorthPole(_pole);
+  return { alt: radialHeightAboveEllipsoid(_relP, _pole), vRad: dot(_relV, _up), vEast: dot(_relV, _east), vNorth: dot(_relV, _north), vCirc: Math.sqrt(MU_EARTH / Math.max(r, R_EARTH + 50)) };
 }
 
 function closedLoopTgtRad(geo: SteerGeo, speedFrac: number): number {
@@ -394,7 +397,8 @@ function insertionGeom(
   const r = len(_relP);
   sub(_relV, vel, b.earthVel);
   normalize(_up, _relP);
-  return { alt: r - R_EARTH, vRad: Math.abs(dot(_relV, _up)), v: len(_relV), vCirc: Math.sqrt(MU_EARTH / r) };
+  earthNorthPole(_pole);
+  return { alt: radialHeightAboveEllipsoid(_relP, _pole), vRad: Math.abs(dot(_relV, _up)), v: len(_relV), vCirc: Math.sqrt(MU_EARTH / r) };
 }
 
 /**

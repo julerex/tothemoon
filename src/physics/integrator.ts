@@ -44,7 +44,6 @@ import {
   MU_EARTH,
   MU_MOON,
   MU_SUN,
-  R_EARTH,
   R_MOON,
 } from "./constants";
 import { bodyPositions, type BodyState } from "./bodies";
@@ -53,6 +52,7 @@ import {
   type EphemerisEpoch,
 } from "./ephemerisEpoch";
 import { earthNorthPole } from "./earthFrame";
+import { radialHeightAboveEllipsoid, WGS84_A } from "./wgs84";
 import {
   add,
   copy,
@@ -139,7 +139,7 @@ function addTidalGravity(acc: V3, craft: V3, body: V3, primary: V3, mu: number):
  * where ζ = (r · n̂)/r and n̂ is the Earth north pole.
  */
 function j2Accel(acc: V3, r: number, zeta: number): void {
-  const r2 = r * r, fac = 1.5 * EARTH_J2 * MU_EARTH * (R_EARTH * R_EARTH) / (r2 * r2 * r);
+  const r2 = r * r, fac = 1.5 * EARTH_J2 * MU_EARTH * (WGS84_A * WGS84_A) / (r2 * r2 * r);
   const s = (5 * (zeta * zeta) / r2 - 1);
   acc.x += fac * (s * _r.x - 2 * zeta * _pole.x);
   acc.y += fac * (s * _r.y - 2 * zeta * _pole.y);
@@ -149,7 +149,7 @@ function j2Accel(acc: V3, r: number, zeta: number): void {
 export function addEarthJ2(acc: V3, craft: V3, earth: V3): void {
   sub(_r, craft, earth);
   const r = len(_r);
-  if (r < R_EARTH * 0.5) return;
+  if (r < WGS84_A * 0.5) return;
   earthNorthPole(_pole);
   j2Accel(acc, r, dot(_r, _pole));
 }
@@ -188,7 +188,8 @@ export function addEarthDrag(
   cdAOverM: number = DRAG_CD_A_OVER_M,
 ): void {
   sub(_r, craft, earth);
-  const rho = atmDensity(len(_r) - R_EARTH);
+  earthNorthPole(_pole);
+  const rho = atmDensity(radialHeightAboveEllipsoid(_r, _pole));
   if (rho < 1e-30) return;
   const speed = dragRelVel(vel, earthVel);
   if (speed >= 1e-9) applyDrag(acc, rho, speed, cdAOverM);
@@ -302,7 +303,9 @@ export function altitudeEarth(
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
 ): number {
   bodyPositions(t, epoch, _bodies);
-  return len(sub(_tmp, pos, _bodies.earth)) - R_EARTH;
+  sub(_tmp, pos, _bodies.earth);
+  earthNorthPole(_pole);
+  return radialHeightAboveEllipsoid(_tmp, _pole);
 }
 
 export function altitudeMoon(

@@ -6,8 +6,9 @@
 import type { Line2 } from "three/addons/lines/Line2.js";
 import type { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { bodyPositions } from "../../physics/bodies";
-import { EARTH_SURFACE_RADIUS_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
-import { starbasePadState } from "../../physics/earthFrame";
+import { EARTH_SURFACE_ALT_KM, R_EARTH, R_MOON, STARBASE_ALT } from "../../physics/constants";
+import { earthNorthPole, starbasePadState } from "../../physics/earthFrame";
+import { clampAboveEllipsoid } from "../../physics/wgs84";
 import {
   formatMissionDateAustralia,
   formatMissionDateTexas,
@@ -20,7 +21,6 @@ import {
 } from "../../mission/prelaunch";
 import {
   attitudeNearEarth,
-  clampCraftAboveEarth,
   craftTrailStyle,
   relativeSpeedKmS,
   shouldClampAboveEarth,
@@ -83,9 +83,12 @@ function syncEarth(ctx: MoonCtx, simT: number): BodyState {
   return b;
 }
 
+const _north = { x: 0, y: 0, z: 0 };
+
 function maybeClamp(ctx: MoonCtx, frame: SampleFrame, b: BodyState): void {
   if (!shouldClampAboveEarth(frame.phase)) return;
-  const lifted = clampCraftAboveEarth(ctx.craftPos, b.earth, EARTH_SURFACE_RADIUS_KM);
+  earthNorthPole(_north);
+  const lifted = clampAboveEllipsoid(ctx.craftPos, b.earth, _north, EARTH_SURFACE_ALT_KM);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
 }
 

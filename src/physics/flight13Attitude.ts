@@ -5,8 +5,10 @@
  * Mesh convention (see craft.ts): local +Z = nose, −Z = engines, +Y ≈ windward tiles.
  */
 
-import { EARTH_SURFACE_RADIUS_KM } from "./constants";
+import { EARTH_SURFACE_ALT_KM } from "./constants";
+import { FLIGHT13_SPLASH_LAT } from "./flight13Corridor";
 import type { PhaseId } from "./missionTypes";
+import { geocentricRadiusAt } from "./wgs84";
 
 /** Official approximate T+ anchors used for attitude / engine cadence. */
 export const F13_ATT = {
@@ -67,11 +69,14 @@ export function splashLieBlend(t: number): number {
 }
 
 /**
- * Geocentric radius (km) of the engine origin while floating.
- * Upright: engines at the waterline. Lying: belly slightly in the water.
+ * Geocentric radius (km) of the engine origin while floating on the WGS84
+ * splash site. Upright: engines at the waterline. Lying: belly slightly in the water.
  */
 export function splashFloatRadiusKm(t: number): number {
-  const water = EARTH_SURFACE_RADIUS_KM + SPLASH_WATERLINE_ALT_KM;
+  const water = geocentricRadiusAt(
+    FLIGHT13_SPLASH_LAT,
+    EARTH_SURFACE_ALT_KM + SPLASH_WATERLINE_ALT_KM,
+  );
   return water + SHIP_BARREL_RADIUS_KM * 0.28 * splashLieBlend(t);
 }
 

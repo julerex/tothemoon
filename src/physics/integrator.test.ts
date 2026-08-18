@@ -13,6 +13,7 @@ import {
   acceleration,
 } from "./integrator.ts";
 import { earthNorthPole } from "./earthFrame.ts";
+import { WGS84_A } from "./wgs84.ts";
 import { len, v3 } from "./vec3.ts";
 
 describe("Earth J2", () => {
@@ -45,7 +46,7 @@ describe("Earth J2", () => {
     assert.ok(len(aLow) > len(aHigh));
     // Order of magnitude: J2 term ~ J2 * μ * R² / r⁴
     const r = R_EARTH + 200;
-    const rough = 1.5 * EARTH_J2 * MU_EARTH * R_EARTH * R_EARTH / (r * r * r * r);
+    const rough = 1.5 * EARTH_J2 * MU_EARTH * WGS84_A * WGS84_A / (r * r * r * r);
     assert.ok(len(aLow) < rough * 3);
     assert.ok(len(aLow) > rough * 0.1);
   });

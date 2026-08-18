@@ -26,6 +26,7 @@ import {
 import { createLocatorSprite } from "./craft";
 import { createNameLabel, markZoomLabel } from "./zoomLabels";
 import { createLeoClouds, type LeoClouds } from "./leoClouds";
+import { applyWgs84ToGeometry } from "./wgs84Mesh";
 
 export type Bodies = {
   earth: THREE.Mesh;
@@ -279,9 +280,11 @@ function makeEarthMaterial(
   return mat;
 }
 
-/** Earth surface sphere mesh. */
+/** Earth surface mesh with WGS84 figure (same ECEF as the physics pad). */
 function makeEarthMesh(mat: THREE.MeshStandardMaterial): THREE.Mesh {
-  return new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 96, 64), mat);
+  const geo = new THREE.SphereGeometry(R_EARTH, 96, 64);
+  applyWgs84ToGeometry(geo);
+  return new THREE.Mesh(geo, mat);
 }
 
 /** Earth surface mesh with albedo / roughness / night maps. */

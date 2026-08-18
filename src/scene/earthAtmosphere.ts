@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import { R_EARTH } from "../physics/constants";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
+import { applyWgs84ToGeometry } from "./wgs84Mesh";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
@@ -310,14 +311,16 @@ function configureAtmoMesh(mesh: THREE.Mesh): void {
   mesh.frustumCulled = true;
 }
 
-/** Sphere geometry for one atmosphere shell. */
+/** Sphere geometry for one atmosphere shell, then WGS84 so the limb hugs the globe. */
 function makeAtmoGeometry(opts: AtmoShellOpts): THREE.SphereGeometry {
   const segs = opts.segments;
-  return new THREE.SphereGeometry(
+  const geo = new THREE.SphereGeometry(
     opts.radius,
     segs,
     Math.max(24, (segs * 3) / 4),
   );
+  applyWgs84ToGeometry(geo);
+  return geo;
 }
 
 /** Build sphere mesh + shader for one atmosphere shell. */

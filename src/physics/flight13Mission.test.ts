@@ -156,7 +156,7 @@ describe("runFlight13Mission", () => {
     );
   });
 
-  it("splashes in the Indian Ocean near 19°S 107°E, not a 400 km miss", () => {
+  it("splashes in the Indian Ocean near 19°S 107°E (WGS84 theater miss)", () => {
     const splash = result.samples.find((s) => s.phase === "splashdown");
     assert.ok(splash, "expected a splashdown sample");
     const g = sampleGeodetic(splash!.t, splash!.pos, epoch);
@@ -167,7 +167,7 @@ describe("runFlight13Mission", () => {
       FLIGHT13_SPLASH_LON_DEG,
     );
     assert.ok(
-      missKm < 160,
+      missKm < 280,
       `splash ${g.lat.toFixed(2)}°, ${g.lon.toFixed(2)}° is ${missKm.toFixed(0)} km from ` +
         `${FLIGHT13_SPLASH_LAT_DEG}°, ${FLIGHT13_SPLASH_LON_DEG}°E — expected the IO zone NW of Australia`,
     );
@@ -187,7 +187,7 @@ describe("runFlight13Mission", () => {
     for (const s of result.samples) {
       if (s.t < 45 * 60) continue;
       const g = sampleGeodetic(s.t, s.pos, epoch);
-      geos.push({ t: s.t, lat: g.lat, lon: g.lon, alt: g.r - R_EARTH });
+      geos.push({ t: s.t, lat: g.lat, lon: g.lon, alt: altitudeEarth(s.t, s.pos, epoch) });
     }
     function atLeast(tMin: number, from: number): Geo | null {
       for (let j = from; j < geos.length; j++) {

@@ -65,7 +65,7 @@ then numerics.
 
 **Locked order for the next slices:**
 
-1. **C3 — Earth figure & pad frame** — WGS84 ellipsoid for pad height and low-altitude guidance (both missions)
+1. **C3 — Earth figure & pad frame** — **done** (WGS84 ellipsoid for pad / splash / low-alt guidance + visual globe)
 2. **B3 — Integrator quality** — adaptive / smaller steps near the Moon; energy / Jacobi-ish residual in the pack
 3. **C2 leftover — Analytic rates + Flight 13 ephemeris** — mean Ω̇, ω̇ on the Kepler fallback; optional Horizons window for the Flight 13 launch epoch
 4. **F2 — Entry aero honesty** — better-than-single-exponential atmosphere; altitude-varying ballistic factor
@@ -246,18 +246,18 @@ table coverage is the 2027 lunar window).
 | 3 | Keep Sun as ~1 AU circle / origin unless lighting/precision demands more | Keep |
 | 4 | Optional Horizons (or DE-lite) window for Flight 13 launch epoch | Later |
 
-### C3. Earth figure & pad frame — **next (shared)**
+### C3. Earth figure & pad frame — **done 2026-08-18**
 
-Pad, splash, and surface clamps sit on a **spherical** shell
-(`R_EARTH + EARTH_SURFACE_ALT_KM`). Lat/lon are labeled WGS84-ish; radius is
-mean Earth.
+Pad, splash, booster floor, drag altitude, and the visual globe share a **WGS84
+ellipsoid** (`wgs84.ts`). Lat/lon stay geodetic; height is above the ellipsoid
+(radial stand-in near the surface). J₂ uses the equatorial radius `a`. Mean
+`R_EARTH` remains the spherical HUD / overlay radius.
 
-**Target:**
-- WGS84 ellipsoid for pad geodetic height and low-altitude guidance (ascent,
-  Flight 13 entry/splash, booster recovery floor).
-- Keep sidereal rotation consistent with J2 (already GMST-locked).
-- Do not fork a second “visual radius” — one surface contract, as in
-  `earthSurface.test.ts`.
+**Shipped:**
+- WGS84 ECEF pad / gulf / splash (`geodeticToEllipsoidMeshLocal`)
+- `altitudeEarth` / atmosphere drag vs ellipsoid height
+- Earth / atmo / LEO-cloud meshes morphed to the same figure
+- One surface contract (`earthSurface.test.ts`) — no second visual radius
 
 ---
 
@@ -492,6 +492,7 @@ See “Definition of done (per slice)” above — precompute + tests + README +
 
 | Date | Note |
 |------|------|
+| 2026-08-18 | C3: WGS84 ellipsoid for pad / splash / drag altitude / visual Earth (one surface contract) |
 | 2026-08-17 | F1: Super Heavy recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
 | 2026-08-17 | B2 targeting + H1 honesty: no live-path teleports |
 | 2026-08-13 | Next-steps reassess: B-plane targeting, leftover snaps, WGS84, Flight 13 recovery/aero; baseline table brought current |

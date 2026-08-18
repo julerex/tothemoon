@@ -26,20 +26,24 @@
 import {
   BOOSTER_DRY_KG,
   BOOSTER_THRUST_N,
-  EARTH_SURFACE_RADIUS_KM,
+  EARTH_SURFACE_ALT_KM,
   G0,
   MU_EARTH,
-  R_EARTH,
   SPECIFIC_IMPULSE_BOOSTER,
 } from "./constants";
 import { bodyPositions } from "./bodies";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch";
 import {
-  geodeticToMeshLocal,
+  earthNorthPole,
   meshLocalToInertial,
   starbasePadState,
 } from "./earthFrame";
+import {
+  earthSurfaceRadiusAlong,
+  geodeticToEllipsoidMeshLocal,
+  radialHeightAboveEllipsoid,
+} from "./wgs84";
 import {
   altitudeEarth,
   getBodies,
@@ -283,6 +287,7 @@ const _vRel = v3();
 const _thrustA = v3();
 const _aim = v3();
 const _up = v3();
+const _pole = v3();
 const _siteP = v3();
 const _siteV = v3();
 const _statePos = v3();
@@ -352,7 +357,7 @@ function siteRelAt(
     madd(_tmp, pad.pos, pad.up, altKm);
     return sub(out, _tmp, bodyPositions(t, epoch).earth);
   }
-  geodeticToMeshLocal(lat, lon, R_EARTH + altKm, _tmp);
+  geodeticToEllipsoidMeshLocal(lat, lon, altKm, _tmp);
   return meshLocalToInertial(_tmp, t, out, epoch);
 }
 
@@ -460,7 +465,8 @@ function fillUpAt(pos: V3, t: number, epoch: EphemerisEpoch): number {
   sub(_pRel, pos, b.earth);
   const r = len(_pRel) || 1;
   set(_up, _pRel.x / r, _pRel.y / r, _pRel.z / r);
-  return r - R_EARTH;
+  earthNorthPole(_pole);
+  return radialHeightAboveEllipsoid(_pRel, _pole);
 }
 
 /** v so that pos + v·dt + ½ g dt² ≈ target (constant-g estimate). */
@@ -565,7 +571,7 @@ function steerLanding(
   const vRad = dot(_vRel, _up);
   const vDown = Math.max(0, -vRad);
   const h = Math.max(alt - sched.landAltKm, 0.04);
-  const g = MU_EARTH / ((R_EARTH + Math.max(alt, 0)) ** 2);
+  const g = MU_EARTH / ((len(_pRel) || 1) ** 2);
   const aSuicide = (vDown * vDown) / (2 * h) + g;
   madd(_aim, _vRel, _up, -vRad);
   const dtLeft = Math.max(0.8, t0 + sched.landingEndS - state.t);
@@ -597,7 +603,7 @@ function applySeatBlend(
     if (len(_tmp) > 1e-6) {
       normalize(_tmp, _tmp);
       blendUnits(_up, _tmp, u, _tmp2);
-      const r = R_EARTH + Math.max(alt, sched.landAltKm);
+      const r = earthSurfaceRadiusAlong(_tmp2, earthNorthPole(_pole), Math.max(alt, sched.landAltKm));
       set(state.pos, b.earth.x + _tmp2.x * r, b.earth.y + _tmp2.y * r, b.earth.z + _tmp2.z * r);
     }
     return;
@@ -615,7 +621,7 @@ function clampAboveLand(state: CraftState, sched: RecoverySchedule, epoch: Ephem
   if (alt >= sched.landAltKm) return;
   fillUpAt(state.pos, state.t, epoch);
   const b = getBodies(state.t, epoch);
-  const r = R_EARTH + sched.landAltKm;
+  const r = earthSurfaceRadiusAlong(_pRel, earthNorthPole(_pole), sched.landAltKm);
   set(
     state.pos,
     b.earth.x + _up.x * r,
@@ -809,7 +815,8 @@ function keyframeSegmentIndex(kfs: RelKeyframe[], ageClamped: number): number {
 
 function clampAboveEarth(): void {
   const r = len(_pRel);
-  const minR = EARTH_SURFACE_RADIUS_KM;
+  earthNorthPole(_pole);
+  const minR = earthSurfaceRadiusAlong(_pRel, _pole, EARTH_SURFACE_ALT_KM);
   if (r < minR && r > 1e-6) scale(_pRel, _pRel, minR / r);
 }
 

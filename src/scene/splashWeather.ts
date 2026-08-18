@@ -15,7 +15,9 @@
  */
 
 import * as THREE from "three";
-import { EARTH_SURFACE_RADIUS_KM } from "../physics/constants";
+import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
+import { FLIGHT13_SPLASH_LAT } from "../physics/flight13Corridor";
+import { geocentricRadiusAt } from "../physics/wgs84";
 import { drapePlatePoint } from "./starbasePlate";
 import {
   OCEAN_CHOP_AMP_KM,
@@ -357,7 +359,7 @@ function drapeOceanGeometry(geo: THREE.BufferGeometry): void {
     const z = pos.getZ(i);
     rest[i * 2] = x;
     rest[i * 2 + 1] = z;
-    const p = drapePlatePoint(x, z, EARTH_SURFACE_RADIUS_KM);
+    const p = drapePlatePoint(x, z, geocentricRadiusAt(FLIGHT13_SPLASH_LAT, EARTH_SURFACE_ALT_KM));
     pos.setXYZ(i, p.x, p.y, p.z);
   }
   geo.setAttribute("restXZ", new THREE.BufferAttribute(rest, 2));

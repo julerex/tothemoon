@@ -17,6 +17,7 @@ import {
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
+import { geocentricRadiusAt } from "../physics/wgs84";
 import {
   geodeticToMeshLocal,
   inertialRelToMeshLocal,
@@ -224,8 +225,8 @@ function finishCrossSectionModel(
   boosterTrail: TimedPlanePoint[],
   stageT: number | null,
 ): CrossSectionModel {
-  const rEarth = R_EARTH;
-  const rAtm = R_EARTH + ATM_H_MAX_KM;
+  const rEarth = geocentricRadiusAt(STARBASE_LAT);
+  const rAtm = rEarth + ATM_H_MAX_KM;
   const bounds = computeCrossSectionBounds(shipTrail, boosterTrail, rEarth, rAtm);
   return { basis, shipTrail, boosterTrail, stageT, bounds, rAtm, rEarth };
 }

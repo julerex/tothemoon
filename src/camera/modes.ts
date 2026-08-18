@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AU, R_EARTH, R_MOON, R_SUN } from "../physics/constants";
+import { AU, R_MOON, R_SUN } from "../physics/constants";
+import { WGS84_A } from "../physics/wgs84";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
@@ -730,7 +731,7 @@ export class CameraDirector {
   /** Characteristic framing distance (km) for each focus target. */
   private frameDistanceFor(mode: CameraMode): number {
     if (mode === "sun") return this.distanceForRadius(R_SUN, 0.7);
-    if (mode === "earth") return this.distanceForRadius(R_EARTH, 0.65);
+    if (mode === "earth") return this.distanceForRadius(WGS84_A, 0.65);
     if (mode === "moon") return this.distanceForRadius(R_MOON, 0.65);
     if (mode === "chase") return this.chaseFrameDistance();
     if (mode === "starbase") return this.distanceForRadius(0.12, 0.5);
@@ -805,7 +806,7 @@ export class CameraDirector {
 
   private minDistanceForFocus(): number {
     if (this.focus === "sun") return SUN_MIN_DIST;
-    if (this.focus === "earth") return R_EARTH + SURFACE_CLEARANCE_KM;
+    if (this.focus === "earth") return WGS84_A + SURFACE_CLEARANCE_KM;
     if (this.focus === "moon") return R_MOON + SURFACE_CLEARANCE_KM;
     return 0.05;
   }
@@ -842,7 +843,7 @@ export class CameraDirector {
     const b = bodyPositions(this.simTime, this.epoch);
     return solarSystemExclusionSpheres(b.sun, b.earth, b.moon, {
       sun: R_SUN,
-      earth: R_EARTH,
+      earth: WGS84_A,
       moon: R_MOON,
     });
   }

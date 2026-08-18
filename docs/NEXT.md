@@ -207,8 +207,9 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 2. ~~**Chase camera quality** (P1.6)~~ **done**  
 3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
 4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-5. **Visual photorealism V13+** — V13–V19 **done**; **next** optional Moon albedo (V20) ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-6. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
+5. ~~**Visual photorealism V13+**~~ V13–V19 **done**; **next** optional Moon albedo (V20) ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
+6. ~~**C3 WGS84 Earth figure**~~ **done** (`PLAN.md`) — pad / splash / drag on the ellipsoid, globe matches  
+7. **HUD split** (P3.14) when the next UX feature would bloat `hud.ts` further
 
 ---
 
@@ -276,3 +277,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-17 | Visual V21: splash swell + water texture; puffy cumulus at ~2 km AGL |
 | 2026-08-17 | F1: booster recovery on RK4 Earth μ + J₂ + drag; landing burn ~5 km AGL; last few km seat onto chopsticks / gulf |
 | 2026-08-17 | Flight 13 gulf recovery is a hard splash (partial landing-burn relight), not a soft seat |
+| 2026-08-18 | C3: WGS84 ellipsoid for pad / splash / drag altitude; visual Earth matches |
