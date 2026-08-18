@@ -167,6 +167,10 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 - Dynamic-import Three addons only where required
 - Slim or gzip-friendly trajectory (already packed; consider quantize further only with invariant tests)
 
+### 16. File size ceiling — **in progress**
+
+No non-test `src/` file over **~400 LOC**; prefer **~200 LOC / ~15 functions** per sibling when extracting along existing domain seams (same facade pattern as P3.12 / P3.14: keep the old import path as a thin re-export). Do not chop cohesive clusters just to hit 200. Refactors are behavior-identical — revert accidental `src/data/*trajectory.json` diffs from precompute.
+
 ---
 
 ## P4 — Stretch / later
@@ -202,9 +206,10 @@ Core arc is modular and watchable. **Both missions** ship full theaters (`to-the
 Locked P0–P2, P3.12, P3.14, and visual V0–V21 are **done**. Physics A–F2 / H1 / D1 / D3 are **done** ([PLAN.md](../PLAN.md)).
 
 **Still open (not locked as next):**
-1. **P3.15 Bundle size** — low urgency (dynamic-import Three addons; tighter trajectory packing only with invariants)
-2. **P4 stretch** — Return to Earth, audio, mobile layout, WebGPU/post, i18n; more mission packs as needed
-3. **Physics reassess** — no next A–F slice is queued; **D2** remains a per-slice golden / invariant habit
+1. **P3.16 File size ceiling** — split large modules (craft, earthTheater, modes, …) under 400 LOC with facades
+2. **P3.15 Bundle size** — low urgency (dynamic-import Three addons; tighter trajectory packing only with invariants)
+3. **P4 stretch** — Return to Earth, audio, mobile layout, WebGPU/post, i18n; more mission packs as needed
+4. **Physics reassess** — no next A–F slice is queued; **D2** remains a per-slice golden / invariant habit
 
 P3.13 is a standing FX rule, not a task. Further visual photorealism is out of scope unless requested ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
 
