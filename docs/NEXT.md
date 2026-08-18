@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V21 shipped; **V20 Moon albedo done**): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V21 shipped; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
 
@@ -116,7 +116,7 @@ Ballistic free-coast packs have no Lunar orbit insertion burn; readability work 
 
 ### 9. Booster recovery silhouette — done (theater)
 
-Force-model return after stage-out: flip → boostback plume → coast/entry → landing burn (~5 km AGL at the public mark). Chopsticks catch at Starbase; Flight 13 gulf is a **hard splash** after a partial landing-burn relight (`boosterRecovery.ts` RK4 Earth μ + J₂ + drag + `StagingFx`). Last few km seat onto the chopsticks only. Scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate and ocean spray. Optional follow-up: dim free-flyer locator.
+Force-model return after stage-out: flip → boostback plume → coast/entry → landing burn (~5 km AGL at the public mark). Chopsticks catch at Starbase; Flight 13 gulf is a **hard splash** after a partial landing-burn relight (`boosterRecovery.ts` RK4 Earth μ + J₂ + drag + `StagingFx`). Last few km seat onto the chopsticks only. Scrub-stable. Chopsticks close on `caught` for the lunar profile (visual V8); Flight 13 gulf uses a site plate and ocean spray. Dim free-flyer locator is **P0.3**.
 
 ### 10. Epoch & lighting polish — **done**
 
@@ -149,7 +149,7 @@ Thin orchestrator in `mission.ts`; flight / search / coast / downsample extracte
 
 Ascent / translunar injection / capture / low Earth orbit dogleg were already separate. Golden tests pin phase order, duration, stage window, Translunar injection Δv, and pack v2 meta against the bake.
 
-### 13. Scene FX module boundary
+### 13. Scene FX module boundary — standing rule (not a slice)
 
 Keep `stagingFx`, `landingFx`, `earthTheater` as the pattern: **deterministic in mission time**, scrub-safe, no wall-clock physics. New FX should follow that rule.
 
@@ -160,7 +160,7 @@ transport/scrub/news, and keyboard live in `hudTypes` / `hudCameraCtl` /
 `hudPanels` / `hudTransport` / `hudKeys`. Telemetry labels were already in
 `telemetryView` + `hudApply`.
 
-### 15. Bundle size
+### 15. Bundle size — open, low urgency
 
 Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed:
 
@@ -184,7 +184,7 @@ Main chunk is large (Three + baked JSON). Low urgency on GH Pages, but if needed
 
 ## Suggested sequencing (concrete)
 
-A practical order for the next few sessions:
+Shipped order (historical; all **done**):
 
 1. ~~**Auto-cam by phase** (P0.1) + manual override~~ **done**  
 2. ~~**Cinematic bookmarks** (P1.5)~~ **done**  
@@ -199,14 +199,14 @@ A practical order for the next few sessions:
 
 Core arc is modular and watchable. **Both missions** ship full theaters (`to-the-moon` | `flight-13`).
 
-**Good next slices:**
-1. ~~**Flight 13 Auto-cam story**~~ **done** (trench → ship → gridfin → entry chase)  
-2. ~~**Chase camera quality** (P1.6)~~ **done**  
-3. ~~**Lunar LOI / soft landing pack**~~ **done** (coast → LOI → LLO → PDI → south pole)  
-4. ~~**Visual V6+**~~ **done** — terminal dust/splash → F13 entry craft → recovery catch → lunar site plate → finale cams → coast watchability ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-5. ~~**Visual photorealism V13+**~~ V13–V21 **done**; ~~**V20 Moon albedo**~~ **done** ([VISUAL_REALISM.md](./VISUAL_REALISM.md))  
-6. ~~**C3 WGS84 Earth figure**~~ **done** (`PLAN.md`) — pad / splash / drag on the ellipsoid, globe matches  
-7. ~~**HUD split** (P3.14)~~ **done** (`hudTypes` / `hudCameraCtl` / `hudPanels` / `hudTransport` / `hudKeys`)
+Locked P0–P2, P3.12, P3.14, and visual V0–V21 are **done**. Physics A–F2 / H1 / D1 / D3 are **done** ([PLAN.md](../PLAN.md)).
+
+**Still open (not locked as next):**
+1. **P3.15 Bundle size** — low urgency (dynamic-import Three addons; tighter trajectory packing only with invariants)
+2. **P4 stretch** — Return to Earth, audio, mobile layout, WebGPU/post, i18n; more mission packs as needed
+3. **Physics reassess** — no next A–F slice is queued; **D2** remains a per-slice golden / invariant habit
+
+P3.13 is a standing FX rule, not a task. Further visual photorealism is out of scope unless requested ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
 
 ---
 
@@ -276,3 +276,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-17 | Flight 13 gulf recovery is a hard splash (partial landing-burn relight), not a soft seat |
 | 2026-08-18 | C3: WGS84 ellipsoid for pad / splash / drag altitude; visual Earth matches |
 | 2026-08-18 | Visual V20: LRO WAC Moon albedo JPEG (procedural fallback) |
+| 2026-08-18 | Plan freshness: locked P0–P2 / V0–V21 closed; remaining is P3.15, P4, physics reassess |

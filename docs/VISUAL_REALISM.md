@@ -15,6 +15,11 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
+**Status (2026-08-18):** V0–V21 are **shipped**. No next visual slice is queued.
+Further photorealism is **out of scope** unless explicitly requested. Flight 13
+highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference,
+not a numbered backlog item.
+
 ---
 
 ## Current baseline (what we already have)
@@ -212,6 +217,8 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 ## Suggested sequencing (concrete)
 
+Shipped order (historical; all **done**). No next visual slice is queued.
+
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
 3. ~~**V3** — pad close-up (trench cam payoff)~~ **done**  
@@ -219,7 +226,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 5. ~~**V4** — craft materials as needed for fin/gridfin~~ **done**  
 6. ~~**V5** — shadows / post only when the above is stable~~ **done**  
 
-**Next (post-V5):**
+**Shipped (post-V5):**
 
 7. ~~**V6** — terminal dust + splash (both missions)~~ **done**  
 8. ~~**V7** — Flight 13 entry / belly-flop craft readability~~ **done**  
@@ -229,7 +236,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 12. ~~**V10** — coast watchability when long scrub feels empty~~ **done**  
 13. ~~**V11** — pad horizon / satellite surrounds plate~~ **done** (see below)
 
-**Next (photorealism vs Flight 13 stills):**
+**Shipped (photorealism vs Flight 13 stills):**
 
 14. ~~**V13** — hex TPS / S40 / oil-canning / experiment tiles (every fin/hull cam)~~ **done**  
 15. ~~**V14** — pink-magenta atmosphere plumes + cryo frost/ice + denser pad steam~~ **done**  
@@ -637,4 +644,5 @@ Same asset rules as Blue Marble: modest JPEG, credit in
 | 2026-08-16 | V18 shipped: engine-bay MLI/plumbing/ribs/stencil IDs; mild fisheye+grain on fin/gridfin |
 | 2026-08-16 | V19 shipped: altitude-gated LEO cloud shell + ocean glitter; Earth-cam stays cloudless Blue Marble |
 | 2026-08-17 | V21 shipped: splash swell + water texture; puffy cumulus at ~2 km AGL (local, not a globe deck) |
+| 2026-08-18 | Backlog closed: V0–V21 shipped; no next visual slice queued (highlight clips remain look-reference) |
 | 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |
