@@ -13,11 +13,26 @@ export const SHIP_WELD_RING_FRACTIONS = [
 /** Booster barrel weld ring count (V4). */
 export const BOOSTER_WELD_RING_COUNT = 9;
 
-/** Grid-fin lattice lines per axis (V4 denser sky silhouette). */
-export const GRID_FIN_LATTICE_N = 6;
+/** Grid-fin lattice lines per axis (V4 denser sky silhouette; V22 denser still). */
+export const GRID_FIN_LATTICE_N = 8;
+
+/**
+ * Super Heavy V3 grid-fin azimuths (90° / 90° / 180°), not equal 120° thirds.
+ * First fin stays at +Y so the existing gridfin-cam mount does not jump.
+ */
+export const GRID_FIN_AZIMUTHS = [
+  Math.PI / 2,
+  Math.PI,
+  (3 * Math.PI) / 2,
+] as const;
 
 /** Mesh units per real meter (before CRAFT_MESH_SCALE). */
 export const U = 1 / 40;
+
+/** Super Heavy Raptor ring radii in mesh units (3 inner / 10 mid / 20 outer). */
+export const BOOST_RING_INNER = 0.95 * U;
+export const BOOST_RING_MID = 2.25 * U;
+export const BOOST_RING_OUTER = 3.55 * U;
 
 /** Vehicle diameter (m) → radius in mesh units. */
 const DIA_M = 9;

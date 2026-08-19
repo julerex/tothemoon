@@ -1,18 +1,25 @@
 /**
- * Visual V18 — Super Heavy engine-bay interior (theater-grade).
+ * Visual V18 / V22 — Super Heavy engine-bay interior (theater-grade).
  *
- * Flight 13 gridfin / engines-cam stills show plumbing, crinkled MLI, skirt
- * ribs, and stencil IDs on Raptor housings — not bare exterior bells. Parent
- * under the booster so StagingFx’s detached free-flyer clone keeps the bay.
+ * Flight 13 gridfin / engines-cam stills show plumbing, crinkled MLI, a
+ * stainless oil-canned puck, gimbal rams, skirt ribs, and stencil IDs on
+ * Raptor housings — not bare exterior bells. Parent under the booster so
+ * StagingFx’s detached free-flyer clone keeps the bay.
  *
  * Scene unit = 1 km. Mesh units match craft.ts (1 unit ≈ 40 m before scale).
  *
- * @see docs/VISUAL_REALISM.md — V18
+ * @see docs/VISUAL_REALISM.md — V18 / V22
  * @see assets/flight13-webcast/ — T+2:21, T+4:32–5:50 stills
  */
 
 import * as THREE from "three";
 import { paintHullMarkDecal } from "./craftHullMaps";
+import {
+  BOOST_RING_INNER,
+  BOOST_RING_MID,
+  BOOST_RING_OUTER,
+  R,
+} from "./craft/dimensions";
 
 /** Named root for tests + scene queries. */
 export const ENGINE_BAY_GROUP = "engine-bay";
@@ -31,15 +38,13 @@ export const ENGINE_BAY_MLI_COUNT = 6;
 export const ENGINE_BAY_RIB_COUNT = 12;
 /** Plumbing runs between inner / mid rings. */
 export const ENGINE_BAY_PLUMBING_COUNT = 8;
-
-/** Mesh units per real meter (same as craft.ts). */
-const U = 1 / 40;
-const R = (9 / 2) * U;
+/** Gimbal rams visible from engines-cam (subset of the 33). */
+export const ENGINE_BAY_ACTUATOR_COUNT = 10;
 
 /** Outer / mid / inner bell-ring radii (match addBoostBellField). */
-const RING_OUTER = 3.25 * U;
-const RING_MID = 2.05 * U;
-const RING_INNER = 0.9 * U;
+const RING_OUTER = BOOST_RING_OUTER;
+const RING_MID = BOOST_RING_MID;
+const RING_INNER = BOOST_RING_INNER;
 
 /** Bell exit plane (match addBoostEngines). */
 const BELL_Z = -0.02;
@@ -205,6 +210,28 @@ function makeSteelMatte(): THREE.MeshStandardMaterial {
   });
 }
 
+/** Oil-canned stainless puck / inner skirt (T+5:50 still is bright, not dark). */
+function makeStainlessPuck(): THREE.MeshPhysicalMaterial {
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xc8ccd0,
+    metalness: 0.92,
+    roughness: 0.22,
+    anisotropy: 0.62,
+  });
+}
+
+function makeSootMat(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: 0x1a1410,
+    metalness: 0.22,
+    roughness: 0.86,
+    transparent: true,
+    opacity: 0.55,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
 function addThrustPuck(bay: THREE.Group, mat: THREE.Material): void {
   const puck = new THREE.Mesh(
     new THREE.CylinderGeometry(RING_MID * 1.15, RING_OUTER * 0.92, 0.018, 24),
@@ -223,6 +250,33 @@ function addThrustPuck(bay: THREE.Group, mat: THREE.Material): void {
   sleeve.rotation.x = Math.PI / 2;
   sleeve.position.z = PUCK_Z + 0.02;
   bay.add(sleeve);
+}
+
+function addSootBand(bay: THREE.Group, mat: THREE.Material): void {
+  const soot = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 0.93, R * 0.99, 0.035, 24, 1, true),
+    mat,
+  );
+  soot.name = "engine-bay-soot";
+  soot.rotation.x = Math.PI / 2;
+  soot.position.z = BELL_Z + 0.03;
+  bay.add(soot);
+}
+
+function addActuators(bay: THREE.Group, mat: THREE.Material): void {
+  for (let i = 0; i < ENGINE_BAY_ACTUATOR_COUNT; i++) {
+    const ang = (i / ENGINE_BAY_ACTUATOR_COUNT) * Math.PI * 2 + 0.12;
+    const ram = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0026, 0.0032, 0.052, 6),
+      mat,
+    );
+    ram.name = `engine-bay-ram-${i}`;
+    const midR = RING_MID * 0.88;
+    ram.position.set(Math.cos(ang) * midR, Math.sin(ang) * midR, BELL_Z + 0.048);
+    ram.rotation.z = ang + 0.4;
+    ram.rotation.x = 0.58;
+    bay.add(ram);
+  }
 }
 
 function addPlumbing(bay: THREE.Group, mat: THREE.Material): void {
@@ -309,8 +363,10 @@ export function addEngineBay(booster: THREE.Group): THREE.Group {
   bay.name = ENGINE_BAY_GROUP;
   const steel = makeSteelDark();
   const matte = makeSteelMatte();
-  addThrustPuck(bay, steel);
+  addThrustPuck(bay, makeStainlessPuck());
+  addSootBand(bay, makeSootMat());
   addPlumbing(bay, matte);
+  addActuators(bay, steel);
   addMliPatches(bay, makeMliMaterial());
   addSkirtRibs(bay, steel);
   addBellIds(bay);

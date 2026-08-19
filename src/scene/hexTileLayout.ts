@@ -70,6 +70,19 @@ export const SHIP_HULL_MARK = {
   height: 0.028,
 } as const;
 
+/**
+ * Flight 13 Super Heavy hull number (Booster 20) on the stainless leeward.
+ * Same barrel angle convention as {@link SHIP_HULL_MARK}.
+ */
+export const BOOSTER_HULL_MARK = {
+  text: "B20",
+  ang: Math.PI * 0.58,
+  /** Fraction of booster height from the engines (0) toward the interstage (1). */
+  zFrac: 0.58,
+  width: 0.07,
+  height: 0.03,
+} as const;
+
 /** One hex-tile patch on the stainless face of each aft elevon. */
 export const AFT_FLAP_STEEL_TILE_PATCHES = 2;
 

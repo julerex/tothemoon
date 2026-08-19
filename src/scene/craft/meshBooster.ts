@@ -2,7 +2,13 @@ import * as THREE from "three";
 import {
   BOOSTER_WELD_RING_COUNT,
   BOOST_H,
+  BOOST_RING_INNER,
+  BOOST_RING_MID,
+  BOOST_RING_OUTER,
+  GRID_FIN_AZIMUTHS,
   R,
+  SL_BELL_H,
+  SL_BELL_R,
   U,
 } from "./dimensions";
 import type { CraftMats } from "./materials";
@@ -10,14 +16,15 @@ import { FROST_PATCHES } from "../craftFrost";
 import { createNameLabel } from "../zoomLabels";
 import { addEngineBay } from "../engineBay";
 import { makePlumeGroup } from "./plumes";
-import { makeSizedCanvas } from "./materials";
+import { finishCanvasTexture, makeSizedCanvas } from "./materials";
+import { BOOSTER_HULL_MARK, paintHullMarkDecal } from "../craftHullMaps";
 import {
   addNamedCam,
   makeBarrelRing,
-  makeBell,
-  makeGridFin,
   zCylinder,
 } from "./meshShared";
+import { makeGridFin } from "./gridFin";
+import { makeBell } from "./raptorBell";
 
 function addBoostBody(booster: THREE.Group, mats: CraftMats): void {
   booster.add(zCylinder(
@@ -75,7 +82,8 @@ function addInterstageVents(booster: THREE.Group, mats: CraftMats): void {
 type GridFinDims = { finH: number; finW: number; finT: number; finZ: number };
 
 function gridFinDims(): GridFinDims {
-  return { finH: 7.5 * U, finW: 3.75 * U, finT: 0.38 * U, finZ: BOOST_H - 0.35 };
+  // V3 fins are ~50% larger than Block 1/2 and sit lower on the interstage.
+  return { finH: 8.2 * U, finW: 4.4 * U, finT: 0.32 * U, finZ: BOOST_H - 0.48 };
 }
 
 /** Place three grid fins; return cam host angle/radius. */
@@ -84,8 +92,9 @@ function addGridFins(booster: THREE.Group, mats: CraftMats): {
 } {
   const d = gridFinDims();
   const first = placeGridFin(booster, mats, 0, d);
-  placeGridFin(booster, mats, 1, d);
-  placeGridFin(booster, mats, 2, d);
+  for (let i = 1; i < GRID_FIN_AZIMUTHS.length; i++) {
+    placeGridFin(booster, mats, i, d);
+  }
   return { ang: first.ang, r: first.r, finZ: d.finZ, finW: d.finW };
 }
 
@@ -95,6 +104,7 @@ function gridFinMats(mats: CraftMats) {
     lattice: mats.finLattice,
     plate: mats.steelMatte,
     pivot: mats.steelDark,
+    housing: mats.steelBright,
   };
 }
 
@@ -104,7 +114,7 @@ function placeGridFin(
   i: number,
   d: GridFinDims,
 ): { ang: number; r: number } {
-  const ang = Math.PI / 2 + (i * 2 * Math.PI) / 3;
+  const ang = GRID_FIN_AZIMUTHS[i] ?? Math.PI / 2;
   const fin = makeGridFin(d.finH, d.finW, d.finT, gridFinMats(mats));
   return poseGridFin(booster, fin, ang, d);
 }
@@ -183,7 +193,6 @@ function addBoostSkirtAndRaceway(booster: THREE.Group, mats: CraftMats): void {
 /** One ring of booster Raptors. */
 function addBoostBellRing(
   g: THREE.Group,
-  mats: CraftMats,
   n: number,
   r: number,
   br: number,
@@ -192,23 +201,24 @@ function addBoostBellRing(
 ): void {
   for (let i = 0; i < n; i++) {
     const ang = (i / n) * Math.PI * 2 + (n === 3 ? 0 : 0.08);
-    g.add(makeBell(br * 0.55, br, h, Math.cos(ang) * r, Math.sin(ang) * r, bellZ, mats.engine, mats.engineRim));
+    g.add(makeBell(br * 0.55, br, h, Math.cos(ang) * r, Math.sin(ang) * r, bellZ));
   }
 }
 
-function addBoostBellField(booster: THREE.Group, mats: CraftMats, bellZ: number): void {
+function addBoostBellField(booster: THREE.Group, bellZ: number): void {
   const boostBells = new THREE.Group();
   boostBells.name = "booster-engines";
-  const br = 0.65 * U * 1.2;
-  addBoostBellRing(boostBells, mats, 3, 0.9 * U, br * 0.95, 0.11, bellZ);
-  addBoostBellRing(boostBells, mats, 10, 2.05 * U, br, 0.105, bellZ);
-  addBoostBellRing(boostBells, mats, 20, 3.25 * U, br * 1.02, 0.1, bellZ);
+  const br = SL_BELL_R;
+  const h = SL_BELL_H;
+  addBoostBellRing(boostBells, 3, BOOST_RING_INNER, br * 0.95, h, bellZ);
+  addBoostBellRing(boostBells, 10, BOOST_RING_MID, br, h * 0.98, bellZ);
+  addBoostBellRing(boostBells, 20, BOOST_RING_OUTER, br, h * 0.96, bellZ);
   booster.add(boostBells);
 }
 
-function addBoostEngines(booster: THREE.Group, mats: CraftMats): void {
+function addBoostEngines(booster: THREE.Group): void {
   const bellZ = -0.02;
-  addBoostBellField(booster, mats, bellZ);
+  addBoostBellField(booster, bellZ);
   const boostPlume = makePlumeGroup("plume-booster", "booster");
   boostPlume.position.z = bellZ;
   booster.add(boostPlume);
@@ -238,8 +248,33 @@ function addBoostUpper(booster: THREE.Group, mats: CraftMats): void {
   addBoostChines(booster, mats);
   addBoostWeldRings(booster, mats);
   addBoostFrost(booster);
+  addBoosterHullMark(booster);
   addInterstage(booster, mats);
   addInterstageVents(booster, mats);
+}
+
+/** Flight 13 B20 stencil on the stainless leeward (booster-hull-cam). */
+function addBoosterHullMark(booster: THREE.Group): void {
+  const spec = BOOSTER_HULL_MARK;
+  const canvas = makeSizedCanvas(256, 96);
+  paintHullMarkDecal(canvas.getContext("2d")!, 256, 96, spec.text);
+  const mat = new THREE.MeshStandardMaterial({
+    map: finishCanvasTexture(canvas, true),
+    transparent: true,
+    depthWrite: false,
+    metalness: 0.12,
+    roughness: 0.58,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(spec.width, spec.height), mat);
+  mesh.name = "hull-mark-b20";
+  const r = R * 1.014;
+  const z = spec.zFrac * BOOST_H;
+  mesh.position.set(Math.sin(spec.ang) * r, Math.cos(spec.ang) * r, z);
+  mesh.lookAt(mesh.position.x * 2, mesh.position.y * 2, z);
+  booster.add(mesh);
 }
 
 
@@ -296,7 +331,7 @@ function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
   addEnginesCam(booster);
   addEnginesDownCam(booster);
   addBoostSkirtAndRaceway(booster, mats);
-  addBoostEngines(booster, mats);
+  addBoostEngines(booster);
   // Parent on booster so StagingFx detached clone keeps the bay (V18).
   addEngineBay(booster);
 }

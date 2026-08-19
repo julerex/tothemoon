@@ -100,8 +100,8 @@ function makeDetailMats(): Pick<
   "engine" | "engineRim" | "accent" | "finFrame" | "finLattice"
 > {
   return {
-    engine: makeMetalStd(0x12141a, 0.6, 0.38),
-    engineRim: makeMetalStd(0x2a3038, 0.75, 0.35),
+    engine: makeMetalStd(0x3e3a36, 0.7, 0.4),
+    engineRim: makeMetalStd(0x5a5650, 0.78, 0.32),
     accent: makeMetalStd(0x3a424c, 0.58, 0.42),
     finFrame: makeMetalStd(0x1c2026, 0.55, 0.48),
     finLattice: makeMetalStd(0x5a646e, 0.7, 0.38),

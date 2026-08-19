@@ -15,7 +15,7 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-18):** V0–V21 are **shipped**. No next visual slice is queued.
+**Status (2026-08-19):** V0–V22 are **shipped**. No next visual slice is queued.
 Further photorealism is **out of scope** unless explicitly requested. Flight 13
 highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference,
 not a numbered backlog item.
@@ -68,6 +68,9 @@ not a numbered backlog item.
 **Shipped (V21):** splash-zone swell + water texture; puffy cumulus at ~2 km AGL that the ship falls through (local, not a globe deck).
 
 **Shipped (V20):** LRO WAC color mosaic on the Moon (procedural canvas fallback).
+
+**Shipped (V22):** Raptor 3 fluted bells + powerheads, stainless engine-bay puck /
+gimbal rams, Super Heavy V3 90/90/180 grid fins with catch hardware, **B20** stencil.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -247,6 +250,7 @@ Shipped order (historical; all **done**). No next visual slice is queued.
 20. ~~**V19** — altitude-gated LEO cloud shell + glitter (not a globe cloud deck)~~ **done**  
 21. ~~**V20** — Moon albedo JPEG (after V9 plate; not Flight 13)~~ **done**
 22. ~~**V21** — splash swell / water texture + weather-altitude cumulus~~ **done**
+23. ~~**V22** — Super Heavy / Raptor 3 booster + engine-bay look~~ **done**
 
 ---
 
@@ -600,6 +604,26 @@ Same asset rules as Blue Marble: modest JPEG, credit in
 
 ---
 
+## V22 — Super Heavy / Raptor 3 look — **done 2026-08-19**
+
+Engine-bay and pad stills still read as smooth dark cones on a 120° three-fin
+booster. Flight 13 Super Heavy is **V3** (Booster 20, 33 Raptor 3):
+
+- Fluted regenerative-cooling bells + dark powerhead + sooted interior
+  (shared canvas maps; sea-level ring radii packed inside the 9 m barrel)
+- Stainless oil-canned thrust puck, soot band, gimbal rams in the bay
+- Grid fins 90° / 90° / 180° (not equal 120°), denser lattice, ram + catch pin
+- **B20** leeward stencil (pair to S40)
+
+**Done when:** gridfin / engines-cam at T+4:32–5:50 shows fluted bells and a
+bright bay instead of smooth cones; pad / booster-hull-cam reads three V3 fins
+and B20. No bake.
+
+**Files:** `craft/raptorBell.ts`, `craft/gridFin.ts`, `craft/meshBooster.ts`,
+`engineBay.ts`, `craft/dimensions.ts`, `hexTileLayout.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -646,3 +670,4 @@ Same asset rules as Blue Marble: modest JPEG, credit in
 | 2026-08-17 | V21 shipped: splash swell + water texture; puffy cumulus at ~2 km AGL (local, not a globe deck) |
 | 2026-08-18 | Backlog closed: V0–V21 shipped; no next visual slice queued (highlight clips remain look-reference) |
 | 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |
+| 2026-08-19 | V22 shipped: Raptor 3 fluted bells/powerheads, stainless bay + rams, V3 90/90/180 grid fins, B20 |

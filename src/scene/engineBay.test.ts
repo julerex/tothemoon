@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ENGINE_BAY_ACTUATOR_COUNT,
   ENGINE_BAY_GROUP,
   ENGINE_BAY_MLI_COUNT,
   ENGINE_BAY_PLUMBING_COUNT,
@@ -52,6 +53,7 @@ describe("engineBay MLI / structure counts", () => {
   it("keeps rib and plumbing counts in a theater band", () => {
     assert.ok(ENGINE_BAY_RIB_COUNT >= 8);
     assert.ok(ENGINE_BAY_PLUMBING_COUNT >= 6);
+    assert.ok(ENGINE_BAY_ACTUATOR_COUNT >= 8);
   });
 
   it("exports the named bay group contract", () => {

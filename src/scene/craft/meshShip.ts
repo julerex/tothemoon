@@ -26,13 +26,13 @@ import { makePlumeGroup } from "./plumes";
 import {
   addFlapChildren,
   addNamedCam,
-  makeBell,
   makeFlapPivot,
   makeFlushWeldBand,
   type FlapSpec,
   zCylinder,
   zOgive,
 } from "./meshShared";
+import { makeBell } from "./raptorBell";
 
 function addShipNose(ship: THREE.Group, mats: CraftMats): void {
   ship.add(zOgive(1, mats.steelBright));
@@ -242,24 +242,24 @@ function addAftFlaps(ship: THREE.Group, mats: CraftMats): void {
   addAftFlap(ship, mats, 1);
 }
 
-function addShipEngines(ship: THREE.Group, mats: CraftMats): void {
+function addShipEngines(ship: THREE.Group): void {
   const shipBells = new THREE.Group();
   shipBells.name = "ship-engines";
   const engZ = -0.02;
-  addShipSlBells(shipBells, mats, engZ);
-  addShipVacBells(shipBells, mats, engZ);
+  addShipSlBells(shipBells, engZ);
+  addShipVacBells(shipBells, engZ);
   ship.add(shipBells);
 }
 
-function addShipSlBells(g: THREE.Group, mats: CraftMats, engZ: number): void {
+function addShipSlBells(g: THREE.Group, engZ: number): void {
   for (const [x, y] of [[0, 0.028], [0.024, -0.014], [-0.024, -0.014]] as [number, number][]) {
-    g.add(makeBell(SL_BELL_R * 0.55, SL_BELL_R, SL_BELL_H, x, y, engZ, mats.engine, mats.engineRim));
+    g.add(makeBell(SL_BELL_R * 0.55, SL_BELL_R, SL_BELL_H, x, y, engZ));
   }
 }
 
-function addShipVacBells(g: THREE.Group, mats: CraftMats, engZ: number): void {
+function addShipVacBells(g: THREE.Group, engZ: number): void {
   for (const [x, y] of [[0.07, 0.02], [-0.07, 0.02], [0, -0.075]] as [number, number][]) {
-    g.add(makeBell(VAC_BELL_R * 0.45, VAC_BELL_R, VAC_BELL_H, x, y, engZ - 0.01, mats.engine, mats.engineRim));
+    g.add(makeBell(VAC_BELL_R * 0.45, VAC_BELL_R, VAC_BELL_H, x, y, engZ - 0.01));
   }
 }
 
@@ -294,8 +294,8 @@ function addShipControlSurfaces(ship: THREE.Group, mats: CraftMats): void {
   addAftFlaps(ship, mats);
 }
 
-function addShipPropulsion(ship: THREE.Group, mats: CraftMats): void {
-  addShipEngines(ship, mats);
+function addShipPropulsion(ship: THREE.Group): void {
+  addShipEngines(ship);
   addShipPlumeAndLight(ship);
 }
 
@@ -306,7 +306,7 @@ export function buildShip(mats: CraftMats): THREE.Group {
   ship.name = "ship";
   addShipStructure(ship, mats);
   addShipControlSurfaces(ship, mats);
-  addShipPropulsion(ship, mats);
+  addShipPropulsion(ship);
   ship.position.z = BOOST_H;
   ship.userData.stackedZ = BOOST_H;
   ship.userData.stagedZ = 0;
