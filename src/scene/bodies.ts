@@ -2,7 +2,7 @@
  * Earth / Moon / Sun scene graph (facade + placement).
  */
 
-import * as THREE from "three";
+import type * as THREE from "three";
 import { R_EARTH, R_MOON } from "../physics/constants";
 import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";

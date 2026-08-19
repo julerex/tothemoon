@@ -4,8 +4,8 @@
 
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
+import type { buildBoosterKeyframes } from "../physics/boosterRecovery";
 import {
-  buildBoosterKeyframes,
   sampleBoosterRecovery,
   type RecoveryProfile,
   type StageState,

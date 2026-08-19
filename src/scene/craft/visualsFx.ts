@@ -4,10 +4,10 @@ import {
   shipAttitudeMode,
 } from "../../physics/flight13Attitude";
 import type { PhaseId } from "../../physics/missionTypes";
+import type { ICE_FLAKES } from "../craftFrost";
 import {
   frostPatchOpacity,
   frostStrength,
-  ICE_FLAKES,
   iceFlakePose,
   iceShedStrength,
 } from "../craftFrost";

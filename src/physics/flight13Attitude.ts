@@ -7,21 +7,11 @@
 
 import { EARTH_SURFACE_ALT_KM } from "./constants";
 import { FLIGHT13_SPLASH_LAT } from "./flight13Corridor";
+import { F13_ATT } from "./flight13Timeline";
 import type { PhaseId } from "./missionTypes";
 import { geocentricRadiusAt } from "./wgs84";
 
-/** Official approximate T+ anchors used for attitude / engine cadence. */
-export const F13_ATT = {
-  MAX_Q: 58,
-  ENTRY: 2850,
-  TRANSONIC: 3743,
-  SUBSONIC: 3781,
-  LAND_BURN: 3901,
-  LAND_FLIP: 3903,
-  LAND_3TO2: 3912,
-  LAND_2TO1: 3919,
-  SPLASH: 3921,
-} as const;
+export { F13_ATT } from "./flight13Timeline";
 
 /**
  * Visual / narrative attitude for the free-flying ship.
