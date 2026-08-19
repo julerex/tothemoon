@@ -8,8 +8,7 @@ import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthNorthPole, starbasePadState } from "../physics/earthFrame";
 import { craftLengthKm } from "../scene/craft";
 import {
-  pushOutsideSpheres,
-  solarSystemExclusionSpheres,
+  clampOutsideBodies as clampPosOutsideBodies,
   SURFACE_CLEARANCE_KM,
 } from "./surfaceClamp";
 import {
@@ -809,23 +808,22 @@ export class CameraDirector {
    */
   private clampOutsideBodies(): void {
     this.surfaceClampPos.copy(this.camera.position);
-    const moved = pushOutsideSpheres(
+    const b = bodyPositions(this.simTime, this.epoch);
+    const moved = clampPosOutsideBodies(
       this.surfaceClampPos,
-      this.exclusionSpheres(),
+      {
+        sun: b.sun,
+        earth: b.earth,
+        moon: b.moon,
+        north: earthNorthPole(),
+        sunRadius: R_SUN,
+        moonRadius: R_MOON,
+      },
       this.surfaceClampPos,
     );
     if (!moved) return;
     this.camera.position.copy(this.surfaceClampPos);
     this.camera.lookAt(this.controls.target);
-  }
-
-  private exclusionSpheres() {
-    const b = bodyPositions(this.simTime, this.epoch);
-    return solarSystemExclusionSpheres(b.sun, b.earth, b.moon, {
-      sun: R_SUN,
-      earth: WGS84_A,
-      moon: R_MOON,
-    });
   }
 
   private computeTarget(mode: CameraMode, outTarget: THREE.Vector3): void {

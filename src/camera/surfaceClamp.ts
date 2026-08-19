@@ -1,12 +1,12 @@
 /**
- * Keep the free camera outside solid body spheres (Earth, Moon, Sun).
- *
- * OrbitControls only limits distance to its focus target; when the target is on
- * a surface (Starbase) or free-panned, the camera can still dive under the
- * mesh. Radial push-out against each body sphere fixes that.
+ * Keep the free camera outside Sun / Moon spheres and the WGS84 Earth
+ * ellipsoid. OrbitControls only limits distance to its focus target; when the
+ * target is on a surface (Starbase) or free-panned, the camera can still dive
+ * under the mesh.
  */
 
 import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
+import { clampAboveEllipsoid } from "../physics/wgs84";
 
 /**
  * Extra km above the mesh radius so the near plane does not bite into terrain.
@@ -99,4 +99,40 @@ export function solarSystemExclusionSpheres(
     { x: earth.x, y: earth.y, z: earth.z, r: radii.earth + c },
     { x: moon.x, y: moon.y, z: moon.z, r: radii.moon + c },
   ];
+}
+
+/** Body centers and spherical radii for the free-camera clamp. */
+export type SolarSystemBodies = {
+  sun: Vec3Like;
+  earth: Vec3Like;
+  moon: Vec3Like;
+  /** Earth north pole (same frame as the centers). */
+  north: Vec3Like;
+  sunRadius: number;
+  moonRadius: number;
+};
+
+/**
+ * Push `pos` outside the Sun and Moon spheres, then onto the WGS84 Earth
+ * ellipsoid + {@link SURFACE_CLEARANCE_KM}. Earth is *not* a sphere of
+ * equatorial radius — that shoved pad / chase cameras ~4 km out at Starbase.
+ *
+ * @returns true when the position changed.
+ */
+export function clampOutsideBodies(
+  pos: Vec3Like,
+  bodies: SolarSystemBodies,
+  out: Vec3Like = pos,
+): boolean {
+  const c = SURFACE_CLEARANCE_KM;
+  const sphereMoved = pushOutsideSpheres(pos, [
+    { x: bodies.sun.x, y: bodies.sun.y, z: bodies.sun.z, r: bodies.sunRadius + c },
+    { x: bodies.moon.x, y: bodies.moon.y, z: bodies.moon.z, r: bodies.moonRadius + c },
+  ], out);
+  const clamped = clampAboveEllipsoid(out, bodies.earth, bodies.north, c);
+  const earthMoved = clamped !== out;
+  out.x = clamped.x;
+  out.y = clamped.y;
+  out.z = clamped.z;
+  return sphereMoved || earthMoved;
 }
