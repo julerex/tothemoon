@@ -5,9 +5,21 @@ import {
   paintStainlessPhotoreal,
 } from "../craftHullMaps";
 
+/**
+ * Super Heavy barrel stainless. MeshStandard (no anisotropy) so longitudinal
+ * chines and the cylinder limb do not bloom into white ridges.
+ */
+export const BOOSTER_STEEL = {
+  color: 0xc8ccd2,
+  metalness: 0.62,
+  roughness: 0.52,
+  bumpScale: 0.32,
+} as const;
+
 export type CraftMats = {
   steel: THREE.MeshPhysicalMaterial;
   steelBright: THREE.MeshPhysicalMaterial;
+  steelBooster: THREE.MeshStandardMaterial;
   steelDark: THREE.MeshStandardMaterial;
   steelMatte: THREE.MeshStandardMaterial;
   weldMat: THREE.MeshStandardMaterial;
@@ -113,10 +125,23 @@ function makeSteelFamily(stainless: {
   color: THREE.CanvasTexture;
   roughness: THREE.CanvasTexture;
   bump: THREE.CanvasTexture;
-}): Pick<CraftMats, "steel" | "steelBright" | "steelDark" | "steelMatte" | "weldMat"> {
+}): Pick<
+  CraftMats,
+  "steel" | "steelBright" | "steelBooster" | "steelDark" | "steelMatte" | "weldMat"
+> {
+  const steelBooster = new THREE.MeshStandardMaterial({
+    color: BOOSTER_STEEL.color,
+    map: stainless.color,
+    roughnessMap: stainless.roughness,
+    bumpMap: stainless.bump,
+    bumpScale: BOOSTER_STEEL.bumpScale,
+    metalness: BOOSTER_STEEL.metalness,
+    roughness: BOOSTER_STEEL.roughness,
+  });
   return {
     steel: makeSteelPhysical(0xd0d4d8, stainless, 0.93, 0.22, 0.86),
     steelBright: makeSteelPhysical(0xe0e6ea, stainless, 0.95, 0.16, 0.90),
+    steelBooster,
     steelDark: makeMetalStd(0x6a7078, 0.78, 0.4),
     steelMatte: makeMetalStd(0x9aa0a8, 0.68, 0.42),
     weldMat: makeMetalStd(0xb8c0c8, 0.95, 0.16),
@@ -226,13 +251,20 @@ function paintStainlessWelds(
   }
 }
 
-function paintStainlessChines(cctx: CanvasRenderingContext2D, w: number, h: number): void {
+function paintStainlessChines(
+  cctx: CanvasRenderingContext2D,
+  rctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+): void {
   for (const fx of [0.12, 0.37, 0.62, 0.87]) {
     const x = fx * w;
-    cctx.fillStyle = "rgba(255,255,255,0.08)";
+    cctx.fillStyle = "rgba(255,255,255,0.03)";
     cctx.fillRect(x - 1, 0, 2, h);
-    cctx.fillStyle = "rgba(0,0,0,0.06)";
+    cctx.fillStyle = "rgba(0,0,0,0.05)";
     cctx.fillRect(x + 2, 0, 1, h);
+    rctx.fillStyle = "#c0c0c0";
+    rctx.fillRect(x - 2, 0, 5, h);
   }
 }
 
@@ -301,7 +333,7 @@ function paintStainlessMaps(
   paintStainlessBrush(cctx, rctx, w, h);
   paintStainlessGrain(cctx, w, h);
   paintStainlessWelds(cctx, rctx, w, h);
-  paintStainlessChines(cctx, w, h);
+  paintStainlessChines(cctx, rctx, w, h);
   paintStainlessPhotoreal(cctx, rctx, bctx, w, h);
 }
 

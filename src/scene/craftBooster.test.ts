@@ -12,6 +12,7 @@ import {
   R,
   SL_BELL_R,
 } from "./craft/dimensions.ts";
+import { BOOSTER_STEEL } from "./craft/materials.ts";
 import { BOOSTER_HULL_MARK } from "./craftHullMaps.ts";
 
 describe("V3 grid fins", () => {
@@ -44,6 +45,13 @@ describe("B20 hull identity", () => {
     assert.ok(BOOSTER_HULL_MARK.zFrac > 0.4 && BOOSTER_HULL_MARK.zFrac < 0.75);
     assert.ok(BOOSTER_HULL_MARK.width > 0.04);
     assert.ok(Math.abs(BOOSTER_HULL_MARK.ang) > Math.PI * 0.35);
+  });
+});
+
+describe("booster hull stainless", () => {
+  it("is rougher and less metallic than ship-grade steel so chines do not bloom", () => {
+    assert.ok(BOOSTER_STEEL.roughness > 0.45);
+    assert.ok(BOOSTER_STEEL.metalness < 0.75);
   });
 });
 

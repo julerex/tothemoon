@@ -28,18 +28,24 @@ import { makeBell } from "./raptorBell";
 
 function addBoostBody(booster: THREE.Group, mats: CraftMats): void {
   booster.add(zCylinder(
-    new THREE.CylinderGeometry(R, R, BOOST_H * 0.88, 28),
-    mats.steel,
+    new THREE.CylinderGeometry(R, R, BOOST_H * 0.88, 48),
+    mats.steelBooster,
     BOOST_H * 0.5,
   ));
 }
 
-/** One longitudinal chine ridge. */
+/** One longitudinal chine ridge, seated outside the barrel. */
 function addBoostChine(booster: THREE.Group, mats: CraftMats, i: number): void {
   const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
-  const chine = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.02, BOOST_H * 0.78), mats.steelBright);
-  chine.position.set(Math.cos(ang) * R * 1.02, Math.sin(ang) * R * 1.02, BOOST_H * 0.5);
-  chine.rotation.z = ang;
+  const rad = 0.006;
+  const chine = zCylinder(
+    new THREE.CylinderGeometry(rad, rad, BOOST_H * 0.78, 10),
+    mats.steelMatte,
+    BOOST_H * 0.5,
+  );
+  const r = R + rad + 0.0015;
+  chine.position.x = Math.cos(ang) * r;
+  chine.position.y = Math.sin(ang) * r;
   booster.add(chine);
 }
 
