@@ -22,7 +22,7 @@ function lobeScale(rng: () => number): [number, number, number] {
   const s = 0.46 + rng() * 0.5;
   return [
     s * (0.9 + rng() * 0.35),
-    s * (0.32 + rng() * 0.28),
+    s * (0.1 + rng() * 0.08),
     s * (0.9 + rng() * 0.35),
   ];
 }
@@ -34,9 +34,9 @@ function addCloudLobe(
   rng: () => number,
 ): void {
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set((rng() - 0.5) * 1.2, (rng() - 0.15) * 0.38, (rng() - 0.5) * 1.2);
+  mesh.position.set((rng() - 0.5) * 1.2, (rng() - 0.55) * 0.12, (rng() - 0.5) * 1.2);
   mesh.scale.set(...lobeScale(rng));
-  mesh.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+  mesh.rotation.set(rng() * 0.2, rng() * Math.PI, rng() * 0.2);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   cluster.add(mesh);

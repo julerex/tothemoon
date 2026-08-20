@@ -32,7 +32,7 @@ export type CinemaBundle = {
 function makeBloomPass(size: THREE.Vector2): UnrealBloomPass {
   return new UnrealBloomPass(
     new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
-    0.28, 0.45, 0.82,
+    0.18, 0.28, 0.9,
   );
 }
 

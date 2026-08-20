@@ -8,8 +8,8 @@ export const SHADOW_FULL_ALT_KM = 12;
 /** Shadows fully off above this altitude (km). */
 export const SHADOW_FADE_ALT_KM = 80;
 
-/** Pad / low-alt exposure (brighter for readable concrete + floods). */
-export const EXPOSURE_PAD = 1.18;
+/** Pad / low-alt exposure (kept close to LEO so steam does not clip). */
+export const EXPOSURE_PAD = 1.06;
 /** Mid / LEO exposure. */
 export const EXPOSURE_LEO = 1.05;
 /** Deep-space / cislunar exposure (slightly restrained). */
@@ -49,7 +49,7 @@ export function cinemaExposure(camAltKm: number): number {
 }
 
 /**
- * Mild bloom strength: a touch stronger near the pad (plumes + floods),
+ * Mild bloom strength: pulled back near the pad so steam does not flare,
  * restrained in deep space so the Sun does not wash the frame.
  * Optional `phase` adds a small LOI punch during `approach` burn (V10) —
  * theater exposure, not a physical radiance model.
@@ -60,8 +60,8 @@ export function cinemaBloomStrength(
   phase?: string,
 ): number {
   const near = altitudeFade(camAltKm, 5, 200);
-  const base = 0.22 + 0.14 * near;
-  const burnBoost = burning ? 0.08 * Math.max(near, 0.25) : 0;
+  const base = 0.22 * (1 - near);
+  const burnBoost = burning ? 0.08 * Math.max(0.25 - 0.25 * near, 0) : 0;
   const loiBoost = burning && phase === "approach" ? 0.06 : 0;
   return base + burnBoost + loiBoost;
 }
@@ -71,8 +71,8 @@ export function cinemaBloomStrength(
  */
 export function cinemaBloomThreshold(camAltKm: number): number {
   const near = altitudeFade(camAltKm, 5, 150);
-  // Slightly lower near pad so plume cores read; higher in space for Sun only
-  return 0.78 + 0.1 * (1 - near);
+  // High near the pad so steam / floods do not bloom into a deck-wide flare
+  return 0.88 + 0.08 * near;
 }
 
 /**

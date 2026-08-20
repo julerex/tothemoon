@@ -34,8 +34,8 @@ export type SteamSpriteBase = Readonly<{
 function steamOpacity(base: SteamSpriteBase, steamStr: number, night: number, animT: number): number {
   const tierOp = 1 - base.tier * 0.16;
   const wobble = 0.88 + 0.12 * Math.sin(animT * 3.1 + base.phase);
-  // Denser than V3 (~0.26) but not so opaque that pad bloom whites out trench cam.
-  return (0.52 + 0.12 * night) * steamStr * wobble * tierOp;
+  // Thin + mid-gray (see steamTintRgb) so stacked rings stay under bloom.
+  return (0.18 + 0.08 * night) * steamStr * wobble * tierOp;
 }
 
 function steamGrow(base: SteamSpriteBase, steamStr: number, animT: number): number {
@@ -104,7 +104,7 @@ export function sheetSpritePose(
 ): SpritePose {
   const wobble = 0.85 + 0.15 * Math.sin(animT * 4.2 + base.phase);
   return {
-    opacity: (0.55 + 0.1 * night) * steamStr * wobble,
+    opacity: (0.20 + 0.08 * night) * steamStr * wobble,
     scale: sheetScale(base, steamStr, animT),
     position: sheetPosition(base, steamStr, animT),
   };
@@ -124,7 +124,7 @@ export function groundSheetPose(
   const sx = base.baseSx * (1.1 + steamStr * 0.8);
   const sy = base.baseSy * (0.95 + steamStr * 0.35 + 0.04 * Math.sin(animT * 2.4 + base.phase));
   return {
-    opacity: (0.58 + 0.1 * night) * steamStr * wobble,
+    opacity: (0.22 + 0.08 * night) * steamStr * wobble,
     scale: { x: sx, y: sy },
     position: {
       x: base.baseX + 0.004 * Math.sin(animT * 1.8 + base.phase),
@@ -232,7 +232,7 @@ export type FlameVisual = Readonly<{
 export function flameVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.02,
-    opacity: 0.45 * strength,
+    opacity: 0.14 * strength,
     scaleY: 0.7 + 0.5 * strength,
   };
 }
@@ -243,7 +243,7 @@ export function flameVisual(strength: number): FlameVisual {
 export function tongueVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.05,
-    opacity: 0.28 * strength,
+    opacity: 0.08 * strength,
     scaleY: 0.6 + 0.7 * strength,
   };
 }
@@ -257,14 +257,14 @@ export type BloomVisual = Readonly<{
 }>;
 
 /**
- * Ground bloom under the plume — true-scale, only while burning strongly.
- * Opacity includes flicker so the pad glow breathes with the flame.
+ * Tight ground bloom under the plume — restrained so the pad deck does not
+ * wash out. Opacity includes flicker so the glow breathes with the flame.
  */
 export function bloomVisual(strength: number, flicker: number): BloomVisual {
   return {
     visible: strength > 0.04,
-    opacity: 0.4 * strength * flicker,
-    scale: 0.09 + 0.11 * strength,
+    opacity: 0.055 * strength * flicker,
+    scale: 0.032 + 0.03 * strength,
   };
 }
 
@@ -273,7 +273,7 @@ export function bloomVisual(strength: number, flicker: number): BloomVisual {
  * 0 = cool gray steam; 1 = orange-pink core like T+0 webcast stills.
  */
 export function steamWarmth(flameStrength: number): number {
-  return clamp01(flameStrength * 0.7);
+  return clamp01(flameStrength * 0.35);
 }
 
 /**
@@ -287,13 +287,13 @@ export function steamTintRgb(
   night: number,
 ): readonly [number, number, number] {
   const w = clamp01(warmth);
-  const coolR = 0.86 + 0.06 * night;
-  const coolG = 0.89 + 0.04 * night;
-  const coolB = 0.93;
+  const coolR = 0.54 + 0.06 * night;
+  const coolG = 0.57 + 0.04 * night;
+  const coolB = 0.61;
   return [
-    coolR + (1.0 - coolR) * w,
-    coolG + (0.68 - coolG) * w,
-    coolB + (0.52 - coolB) * w,
+    coolR + (0.78 - coolR) * w,
+    coolG + (0.48 - coolG) * w,
+    coolB + (0.36 - coolB) * w,
   ];
 }
 
@@ -335,7 +335,7 @@ export function padFillIntensity(
   flameStrength: number,
 ): number {
   if (!padOps) return 0;
-  return 0.03 * day + 0.55 * night * (1 - 0.4 * flameStrength);
+  return 0.03 * day + 0.55 * night * (1 - 0.7 * flameStrength);
 }
 
 /**
@@ -352,12 +352,12 @@ export function padFillDistance(night: number): number {
 
 /** Warm plume point-light intensity under the engines only. */
 export function plumeLightIntensity(strength: number): number {
-  return 1.65 * strength;
+  return 0.28 * strength;
 }
 
 /** Plume point-light reach (km). */
 export function plumeLightDistance(strength: number): number {
-  return 0.14 + 0.1 * strength;
+  return 0.06 + 0.04 * strength;
 }
 
 /**

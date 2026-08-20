@@ -264,7 +264,7 @@ function addPadVentSteam(pad: THREE.Group): void {
 
 function makeDelugeJetMat(): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
-    color: 0xd8e8f2, transparent: true, opacity: 0, depthWrite: false,
+    color: 0x9aa8b0, transparent: true, opacity: 0, depthWrite: false,
     side: THREE.DoubleSide,
   });
 }

@@ -177,7 +177,7 @@ describe("expandDelugeJets", () => {
     assert.equal(off.visible, false);
     const on = delugeJetPose({ phase: 1 }, 1, -2);
     assert.equal(on.visible, true);
-    assert.ok(on.opacity > 0.3);
+    assert.ok(on.opacity > 0.15);
     assert.deepEqual(delugeJetPose({ phase: 1 }, 1, -2), delugeJetPose({ phase: 1 }, 1, -2));
   });
 });
@@ -198,8 +198,8 @@ describe("vent cryo clouds", () => {
   it("stays ground-hugging and smaller than the old sprite fog wall", () => {
     assert.ok(VENT_CLOUD_SPECS.length >= 12);
     for (const s of VENT_CLOUD_SPECS) {
-      assert.ok(s.scale < 0.05, `scale ${s.scale}`);
-      assert.ok(s.y < 0.03, `y ${s.y}`);
+      assert.ok(s.scale < 0.02, `scale ${s.scale}`);
+      assert.ok(s.y < 0.012, `y ${s.y}`);
       assert.ok(s.lobes >= 4);
     }
     assert.ok(VENT_CLOUD_SPECS.some((s) => Math.hypot(s.x, s.z) < 0.04));
@@ -303,7 +303,7 @@ describe("sprite poses", () => {
       0,
       0,
     );
-    assert.ok(inner.opacity > 0.3);
+    assert.ok(inner.opacity > 0.12 && inner.opacity < 0.22);
     assert.ok(inner.position.y < 0.04, "steam hugs the apron");
   });
 
@@ -375,7 +375,7 @@ describe("sprite poses", () => {
     };
     const ground = groundSheetPose(base, 1, 0, 0);
     const sheet = sheetSpritePose({ ...base, baseY: 0.018, baseSy: 0.04 }, 1, 0, 0);
-    assert.ok(ground.opacity > 0.35);
+    assert.ok(ground.opacity > 0.15 && ground.opacity < 0.28);
     assert.ok(ground.position.y < sheet.position.y);
     assert.equal(GROUND_SHEETS.length, 7);
   });
@@ -389,6 +389,8 @@ describe("mesh / light scalars", () => {
     assert.equal(tongueVisual(0.1).visible, true);
     assert.ok(bloomVisual(0.1, 1).visible);
     assert.equal(bloomVisual(0, 1).visible, false);
+    assert.ok(bloomVisual(1, 1).opacity < 0.08);
+    assert.ok(bloomVisual(1, 1).scale < 0.07);
   });
 
   it("primary flood is brighter than secondary", () => {
@@ -402,8 +404,8 @@ describe("mesh / light scalars", () => {
     assert.equal(padFillColorHex(0.2), 0xffe0c8);
     assert.equal(padFillColorHex(0), 0xdde6f4);
     assert.ok(padFillDistance(1) > padFillDistance(0));
-    assert.equal(plumeLightIntensity(0.5), 0.825);
-    assert.equal(plumeLightDistance(0.5), 0.19);
+    assert.equal(plumeLightIntensity(0.5), 0.14);
+    assert.equal(plumeLightDistance(0.5), 0.08);
     const rgb = plumeLightRgb(1);
     assert.equal(rgb[0], 1);
     assert.ok(rgb[1]! > 0.55);
@@ -412,7 +414,7 @@ describe("mesh / light scalars", () => {
 
   it("warms steam toward engine-lit orange-pink", () => {
     assert.equal(steamWarmth(0), 0);
-    assert.ok(steamWarmth(1) > 0.6 && steamWarmth(1) <= 1);
+    assert.ok(steamWarmth(1) > 0.3 && steamWarmth(1) < 0.45);
     const cool = steamTintRgb(0, 0);
     const hot = steamTintRgb(1, 0);
     assert.ok(hot[0]! >= cool[0]!);

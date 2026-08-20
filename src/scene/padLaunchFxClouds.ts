@@ -40,7 +40,7 @@ export function ventCloudPose(
   const breathe = 0.94 + 0.06 * Math.sin(animT * 0.85 + spec.phase);
   return {
     x: spec.x + 0.0025 * Math.sin(animT * 0.32 + spec.phase),
-    y: spec.y + 0.0028 * Math.sin(animT * 0.9 + spec.phase * 1.15),
+    y: spec.y + 0.0012 * Math.sin(animT * 0.9 + spec.phase * 1.15),
     z: spec.z + 0.002 * Math.cos(animT * 0.28 + spec.phase),
     scale: spec.scale * (0.9 + 0.12 * v) * breathe,
   };
@@ -66,7 +66,7 @@ export function delugeJetPose(
   const pulse = 0.82 + 0.18 * Math.sin(animT * 19.5 + spec.phase);
   return {
     visible: true,
-    opacity: 0.82 * delugeStr * pulse,
+    opacity: 0.38 * delugeStr * pulse,
     scaleY: 0.55 + 0.7 * delugeStr * pulse,
   };
 }

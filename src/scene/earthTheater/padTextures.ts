@@ -26,9 +26,9 @@ export function makePlateAlphaTexture(): THREE.CanvasTexture {
 
 function paintGroundBloom(ctx: CanvasRenderingContext2D, size: number): void {
   const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 30);
-  g.addColorStop(0, "rgba(255, 200, 140, 0.9)");
-  g.addColorStop(0.3, "rgba(255, 120, 60, 0.35)");
-  g.addColorStop(0.65, "rgba(255, 80, 40, 0.08)");
+  g.addColorStop(0, "rgba(255, 180, 120, 0.42)");
+  g.addColorStop(0.3, "rgba(255, 120, 60, 0.14)");
+  g.addColorStop(0.65, "rgba(255, 80, 40, 0.04)");
   g.addColorStop(1, "rgba(255, 60, 30, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
@@ -52,9 +52,9 @@ function makeSizedCanvasTexture(size: number, paint: (ctx: CanvasRenderingContex
 
 function paintSteam(ctx: CanvasRenderingContext2D, size: number): void {
   const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
-  g.addColorStop(0, "rgba(230, 235, 240, 0.85)");
-  g.addColorStop(0.4, "rgba(200, 210, 220, 0.35)");
-  g.addColorStop(1, "rgba(180, 190, 200, 0)");
+  g.addColorStop(0, "rgba(168, 176, 184, 0.55)");
+  g.addColorStop(0.4, "rgba(150, 158, 166, 0.22)");
+  g.addColorStop(1, "rgba(140, 148, 156, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
 }

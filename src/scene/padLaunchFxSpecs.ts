@@ -31,9 +31,9 @@ export type SteamTierSpec = Readonly<{
  * Outer tiers get lower opacity via `steamSpritePose` (`tier` index).
  */
 export const STEAM_TIERS: readonly SteamTierSpec[] = [
-  { n: 12, r0: 0.016, y0: 0.01, scale: 0.048, color: 0xeef2f6 },
-  { n: 10, r0: 0.028, y0: 0.016, scale: 0.068, color: 0xe4eaf0 },
-  { n: 8, r0: 0.042, y0: 0.022, scale: 0.09, color: 0xd8e0e8 },
+  { n: 12, r0: 0.016, y0: 0.01, scale: 0.03, color: 0xb4bcc4 },
+  { n: 10, r0: 0.028, y0: 0.016, scale: 0.042, color: 0xa8b0b8 },
+  { n: 8, r0: 0.042, y0: 0.022, scale: 0.055, color: 0x9aa4ae },
 ];
 
 /**
@@ -65,12 +65,12 @@ export type DelugeSheetSpec = Readonly<{
  * Paired with the multi-tier ring for denser steam under trench cam.
  */
 export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
-  { pos: [0.012, 0.014, 0], sx: 0.062, sy: 0.038, phase: 0.2 },
-  { pos: [-0.012, 0.012, 0], sx: 0.058, sy: 0.036, phase: 1.1 },
-  { pos: [0, 0.016, 0.022], sx: 0.048, sy: 0.042, phase: 2.0 },
-  { pos: [0, 0.015, -0.022], sx: 0.05, sy: 0.04, phase: 2.8 },
-  { pos: [0.008, 0.022, 0.01], sx: 0.068, sy: 0.048, phase: 3.5 },
-  { pos: [-0.006, 0.024, -0.008], sx: 0.065, sy: 0.046, phase: 4.2 },
+  { pos: [0.012, 0.014, 0], sx: 0.038, sy: 0.024, phase: 0.2 },
+  { pos: [-0.012, 0.012, 0], sx: 0.036, sy: 0.022, phase: 1.1 },
+  { pos: [0, 0.016, 0.022], sx: 0.03, sy: 0.026, phase: 2.0 },
+  { pos: [0, 0.015, -0.022], sx: 0.032, sy: 0.024, phase: 2.8 },
+  { pos: [0.008, 0.022, 0.01], sx: 0.04, sy: 0.028, phase: 3.5 },
+  { pos: [-0.006, 0.024, -0.008], sx: 0.038, sy: 0.026, phase: 4.2 },
 ];
 
 /**
@@ -79,13 +79,13 @@ export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
  * volume around the OLM, not a floating ring.
  */
 export const GROUND_SHEETS: readonly DelugeSheetSpec[] = [
-  { pos: [0, 0.007, 0], sx: 0.07, sy: 0.022, phase: 0.4 },
-  { pos: [0.016, 0.008, 0.012], sx: 0.055, sy: 0.02, phase: 1.3 },
-  { pos: [-0.015, 0.008, -0.014], sx: 0.052, sy: 0.018, phase: 2.2 },
-  { pos: [0.005, 0.009, 0.026], sx: 0.048, sy: 0.018, phase: 3.0 },
-  { pos: [-0.005, 0.009, -0.024], sx: 0.046, sy: 0.018, phase: 3.9 },
-  { pos: [0.022, 0.01, -0.008], sx: 0.044, sy: 0.02, phase: 4.6 },
-  { pos: [-0.02, 0.01, 0.01], sx: 0.042, sy: 0.019, phase: 5.3 },
+  { pos: [0, 0.007, 0], sx: 0.04, sy: 0.012, phase: 0.4 },
+  { pos: [0.016, 0.008, 0.012], sx: 0.032, sy: 0.011, phase: 1.3 },
+  { pos: [-0.015, 0.008, -0.014], sx: 0.03, sy: 0.01, phase: 2.2 },
+  { pos: [0.005, 0.009, 0.026], sx: 0.028, sy: 0.01, phase: 3.0 },
+  { pos: [-0.005, 0.009, -0.024], sx: 0.026, sy: 0.01, phase: 3.9 },
+  { pos: [0.022, 0.01, -0.008], sx: 0.026, sy: 0.011, phase: 4.6 },
+  { pos: [-0.02, 0.01, 0.01], sx: 0.024, sy: 0.01, phase: 5.3 },
 ];
 
 /**
@@ -152,22 +152,22 @@ export type VentCloudSpec = Readonly<{
 
 /** Ground-hugging OLM wrap — T−42 still steam around the booster base. */
 const OLM_WRAP_CLOUDS: readonly VentCloudSpec[] = [
-  { x: -0.030, y: 0.009, z: 0.006, scale: 0.026, phase: 0.2, lobes: 6 },
-  { x: -0.044, y: 0.010, z: -0.012, scale: 0.028, phase: 1.0, lobes: 7 },
-  { x: -0.022, y: 0.008, z: -0.022, scale: 0.024, phase: 1.8, lobes: 5 },
-  { x: 0.016, y: 0.007, z: -0.024, scale: 0.020, phase: 2.5, lobes: 5 },
-  { x: 0.010, y: 0.006, z: 0.026, scale: 0.018, phase: 3.2, lobes: 4 },
-  { x: -0.018, y: 0.009, z: 0.020, scale: 0.022, phase: 4.0, lobes: 5 },
-  { x: -0.008, y: 0.007, z: -0.008, scale: 0.016, phase: 4.7, lobes: 4 },
-  { x: -0.056, y: 0.011, z: 0.004, scale: 0.024, phase: 5.4, lobes: 6 },
+  { x: -0.030, y: 0.004, z: 0.006, scale: 0.016, phase: 0.2, lobes: 6 },
+  { x: -0.044, y: 0.005, z: -0.012, scale: 0.017, phase: 1.0, lobes: 7 },
+  { x: -0.022, y: 0.004, z: -0.022, scale: 0.015, phase: 1.8, lobes: 5 },
+  { x: 0.016, y: 0.0035, z: -0.024, scale: 0.013, phase: 2.5, lobes: 5 },
+  { x: 0.010, y: 0.003, z: 0.026, scale: 0.012, phase: 3.2, lobes: 4 },
+  { x: -0.018, y: 0.0045, z: 0.020, scale: 0.014, phase: 4.0, lobes: 5 },
+  { x: -0.008, y: 0.0035, z: -0.008, scale: 0.010, phase: 4.7, lobes: 4 },
+  { x: -0.056, y: 0.005, z: 0.004, scale: 0.015, phase: 5.4, lobes: 6 },
 ];
 
 function tankFarmClouds(): VentCloudSpec[] {
   return VENT_ANCHORS.map((a, i) => ({
     x: a[0],
-    y: a[1] * 0.55 + 0.004,
+    y: a[1] * 0.3 + 0.002,
     z: a[2],
-    scale: 0.013 + (i % 3) * 0.003,
+    scale: 0.008 + (i % 3) * 0.002,
     phase: i * 1.1,
     lobes: 4 + (i % 3),
   }));

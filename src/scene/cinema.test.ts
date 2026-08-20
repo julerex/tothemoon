@@ -60,16 +60,19 @@ describe("cinemaExposure", () => {
 });
 
 describe("cinemaBloom", () => {
-  it("strength is mild and higher when burning near pad", () => {
+  it("strength is milder on the pad than in space", () => {
     const idle = cinemaBloomStrength(2, false);
     const burn = cinemaBloomStrength(2, true);
-    assert.ok(idle > 0.15 && idle < 0.5);
-    assert.ok(burn > idle);
+    const space = cinemaBloomStrength(200_000, false);
+    assert.ok(idle < 0.05);
+    assert.ok(burn >= idle);
+    assert.ok(burn < 0.06);
+    assert.ok(space > 0.18);
   });
 
   it("threshold stays high so only bright cores bloom", () => {
-    assert.ok(cinemaBloomThreshold(5) > 0.75);
-    assert.ok(cinemaBloomThreshold(10_000) > cinemaBloomThreshold(5));
+    assert.ok(cinemaBloomThreshold(5) > 0.9);
+    assert.ok(cinemaBloomThreshold(5) > cinemaBloomThreshold(10_000));
   });
 
   it("punches bloom slightly during LOI approach burn", () => {
