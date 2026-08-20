@@ -83,8 +83,8 @@ function createHudFlagsB(): Pick<
     hudVisible: true,
     lastCamMode: "earth",
     autoCamEnabled: true,
-    labelsEnabled: true,
-    orbitsEnabled: true,
+    labelsEnabled: false,
+    orbitsEnabled: false,
     lastCamKey: null,
     lastCamKeyT: 0,
   };

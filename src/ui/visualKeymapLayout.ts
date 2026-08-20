@@ -46,7 +46,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "Y" },
     { label: "U" },
     { label: "I" },
-    { label: "O", action: "Orbits" },
+    { label: "O", action: "Labels" },
     { label: "P" },
     { label: "[" },
     { label: "]" },

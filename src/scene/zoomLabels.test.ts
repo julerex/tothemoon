@@ -3,7 +3,13 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { labelLocalScale } from "./zoomLabels.ts";
+import { getZoomLabelsVisible, labelLocalScale } from "./zoomLabels.ts";
+
+describe("zoom label chrome", () => {
+  it("starts hidden so the theater boots without name plates", () => {
+    assert.equal(getZoomLabelsVisible(), false);
+  });
+});
 
 describe("labelLocalScale", () => {
   it("matches world size when the parent is unscaled", () => {

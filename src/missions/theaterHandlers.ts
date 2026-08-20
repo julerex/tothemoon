@@ -17,7 +17,7 @@ import type { PhaseId } from "../physics/missionTypes";
 import { sampleAtProgress, type Trajectory } from "../physics/trajectoryCache";
 import { nudgePlaybackSpeed } from "../ui/hudFormat";
 import type { HudHandlers } from "../ui/hud";
-import { toggleZoomLabels } from "../scene/zoomLabels";
+import { getZoomLabelsVisible, setZoomLabelsVisible } from "../scene/zoomLabels";
 import type { createVectorArrows } from "../scene/vectorArrows";
 
 /** Guided-camera state the shared handlers read and write. */
@@ -38,6 +38,7 @@ export type TheaterHudWire = {
   /** Drop out of guided cameras (also updates the HUD toggle). */
   disableAutoCam: () => void;
   toggleOrbits: () => boolean;
+  setOrbitsVisible: (visible: boolean) => void;
 };
 
 function onSpeedNudge(w: TheaterHudWire, dir: Parameters<HudHandlers["onSpeedNudge"]>[0]): number {
@@ -105,13 +106,21 @@ function onAutoCamToggle(w: TheaterHudWire): boolean {
   return w.autoCam.enabled;
 }
 
+/** L / O: name plates and trajectory overlays share one chrome flag. */
+function toggleSceneChrome(w: TheaterHudWire): boolean {
+  const on = !getZoomLabelsVisible();
+  setZoomLabelsVisible(on);
+  w.setOrbitsVisible(on);
+  return on;
+}
+
 function toggleHandlers(w: TheaterHudWire): Pick<
   HudHandlers,
   "onToggleLabels" | "onToggleOrbits" | "onAutoCamToggle" | "onBookmark"
 > {
   return {
-    onToggleLabels: () => toggleZoomLabels(),
-    onToggleOrbits: () => w.toggleOrbits(),
+    onToggleLabels: () => toggleSceneChrome(w),
+    onToggleOrbits: () => toggleSceneChrome(w),
     onAutoCamToggle: () => onAutoCamToggle(w),
     onBookmark: (bm) => onBookmark(w, bm),
   };

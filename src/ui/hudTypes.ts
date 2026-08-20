@@ -40,9 +40,9 @@ export type HudHandlers = {
   onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
-  /** L — toggle scene labels (Earth, Moon, Starship, poles, …) */
+  /** L — toggle scene labels and trajectory overlays */
   onToggleLabels?: () => boolean;
-  /** O — toggle orbit overlays (grids, Moon path, craft trail, ground track) */
+  /** O — same chrome as labels (grids, Moon path, craft trail, ground track) */
   onToggleOrbits?: () => boolean;
   /**
    * Toggle guided phase cameras. Returns the new enabled state.

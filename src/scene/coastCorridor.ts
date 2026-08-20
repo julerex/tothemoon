@@ -1,7 +1,7 @@
 /**
  * Low-opacity Kepler reference path for the Translunar injection coast corridor,
  * plus live Earth–Moon / sun-craft whiskers for cislunar watchability (V10).
- * Toggled with orbit overlays (O). Corridor is scrub-static (built once from pack);
+ * Toggled with scene labels / trajectory chrome (L). Corridor is scrub-static (built once from pack);
  * beat whiskers follow body/craft positions from mission `t`.
  *
  * Theater-grade: the chords are orientation cues, not ephemeris overlays.

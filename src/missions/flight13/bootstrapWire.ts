@@ -35,7 +35,7 @@ export function makeHudWire(
 ): TheaterHudWire {
   return {
     clock: w.clock, director: w.director, autoCam: w.autoCam, cache: w.cache,
-    disableAutoCam, toggleOrbits: () => {
+    disableAutoCam, setOrbitsVisible, toggleOrbits: () => {
       const next = !w.flags.orbitsVisible;
       setOrbitsVisible(next);
       return next;
@@ -51,7 +51,9 @@ export function bindRuntimeHud(w: RuntimeHudWire): {
 } {
   let setAutoCamUi: (e: boolean) => void = () => {};
   const disableAutoCam = makeDisableAutoCam(w.autoCam, () => setAutoCamUi);
-  const wire = makeHudWire(w, disableAutoCam, makeSetOrbitsVisible(w));
+  const setOrbitsVisible = makeSetOrbitsVisible(w);
+  setOrbitsVisible(false);
+  const wire = makeHudWire(w, disableAutoCam, setOrbitsVisible);
   const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.cache.samples, "gulf", w.cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   w.director.setOnUserControl(() => disableAutoCam());
@@ -211,7 +213,7 @@ export function wireBootstrapHud(
 export function runtimePack(world: ReturnType<typeof assembleWorld>, cache: Trajectory) {
   const clockPack = makeClockAndTimeline(cache);
   const autoCam: F13AutoCam = { enabled: true, phase: null, staged: false, shotKey: null };
-  const flags: F13Flags = { orbitsVisible: true };
+  const flags: F13Flags = { orbitsVisible: false };
   const hudPack = wireBootstrapHud(world, clockPack, cache, autoCam, flags);
   return { clockPack, autoCam, flags, hudPack };
 }

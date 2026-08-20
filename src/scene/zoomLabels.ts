@@ -18,8 +18,8 @@ export type ZoomLabelSpec = {
 const _worldPos = new THREE.Vector3();
 const _parentScale = new THREE.Vector3(1, 1, 1);
 
-/** Global visibility for all marked zoom labels (toggled with L). */
-let labelsVisible = true;
+/** Global visibility for all marked zoom labels (toggled with L). Off at boot. */
+let labelsVisible = false;
 
 export function getZoomLabelsVisible(): boolean {
   return labelsVisible;

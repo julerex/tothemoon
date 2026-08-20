@@ -234,6 +234,7 @@ function createOrbitOverlayGroup(): THREE.Group {
   // Moon path + Earth-relative ring are added in main (need duration / Earth).
   const orbitGroup = new THREE.Group();
   orbitGroup.name = "orbit-overlays";
+  orbitGroup.visible = false;
   orbitGroup.add(createEclipticGridTowardSun());
   orbitGroup.add(createEclipticGridNear());
   orbitGroup.add(createEarthOrbitPath());

@@ -38,8 +38,9 @@ export function makeMoonHudWire(
   cache: Trajectory,
   disableAutoCam: () => void,
   toggleOrbits: () => boolean,
+  setOrbitsVisible: (visible: boolean) => void,
 ): TheaterHudWire {
-  return { clock, director, autoCam, cache, disableAutoCam, toggleOrbits };
+  return { clock, director, autoCam, cache, disableAutoCam, toggleOrbits, setOrbitsVisible };
 }
 
 export function bindHudPack(
@@ -52,11 +53,12 @@ export function bindHudPack(
   let setAutoCamUi: (e: boolean) => void = () => {};
   const disableAutoCam = makeDisableAutoCam(autoCam, () => setAutoCamUi);
   const setOrbits = makeSetOrbitsVisible(flags, world.sceneParts.orbitGroup, world.orbits.orbitExtras);
+  setOrbits(false);
   const wire = makeMoonHudWire(clockPack.clock, world.director, autoCam, cache, disableAutoCam, () => {
     const next = !flags.orbitsVisible;
     setOrbits(next);
     return next;
-  });
+  }, setOrbits);
   const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples, "chopsticks", cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());
@@ -162,7 +164,7 @@ export function finishMoon(
 export function runtimePack(world: ReturnType<typeof assembleWorld>, cache: Trajectory) {
   const clockPack = makeClock(cache);
   const autoCam: MoonAutoCam = { enabled: true, phase: null, staged: false, finaleNudged: false };
-  const flags: MoonFlags = { orbitsVisible: true };
+  const flags: MoonFlags = { orbitsVisible: false };
   const hudPack = bindHudPack(world, clockPack, cache, autoCam, flags);
   return { clockPack, autoCam, flags, hudPack };
 }
