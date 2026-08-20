@@ -13,7 +13,7 @@ import {
   type EphemerisEpoch,
 } from "../physics/ephemerisEpoch";
 import { set, type V3 } from "../physics/vec3";
-import type { CameraMode } from "./modes";
+import { isPadFocus, type CameraMode } from "./cameraMode";
 
 /** Ecliptic / orbital north — perpendicular to Earth's heliocentric ellipse. */
 export const ECLIPTIC_NORTH_AXIS: Readonly<V3> = { x: 0, y: 0, z: 1 };
@@ -32,7 +32,7 @@ export function yawAxisForMode(
     return set(out, ECLIPTIC_NORTH_AXIS.x, ECLIPTIC_NORTH_AXIS.y, ECLIPTIC_NORTH_AXIS.z);
   }
   if (mode === "earth") return earthNorthPole(out);
-  if (mode === "starbase") {
+  if (isPadFocus(mode)) {
     const pad = starbasePadState(t, epoch);
     return set(out, pad.up.x, pad.up.y, pad.up.z);
   }

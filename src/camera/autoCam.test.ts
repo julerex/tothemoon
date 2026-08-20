@@ -67,7 +67,7 @@ describe("autoCamForPhaseFlight13", () => {
   });
 
   it("uses pad aerial at launch, ground-track on ascent, hull on coast, drone on splash", () => {
-    assert.equal(autoCamForPhaseFlight13("launch").mode, "starbase");
+    assert.equal(autoCamForPhaseFlight13("launch").mode, "aerial");
     assert.equal(autoCamForPhaseFlight13("ascent").padTrack, true);
     assert.equal(autoCamForPhaseFlight13("coast").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("entry").mode, "hull");
@@ -116,7 +116,7 @@ describe("nextAutoCamCut", () => {
     assert.equal(r.suggestion!.mode, "starbase");
   });
 
-  it("suggests trench on first Flight 13 launch tick without a clock", () => {
+  it("suggests pad aerial on first Flight 13 launch tick without a clock", () => {
     const r = nextAutoCamCut(
       true,
       "launch",
@@ -125,7 +125,7 @@ describe("nextAutoCamCut", () => {
       "flight13",
     );
     assert.ok(r.suggestion);
-    assert.equal(r.suggestion!.mode, "starbase");
+    assert.equal(r.suggestion!.mode, "aerial");
   });
 
   it("follows webcast shot keys when mission time is provided", () => {
@@ -138,7 +138,7 @@ describe("nextAutoCamCut", () => {
       -40,
     );
     assert.ok(first.suggestion);
-    assert.equal(first.suggestion!.mode, "starbase");
+    assert.equal(first.suggestion!.mode, "aerial");
     assert.equal(first.shotKey, "pad-wide");
 
     const same = nextAutoCamCut(

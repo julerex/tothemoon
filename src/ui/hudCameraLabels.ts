@@ -19,6 +19,10 @@ export const CAMERA_LABELS: Record<
     title: "Starbase",
     detail: "Pad · double-tap rail to frame",
   },
+  aerial: {
+    title: "Aerial",
+    detail: "Pad drone · wide hold of the stack",
+  },
   trench: {
     title: "Launchpad",
     detail: "Flame trench · engines side",
@@ -42,9 +46,10 @@ export const CAMERA_LABELS: Record<
 /** Focus modes cycled by − / =. */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
   "sun",
-  "moon",
   "earth",
+  "moon",
   "starbase",
+  "aerial",
   "trench",
   "gridfin",
   "chase",

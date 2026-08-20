@@ -16,8 +16,12 @@ describe("CAMERA_CYCLE", () => {
 
 describe("cycleCameraMode", () => {
   it("steps forward and backward along CAMERA_CYCLE", () => {
-    assert.equal(cycleCameraMode("sun", 1), "moon");
-    assert.equal(cycleCameraMode("moon", -1), "sun");
+    assert.equal(cycleCameraMode("sun", 1), "earth");
+    assert.equal(cycleCameraMode("earth", 1), "moon");
+    assert.equal(cycleCameraMode("moon", -1), "earth");
+    assert.equal(cycleCameraMode("earth", -1), "sun");
+    assert.equal(cycleCameraMode("starbase", 1), "aerial");
+    assert.equal(cycleCameraMode("aerial", 1), "trench");
     assert.equal(cycleCameraMode("hull", 1), "drone");
     assert.equal(cycleCameraMode("drone", 1), "sun");
     assert.equal(cycleCameraMode("sun", -1), "drone");

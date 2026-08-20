@@ -25,10 +25,10 @@ describe("yawAxisForMode", () => {
     assert.equal(axis.z, pole.z);
   });
 
-  it("starbase yaws about pad local up, not Earth's pole", () => {
+  it("starbase and aerial yaw about pad local up, not Earth's pole", () => {
     const t = 3600;
     const out = v3();
-    const axis = yawAxisForMode("starbase", t, out);
+    const axis = yawAxisForMode("aerial", t, out);
     const pad = starbasePadState(t);
     const pole = earthNorthPole();
     assert.ok(axis);

@@ -14,6 +14,7 @@ import {
 } from "./glossary";
 import {
   MAIN_MENU_ITEMS,
+  MAIN_MENU_POINTS,
   mainMenuActionForDigit,
 } from "./menus";
 
@@ -126,6 +127,16 @@ describe("glossary", () => {
     assert.ok(glossaryCategoryLabel("vehicle").length > 0);
     assert.ok(glossaryCategoryLabel("physics").length > 0);
     assert.ok(glossaryCategoryLabel("views").length > 0);
+  });
+});
+
+describe("main menu orientation points", () => {
+  it("lists short titles and usable details", () => {
+    assert.ok(MAIN_MENU_POINTS.length >= 4);
+    for (const p of MAIN_MENU_POINTS) {
+      assert.ok(p.title.length > 0);
+      assert.ok(p.detail.length > 20);
+    }
   });
 });
 

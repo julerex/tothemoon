@@ -17,6 +17,10 @@
 import type { CameraMode } from "./modes";
 import type { PhaseId } from "../physics/missionTypes";
 import {
+  PAD_AERIAL_AZ_DEG,
+  PAD_AERIAL_EL_DEG,
+  PAD_AERIAL_FOV,
+  PAD_AERIAL_FRAME_SCALE,
   SPLASH_DRONE_AZ0_DEG,
   SPLASH_DRONE_ELEV_DEG,
   SPLASH_DRONE_FOV,
@@ -147,7 +151,14 @@ export function autoCamForPhaseLunar(phase: PhaseId): AutoCamSuggestion {
 }
 
 const FLIGHT13_PHASE: PhaseTable = {
-  launch: { mode: "starbase", frame: true, frameScale: 2.85, azimuthDeg: 255, elevationDeg: 18 },
+  launch: {
+    mode: "aerial",
+    frame: true,
+    frameScale: PAD_AERIAL_FRAME_SCALE,
+    azimuthDeg: PAD_AERIAL_AZ_DEG,
+    elevationDeg: PAD_AERIAL_EL_DEG,
+    fov: PAD_AERIAL_FOV,
+  },
   ascent: { mode: "starbase", frame: true, frameScale: 1.18, azimuthDeg: 198, elevationDeg: 8, padTrack: true },
   lowEarthOrbit: { mode: "hull", frame: true },
   translunarInjection: { mode: "hull", frame: true },

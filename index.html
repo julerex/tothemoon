@@ -13,7 +13,7 @@
   <body class="menus-active">
     <div id="app">
       <div id="menus" class="menus" aria-live="polite">
-        <div id="main-menu" class="menu-screen" role="dialog" aria-label="Main menu"></div>
+        <div id="main-menu" class="menu-screen menu-screen-home" role="dialog" aria-label="Main menu"></div>
         <div
           id="mission-menu"
           class="menu-screen"
@@ -60,6 +60,21 @@
                 >
               </div>
             </div>
+          </div>
+
+          <div
+            id="scrub-info"
+            class="scrub-info"
+            role="status"
+            aria-live="polite"
+            aria-label="Timeline event"
+          >
+            <span class="scrub-info-idle">Hover an event on the timeline</span>
+            <span class="scrub-info-active" hidden>
+              <span class="scrub-info-clock"></span>
+              <span class="scrub-info-title"></span>
+              <span class="scrub-info-detail"></span>
+            </span>
           </div>
 
           <!-- Speed select kept for keyboard (, / .) + hud.ts; not shown in chrome -->
@@ -212,16 +227,17 @@
           <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
           <div><span class="label">Auto-cam</span> <span id="tel-auto-cam">On</span></div>
           <div class="cam-grid" id="cam-grid" role="group" aria-label="Camera focus">
-            <button type="button" data-cam="sun" title="Sun">Sun</button>
-            <button type="button" data-cam="moon" title="Moon">Moon</button>
-            <button type="button" data-cam="earth" title="Earth">Earth</button>
-            <button type="button" data-cam="starbase" title="Starbase">Pad</button>
-            <button type="button" data-cam="trench" title="Launchpad">Trench</button>
-            <button type="button" data-cam="gridfin" title="Booster">Booster</button>
-            <button type="button" data-cam="chase" title="Starship">Ship</button>
-            <button type="button" data-cam="fin" title="Ship fin">Fin</button>
-            <button type="button" data-cam="hull" title="Ship hull">Hull</button>
-            <button type="button" data-cam="drone" title="Recovery drone">Drone</button>
+            <button type="button" data-cam="sun" title="Sun — look at the Sun" aria-label="Sun — look at the Sun">☀️</button>
+            <button type="button" data-cam="earth" title="Earth — wide view of the globe" aria-label="Earth — wide view of the globe">🌍</button>
+            <button type="button" data-cam="moon" title="Moon — look at the Moon" aria-label="Moon — look at the Moon">🌙</button>
+            <button type="button" data-cam="starbase" title="Starbase pad — launch mount and Mechazilla" aria-label="Starbase pad — launch mount and Mechazilla">🏗️</button>
+            <button type="button" data-cam="aerial" title="Pad flying drone — wide aerial hold of the stack" aria-label="Pad flying drone — wide aerial hold of the stack">🚁</button>
+            <button type="button" data-cam="trench" title="Flame trench — looking up at the engine bells" aria-label="Flame trench — looking up at the engine bells">🔥</button>
+            <button type="button" data-cam="gridfin" title="Super Heavy — grid-fin and booster hull cam" aria-label="Super Heavy — grid-fin and booster hull cam">🛬</button>
+            <button type="button" data-cam="chase" title="Starship chase — follow the ship" aria-label="Starship chase — follow the ship">🚀</button>
+            <button type="button" data-cam="fin" title="Ship fin-cam — flaps and aft engines" aria-label="Ship fin-cam — flaps and aft engines">🪽</button>
+            <button type="button" data-cam="hull" title="Ship hull-cam — barrel and heat-shield tiles" aria-label="Ship hull-cam — barrel and heat-shield tiles">🧱</button>
+            <button type="button" data-cam="drone" title="Recovery drone — sea-level orbit of the floating ship" aria-label="Recovery drone — sea-level orbit of the floating ship">🛸</button>
           </div>
           <button type="button" id="btn-cam-cycle" title="Cycle cameras (− / =)">
             Cycle
@@ -534,6 +550,29 @@
           <p class="metrics-foot">
             Live at scrubber time · <kbd>Tab</kbd> cycle · <kbd>Esc</kbd> close · play continues
           </p>
+        </div>
+      </div>
+
+      <div
+        id="theater-loading"
+        class="theater-loading"
+        hidden
+        role="status"
+        aria-live="polite"
+        aria-label="Loading mission"
+      >
+        <p class="theater-loading-kicker">tothemoon</p>
+        <h2 id="theater-loading-title" class="theater-loading-title">Loading</h2>
+        <p id="theater-loading-status" class="theater-loading-status">Loading mission…</p>
+        <div
+          id="theater-loading-bar"
+          class="theater-loading-bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <div id="theater-loading-fill" class="theater-loading-fill"></div>
         </div>
       </div>
     </div>

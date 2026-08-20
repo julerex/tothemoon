@@ -13,6 +13,7 @@ import {
 import { createLeoClouds, type LeoClouds } from "./leoClouds";
 import { applyWgs84ToGeometry } from "./wgs84Mesh";
 import { markZoomLabel } from "./zoomLabels";
+import { loadTextureAsset } from "./assetLoad";
 import {
   BASIC_NO_DEPTH,
   canvasDataMap,
@@ -208,12 +209,10 @@ function onEarthPhotoMissing(): void {
 /** Prefer committed Blue Marble; keep procedural albedo if the JPEG is absent. */
 function loadEarthPhotoAlbedo(earth: THREE.Mesh): void {
   const url = `${import.meta.env.BASE_URL}textures/earth_bluemarble_4k.jpg`;
-  new THREE.TextureLoader().load(
-    url,
-    (tex) => applyEarthPhotoAlbedo(earth, tex),
-    undefined,
-    () => onEarthPhotoMissing(),
-  );
+  void loadTextureAsset(url).then((tex) => {
+    if (tex) applyEarthPhotoAlbedo(earth, tex);
+    else onEarthPhotoMissing();
+  });
 }
 
 /** Attach atmosphere shells + polar axis visual. */

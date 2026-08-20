@@ -8,7 +8,7 @@ import {
 } from "./mountLock.ts";
 
 const MOUNTS = ["fin", "gridfin", "trench", "hull"] as const;
-const TRACKED = ["sun", "moon", "earth", "starbase", "chase", "drone", "free"] as const;
+const TRACKED = ["sun", "moon", "earth", "starbase", "aerial", "chase", "drone", "free"] as const;
 
 describe("mount lock contract", () => {
   it("treats fin / gridfin / trench / hull as mount focuses", () => {

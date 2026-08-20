@@ -40,7 +40,7 @@ missions by only changing the hash: a live theater ignores a different
 
 1. `list_pages`
 2. `navigate_page` to a **full-document** mission URL (see below)
-3. `evaluate_script` `EVAL_WAIT_READY` until `ready: true` (pack load ~1–3 s)
+3. `evaluate_script` `EVAL_WAIT_READY` until `ready: true` (mission JS + 4K textures; overlay holds until then, ~1–8 s)
 4. `evaluate_script` `snapshot()` — do **not** treat one screenshot as proof
 5. `take_screenshot` only after `webgl.ok === true` (or accept a black canvas)
 6. `list_console_messages` with `types: ["error"]` if the canvas is black
@@ -78,8 +78,11 @@ nonce URL so the load is never a same-document hash change.
 | `afterFrame()` | Promise: two rAFs so `applyState` has run |
 
 On the menu, `ready` is `false` and mutators return `{ error: "theater not started" }`.
+`ready` also stays false while `#theater-loading` is up (Earth / Moon / star / pad JPEGs).
 
-Camera modes: `sun` `moon` `earth` `starbase` `trench` `gridfin` `chase` `fin` `hull` `drone` `free`.
+Camera modes: `sun` `moon` `earth` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `free`.
+
+`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−2:00 through T−8.
 
 `setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
 
@@ -94,7 +97,7 @@ will not match. Prefer `hud.phase` / `clock` / `phaseId` for “are we at splash
 
 ```js
 async () => {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 80; i++) {
     const api = window.__theater;
     if (api?.ready) return api.snapshot();
     await new Promise((r) => setTimeout(r, 250));

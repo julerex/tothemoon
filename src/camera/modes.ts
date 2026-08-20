@@ -25,6 +25,11 @@ import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
 import {
+  PAD_AERIAL_AZ_DEG,
+  PAD_AERIAL_EL_DEG,
+  PAD_AERIAL_FOV,
+  PAD_AERIAL_FRAME_SCALE,
+  PAD_AERIAL_LOOK_UP_KM,
   SPLASH_DRONE_ELEV_DEG,
   SPLASH_DRONE_FOV,
   SPLASH_DRONE_FRAME_SCALE,
@@ -34,7 +39,8 @@ import {
 } from "./webcastShots";
 
 export type { CameraMode } from "./cameraMode";
-import type { CameraMode } from "./cameraMode";
+export { isPadFocus } from "./cameraMode";
+import { isPadFocus, type CameraMode } from "./cameraMode";
 import {
   readCameraWorldPose,
   resolveCameraWorldPose,
@@ -406,7 +412,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode);
-    this.applyFocus(mode, /* frame */ false);
+    const aerial = this.armAerialPose(mode);
+    this.applyFocus(mode, aerial != null, aerial?.frameScale ?? 1, aerial ?? undefined);
   }
 
   /**
@@ -417,7 +424,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode, frameScale);
-    this.applyFocus(mode, /* frame */ true, frameScale);
+    const aerial = this.armAerialPose(mode, frameScale);
+    this.applyFocus(mode, /* frame */ true, aerial?.frameScale ?? frameScale, aerial ?? undefined);
   }
 
   /**
@@ -427,7 +435,7 @@ export class CameraDirector {
    */
   private isInstantEaseMode(mode: CameraMode): boolean {
     return mode === "fin" || mode === "gridfin" || mode === "trench" ||
-      mode === "hull" || mode === "drone" || mode === "free";
+      mode === "hull" || mode === "drone" || mode === "aerial" || mode === "free";
   }
 
   private beginDistanceEase(mode: CameraMode, frameScale: number): void {
@@ -487,10 +495,14 @@ export class CameraDirector {
       this.droneEl = opts.elevationDeg;
     }
     if (opts?.frameScale != null) this.droneFrameScale = opts.frameScale;
-    const fov = this.droneTrack
-      ? (opts?.fov ?? SPLASH_DRONE_FOV)
-      : (opts?.fov ?? THEATER_DEFAULT_FOV);
-    this.setVerticalFov(fov);
+    this.setVerticalFov(this.guidedFov(mode, opts?.fov));
+  }
+
+  private guidedFov(mode: CameraMode, fov?: number): number {
+    if (fov != null) return fov;
+    if (mode === "aerial") return PAD_AERIAL_FOV;
+    if (this.droneTrack) return SPLASH_DRONE_FOV;
+    return THEATER_DEFAULT_FOV;
   }
 
   /** Rail pick: sea-level recovery-drone orbit of the ship. */
@@ -500,6 +512,20 @@ export class CameraDirector {
     this.droneEl = SPLASH_DRONE_ELEV_DEG;
     this.droneFrameScale = frameScale ?? SPLASH_DRONE_FRAME_SCALE;
     this.setVerticalFov(SPLASH_DRONE_FOV);
+  }
+
+  /** Rail pick: Starbase pad flying-drone hover (T− hold wide). */
+  private armAerialPose(
+    mode: CameraMode,
+    frameScale?: number,
+  ): { azimuthDeg: number; elevationDeg: number; frameScale: number } | null {
+    if (mode !== "aerial") return null;
+    this.setVerticalFov(PAD_AERIAL_FOV);
+    return {
+      azimuthDeg: PAD_AERIAL_AZ_DEG,
+      elevationDeg: PAD_AERIAL_EL_DEG,
+      frameScale: frameScale ?? PAD_AERIAL_FRAME_SCALE,
+    };
   }
 
   private clearGuidedPose(): void {
@@ -547,7 +573,7 @@ export class CameraDirector {
     this.captureViewDirection();
     this.seatTrackedFocus(mode);
     const dist = this.resolveFocusDistance(mode, frame, frameScale, prevDist);
-    if (this.padTrack && mode === "starbase") {
+    if (this.padTrack && isPadFocus(mode)) {
       this.padTrackDist = dist;
       this.applyPadTrack();
       return;
@@ -689,7 +715,7 @@ export class CameraDirector {
   }
 
   private buildEnuForMode(mode: CameraMode): boolean {
-    if (mode === "starbase") return this.buildPadEnu();
+    if (isPadFocus(mode)) return this.buildPadEnu();
     if (mode === "chase" || this.isDroneFocus(mode)) return this.buildCraftEnu();
     return false;
   }
@@ -788,7 +814,7 @@ export class CameraDirector {
     if (mode === "moon") return this.distanceForRadius(R_MOON, 0.65);
     if (mode === "chase") return this.chaseFrameDistance();
     if (this.isDroneFocus(mode)) return this.droneFrameDistance();
-    if (mode === "starbase") return this.distanceForRadius(0.12, 0.5);
+    if (isPadFocus(mode)) return this.distanceForRadius(0.12, 0.5);
     if (mode === "trench" || mode === "hull") return this.distanceForRadius(0.02, 0.55);
     return this.getFocusDistance();
   }
@@ -878,7 +904,7 @@ export class CameraDirector {
     const close =
       this.focus === "chase" ||
       this.focus === "drone" ||
-      this.focus === "starbase" ||
+      isPadFocus(this.focus) ||
       this.focus === "fin" ||
       this.focus === "gridfin" ||
       this.focus === "trench" ||
@@ -918,13 +944,17 @@ export class CameraDirector {
       this.chaseTarget(outTarget);
       return;
     }
-    if (mode === "starbase") { this.starbaseTarget(outTarget); return; }
+    if (isPadFocus(mode)) { this.starbaseTarget(outTarget); return; }
     this.bodyTarget(mode, outTarget);
   }
 
   private starbaseTarget(outTarget: THREE.Vector3): void {
     const pad = starbasePadState(this.simTime, this.epoch);
     outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
+    if (this.focus === "aerial") {
+      this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
+      outTarget.addScaledVector(this.padUp, PAD_AERIAL_LOOK_UP_KM);
+    }
   }
 
   /** Look-at for an unlocked mount so tracking co-moves with pad / craft. */
@@ -1451,7 +1481,7 @@ export class CameraDirector {
 
   /** Earth-fixed pad camera: reseat every frame until the user grabs it. */
   private holdPadTrack(): boolean {
-    if (!this.padTrack || this.focus !== "starbase") return false;
+    if (!this.padTrack || !isPadFocus(this.focus)) return false;
     if (this.hasCameraHold()) {
       this.padTrack = false;
       this.unlockMount();

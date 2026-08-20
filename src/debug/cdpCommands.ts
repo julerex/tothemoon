@@ -25,7 +25,7 @@ export const EVAL_SNAPSHOT =
   "() => window.__theater?.snapshot() ?? { ready: false, hash: location.hash, href: location.href }";
 
 export const EVAL_WAIT_READY = `async () => {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 80; i++) {
     const api = window.__theater;
     if (api?.ready) return api.snapshot();
     await new Promise((r) => setTimeout(r, 250));

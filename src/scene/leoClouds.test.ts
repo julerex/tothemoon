@@ -31,7 +31,7 @@ describe("leoCloudsFocusEnabled", () => {
   });
 
   it("stays off for Earth-cam, pad, and system views", () => {
-    for (const mode of ["earth", "starbase", "trench", "sun", "moon", "free"]) {
+    for (const mode of ["earth", "starbase", "aerial", "trench", "sun", "moon", "free"]) {
       assert.equal(leoCloudsFocusEnabled(mode), false, mode);
     }
     assert.equal(leoCloudsFocusEnabled(undefined), false);

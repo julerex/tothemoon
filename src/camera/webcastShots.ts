@@ -53,6 +53,21 @@ export const WEBCAST_ONBOARD_FOV = 80;
 /** Default theater PerspectiveCamera FOV. */
 export const THEATER_DEFAULT_FOV = 50;
 
+/**
+ * Pad flying-drone hover matching `tminus-000042-pad-hold-wide.jpg`.
+ * South-southwest of the OLM: Gulf (east) to the right, wide-angle look
+ * with sky above the horizon. ~190 m AGL drone.
+ */
+export const PAD_AERIAL_AZ_DEG = 252;
+/** Elevation above the local horizon (deg). */
+export const PAD_AERIAL_EL_DEG = 20;
+/** Framed pad radius multiplier — stack readable, coastline still in view. */
+export const PAD_AERIAL_FRAME_SCALE = 1.28;
+/** Handheld drone lens (vertical FOV). */
+export const PAD_AERIAL_FOV = 62;
+/** Look-at height above the OLM (km) so the stack, not the apron, is centered. */
+export const PAD_AERIAL_LOOK_UP_KM = 0.058;
+
 /** Mission time (s) when Auto-cam cuts from aerial splash to the sea drone. */
 export const SPLASH_DRONE_T0 = 3926;
 /** Opening ENU azimuth (deg from east toward north) for the drone hold. */
@@ -93,12 +108,13 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "pad-wide",
     t0: -120,
-    mode: "starbase",
+    mode: "aerial",
     frame: true,
-    frameScale: 2.85,
+    frameScale: PAD_AERIAL_FRAME_SCALE,
     // South-southwest: Gulf (east) to the right, tower three-quarter.
-    azimuthDeg: 255,
-    elevationDeg: 18,
+    azimuthDeg: PAD_AERIAL_AZ_DEG,
+    elevationDeg: PAD_AERIAL_EL_DEG,
+    fov: PAD_AERIAL_FOV,
   },
   {
     key: "pad-track",

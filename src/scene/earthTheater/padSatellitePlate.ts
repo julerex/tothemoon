@@ -6,6 +6,7 @@ import {
   STARBASE_PLATE_HALF_KM, STARBASE_PLATE_INNER_KM, STARBASE_PLATE_SEGS,
   STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlateUv, starbasePlateYawRad,
 } from "../starbasePlate";
+import { loadTextureAsset } from "../assetLoad";
 import { makePlateAlphaTexture } from "./padTextures";
 import { GROUND_OFFSET } from "./padSurroundMats";
 
@@ -157,12 +158,10 @@ function onStarbasePlateMissing(): void {
 
 function loadStarbasePlateTexture(pad: THREE.Group, plate: THREE.Mesh): void {
   const url = `${import.meta.env.BASE_URL}textures/starbase_surrounds.jpg`;
-  new THREE.TextureLoader().load(
-    url,
-    (tex) => applyStarbasePlateTexture(pad, plate, tex),
-    undefined,
-    () => onStarbasePlateMissing(),
-  );
+  void loadTextureAsset(url).then((tex) => {
+    if (tex) applyStarbasePlateTexture(pad, plate, tex);
+    else onStarbasePlateMissing();
+  });
 }
 
 /**

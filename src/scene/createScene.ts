@@ -8,6 +8,7 @@ import {
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { createFatLine, updateFatLinePositions } from "./fatLines";
+import { loadTextureAsset } from "./assetLoad";
 import { makeStarTexture } from "./textures";
 import type { Line2 } from "three/addons/lines/Line2.js";
 
@@ -211,9 +212,10 @@ function onStarMapMissing(mat: THREE.MeshBasicMaterial): void {
 
 function loadStarDomeTexture(mat: THREE.MeshBasicMaterial): void {
   const url = `${import.meta.env.BASE_URL}textures/starmap_nasa_svs_2020_4k.jpg`;
-  new THREE.TextureLoader().load(
-    url, (tex) => applyStarMapToMat(mat, tex), undefined, () => onStarMapMissing(mat),
-  );
+  void loadTextureAsset(url).then((tex) => {
+    if (tex) applyStarMapToMat(mat, tex);
+    else onStarMapMissing(mat);
+  });
 }
 
 /**

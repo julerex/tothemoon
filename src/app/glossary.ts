@@ -20,6 +20,13 @@ export type GlossaryEntry = {
  */
 export const GLOSSARY: readonly GlossaryEntry[] = [
   {
+    id: "aerial",
+    term: "Aerial (pad drone)",
+    category: "views",
+    definition:
+      "Flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash.",
+  },
+  {
     id: "ascent",
     term: "Ascent",
     category: "mission",
@@ -164,7 +171,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Scrubber",
     category: "views",
     definition:
-      "Mission-time slider on the transport bar. Phase and event marks are thick ticks on the track; hover a tick for its name and time, click to jump. The LIVE news ticker above the transport bar follows the same mission clock.",
+      "Mission-time slider on the transport bar. Phase and event marks are ticks on the track; hover a tick to read its clock, name, and detail on the info bar between the news ticker and the slider, or click to jump. The LIVE news ticker above that bar follows the same mission clock.",
   },
   {
     id: "seco",

@@ -33,6 +33,45 @@ type MainMenuLinkItem = {
 
 type MainMenuItem = MainMenuNavItem | MainMenuLinkItem;
 
+/** One orientation bullet on the home menu. */
+export type MainMenuPoint = { title: string; detail: string };
+
+/**
+ * Home-menu orientation copy. Keep these theater-honest (not flight-ops).
+ */
+export const MAIN_MENU_POINTS: readonly MainMenuPoint[] = [
+  {
+    title: "True scale",
+    detail:
+      "Earth, Moon, and the stack live in kilometres. One scene unit is 1 km.",
+  },
+  {
+    title: "Two missions",
+    detail:
+      "Starship Flight 13 is the July 2026 flight test. Starbase → Moon flies ascent through lunar arrival.",
+  },
+  {
+    title: "Play, scrub, share",
+    detail:
+      "Pause, change speed, or jump the timeline. The address bar keeps a t= clock you can copy.",
+  },
+  {
+    title: "Cameras",
+    detail:
+      "Auto-cam follows the webcast (toggle G). Rail buttons, mouse, and WASD take a seat of your own.",
+  },
+  {
+    title: "HUD",
+    detail:
+      "H hides chrome for a clean view. Open the glossary when a label needs a plain-language definition.",
+  },
+  {
+    title: "This screen",
+    detail:
+      "Number keys 1–3 match the buttons. Esc returns here from Mission Menu and Glossary.",
+  },
+];
+
 /** Main menu entries in display order (digit keys 1…n). */
 export const MAIN_MENU_ITEMS: readonly MainMenuItem[] = [
   {
@@ -164,9 +203,11 @@ function fillMainMenu(main: HTMLElement): void {
 
 function mainMenuHtml(): string {
   return [
-    '<div class="menu-panel">',
+    '<div class="menu-panel menu-panel-home">',
+    '<p class="menu-kicker">Interactive mission theater</p>',
     '<h1 class="menu-title">tothemoon</h1>',
     mainMenuLead(),
+    mainMenuPoints(),
     mainMenuNav(),
     '<p class="menu-foot">© Julian le Roux 2026 · scene unit = 1&nbsp;km · number keys select menu items</p>',
     '</div>',
@@ -174,7 +215,16 @@ function mainMenuHtml(): string {
 }
 
 function mainMenuLead(): string {
-  return `<p class="menu-lead">True-scale Three.js theaters for Starship-class missions.</p>`;
+  return `<p class="menu-lead">True-scale Three.js theaters for Starship-class missions. Pick a flight, then watch or drive the camera yourself.</p>`;
+}
+
+function mainMenuPoints(): string {
+  const items = MAIN_MENU_POINTS.map(mainMenuPointHtml).join("");
+  return `<ul class="menu-points">${items}</ul>`;
+}
+
+function mainMenuPointHtml(p: MainMenuPoint): string {
+  return `<li class="menu-point"><p class="menu-point-title">${escapeHtml(p.title)}</p><p class="menu-point-detail">${escapeHtml(p.detail)}</p></li>`;
 }
 
 function mainMenuNav(): string {

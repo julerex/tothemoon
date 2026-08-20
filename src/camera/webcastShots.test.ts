@@ -21,8 +21,13 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
 
   it("opens on a wide pad aerial and tracks the stack through liftoff", () => {
     const open = webcastShotAt(-120);
-    assert.equal(open.mode, "starbase");
+    assert.equal(open.mode, "aerial");
     assert.equal(open.padTrack, undefined);
+    assert.ok((open.elevationDeg ?? 0) > 15);
+    assert.ok((open.fov ?? 0) > 50);
+    assert.ok((open.frameScale ?? 1) < 2.5);
+    assert.equal(webcastShotAt(-42).key, "pad-wide");
+    assert.equal(webcastShotAt(-42).mode, "aerial");
     const track = webcastShotAt(-2);
     assert.equal(track.mode, "starbase");
     assert.equal(track.padTrack, true);

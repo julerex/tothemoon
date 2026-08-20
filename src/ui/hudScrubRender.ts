@@ -6,6 +6,7 @@ import type { CinematicBookmark } from "../mission/bookmarks";
 import type { MissionEvent, PhaseSegment } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
 import { formatMissionTime } from "./hudFormat";
+import { scrubInfoView, type ScrubInfoView } from "./hudScrubInfo";
 
 const MAJOR_PHASES = new Set<PhaseId>([
   "launch",
@@ -27,19 +28,33 @@ function seekScrubToU(u: number): void {
   scrub.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function bindScrubInfoHover(
+  btn: HTMLButtonElement,
+  view: ScrubInfoView,
+  onHover?: (view: ScrubInfoView | null) => void,
+): void {
+  if (!onHover) return;
+  btn.addEventListener("pointerenter", () => onHover(view));
+  btn.addEventListener("pointerleave", () => onHover(null));
+  btn.addEventListener("focus", () => onHover(view));
+  btn.addEventListener("blur", () => onHover(null));
+}
+
 function stylePhaseMark(mark: HTMLButtonElement, seg: PhaseSegment): void {
   mark.type = "button";
   mark.className = "scrub-mark";
   mark.dataset.phase = seg.phase;
   mark.style.left = `${(seg.u0 * 100).toFixed(3)}%`;
-  const tip = `${seg.label} · ${formatMissionTime(seg.t0)}`;
-  mark.dataset.tip = tip;
   mark.setAttribute("aria-label", `Jump to ${seg.label}`);
 }
 
-function buildPhaseMark(seg: PhaseSegment): HTMLButtonElement {
+function buildPhaseMark(
+  seg: PhaseSegment,
+  onHover?: (view: ScrubInfoView | null) => void,
+): HTMLButtonElement {
   const mark = document.createElement("button");
   stylePhaseMark(mark, seg);
+  bindScrubInfoHover(mark, scrubInfoView(seg.label, seg.t0), onHover);
   mark.addEventListener("click", (e) => {
     e.preventDefault();
     seekScrubToU(seg.u0);
@@ -51,11 +66,12 @@ function buildPhaseMark(seg: PhaseSegment): HTMLButtonElement {
 export function renderPhaseMarkers(
   root: HTMLElement,
   segments: readonly PhaseSegment[],
+  onHover?: (view: ScrubInfoView | null) => void,
 ): void {
   root.replaceChildren();
   for (const seg of segments) {
     if (!MAJOR_PHASES.has(seg.phase)) continue;
-    root.appendChild(buildPhaseMark(seg));
+    root.appendChild(buildPhaseMark(seg, onHover));
   }
 }
 
@@ -75,8 +91,6 @@ function styleEventTickPos(btn: HTMLButtonElement, tick: ScrubEventTick): void {
 }
 
 function styleEventTickLabels(btn: HTMLButtonElement, ev: MissionEvent): void {
-  const tip = `${ev.title}${ev.detail ? ` · ${ev.detail}` : ""} · ${formatMissionTime(ev.t)}`;
-  btn.dataset.tip = tip;
   btn.setAttribute(
     "aria-label",
     `Jump to ${ev.title} at ${formatMissionTime(ev.t)}`,
@@ -92,10 +106,16 @@ function onEventTickClick(e: MouseEvent, onSeek: (ev: MissionEvent) => void, ev:
 function buildEventTickButton(
   tick: ScrubEventTick,
   onSeek: (ev: MissionEvent) => void,
+  onHover?: (view: ScrubInfoView | null) => void,
 ): HTMLButtonElement {
   const btn = document.createElement("button");
   styleEventTickPos(btn, tick);
   styleEventTickLabels(btn, tick.event);
+  bindScrubInfoHover(
+    btn,
+    scrubInfoView(tick.event.title, tick.event.t, tick.event.detail),
+    onHover,
+  );
   btn.addEventListener("click", (e) => onEventTickClick(e, onSeek, tick.event));
   return btn;
 }
@@ -105,10 +125,11 @@ export function renderEventTicks(
   root: HTMLElement,
   ticks: ScrubEventTick[],
   onSeek: (ev: MissionEvent) => void,
+  onHover?: (view: ScrubInfoView | null) => void,
 ): void {
   root.replaceChildren();
   for (const tick of ticks) {
-    root.appendChild(buildEventTickButton(tick, onSeek));
+    root.appendChild(buildEventTickButton(tick, onSeek, onHover));
   }
 }
 

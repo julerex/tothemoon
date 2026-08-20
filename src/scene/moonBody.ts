@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { MOON_OBLIQUITY, R_MOON } from "../physics/constants";
 import { makeMoonRoughnessMap, makeMoonTexture } from "./textures";
+import { loadTextureAsset } from "./assetLoad";
 import {
   ADDITIVE_BACK,
   canvasDataMap,
@@ -120,12 +121,10 @@ function applyMoonPhotoAlbedo(moon: THREE.Mesh, tex: THREE.Texture): void {
 /** Prefer committed LRO WAC color; keep procedural albedo if the JPEG is absent. */
 function loadMoonPhotoAlbedo(moon: THREE.Mesh): void {
   const url = `${import.meta.env.BASE_URL}textures/moon_lroc_wac_4k.jpg`;
-  new THREE.TextureLoader().load(
-    url,
-    (tex) => applyMoonPhotoAlbedo(moon, tex),
-    undefined,
-    () => onMoonPhotoMissing(),
-  );
+  void loadTextureAsset(url).then((tex) => {
+    if (tex) applyMoonPhotoAlbedo(moon, tex);
+    else onMoonPhotoMissing();
+  });
 }
 
 /** Textured moon sphere + limb under axis. */

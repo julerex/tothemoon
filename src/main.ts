@@ -13,7 +13,19 @@ import { bindMenus } from "./app/menus";
 import { missionByPath, type MissionDef, type MissionId } from "./app/missionCatalog";
 import { applyTheaterSeek, type MissionStartOpts } from "./app/seekUrl";
 import { navigate, parseRoute, setShellView } from "./app/shell";
+import {
+  hideTheaterLoading,
+  setTheaterLoadingProgress,
+  showTheaterLoading,
+} from "./app/theaterLoading";
 import { installTheaterBridgeStub } from "./debug/theaterBridge";
+import {
+  assetLoadFraction,
+  assetLoadStatus,
+  beginAssetBatch,
+  onAssetProgress,
+  waitForAssets,
+} from "./scene/assetLoad";
 
 /** Once a full theater is running we avoid double-start without reload. */
 let theaterStarted = false;
@@ -21,9 +33,12 @@ let theaterStarted = false;
 bindMenus();
 installTheaterBridgeStub();
 
+/** Unveils the debug bridge after the loading overlay is gone. */
+type TheaterUnveiler = () => void;
+
 /** Lazy theater entry point per mission — keeps physics packs out of the shell bundle. */
 const MISSION_THEATERS: Readonly<
-  Record<MissionId, () => Promise<(opts?: MissionStartOpts) => void>>
+  Record<MissionId, () => Promise<(opts?: MissionStartOpts) => TheaterUnveiler>>
 > = {
   "to-the-moon": () =>
     import("./missions/toTheMoon").then((m) => m.startToTheMoonMission),
@@ -57,6 +72,23 @@ function showMenuView(view: "main" | "missions" | "glossary"): void {
   document.title = MENU_TITLES[view];
 }
 
+function waitMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+/** Two rAFs so the first textured frames can compile under the overlay. */
+function afterTwoFrames(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+const MIN_LOADING_MS = 280;
+
 async function launchMissionTheater(
   def: MissionDef,
   opts?: MissionStartOpts,
@@ -67,9 +99,30 @@ async function launchMissionTheater(
     return;
   }
   theaterStarted = true;
-  setShellView("theater");
-  const startMission = await loadTheater();
-  startMission(opts);
+  beginAssetBatch();
+  showTheaterLoading(def.title);
+  const unsub = onAssetProgress((loaded, total) => {
+    setTheaterLoadingProgress(
+      assetLoadStatus(loaded, total),
+      assetLoadFraction(loaded, total),
+    );
+  });
+  const shownAt = performance.now();
+  let unveil: TheaterUnveiler | undefined;
+  try {
+    setShellView("theater");
+    const startMission = await loadTheater();
+    setTheaterLoadingProgress("Building scene…", 0);
+    unveil = startMission(opts);
+    await waitForAssets();
+    await afterTwoFrames();
+    const hold = MIN_LOADING_MS - (performance.now() - shownAt);
+    if (hold > 0) await waitMs(hold);
+  } finally {
+    unsub();
+    await hideTheaterLoading();
+    unveil?.();
+  }
 }
 
 async function enterTheater(

@@ -36,6 +36,7 @@ export type HudTelStrip = {
   newsTextEl: HTMLElement | null;
   newsTextDupEl: HTMLElement | null;
   newsTrackEl: HTMLElement | null;
+  scrubInfoEl: HTMLElement | null;
   dateEl: HTMLElement | null;
   dateTexasEl: HTMLElement | null;
   dateAustraliaEl: HTMLElement | null;
@@ -173,6 +174,7 @@ function collectTelStripA(): Pick<
   | "newsTextEl"
   | "newsTextDupEl"
   | "newsTrackEl"
+  | "scrubInfoEl"
   | "dateEl"
   | "dateTexasEl"
   | "dateAustraliaEl"
@@ -190,6 +192,7 @@ function collectTelStripA(): Pick<
     missionClockRateEl: q("#mission-clock-rate"),
     newsTickerEl: q("#news-ticker"), newsTextEl: q("#news-ticker-text"),
     newsTextDupEl: q("#news-ticker-text-dup"), newsTrackEl: q("#news-ticker-track"),
+    scrubInfoEl: q("#scrub-info"),
     dateEl: q("#date"), dateTexasEl: q("#date-texas"),
     dateAustraliaEl: q("#date-australia"),
     distEl: el("#distance"), progEl: el("#progress"),

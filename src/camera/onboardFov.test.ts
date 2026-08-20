@@ -18,7 +18,7 @@ describe("cameraFovForFocus", () => {
   });
 
   it("keeps chase / pad / trench / body cams at the default", () => {
-    for (const mode of ["chase", "starbase", "trench", "earth", "moon", "sun", "free"]) {
+    for (const mode of ["chase", "starbase", "aerial", "trench", "earth", "moon", "sun", "free"]) {
       assert.equal(cameraFovForFocus(mode), DEFAULT_CAM_FOV_DEG);
     }
   });

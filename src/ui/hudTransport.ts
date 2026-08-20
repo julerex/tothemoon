@@ -15,6 +15,7 @@ import {
   renderEventTicks,
   renderPhaseMarkers,
 } from "./hudScrubRender";
+import { applyScrubInfoBar, type ScrubInfoView } from "./hudScrubInfo";
 import type { TelemetryView } from "./telemetryView";
 import type { HudRuntime } from "./hudTypes";
 
@@ -170,9 +171,12 @@ export function wireReplay(rt: HudRuntime): void {
 
 export function wireScrubChrome(rt: HudRuntime): void {
   const { dom, data } = rt;
-  if (dom.markersEl) renderPhaseMarkers(dom.markersEl, data.timeline.segments);
+  const onHover = (view: ScrubInfoView | null) => {
+    applyScrubInfoBar(dom.scrubInfoEl, view);
+  };
+  if (dom.markersEl) renderPhaseMarkers(dom.markersEl, data.timeline.segments, onHover);
   if (dom.eventsEl) {
-    renderEventTicks(dom.eventsEl, data.scrubEventTicks, (ev) => seekToEvent(rt, ev));
+    renderEventTicks(dom.eventsEl, data.scrubEventTicks, (ev) => seekToEvent(rt, ev), onHover);
   }
   if (dom.bookmarksEl) {
     renderBookmarks(dom.bookmarksEl, data.bookmarks, (bm) => jumpToBookmark(rt, bm));

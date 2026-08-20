@@ -75,8 +75,87 @@ body.menus-active {
   display: none;
 }
 
+/* Full-screen hold while mission JS, meshes, and 4K JPEGs load */
+.theater-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: var(--bg);
+  pointer-events: auto;
+  transition: opacity 0.4s ease;
+}
+
+.theater-loading[hidden] {
+  display: none;
+}
+
+.theater-loading.theater-loading-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theater-loading-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.theater-loading-title {
+  margin: 0.45rem 0 0;
+  font-size: clamp(1.85rem, 4vw, 2.55rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text);
+  text-align: center;
+}
+
+.theater-loading-status {
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.theater-loading-bar {
+  margin-top: 1.35rem;
+  width: min(16rem, 70vw);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.theater-loading-fill {
+  width: 100%;
+  height: 100%;
+  background: var(--text);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theater-loading,
+  .theater-loading-fill {
+    transition: none;
+  }
+}
+
 .menu-screen {
   width: min(100%, 52rem);
+}
+
+.menu-screen-home {
+  width: min(100%, 76rem);
 }
 
 .menu-screen[hidden] {
@@ -93,6 +172,14 @@ body.menus-active {
 
 .menu-panel-wide {
   width: min(100%, 52rem);
+}
+
+.menu-panel-home {
+  width: 100%;
+  min-height: min(44rem, calc(100dvh - 2.5rem));
+  padding: 2.6rem 3rem 1.85rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .menu-kicker {
@@ -125,11 +212,50 @@ body.menus-active {
   line-height: 1.55;
 }
 
+.menu-panel-home .menu-lead {
+  max-width: 46rem;
+}
+
+.menu-points {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.15rem 2.25rem;
+  margin: 1.85rem 0 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 auto;
+  align-content: center;
+}
+
+.menu-point {
+  margin: 0;
+}
+
+.menu-point-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.menu-point-detail {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
 .menu-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 1.5rem;
+}
+
+.menu-panel-home .menu-actions {
+  margin-top: 2rem;
 }
 
 .menu-btn {
@@ -317,6 +443,16 @@ body.menus-active {
 @media (max-width: 720px) {
   .flight13-grid {
     grid-template-columns: 1fr;
+  }
+
+  .menu-points {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .menu-panel-home {
+    min-height: 0;
+    padding: 1.5rem 1.25rem 1.25rem;
   }
 }
 
@@ -584,7 +720,7 @@ body.menus-active {
   box-shadow: none;
 }
 
-/* Mission-time news crawl — full width strip above the scrubber (in-flow).
+/* Mission-time news crawl — full width strip above the event info bar.
  * Scroll duration/direction are set from playback rate in hud.ts. */
 .news-ticker {
   position: relative;
@@ -593,7 +729,7 @@ body.menus-active {
   align-items: stretch;
   width: 100%;
   height: 1.65rem;
-  margin: 0;
+  margin: 0 0 0.2rem;
   padding: 0;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.92);
@@ -603,6 +739,65 @@ body.menus-active {
   letter-spacing: 0.03em;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Hover readout for scrubber event / phase ticks (between ticker and slider). */
+.scrub-info {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 1.55rem;
+  margin: 0;
+  padding: 0.15rem 1.1rem;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.88);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+}
+
+.scrub-info-idle {
+  color: var(--muted);
+}
+
+.scrub-info-active {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.scrub-info-active[hidden],
+.scrub-info-idle[hidden],
+.scrub-info-detail[hidden] {
+  display: none;
+}
+
+.scrub-info-clock {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--accent, #e8e8e8);
+}
+
+.scrub-info-title {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scrub-info-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Speed select lives in the DOM for keyboard + hud.ts; not a visible bar */
@@ -767,8 +962,8 @@ body.menus-active {
   position: absolute;
   top: 0;
   bottom: 0;
-  /* Leave room for ticker + scrubber + footer */
-  margin-bottom: 7.25rem;
+  /* Leave room for ticker + event info + scrubber + footer */
+  margin-bottom: 8.9rem;
   padding: 0.85rem 0.75rem 0.75rem;
   box-sizing: border-box;
   display: flex;
@@ -867,17 +1062,19 @@ body.menus-active {
 
 .cam-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.28rem;
   margin-top: 0.15rem;
 }
 
 .cam-grid button {
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0.32rem 0.15rem;
+  font-size: 1.12rem;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-transform: none;
+  padding: 0.4rem 0.12rem;
   min-width: 0;
+  font-family: inherit, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 }
 
 .cam-toggles {
@@ -1135,6 +1332,17 @@ select {
   border-radius: 0;
 }
 
+.scrub-mark::before,
+.scrub-event::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 18px;
+}
+
 .scrub-mark {
   width: 3px;
   height: 8px;
@@ -1161,38 +1369,6 @@ select {
 .scrub-event:focus-visible,
 .scrub-event.active {
   background: #ffffff;
-}
-
-.scrub-mark::after,
-.scrub-event::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 0.45rem);
-  transform: translateX(-50%);
-  padding: 0.32rem 0.5rem;
-  background: rgba(0, 0, 0, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.35;
-  white-space: normal;
-  width: max-content;
-  max-width: 16rem;
-  text-align: center;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.scrub-mark:hover::after,
-.scrub-mark:focus-visible::after,
-.scrub-event:hover::after,
-.scrub-event:focus-visible::after {
-  opacity: 1;
 }
 
 input[type="range"] {
@@ -1423,7 +1599,7 @@ kbd {
 /* Full-bleed theater panels (cross-section · KeyMap) — black board above transport */
 
 /*
- * Full-bleed above the bottom bar (ticker / scrubber / footer).
+ * Full-bleed above the bottom bar (ticker / event info / scrubber / footer).
  * Bottom clearance matches .telemetry so the time slider stays free.
  */
 .cross-section,
@@ -1433,8 +1609,8 @@ kbd {
   top: 0;
   left: 0;
   right: 0;
-  /* Clear compact bottom bar (ticker + scrubber + footer) */
-  bottom: 7.25rem;
+  /* Clear compact bottom bar (ticker + event info + scrubber + footer) */
+  bottom: 8.9rem;
   align-items: stretch;
   justify-content: stretch;
   padding: 0;
@@ -1675,7 +1851,7 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   .telemetry,
   .camera-rail {
     max-width: 34vw;
-    margin-bottom: 7.5rem;
+    margin-bottom: 9.15rem;
     padding: 0.55rem 0.5rem 0.55rem;
     font-size: 0.7rem;
     gap: 0.4rem;
@@ -1695,7 +1871,11 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
     gap: 0.2rem;
   }
 
-  .cam-grid button,
+  .cam-grid button {
+    font-size: 1rem;
+    padding: 0.32rem 0.08rem;
+  }
+
   .telemetry .tel-actions button,
   .camera-rail > button,
   .cam-toggles button {
@@ -1708,11 +1888,17 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
     font-size: 0.66rem;
   }
 
+  .scrub-info {
+    min-height: 1.4rem;
+    padding: 0.12rem 0.75rem;
+    font-size: 0.66rem;
+  }
+
   .cross-section,
   .earth-gc,
   .polar-map,
   .visual-keymap {
-    bottom: 7.5rem;
+    bottom: 9.15rem;
   }
 
   .transport {
