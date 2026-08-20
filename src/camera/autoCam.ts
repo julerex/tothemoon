@@ -11,7 +11,7 @@
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)
  * - **flight13** — official Flight 13 X-replay cuts (pad aerial → ground
  *   track → booster hull / engine-bay through Super Heavy splash → ship
- *   hull / entry flap → splash chase)
+ *   hull / entry flap → splash chase → sea-level drone)
  */
 
 import type { CameraMode } from "./modes";
@@ -155,7 +155,7 @@ const FLIGHT13_PHASE: PhaseTable = {
   entry: { mode: "hull", frame: true },
   descent: { mode: "hull", frame: true },
   splashdown: {
-    mode: "chase",
+    mode: "drone",
     frame: true,
     frameScale: SPLASH_DRONE_FRAME_SCALE,
     azimuthDeg: SPLASH_DRONE_AZ0_DEG,
@@ -164,7 +164,7 @@ const FLIGHT13_PHASE: PhaseTable = {
     droneTrack: true,
   },
   landed: {
-    mode: "chase",
+    mode: "drone",
     frame: true,
     frameScale: SPLASH_DRONE_FRAME_SCALE,
     azimuthDeg: SPLASH_DRONE_AZ0_DEG,

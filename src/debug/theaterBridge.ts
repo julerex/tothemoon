@@ -36,6 +36,7 @@ const CAMERA_MODES: readonly CameraMode[] = [
   "gridfin",
   "trench",
   "hull",
+  "drone",
 ];
 
 /** Slice of a running theater the bridge needs. */

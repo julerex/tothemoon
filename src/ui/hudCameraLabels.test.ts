@@ -18,12 +18,13 @@ describe("cycleCameraMode", () => {
   it("steps forward and backward along CAMERA_CYCLE", () => {
     assert.equal(cycleCameraMode("sun", 1), "moon");
     assert.equal(cycleCameraMode("moon", -1), "sun");
-    assert.equal(cycleCameraMode("hull", 1), "sun");
-    assert.equal(cycleCameraMode("sun", -1), "hull");
+    assert.equal(cycleCameraMode("hull", 1), "drone");
+    assert.equal(cycleCameraMode("drone", 1), "sun");
+    assert.equal(cycleCameraMode("sun", -1), "drone");
   });
 
   it("starts at the first/last mode from an unknown focus", () => {
     assert.equal(cycleCameraMode("free", 1), "sun");
-    assert.equal(cycleCameraMode("free", -1), "hull");
+    assert.equal(cycleCameraMode("free", -1), "drone");
   });
 });

@@ -66,14 +66,15 @@ describe("autoCamForPhaseFlight13", () => {
     }
   });
 
-  it("uses pad aerial at launch, ground-track on ascent, hull on coast, chase on splash", () => {
+  it("uses pad aerial at launch, ground-track on ascent, hull on coast, drone on splash", () => {
     assert.equal(autoCamForPhaseFlight13("launch").mode, "starbase");
     assert.equal(autoCamForPhaseFlight13("ascent").padTrack, true);
     assert.equal(autoCamForPhaseFlight13("coast").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("entry").mode, "hull");
     assert.equal(autoCamForPhaseFlight13("descent").mode, "hull");
-    assert.equal(autoCamForPhaseFlight13("splashdown").mode, "chase");
+    assert.equal(autoCamForPhaseFlight13("splashdown").mode, "drone");
     assert.equal(autoCamForPhaseFlight13("splashdown").droneTrack, true);
+    assert.equal(autoCamForPhaseFlight13("landed").mode, "drone");
     assert.ok((autoCamForPhaseFlight13("splashdown").elevationDeg ?? 90) < 15);
   });
 });

@@ -41,8 +41,9 @@ describe("parseCameraMode", () => {
     assert.equal(parseCameraMode("chase"), "chase");
     assert.equal(parseCameraMode("hull"), "hull");
     assert.equal(parseCameraMode("starbase"), "starbase");
-    assert.equal(parseCameraMode("drone"), null);
+    assert.equal(parseCameraMode("drone"), "drone");
     assert.equal(parseCameraMode(""), null);
+    assert.equal(parseCameraMode("nope"), null);
   });
 });
 

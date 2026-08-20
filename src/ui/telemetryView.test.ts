@@ -139,6 +139,10 @@ describe("buildTelemetryView", () => {
       buildTelemetryView(baseTel({ cameraMode: "sun" }), sky).main.cameraMode,
       "Sun",
     );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "drone" }), sky).main.cameraMode,
+      "Drone",
+    );
   });
 
   it("builds complete card when missionComplete", () => {

@@ -33,6 +33,10 @@ export const CAMERA_LABELS: Record<
   },
   fin: { title: "Ship fin", detail: "Aft engines" },
   hull: { title: "Ship hull", detail: "Barrel cam" },
+  drone: {
+    title: "Drone",
+    detail: "Sea-level orbit of the floating ship",
+  },
 };
 
 /** Focus modes cycled by − / =. */
@@ -46,6 +50,7 @@ export const CAMERA_CYCLE: readonly CameraMode[] = [
   "chase",
   "fin",
   "hull",
+  "drone",
 ];
 
 /**

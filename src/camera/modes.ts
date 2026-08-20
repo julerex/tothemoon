@@ -405,6 +405,7 @@ export class CameraDirector {
   setMode(mode: CameraMode): void {
     this.clearGuidedPose();
     this.cancelDistanceEase();
+    this.armDroneTrack(mode);
     this.applyFocus(mode, /* frame */ false);
   }
 
@@ -415,6 +416,7 @@ export class CameraDirector {
   frameMode(mode: CameraMode, frameScale = 1): void {
     this.clearGuidedPose();
     this.cancelDistanceEase();
+    this.armDroneTrack(mode, frameScale);
     this.applyFocus(mode, /* frame */ true, frameScale);
   }
 
@@ -425,7 +427,7 @@ export class CameraDirector {
    */
   private isInstantEaseMode(mode: CameraMode): boolean {
     return mode === "fin" || mode === "gridfin" || mode === "trench" ||
-      mode === "hull" || mode === "free";
+      mode === "hull" || mode === "drone" || mode === "free";
   }
 
   private beginDistanceEase(mode: CameraMode, frameScale: number): void {
@@ -453,7 +455,7 @@ export class CameraDirector {
       droneTrack?: boolean;
     },
   ): void {
-    this.applyGuidedPose(opts);
+    this.applyGuidedPose(mode, opts);
     const frame = opts?.frame ?? true;
     const frameScale = opts?.frameScale ?? 1;
     const posed = this.hasSphericalPose(opts) || this.padTrack;
@@ -465,7 +467,7 @@ export class CameraDirector {
     this.beginDistanceEase(mode, frameScale);
   }
 
-  private applyGuidedPose(opts?: {
+  private applyGuidedPose(mode: CameraMode, opts?: {
     padTrack?: boolean;
     mount?: WebcastMount;
     chaseSubject?: "ship" | "booster";
@@ -476,7 +478,7 @@ export class CameraDirector {
     frameScale?: number;
   }): void {
     this.padTrack = !!opts?.padTrack;
-    this.droneTrack = !!opts?.droneTrack;
+    this.droneTrack = !!opts?.droneTrack || mode === "drone";
     this.mountVariant = opts?.mount ?? "default";
     this.chaseSubject = opts?.chaseSubject ?? "ship";
     if (opts?.azimuthDeg != null) this.padTrackAz = opts.azimuthDeg;
@@ -485,8 +487,19 @@ export class CameraDirector {
       this.droneEl = opts.elevationDeg;
     }
     if (opts?.frameScale != null) this.droneFrameScale = opts.frameScale;
-    const fov = opts?.droneTrack ? (opts.fov ?? SPLASH_DRONE_FOV) : (opts?.fov ?? THEATER_DEFAULT_FOV);
+    const fov = this.droneTrack
+      ? (opts?.fov ?? SPLASH_DRONE_FOV)
+      : (opts?.fov ?? THEATER_DEFAULT_FOV);
     this.setVerticalFov(fov);
+  }
+
+  /** Rail pick: sea-level recovery-drone orbit of the ship. */
+  private armDroneTrack(mode: CameraMode, frameScale?: number): void {
+    if (mode !== "drone") return;
+    this.droneTrack = true;
+    this.droneEl = SPLASH_DRONE_ELEV_DEG;
+    this.droneFrameScale = frameScale ?? SPLASH_DRONE_FRAME_SCALE;
+    this.setVerticalFov(SPLASH_DRONE_FOV);
   }
 
   private clearGuidedPose(): void {
@@ -537,6 +550,10 @@ export class CameraDirector {
     if (this.padTrack && mode === "starbase") {
       this.padTrackDist = dist;
       this.applyPadTrack();
+      return;
+    }
+    if (this.droneTrack && this.isDroneFocus(mode)) {
+      this.applyDroneTrack();
       return;
     }
     if (this.placeWithSphericalPose(mode, dist, pose)) {
@@ -673,7 +690,7 @@ export class CameraDirector {
 
   private buildEnuForMode(mode: CameraMode): boolean {
     if (mode === "starbase") return this.buildPadEnu();
-    if (mode === "chase") return this.buildCraftEnu();
+    if (mode === "chase" || this.isDroneFocus(mode)) return this.buildCraftEnu();
     return false;
   }
 
@@ -770,6 +787,7 @@ export class CameraDirector {
     if (mode === "earth") return this.distanceForRadius(WGS84_A, 0.65);
     if (mode === "moon") return this.distanceForRadius(R_MOON, 0.65);
     if (mode === "chase") return this.chaseFrameDistance();
+    if (this.isDroneFocus(mode)) return this.droneFrameDistance();
     if (mode === "starbase") return this.distanceForRadius(0.12, 0.5);
     if (mode === "trench" || mode === "hull") return this.distanceForRadius(0.02, 0.55);
     return this.getFocusDistance();
@@ -779,6 +797,15 @@ export class CameraDirector {
     const len = craftLengthKm(false);
     const widen = this.chaseSpeedWiden();
     return this.distanceForRadius(len * 0.5 * widen, 0.45);
+  }
+
+  /** Staged ship, no orbital speed-widen — the float is Earth-fixed. */
+  private droneFrameDistance(): number {
+    return this.distanceForRadius(craftLengthKm(true) * 0.5, 0.48) * this.droneFrameScale;
+  }
+
+  private isDroneFocus(mode: CameraMode = this.focus): boolean {
+    return mode === "drone";
   }
 
   private chaseSpeedWiden(): number {
@@ -850,6 +877,7 @@ export class CameraDirector {
   private nearForFocus(): number {
     const close =
       this.focus === "chase" ||
+      this.focus === "drone" ||
       this.focus === "starbase" ||
       this.focus === "fin" ||
       this.focus === "gridfin" ||
@@ -886,7 +914,10 @@ export class CameraDirector {
   private computeTarget(mode: CameraMode, outTarget: THREE.Vector3): void {
     if (mode === "free") return;
     if (isMountFocus(mode)) { this.copyMountLook(mode, outTarget); return; }
-    if (mode === "chase") { this.chaseTarget(outTarget); return; }
+    if (mode === "chase" || this.isDroneFocus(mode)) {
+      this.chaseTarget(outTarget);
+      return;
+    }
     if (mode === "starbase") { this.starbaseTarget(outTarget); return; }
     this.bodyTarget(mode, outTarget);
   }
@@ -1435,7 +1466,7 @@ export class CameraDirector {
    * Azimuth is a function of mission time so scrubs stay deterministic.
    */
   private holdDroneTrack(): boolean {
-    if (!this.droneTrack || this.focus !== "chase") return false;
+    if (!this.droneTrack || !this.isDroneFocus()) return false;
     if (this.hasCameraHold()) {
       this.droneTrack = false;
       this.unlockMount();
@@ -1447,11 +1478,7 @@ export class CameraDirector {
 
   private applyDroneTrack(): void {
     if (!this.buildCraftEnu()) return;
-    // Staged ship length, no orbital speed-widen — the float is Earth-fixed.
-    const dist = Math.max(
-      this.controls.minDistance,
-      this.distanceForRadius(craftLengthKm(true) * 0.5, 0.48) * this.droneFrameScale,
-    );
+    const dist = Math.max(this.controls.minDistance, this.droneFrameDistance());
     const az = splashDroneAzimuthDeg(this.simTime);
     const off = enuOffsetKm(
       { x: this.earthEast.x, y: this.earthEast.y, z: this.earthEast.z },

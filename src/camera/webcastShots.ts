@@ -240,7 +240,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "splash-drone",
     t0: SPLASH_DRONE_T0,
-    mode: "chase",
+    mode: "drone",
     frame: true,
     frameScale: SPLASH_DRONE_FRAME_SCALE,
     azimuthDeg: SPLASH_DRONE_AZ0_DEG,

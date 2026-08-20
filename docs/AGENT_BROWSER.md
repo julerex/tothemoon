@@ -79,7 +79,9 @@ nonce URL so the load is never a same-document hash change.
 
 On the menu, `ready` is `false` and mutators return `{ error: "theater not started" }`.
 
-Camera modes: `sun` `moon` `earth` `starbase` `trench` `gridfin` `chase` `fin` `hull` `free`.
+Camera modes: `sun` `moon` `earth` `starbase` `trench` `gridfin` `chase` `fin` `hull` `drone` `free`.
+
+`setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
 
 `craft.speed` is inertial (heliocentric). HUD speed is Earth-relative — they
 will not match. Prefer `hud.phase` / `clock` / `phaseId` for “are we at splash?”.

@@ -68,6 +68,7 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.ok((splash.frameScale ?? 1) > 1.3);
     const drone = webcastShotAt(SPLASH_DRONE_T0);
     assert.equal(drone.key, "splash-drone");
+    assert.equal(drone.mode, "drone");
     assert.equal(drone.droneTrack, true);
     assert.ok((drone.elevationDeg ?? 90) < 15);
     assert.equal(webcastShotAt(4000).key, "splash-drone");

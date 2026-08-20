@@ -1,5 +1,6 @@
 /**
  * Camera focus presets. `"free"` is internal (no subject co-motion).
+ * `"drone"` is the Flight 13 sea-level recovery orbit of the floating ship.
  */
 export type CameraMode =
   | "free"
@@ -11,4 +12,5 @@ export type CameraMode =
   | "fin"
   | "gridfin"
   | "trench"
-  | "hull";
+  | "hull"
+  | "drone";
