@@ -42,6 +42,9 @@ import {
   STEAM_TIERS,
   tongueVisual,
   ventSpritePose,
+  ventCloudOpacity,
+  ventCloudPose,
+  VENT_CLOUD_SPECS,
   type LaunchPadFxState,
 } from "./padLaunchFx.ts";
 
@@ -137,6 +140,27 @@ describe("padHazePeak", () => {
 
   it("dies with altitude", () => {
     assert.equal(padHazePeak(1, 1, 5), 0);
+  });
+});
+
+describe("vent cryo clouds", () => {
+  it("stays ground-hugging and smaller than the old sprite fog wall", () => {
+    assert.ok(VENT_CLOUD_SPECS.length >= 12);
+    for (const s of VENT_CLOUD_SPECS) {
+      assert.ok(s.scale < 0.05, `scale ${s.scale}`);
+      assert.ok(s.y < 0.03, `y ${s.y}`);
+      assert.ok(s.lobes >= 4);
+    }
+    assert.ok(VENT_CLOUD_SPECS.some((s) => Math.hypot(s.x, s.z) < 0.04));
+    assert.ok(VENT_CLOUD_SPECS.some((s) => s.x > 0.07));
+  });
+
+  it("is opaque on hold and hidden when vent is off", () => {
+    assert.equal(ventCloudOpacity(0, 0), 0);
+    assert.ok(ventCloudOpacity(0.9, 0) > 0.7);
+    const pose = ventCloudPose(VENT_CLOUD_SPECS[0]!, 0.9, -42);
+    assert.ok(Math.abs(pose.y - VENT_CLOUD_SPECS[0]!.y) < 0.01);
+    assert.ok(pose.scale < 0.05);
   });
 });
 

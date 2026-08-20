@@ -6,7 +6,7 @@ import {
   olmLampColorHex, padBeaconOpacity, padFillColorHex, padFillDistance,
   padFillIntensity, plumeLightDistance, plumeLightIntensity, plumeLightRgb,
   sheetSpritePose, steamSpritePose, steamTintRgb, steamWarmth, tongueVisual,
-  ventSpritePose, type LaunchPadFxState,
+  ventCloudOpacity, ventCloudPose, VENT_CLOUD_VISIBLE_EPS, type LaunchPadFxState,
 } from "../padLaunchFx";
 
 function applySpritePose(
@@ -135,11 +135,12 @@ function updatePadHaze(pad: THREE.Object3D, hazePeak: number, animT: number): vo
   });
 }
 
-function ventBaseFromUserData(obj: THREE.Object3D) {
+function ventCloudSpecFromUserData(obj: THREE.Object3D) {
   return {
-    baseX: (obj.userData.baseX as number) ?? 0,
-    baseY: (obj.userData.baseY as number) ?? 0,
-    baseZ: (obj.userData.baseZ as number) ?? 0,
+    x: (obj.userData.baseX as number) ?? 0,
+    y: (obj.userData.baseY as number) ?? 0,
+    z: (obj.userData.baseZ as number) ?? 0,
+    scale: (obj.userData.baseScale as number) ?? 0.02,
     phase: (obj.userData.phase as number) ?? 0,
   };
 }
@@ -147,12 +148,17 @@ function ventBaseFromUserData(obj: THREE.Object3D) {
 function updatePadVent(pad: THREE.Object3D, ventStr: number, night: number, animT: number): void {
   const vent = pad.getObjectByName("pad-vent-steam");
   if (!vent) return;
-  vent.visible = ventStr > 0.04;
-  vent.traverse((obj) => {
-    if (obj instanceof THREE.Sprite) {
-      applySpritePose(obj, ventSpritePose(ventBaseFromUserData(obj), ventStr, night, animT));
-    }
-  });
+  const on = ventStr > VENT_CLOUD_VISIBLE_EPS;
+  vent.visible = on;
+  if (!on) return;
+  const mat = vent.userData.mat as THREE.MeshLambertMaterial | undefined;
+  if (mat) mat.opacity = ventCloudOpacity(ventStr, night);
+  for (const child of vent.children) {
+    if (!child.userData.cloud) continue;
+    const pose = ventCloudPose(ventCloudSpecFromUserData(child), ventStr, animT);
+    child.position.set(pose.x, pose.y, pose.z);
+    child.scale.setScalar(pose.scale);
+  }
 }
 
 function updatePadFloods(

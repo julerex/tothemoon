@@ -94,6 +94,46 @@ export const VENT_ANCHORS: readonly (readonly [number, number, number])[] = [
   [0.09, 0.014, 0.085],
 ];
 
+/** One low-poly cryo-cloud cluster (pad-local km). */
+export type VentCloudSpec = Readonly<{
+  x: number;
+  y: number;
+  z: number;
+  /** Cluster size (km) — keep well under the old ~0.26 km sprite fog wall. */
+  scale: number;
+  phase: number;
+  lobes: number;
+}>;
+
+/** Ground-hugging OLM wrap — T−42 still steam around the booster base. */
+const OLM_WRAP_CLOUDS: readonly VentCloudSpec[] = [
+  { x: -0.030, y: 0.009, z: 0.006, scale: 0.026, phase: 0.2, lobes: 6 },
+  { x: -0.044, y: 0.010, z: -0.012, scale: 0.028, phase: 1.0, lobes: 7 },
+  { x: -0.022, y: 0.008, z: -0.022, scale: 0.024, phase: 1.8, lobes: 5 },
+  { x: 0.016, y: 0.007, z: -0.024, scale: 0.020, phase: 2.5, lobes: 5 },
+  { x: 0.010, y: 0.006, z: 0.026, scale: 0.018, phase: 3.2, lobes: 4 },
+  { x: -0.018, y: 0.009, z: 0.020, scale: 0.022, phase: 4.0, lobes: 5 },
+  { x: -0.008, y: 0.007, z: -0.008, scale: 0.016, phase: 4.7, lobes: 4 },
+  { x: -0.056, y: 0.011, z: 0.004, scale: 0.024, phase: 5.4, lobes: 6 },
+];
+
+function tankFarmClouds(): VentCloudSpec[] {
+  return VENT_ANCHORS.map((a, i) => ({
+    x: a[0],
+    y: a[1] * 0.55 + 0.004,
+    z: a[2],
+    scale: 0.013 + (i % 3) * 0.003,
+    phase: i * 1.1,
+    lobes: 4 + (i % 3),
+  }));
+}
+
+/** Prelaunch cryo banks: OLM wrap + tank-farm vents. */
+export const VENT_CLOUD_SPECS: readonly VentCloudSpec[] = [
+  ...OLM_WRAP_CLOUDS,
+  ...tankFarmClouds(),
+];
+
 /** Number of heat-haze billboards along the trench. */
 export const HAZE_COUNT = 5;
 /** First haze sprite Z (km, pad frame; trench runs roughly ±Z). */

@@ -6,7 +6,7 @@ import {
 import { geodeticToMeshLocal } from "../../physics/earthFrame";
 import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import {
-  DELUGE_SHEETS, GROUND_SHEETS, VENT_ANCHORS, expandSteamSprites, hazeBaseZs,
+  DELUGE_SHEETS, GROUND_SHEETS, expandSteamSprites, hazeBaseZs,
 } from "../padLaunchFx";
 import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../../camera/trenchCam";
 import {
@@ -15,6 +15,7 @@ import {
 import { createPadSurroundings } from "./padSurroundings";
 import { createMechazillaTower } from "./mechazillaTower";
 import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate";
+import { createPadVentClouds } from "./padVentClouds";
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 export function placePadOnEarth(pad: THREE.Group): void {
@@ -257,24 +258,8 @@ function addHazeSprite(group: THREE.Group, map: THREE.CanvasTexture, z: number, 
   group.add(sprite);
 }
 
-function addPadVentSteam(pad: THREE.Group, steamTex: THREE.CanvasTexture): void {
-  const ventSteam = new THREE.Group();
-  ventSteam.name = "pad-vent-steam";
-  ventSteam.visible = false;
-  for (let i = 0; i < VENT_ANCHORS.length; i++) addVentSprite(ventSteam, steamTex, i);
-  pad.add(ventSteam);
-}
-
-function addVentSprite(group: THREE.Group, map: THREE.CanvasTexture, i: number): void {
-  const [x, y, z] = VENT_ANCHORS[i]!;
-  const sprite = new THREE.Sprite(makeSteamSpriteMat(map, 0xe8ecf0));
-  sprite.position.set(x, y, z);
-  sprite.scale.setScalar(0.12);
-  sprite.userData.baseX = x;
-  sprite.userData.baseY = y;
-  sprite.userData.baseZ = z;
-  sprite.userData.phase = i * 1.1;
-  group.add(sprite);
+function addPadVentSteam(pad: THREE.Group): void {
+  pad.add(createPadVentClouds());
 }
 
 function addPadBeacon(pad: THREE.Group): void {
@@ -302,7 +287,7 @@ function addPadFxSprites(pad: THREE.Group): void {
   addPadDelugeSheets(pad, steamTex);
   addPadGroundSteam(pad, steamTex);
   addPadHeatHaze(pad);
-  addPadVentSteam(pad, steamTex);
+  addPadVentSteam(pad);
 }
 
 function addTrenchCamMounts(pad: THREE.Group): void {
