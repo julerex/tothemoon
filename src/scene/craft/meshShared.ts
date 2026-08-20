@@ -51,6 +51,53 @@ export type FlapSpec = {
   sweepAft: number;
 };
 
+/**
+ * Windward TPS arc (rad) — must match `addHeatMain` `phiLength`.
+ * U=1 on the hex map spans this arc × barrel radius.
+ */
+const TPS_PHI_LENGTH = Math.PI * 0.64;
+
+/** Mesh units for U=1 / V=1 on the windward hex map (same as hull TPS). */
+export function tpsMapWorldSize(): { uMesh: number; vMesh: number } {
+  return {
+    uMesh: TPS_PHI_LENGTH * R,
+    vMesh: Math.max(SHIP_OGIVE_BASE_Z - 0.05, 0.2),
+  };
+}
+
+/**
+ * Hex-map UV for a flap vertex. `x` is span from the hinge, `y` is chord
+ * (0 at mid-chord). Scaled so tiles match hull TPS size.
+ */
+export function flapTileUv(
+  x: number,
+  y: number,
+  chord: number,
+  vOffset = 0,
+): { u: number; v: number } {
+  const { uMesh, vMesh } = tpsMapWorldSize();
+  return {
+    u: x / uMesh,
+    v: (y + chord * 0.5) / vMesh + vOffset,
+  };
+}
+
+/** Remap ExtrudeGeometry UVs from shape units onto the hull hex map. */
+export function applyFlapTileUvs(
+  geom: THREE.BufferGeometry,
+  chord: number,
+  vOffset = 0,
+): void {
+  const pos = geom.getAttribute("position");
+  const uv = geom.getAttribute("uv");
+  if (!pos || !uv) return;
+  for (let i = 0; i < pos.count; i++) {
+    const p = flapTileUv(pos.getX(i), pos.getY(i), chord, vOffset);
+    uv.setXY(i, p.u, p.v);
+  }
+  uv.needsUpdate = true;
+}
+
 /** Trapezoid in XY (x = span from hinge, y = chord); extrude along Z = thickness. */
 export function makeFlapGeom(spec: FlapSpec): THREE.ExtrudeGeometry {
   const c = spec.chord / 2;
@@ -69,41 +116,44 @@ export function makeFlapGeom(spec: FlapSpec): THREE.ExtrudeGeometry {
   return geom;
 }
 
-/** Child meshes: local +X = span after rotX so pivot.rotation.x remains the hinge. */
-export function addFlapChildren(
-  pivot: THREE.Group,
-  spec: FlapSpec,
-  mats: CraftMats,
-  withWear: boolean,
-): void {
-  const body = new THREE.Mesh(makeFlapGeom(spec), mats.steelDark);
-  body.rotation.x = Math.PI / 2;
-  pivot.add(body);
-  const tileSpec: FlapSpec = {
-    chord: spec.chord * 0.88,
-    span: spec.span * 0.92,
-    thickness: spec.thickness * 0.22,
-    sweepFwd: spec.sweepFwd * 0.88,
-    sweepAft: spec.sweepAft * 0.88,
-  };
-  const tile = new THREE.Mesh(makeFlapGeom(tileSpec), mats.tile);
-  tile.rotation.x = Math.PI / 2;
-  tile.position.set(spec.span * 0.04, spec.thickness * 0.38, 0);
-  pivot.add(tile);
-  if (withWear) {
-    const wear = new THREE.Mesh(
-      new THREE.BoxGeometry(spec.span * 0.55, spec.thickness * 0.18, spec.chord * 0.12),
-      mats.tileWear,
-    );
-    wear.position.set(spec.span * 0.45, spec.thickness * 0.42, -spec.chord * 0.22);
-    pivot.add(wear);
-  }
+function makeFlapTileGeom(spec: FlapSpec, vOffset: number): THREE.ExtrudeGeometry {
+  const geom = makeFlapGeom(spec);
+  applyFlapTileUvs(geom, spec.chord, vOffset);
+  return geom;
+}
+
+function addFlapWear(pivot: THREE.Group, spec: FlapSpec, mats: CraftMats): void {
+  const wear = new THREE.Mesh(
+    new THREE.BoxGeometry(spec.span * 0.55, spec.thickness * 0.18, spec.chord * 0.12),
+    mats.tileWear,
+  );
+  wear.position.set(spec.span * 0.45, spec.thickness * 0.42, -spec.chord * 0.22);
+  pivot.add(wear);
+}
+
+function addFlapHinge(pivot: THREE.Group, spec: FlapSpec, mats: CraftMats): void {
   const hinge = new THREE.Mesh(
     new THREE.BoxGeometry(0.028, spec.thickness * 1.6, spec.chord * 0.22),
     mats.accent,
   );
   hinge.position.set(-0.004, 0, spec.chord * 0.12);
   pivot.add(hinge);
+}
+
+/** Child meshes: local +X = span after rotX so pivot.rotation.x remains the hinge. */
+export function addFlapChildren(
+  pivot: THREE.Group,
+  spec: FlapSpec,
+  mats: CraftMats,
+  withWear: boolean,
+  vOffset = 0,
+): void {
+  const body = new THREE.Mesh(makeFlapTileGeom(spec, vOffset), mats.tile);
+  body.name = "flap-tps";
+  body.rotation.x = Math.PI / 2;
+  pivot.add(body);
+  if (withWear) addFlapWear(pivot, spec, mats);
+  addFlapHinge(pivot, spec, mats);
 }
 
 /** Named hinge: Euler ZYX so azimuth (Z) then pitch (X) for V7 belly throw. */

@@ -16,6 +16,14 @@ import {
   SHIP_WELD_RING_FRACTIONS,
   shipOgiveRadiusM,
 } from "./craft.ts";
+import { FWD_FLAP_SPAN } from "./craft/dimensions.ts";
+import {
+  applyFlapTileUvs,
+  flapTileUv,
+  makeFlapGeom,
+  tpsMapWorldSize,
+} from "./craft/meshShared.ts";
+import { HEX_TILE_COLS } from "./craftHullMaps.ts";
 
 const BARREL_R_M = 4.5;
 
@@ -61,5 +69,35 @@ describe("ship flaps", () => {
     assert.ok(AFT_FLAP_CHORD_M >= 10 && AFT_FLAP_CHORD_M <= 13);
     assert.ok(AFT_FLAP_SPAN_M >= 3.5 && AFT_FLAP_SPAN_M <= 4.5);
     assert.ok(9 + 2 * AFT_FLAP_SPAN_M <= 17.1);
+  });
+
+  it("maps flap UVs at hull hex density so several columns fit on a forward flap", () => {
+    const { uMesh } = tpsMapWorldSize();
+    const hinge = flapTileUv(0, 0, 0.16);
+    const tip = flapTileUv(FWD_FLAP_SPAN, 0, 0.16);
+    assert.ok(Number.isFinite(hinge.u) && Number.isFinite(hinge.v));
+    const hexCols = (tip.u - hinge.u) * HEX_TILE_COLS;
+    assert.ok(hexCols > 6, `hex columns ${hexCols}`);
+    assert.ok(FWD_FLAP_SPAN / uMesh > 0.25);
+  });
+
+  it("stamps hex-scale UVs onto flap extrusions", () => {
+    const spec = {
+      chord: 0.16,
+      span: FWD_FLAP_SPAN,
+      thickness: 0.006,
+      sweepFwd: 0.04,
+      sweepAft: 0.01,
+    };
+    const geom = makeFlapGeom(spec);
+    applyFlapTileUvs(geom, spec.chord, 0.16);
+    const uv = geom.getAttribute("uv")!;
+    let minU = Infinity;
+    let maxU = -Infinity;
+    for (let i = 0; i < uv.count; i++) {
+      minU = Math.min(minU, uv.getX(i));
+      maxU = Math.max(maxU, uv.getX(i));
+    }
+    assert.ok(maxU - minU > 0.25, `u span ${maxU - minU}`);
   });
 });

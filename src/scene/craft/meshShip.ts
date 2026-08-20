@@ -151,7 +151,7 @@ function addFwdFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
     fwdFlapZ(),
     0.08,
   );
-  addFlapChildren(pivot, spec, mats, true);
+  addFlapChildren(pivot, spec, mats, true, 0.16);
   ship.add(pivot);
 }
 
@@ -230,7 +230,7 @@ function addAftFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
     6.5 * U,
     0,
   );
-  addFlapChildren(pivot, spec, mats, false);
+  addFlapChildren(pivot, spec, mats, false, 0.52);
   const steelPatch = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.07, 0.11), mats.tile);
   steelPatch.position.set(spec.span * 0.35, -0.04, spec.chord * 0.08);
   pivot.add(steelPatch);
