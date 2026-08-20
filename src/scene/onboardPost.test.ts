@@ -33,7 +33,7 @@ describe("onboardBarrelStrength", () => {
     const s = onboardBarrelStrength();
     assert.equal(s, ONBOARD_BARREL_STRENGTH);
     assert.ok(s >= 0.05 && s <= 0.22);
-    assert.ok(ONBOARD_GRAIN_STRENGTH > 0 && ONBOARD_GRAIN_STRENGTH < 0.2);
-    assert.ok(ONBOARD_DIRT_STRENGTH > 0 && ONBOARD_DIRT_STRENGTH < 0.25);
+    assert.equal(ONBOARD_GRAIN_STRENGTH, 0);
+    assert.equal(ONBOARD_DIRT_STRENGTH, 0);
   });
 });

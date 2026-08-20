@@ -1,8 +1,8 @@
 /**
  * Visual V18 — onboard-cam post (fin + gridfin only).
  *
- * Mild barrel (fisheye-ish) distortion + restrained UV-hashed grain + a static
- * dirt overlay. Theater-grade; scrub-safe (no performance.now / wall-clock).
+ * Mild barrel (fisheye-ish) distortion only. Grain / dirt overlays were too
+ * hazy on hull-style mounts (gridfin). Theater-grade; scrub-safe.
  * Hull keeps the wide FOV from V13 but does **not** get this pass.
  *
  * @see docs/VISUAL_REALISM.md — V18
@@ -13,10 +13,10 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 
 /** Mild barrel strength — keep in a narrow band so tests can pin it. */
 export const ONBOARD_BARREL_STRENGTH = 0.12;
-/** Grain mix amount (0..1) over the distorted sample. */
-export const ONBOARD_GRAIN_STRENGTH = 0.07;
-/** Dirt overlay opacity. */
-export const ONBOARD_DIRT_STRENGTH = 0.11;
+/** Grain mix amount (0..1). Off — hashed grain read as a hazy film. */
+export const ONBOARD_GRAIN_STRENGTH = 0;
+/** Dirt overlay opacity. Off with grain. */
+export const ONBOARD_DIRT_STRENGTH = 0;
 
 /**
  * True when the cinema stack should apply the onboard look.
