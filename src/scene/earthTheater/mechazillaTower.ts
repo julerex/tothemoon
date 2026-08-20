@@ -42,11 +42,39 @@ function makeTowerMats(): TowerMats {
   };
 }
 
-const TOWER_H = 0.146;
-const TOWER_FACE = 0.014;
-const TOWER_COL = 0.0016;
-const TOWER_OX = 0.022;
+/**
+ * Official OLT height (m), ground to lightning rod (FAA / Guinness).
+ * Truss is shorter so the ~123 m stack nose sits near the rail top.
+ */
+export const OLT_HEIGHT_M = 146;
+/** Main truss / rail height (m) — just above the stacked vehicle. */
+export const OLT_TRUSS_M = 132;
+/** Chopstick beam length, tower face to tip (m). */
+export const CHOPSTICK_LEN_M = 36;
+/** Square truss face (m). */
+export const TOWER_FACE_M = 12;
+/** Pad-origin to tower center (m); +X is toward the tower. */
+export const TOWER_OX_M = 20;
+/** Prelaunch chopsticks carriage height (m) — grid-fin / interstage. */
+export const CHOPSTICK_REST_M = 75;
+/** Half-span of the open chopsticks from pad center (m). */
+export const CHOPSTICK_HALF_SPAN_M = 7;
+/** Ship QD arm height (m) — mid Starship after the 71 m booster. */
+export const SHIP_QD_M = 98;
+
+const M = 0.001;
+export const TOWER_H = OLT_TRUSS_M * M;
+export const TOWER_FACE = TOWER_FACE_M * M;
+const TOWER_COL = 0.002;
+export const TOWER_OX = TOWER_OX_M * M;
 const TOWER_OY0 = 0.0;
+export const TOWER_BEACON_Y = OLT_HEIGHT_M * M;
+const CHOPSTICK_LEN = CHOPSTICK_LEN_M * M;
+const CHOPSTICK_REST_Y = CHOPSTICK_REST_M * M;
+const CHOPSTICK_HALF_SPAN = CHOPSTICK_HALF_SPAN_M * M;
+const SHIP_QD_Y = SHIP_QD_M * M;
+const PEAK_H = 0.008;
+const ROD_H = OLT_HEIGHT_M * M - TOWER_H - PEAK_H;
 
 function addTowerColumns(g: THREE.Group, mats: TowerMats): void {
   const half = TOWER_FACE * 0.5;
@@ -94,13 +122,19 @@ function addTowerRail(g: THREE.Group, mats: TowerMats, half: number): void {
 }
 
 function addTowerPeakAndSheave(g: THREE.Group, mats: TowerMats, half: number): void {
-  const peak = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 1.15, 0.008, TOWER_FACE * 1.15), mats.steelBright);
-  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + 0.002, 0);
+  const peak = new THREE.Mesh(
+    new THREE.BoxGeometry(TOWER_FACE * 1.15, PEAK_H, TOWER_FACE * 1.15),
+    mats.steelBright,
+  );
+  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + PEAK_H * 0.5, 0);
   g.add(peak);
   const sheave = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, TOWER_FACE * 0.7, 10), mats.steelDark);
   sheave.rotation.z = Math.PI / 2;
-  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + 0.006, 0);
+  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + PEAK_H + 0.002, 0);
   g.add(sheave);
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.00035, 0.00025, ROD_H, 6), mats.steelDark);
+  rod.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + PEAK_H + ROD_H * 0.5, 0);
+  g.add(rod);
 }
 
 function addTowerRailAndPeak(g: THREE.Group, mats: TowerMats): void {
@@ -128,8 +162,8 @@ function addChopstickCarriage(g: THREE.Group, mats: TowerMats, carryY: number): 
 }
 
 function buildChopstickArm(mats: TowerMats, side: number): THREE.Group {
-  const armLen = 0.026;
-  const armSq = 0.0028;
+  const armLen = CHOPSTICK_LEN;
+  const armSq = 0.0034;
   const stick = new THREE.Group();
   stick.name = side < 0 ? "pad-chopstick-L" : "pad-chopstick-R";
   addChopstickParts(stick, mats, armLen, armSq);
@@ -162,7 +196,7 @@ function addChopsticks(g: THREE.Group, mats: TowerMats, carryY: number): void {
   const half = TOWER_FACE * 0.5;
   for (const side of [-1, 1] as const) {
     const stick = buildChopstickArm(mats, side);
-    stick.position.set(TOWER_OX - half, carryY + 0.005, side * 0.013);
+    stick.position.set(TOWER_OX - half, carryY + 0.005, side * CHOPSTICK_HALF_SPAN);
     stick.rotation.y = side * 0.05;
     stick.rotation.z = -0.03;
     stick.userData.restRotY = stick.rotation.y;
@@ -173,7 +207,7 @@ function addChopsticks(g: THREE.Group, mats: TowerMats, carryY: number): void {
 
 function addQdArm(g: THREE.Group, mats: TowerMats): void {
   const half = TOWER_FACE * 0.5;
-  const qdY = TOWER_OY0 + 0.098;
+  const qdY = TOWER_OY0 + SHIP_QD_Y;
   const qd = new THREE.Group();
   qd.name = "pad-qd-arm";
   addQdBoom(qd, mats);
@@ -258,7 +292,7 @@ function addTowerUpper(g: THREE.Group, mats: TowerMats): void {
 }
 
 function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {
-  const carryY = TOWER_OY0 + 0.078;
+  const carryY = TOWER_OY0 + CHOPSTICK_REST_Y;
   addChopstickCarriage(g, mats, carryY);
   addChopsticks(g, mats, carryY);
   addQdArm(g, mats);
