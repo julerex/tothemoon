@@ -688,13 +688,30 @@ export class CameraDirector {
       dist,
     );
     this.camera.position.set(pad.pos.x + off.x, pad.pos.y + off.y, pad.pos.z + off.z);
-    this.desiredTarget.copy(this.craftPos);
+    this.desiredTarget.copy(this.craftPos).addScaledVector(
+      this.earthUp, this.padTrackLookUpKm(pad.pos),
+    );
     this.controls.target.copy(this.desiredTarget);
     this.camera.up.copy(this.earthUp);
     this.camera.lookAt(this.controls.target);
     this.syncOrbitControlsUp();
     this.trackAnchor.copy(this.desiredTarget);
     this.trackAnchorValid = true;
+  }
+
+  /**
+   * Lift the pad-track look-at up the stack while the vehicle is still on the
+   * OLM so a low ground camera frames the full stack, not the dirt apron.
+   * Fades out as the craft climbs away from the pad.
+   */
+  private padTrackLookUpKm(padPos: { x: number; y: number; z: number }): number {
+    const d = Math.hypot(
+      this.craftPos.x - padPos.x,
+      this.craftPos.y - padPos.y,
+      this.craftPos.z - padPos.z,
+    );
+    if (d >= 0.3) return 0;
+    return 0.085 * (1 - d / 0.3);
   }
 
   /**

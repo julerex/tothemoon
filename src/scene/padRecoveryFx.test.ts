@@ -29,7 +29,7 @@ describe("chopstickCloseAmount", () => {
     const a = deriveChopstickPose({ age: 278, profile: "chopsticks" });
     assert.deepEqual(a, deriveChopstickPose({ age: 278, profile: "chopsticks" }));
     assert.ok(a.close > 0.5);
-    assert.ok(a.carriageDy < 0);
+    assert.ok(a.carriageDy < -0.02);
   });
 });
 

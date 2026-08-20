@@ -10,9 +10,12 @@ import { describe, it } from "node:test";
 import {
   bloomVisual,
   clamp01,
+  delugeJetPose,
   derivePadFx,
+  expandDelugeJets,
   expandSteamSprites,
   flameVisual,
+  FLAME_DIVERTER_T,
   floodFixtureEmissive,
   floodSpotDistance,
   floodSpotIntensity,
@@ -23,6 +26,7 @@ import {
   olmLampColorHex,
   padBeaconOpacity,
   padDayNight,
+  padDelugeStrength,
   padFillColorHex,
   padFillDistance,
   padFillIntensity,
@@ -129,6 +133,53 @@ describe("padSteamStrength", () => {
     assert.equal(padSteamStrength({ ...base, phase: "coast" }), 0);
     assert.equal(padSteamStrength({ ...base, missionT: 200 }), 0);
   });
+
+  it("is dense at T-2 ignition even when burning is false (prelaunch)", () => {
+    const ign = padSteamStrength({
+      ...base, missionT: -2, burning: false, altEarth: 0.05,
+    });
+    assert.ok(ign > 0.6);
+  });
+});
+
+describe("padDelugeStrength", () => {
+  it("is off before flame-diverter activation", () => {
+    assert.equal(FLAME_DIVERTER_T, -17);
+    assert.equal(
+      padDelugeStrength({ ...base, missionT: -30, burning: false }),
+      0,
+    );
+  });
+
+  it("is full at T-2 and independent of the burning flag", () => {
+    const d = padDelugeStrength({ ...base, missionT: -2, burning: false });
+    assert.ok(d > 0.95);
+  });
+
+  it("is scrub-stable", () => {
+    const s = { ...base, missionT: -10, burning: false };
+    assert.deepEqual(padDelugeStrength(s), padDelugeStrength(s));
+  });
+});
+
+describe("expandDelugeJets", () => {
+  it("places jets on the OLM ring", () => {
+    const jets = expandDelugeJets();
+    assert.ok(jets.length >= 24);
+    for (const j of jets) {
+      assert.ok(j.r0 < 0.03);
+      assert.ok(j.h > 0.005 && j.h < 0.03);
+    }
+  });
+
+  it("jet pose is finite and hidden when deluge is off", () => {
+    const off = delugeJetPose({ phase: 1 }, 0, -20);
+    assert.equal(off.visible, false);
+    const on = delugeJetPose({ phase: 1 }, 1, -2);
+    assert.equal(on.visible, true);
+    assert.ok(on.opacity > 0.3);
+    assert.deepEqual(delugeJetPose({ phase: 1 }, 1, -2), delugeJetPose({ phase: 1 }, 1, -2));
+  });
 });
 
 describe("padHazePeak", () => {
@@ -180,6 +231,13 @@ describe("padVentStrength", () => {
     assert.ok(post > 0);
     assert.ok(dimmed < post);
   });
+
+  it("yields the OLM wrap to the flame-diverter deluge at T-2", () => {
+    const hold = padVentStrength({ ...base, missionT: -60, burning: false }, 0);
+    const ign = padVentStrength({ ...base, missionT: -2, burning: false }, 0);
+    assert.ok(hold > 0.7);
+    assert.ok(ign < 0.2);
+  });
 });
 
 describe("padOpsLights", () => {
@@ -202,6 +260,7 @@ describe("derivePadFx", () => {
     const d = derivePadFx(base);
     assert.ok(d.flame.strength > 0);
     assert.ok(d.steamStr > 0);
+    assert.ok(d.delugeStr > 0.5);
     assert.ok(d.hazePeak > 0);
     assert.equal(d.animT, base.missionT);
   });
@@ -318,7 +377,7 @@ describe("sprite poses", () => {
     const sheet = sheetSpritePose({ ...base, baseY: 0.018, baseSy: 0.04 }, 1, 0, 0);
     assert.ok(ground.opacity > 0.35);
     assert.ok(ground.position.y < sheet.position.y);
-    assert.equal(GROUND_SHEETS.length, 5);
+    assert.equal(GROUND_SHEETS.length, 7);
   });
 });
 

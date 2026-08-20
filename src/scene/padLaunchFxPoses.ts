@@ -35,19 +35,19 @@ function steamOpacity(base: SteamSpriteBase, steamStr: number, night: number, an
   const tierOp = 1 - base.tier * 0.16;
   const wobble = 0.88 + 0.12 * Math.sin(animT * 3.1 + base.phase);
   // Denser than V3 (~0.26) but not so opaque that pad bloom whites out trench cam.
-  return (0.38 + 0.14 * night) * steamStr * wobble * tierOp;
+  return (0.52 + 0.12 * night) * steamStr * wobble * tierOp;
 }
 
 function steamGrow(base: SteamSpriteBase, steamStr: number, animT: number): number {
-  return base.baseScale * (0.95 + steamStr * 0.95) + 0.012 * Math.sin(animT * 2.2 + base.phase);
+  return base.baseScale * (0.95 + steamStr * 0.55) + 0.006 * Math.sin(animT * 2.2 + base.phase);
 }
 
 function steamPosition(base: SteamSpriteBase, steamStr: number, animT: number): Vec3 {
-  const r = base.baseR + steamStr * (0.022 + base.tier * 0.012) + 0.006 * Math.sin(animT * 1.7 + base.phase);
+  const r = base.baseR + steamStr * (0.01 + base.tier * 0.006) + 0.003 * Math.sin(animT * 1.7 + base.phase);
   const ang = base.baseAng + animT * 0.04;
   return {
     x: Math.cos(ang) * r,
-    y: base.baseY + steamStr * (0.018 + base.tier * 0.014) + 0.006 * Math.sin(animT * 2.5 + base.phase),
+    y: base.baseY + steamStr * (0.008 + base.tier * 0.006) + 0.003 * Math.sin(animT * 2.5 + base.phase),
     z: Math.sin(ang) * r,
   };
 }
@@ -104,7 +104,7 @@ export function sheetSpritePose(
 ): SpritePose {
   const wobble = 0.85 + 0.15 * Math.sin(animT * 4.2 + base.phase);
   return {
-    opacity: (0.42 + 0.12 * night) * steamStr * wobble,
+    opacity: (0.55 + 0.1 * night) * steamStr * wobble,
     scale: sheetScale(base, steamStr, animT),
     position: sheetPosition(base, steamStr, animT),
   };
@@ -124,7 +124,7 @@ export function groundSheetPose(
   const sx = base.baseSx * (1.1 + steamStr * 0.8);
   const sy = base.baseSy * (0.95 + steamStr * 0.35 + 0.04 * Math.sin(animT * 2.4 + base.phase));
   return {
-    opacity: (0.44 + 0.12 * night) * steamStr * wobble,
+    opacity: (0.58 + 0.1 * night) * steamStr * wobble,
     scale: { x: sx, y: sy },
     position: {
       x: base.baseX + 0.004 * Math.sin(animT * 1.8 + base.phase),

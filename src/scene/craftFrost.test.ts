@@ -84,8 +84,8 @@ describe("frost / ice poses", () => {
     const a = frostPatchOpacity(1, 0.2, 2);
     const b = frostPatchOpacity(1, 0.2, 2);
     assert.equal(a, b);
-    assert.ok(a > 0.3 && a < 0.7);
-    assert.equal(FROST_PATCHES.length, 5);
+    assert.ok(a > 0.55 && a < 0.98);
+    assert.equal(FROST_PATCHES.length, 6);
   });
 
   it("drifts ice flakes outward as shed rises", () => {

@@ -5,6 +5,7 @@
  */
 
 import { clamp01, smoothstep } from "./padLaunchFxMath";
+import { ENGINE_START_T, FLAME_DIVERTER_T } from "./padLaunchFxSpecs";
 
 /**
  * Mission-time pad FX input (from the active sample + lighting).
@@ -108,20 +109,48 @@ export function padFlameStrength(state: LaunchPadFxState): PadFlameBundle {
   return { active, altFade, flicker, strength };
 }
 
+function onPadLaunchPhase(state: LaunchPadFxState): boolean {
+  return state.phase === "launch" || state.phase === "ascent";
+}
+
 /**
- * Deluge steam envelope strength — hangs longer than hard flame.
+ * Water-deluge / flame-deflector envelope.
  *
- * Stays up through thicker atmosphere theater (~30 km fade, hard cut 35 km)
- * and the first three minutes after liftoff, but only on `launch` / `ascent`
+ * SpaceX countdown lights the **flame diverter** at T−17: water is forced
+ * through the steel plate under the OLM (sound suppression + thermal
+ * protection). Independent of the `burning` flag so T− hold still shows the
+ * rush of water (prelaunch theaters force `burning` false).
+ *
+ * @returns Deluge jet strength in [0, 1]
+ */
+export function padDelugeStrength(state: LaunchPadFxState): number {
+  if (!onPadLaunchPhase(state) || state.altEarth >= 8 || state.missionT >= 40) {
+    return 0;
+  }
+  if (state.missionT < FLAME_DIVERTER_T) return 0;
+  const rise = smoothstep(FLAME_DIVERTER_T, FLAME_DIVERTER_T + 4, state.missionT);
+  const fall = 1 - smoothstep(10, 36, state.missionT);
+  return rise * fall;
+}
+
+/**
+ * Deluge steam envelope — water flashing plus engine-warmed cloud.
+ *
+ * Pre-liftoff: flame-diverter mist, punching up at engine start (T−3).
+ * Post-liftoff: hangs through thicker atmosphere (~30 km fade, hard cut 35 km)
  * while engines burn. True-scale cloud around the OLM, not a multi-km fog.
  *
  * @returns Steam strength in [0, 1]
  */
 export function padSteamStrength(state: LaunchPadFxState): number {
-  if (!state.burning || state.altEarth >= 35 || state.missionT >= 180) {
-    return 0;
+  if (state.altEarth >= 35 || state.missionT >= 180) return 0;
+  if (!onPadLaunchPhase(state)) return 0;
+  if (state.missionT < 0) {
+    const deluge = padDelugeStrength(state);
+    const ignite = smoothstep(ENGINE_START_T, -0.4, state.missionT);
+    return clamp01(deluge * (0.7 + 0.3 * ignite));
   }
-  if (state.phase !== "launch" && state.phase !== "ascent") return 0;
+  if (!state.burning) return 0;
   return clamp01(1 - state.altEarth / 30);
 }
 
@@ -176,6 +205,8 @@ export function padVentStrength(
     ventStr = clamp01(1 - state.missionT / 90) * 0.75;
   }
   if (flameStrength > 0.2) ventStr *= 0.55;
+  const deluge = padDelugeStrength(state);
+  if (deluge > 0.15) ventStr *= 1 - 0.92 * deluge;
   return ventStr;
 }
 
@@ -228,6 +259,8 @@ export type PadFxDerived = Readonly<{
   flame: PadFlameBundle;
   /** Deluge steam envelope [0, 1]. */
   steamStr: number;
+  /** Flame-diverter water-jet envelope [0, 1]. */
+  delugeStr: number;
   /** Heat-haze peak scalar. */
   hazePeak: number;
   /** Tank-farm vent envelope. */
@@ -248,6 +281,7 @@ export type PadFxDerived = Readonly<{
 function padFxScalars(state: LaunchPadFxState, flame: PadFlameBundle, animT: number) {
   return {
     steamStr: padSteamStrength(state),
+    delugeStr: padDelugeStrength(state),
     hazePeak: padHazePeak(flame.strength, state.missionT, state.altEarth),
     ventStr: padVentStrength(state, flame.strength, animT),
   };

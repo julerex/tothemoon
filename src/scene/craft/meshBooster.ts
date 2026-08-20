@@ -320,7 +320,7 @@ function makeFrostTexture(): THREE.CanvasTexture {
   const canvas = makeSizedCanvas(w, h);
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(236, 242, 246, 0.18)";
+  ctx.fillStyle = "rgba(236, 242, 246, 0.42)";
   ctx.fillRect(0, 0, w, h);
   for (let i = 0; i < 70; i++) paintFrostBlotch(ctx, w, h, i);
   const map = new THREE.CanvasTexture(canvas);

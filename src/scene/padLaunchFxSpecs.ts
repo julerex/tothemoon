@@ -31,10 +31,19 @@ export type SteamTierSpec = Readonly<{
  * Outer tiers get lower opacity via `steamSpritePose` (`tier` index).
  */
 export const STEAM_TIERS: readonly SteamTierSpec[] = [
-  { n: 10, r0: 0.024, y0: 0.007, scale: 0.085, color: 0xe8eef4 },
-  { n: 8, r0: 0.04, y0: 0.016, scale: 0.13, color: 0xdce4ec },
-  { n: 6, r0: 0.056, y0: 0.028, scale: 0.17, color: 0xd0d8e0 },
+  { n: 12, r0: 0.016, y0: 0.01, scale: 0.048, color: 0xeef2f6 },
+  { n: 10, r0: 0.028, y0: 0.016, scale: 0.068, color: 0xe4eaf0 },
+  { n: 8, r0: 0.042, y0: 0.022, scale: 0.09, color: 0xd8e0e8 },
 ];
+
+/**
+ * SpaceX countdown “Flame diverter activation” (T−17).
+ * Water is forced through the water-cooled steel flame deflector under the
+ * OLM — the Starbase **water deluge** (sound-suppression) system.
+ */
+export const FLAME_DIVERTER_T = -17;
+/** Booster engine startup command (T−3). */
+export const ENGINE_START_T = -3;
 
 /**
  * One deluge “sheet” curtain sprite (stretched billboard along the trench).
@@ -70,12 +79,48 @@ export const DELUGE_SHEETS: readonly DelugeSheetSpec[] = [
  * volume around the OLM, not a floating ring.
  */
 export const GROUND_SHEETS: readonly DelugeSheetSpec[] = [
-  { pos: [0, 0.005, 0], sx: 0.095, sy: 0.026, phase: 0.4 },
-  { pos: [0.02, 0.006, 0.012], sx: 0.072, sy: 0.022, phase: 1.3 },
-  { pos: [-0.018, 0.006, -0.014], sx: 0.07, sy: 0.02, phase: 2.2 },
-  { pos: [0.004, 0.007, 0.032], sx: 0.062, sy: 0.02, phase: 3.0 },
-  { pos: [-0.004, 0.007, -0.03], sx: 0.06, sy: 0.02, phase: 3.9 },
+  { pos: [0, 0.007, 0], sx: 0.07, sy: 0.022, phase: 0.4 },
+  { pos: [0.016, 0.008, 0.012], sx: 0.055, sy: 0.02, phase: 1.3 },
+  { pos: [-0.015, 0.008, -0.014], sx: 0.052, sy: 0.018, phase: 2.2 },
+  { pos: [0.005, 0.009, 0.026], sx: 0.048, sy: 0.018, phase: 3.0 },
+  { pos: [-0.005, 0.009, -0.024], sx: 0.046, sy: 0.018, phase: 3.9 },
+  { pos: [0.022, 0.01, -0.008], sx: 0.044, sy: 0.02, phase: 4.6 },
+  { pos: [-0.02, 0.01, 0.01], sx: 0.042, sy: 0.019, phase: 5.3 },
 ];
+
+/**
+ * One water-deluge jet from the flame-deflector plate / OLM ring.
+ * Cylinders in pad km; `tilt` is radians from vertical, outward.
+ */
+export type DelugeJetSpec = Readonly<{
+  ang: number;
+  r0: number;
+  y0: number;
+  h: number;
+  thick: number;
+  tilt: number;
+  phase: number;
+}>;
+
+function pushDelugeJetRing(
+  out: DelugeJetSpec[], n: number, r0: number, h: number, tilt: number, y0: number, thick: number, phase0: number,
+): void {
+  for (let i = 0; i < n; i++) {
+    out.push({
+      ang: (i / n) * Math.PI * 2 + phase0 * 0.07,
+      r0, y0, h, thick, tilt, phase: phase0 + i * 0.41,
+    });
+  }
+}
+
+/** Radial water jets through the OLM flame deflector (theater, not CFD). */
+export function expandDelugeJets(): readonly DelugeJetSpec[] {
+  const out: DelugeJetSpec[] = [];
+  pushDelugeJetRing(out, 14, 0.011, 0.022, 0.22, 0.004, 0.0016, 0.2);
+  pushDelugeJetRing(out, 12, 0.016, 0.018, 0.48, 0.0035, 0.002, 1.1);
+  pushDelugeJetRing(out, 10, 0.022, 0.014, 0.78, 0.003, 0.0024, 2.4);
+  return out;
+}
 
 /**
  * Tank-farm vent sprite anchors in pad-local km (+X / +Z ≈ east/north of OLM).

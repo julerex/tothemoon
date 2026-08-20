@@ -303,6 +303,27 @@ function buildTankFarm(mats: PadSurroundMats): THREE.Group {
 function addPadWarehouseAndYards(g: THREE.Group, mats: PadSurroundMats): void {
   g.add(buildWarehouse(mats));
   addEastYard(g, mats);
+  addGseForegroundShed(g, mats);
+}
+
+/** Low beige GSE shed — T−2 ground-cam lower-right massing. */
+function addGseForegroundShed(g: THREE.Group, mats: PadSurroundMats): void {
+  const shed = new THREE.Group();
+  shed.name = "pad-gse-shed";
+  shed.position.set(-0.06, 0, -0.095);
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.042, 0.0075, 0.018),
+    mats.warehouseWall,
+  );
+  body.position.y = 0.0036;
+  shed.add(body);
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(0.045, 0.0014, 0.02),
+    mats.warehouseRoof,
+  );
+  roof.position.y = 0.008;
+  shed.add(roof);
+  g.add(shed);
 }
 
 function buildWarehouse(mats: PadSurroundMats): THREE.Group {

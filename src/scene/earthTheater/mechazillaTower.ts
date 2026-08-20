@@ -1,5 +1,15 @@
 /** Mechazilla tower, OLM, chopsticks; recovery pose updates. */
 import * as THREE from "three";
+import { addChopstickCarriage } from "./mechazillaChopsticks";
+export {
+  CHOPSTICK_LEN_M, OLT_HEIGHT_M, OLT_TRUSS_M, TOWER_BEACON_Y, TOWER_H, TOWER_OX,
+  CHOPSTICK_REST_M, CHOPSTICK_CATCH_M, CHOPSTICK_CATCH_DROP_KM,
+} from "./mechazillaDims";
+import {
+  BOOST_QD_Y, SHIP_QD_Y, TOWER_BEACON_Y, TOWER_COL, TOWER_FACE, TOWER_H,
+  TOWER_OX, TOWER_OY0,
+} from "./mechazillaDims";
+import { makeTowerMats, type TowerMats } from "./mechazillaMats";
 import { makeScorchTexture } from "./padTextures";
 
 export function updateMechazillaRecovery(
@@ -26,55 +36,6 @@ function applyChopstickArm(
   arm.rotation.y = restY - sign * pose.yawInRad;
   arm.rotation.z = restZ + pose.pitchRad;
 }
-type TowerMats = {
-  steel: THREE.MeshStandardMaterial;
-  steelDark: THREE.MeshStandardMaterial;
-  steelBright: THREE.MeshStandardMaterial;
-  accent: THREE.MeshStandardMaterial;
-};
-
-function makeTowerMats(): TowerMats {
-  return {
-    steel: new THREE.MeshStandardMaterial({ color: 0xb4b8c0, metalness: 0.72, roughness: 0.38 }),
-    steelDark: new THREE.MeshStandardMaterial({ color: 0x7a8088, metalness: 0.65, roughness: 0.45 }),
-    steelBright: new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.78, roughness: 0.32 }),
-    accent: new THREE.MeshStandardMaterial({ color: 0x5a6068, metalness: 0.55, roughness: 0.5 }),
-  };
-}
-
-/**
- * Official OLT height (m), ground to lightning rod (FAA / Guinness).
- * Truss is shorter so the ~123 m stack nose sits near the rail top.
- */
-export const OLT_HEIGHT_M = 146;
-/** Main truss / rail height (m) — just above the stacked vehicle. */
-export const OLT_TRUSS_M = 132;
-/** Chopstick beam length, tower face to tip (m). */
-export const CHOPSTICK_LEN_M = 36;
-/** Square truss face (m). */
-export const TOWER_FACE_M = 12;
-/** Pad-origin to tower center (m); +X is toward the tower. */
-export const TOWER_OX_M = 20;
-/** Prelaunch chopsticks carriage height (m) — grid-fin / interstage. */
-export const CHOPSTICK_REST_M = 75;
-/** Half-span of the open chopsticks from pad center (m). */
-export const CHOPSTICK_HALF_SPAN_M = 7;
-/** Ship QD arm height (m) — mid Starship after the 71 m booster. */
-export const SHIP_QD_M = 98;
-
-const M = 0.001;
-export const TOWER_H = OLT_TRUSS_M * M;
-export const TOWER_FACE = TOWER_FACE_M * M;
-const TOWER_COL = 0.002;
-export const TOWER_OX = TOWER_OX_M * M;
-const TOWER_OY0 = 0.0;
-export const TOWER_BEACON_Y = OLT_HEIGHT_M * M;
-const CHOPSTICK_LEN = CHOPSTICK_LEN_M * M;
-const CHOPSTICK_REST_Y = CHOPSTICK_REST_M * M;
-const CHOPSTICK_HALF_SPAN = CHOPSTICK_HALF_SPAN_M * M;
-const SHIP_QD_Y = SHIP_QD_M * M;
-const PEAK_H = 0.008;
-const ROD_H = OLT_HEIGHT_M * M - TOWER_H - PEAK_H;
 
 function addTowerColumns(g: THREE.Group, mats: TowerMats): void {
   const half = TOWER_FACE * 0.5;
@@ -102,38 +63,36 @@ function addTowerRingBeamsX(g: THREE.Group, mats: TowerMats, y: number, half: nu
   }
 }
 
-function addTowerRingAtY(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
-  addTowerRingBeamsZ(g, mats, y, half);
-  addTowerRingBeamsX(g, mats, y, half);
-}
-
 function addTowerRings(g: THREE.Group, mats: TowerMats): void {
   const half = TOWER_FACE * 0.5;
-  const nRings = 12;
+  const nRings = 14;
   for (let i = 1; i <= nRings; i++) {
-    addTowerRingAtY(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
+    addTowerRingBeamsZ(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
+    addTowerRingBeamsX(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
   }
 }
 
 function addTowerRail(g: THREE.Group, mats: TowerMats, half: number): void {
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 1.2, TOWER_H * 0.92, TOWER_COL * 2.2), mats.steelBright);
-  rail.position.set(TOWER_OX - half - TOWER_COL * 0.4, TOWER_OY0 + TOWER_H * 0.48, 0);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 1.35, TOWER_H * 0.94, TOWER_COL * 2.4), mats.steelBright);
+  rail.position.set(TOWER_OX - half - TOWER_COL * 0.45, TOWER_OY0 + TOWER_H * 0.48, 0);
   g.add(rail);
 }
 
 function addTowerPeakAndSheave(g: THREE.Group, mats: TowerMats, half: number): void {
+  const peakH = 0.008;
   const peak = new THREE.Mesh(
-    new THREE.BoxGeometry(TOWER_FACE * 1.15, PEAK_H, TOWER_FACE * 1.15),
+    new THREE.BoxGeometry(TOWER_FACE * 1.15, peakH, TOWER_FACE * 1.15),
     mats.steelBright,
   );
-  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + PEAK_H * 0.5, 0);
+  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + peakH * 0.5, 0);
   g.add(peak);
   const sheave = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, TOWER_FACE * 0.7, 10), mats.steelDark);
   sheave.rotation.z = Math.PI / 2;
-  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + PEAK_H + 0.002, 0);
+  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + peakH + 0.002, 0);
   g.add(sheave);
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.00035, 0.00025, ROD_H, 6), mats.steelDark);
-  rod.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + PEAK_H + ROD_H * 0.5, 0);
+  const rodH = TOWER_BEACON_Y - TOWER_H - peakH;
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.00035, 0.00025, rodH, 6), mats.steelDark);
+  rod.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + peakH + rodH * 0.5, 0);
   g.add(rod);
 }
 
@@ -143,108 +102,45 @@ function addTowerRailAndPeak(g: THREE.Group, mats: TowerMats): void {
   addTowerPeakAndSheave(g, mats, half);
 }
 
-function addChopstickCheeks(g: THREE.Group, mats: TowerMats, carryY: number, half: number): void {
-  for (const side of [-1, 1] as const) {
-    const cheek = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 0.55, 0.008, 0.004), mats.steelBright);
-    cheek.position.set(TOWER_OX - half * 0.3, carryY + 0.002, side * (TOWER_FACE * 0.72));
-    g.add(cheek);
-  }
-}
-
-function addChopstickCarriage(g: THREE.Group, mats: TowerMats, carryY: number): void {
+function addQdArm(g: THREE.Group, mats: TowerMats, y: number, name: string, boomLen: number): void {
   const half = TOWER_FACE * 0.5;
-  const carriage = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE * 1.35, 0.012, TOWER_FACE * 1.55), mats.steelDark);
-  carriage.position.set(TOWER_OX, carryY, 0);
-  carriage.name = "pad-chopstick-carriage";
-  carriage.userData.restY = carryY;
-  g.add(carriage);
-  addChopstickCheeks(g, mats, carryY, half);
-}
-
-function buildChopstickArm(mats: TowerMats, side: number): THREE.Group {
-  const armLen = CHOPSTICK_LEN;
-  const armSq = 0.0034;
-  const stick = new THREE.Group();
-  stick.name = side < 0 ? "pad-chopstick-L" : "pad-chopstick-R";
-  addChopstickParts(stick, mats, armLen, armSq);
-  return stick;
-}
-
-function addChopstickParts(stick: THREE.Group, mats: TowerMats, armLen: number, armSq: number): void {
-  const beam = new THREE.Mesh(new THREE.BoxGeometry(armLen, armSq, armSq * 1.6), mats.steelBright);
-  beam.position.set(-armLen * 0.5, 0, 0);
-  stick.add(beam);
-  const railUnd = new THREE.Mesh(new THREE.BoxGeometry(armLen * 0.92, armSq * 0.45, armSq * 0.55), mats.accent);
-  railUnd.position.set(-armLen * 0.5, -armSq * 0.55, 0);
-  stick.add(railUnd);
-  addChopstickTip(stick, mats, armLen, armSq);
-}
-
-function addChopstickTip(stick: THREE.Group, mats: TowerMats, armLen: number, armSq: number): void {
-  const finger = new THREE.Mesh(new THREE.BoxGeometry(0.007, armSq * 1.5, armSq * 2.6), mats.steel);
-  finger.position.set(-armLen + 0.002, 0, 0);
-  stick.add(finger);
-  const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.0035, armSq * 1.1, 0.012), mats.accent);
-  tooth.position.set(-armLen + 0.005, 0, 0);
-  stick.add(tooth);
-  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0007, 0.0007, 0.006, 8), mats.steelDark);
-  pin.position.set(-armLen + 0.003, 0.001, 0);
-  stick.add(pin);
-}
-
-function addChopsticks(g: THREE.Group, mats: TowerMats, carryY: number): void {
-  const half = TOWER_FACE * 0.5;
-  for (const side of [-1, 1] as const) {
-    const stick = buildChopstickArm(mats, side);
-    stick.position.set(TOWER_OX - half, carryY + 0.005, side * CHOPSTICK_HALF_SPAN);
-    stick.rotation.y = side * 0.05;
-    stick.rotation.z = -0.03;
-    stick.userData.restRotY = stick.rotation.y;
-    stick.userData.restRotZ = stick.rotation.z;
-    g.add(stick);
-  }
-}
-
-function addQdArm(g: THREE.Group, mats: TowerMats): void {
-  const half = TOWER_FACE * 0.5;
-  const qdY = TOWER_OY0 + SHIP_QD_Y;
   const qd = new THREE.Group();
-  qd.name = "pad-qd-arm";
-  addQdBoom(qd, mats);
-  addQdHead(qd, mats);
-  qd.position.set(TOWER_OX - half, qdY, 0.004);
+  qd.name = name;
+  addQdBoom(qd, mats, boomLen);
+  addQdHead(qd, mats, boomLen);
+  qd.position.set(TOWER_OX - half, TOWER_OY0 + y, name === "pad-qd-arm" ? 0.004 : -0.003);
   qd.rotation.z = 0.08;
   g.add(qd);
 }
 
-function addQdBellows(qd: THREE.Group, mats: TowerMats): void {
+function addQdBellows(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   for (let i = 0; i < 4; i++) {
     const bellow = new THREE.Mesh(new THREE.CylinderGeometry(0.0014, 0.0016, 0.0018, 8), mats.steelDark);
     bellow.rotation.z = Math.PI / 2;
-    bellow.position.set(-0.018 - i * 0.0016, -0.001, 0);
+    bellow.position.set(-boomLen * 0.82 - i * 0.0016, -0.001, 0);
     qd.add(bellow);
   }
 }
 
-function addQdBoom(qd: THREE.Group, mats: TowerMats): void {
-  const qdBoom = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.0024, 0.0024), mats.steelBright);
-  qdBoom.position.set(-0.011, 0, 0);
+function addQdBoom(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
+  const qdBoom = new THREE.Mesh(new THREE.BoxGeometry(boomLen, 0.0028, 0.0028), mats.steelBright);
+  qdBoom.position.set(-boomLen * 0.5, 0, 0);
   qd.add(qdBoom);
-  const qdTruss = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.001, 0.001), mats.accent);
-  qdTruss.position.set(-0.01, -0.0022, 0);
+  const qdTruss = new THREE.Mesh(new THREE.BoxGeometry(boomLen * 0.82, 0.0012, 0.0012), mats.accent);
+  qdTruss.position.set(-boomLen * 0.45, -0.0024, 0);
   qd.add(qdTruss);
-  addQdBellows(qd, mats);
+  addQdBellows(qd, mats, boomLen);
 }
 
-function addQdHead(qd: THREE.Group, mats: TowerMats): void {
-  const qdHead = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.0055, 0.0055), mats.steelDark);
-  qdHead.position.set(-0.024, 0, 0);
+function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
+  const qdHead = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.006, 0.006), mats.steelDark);
+  qdHead.position.set(-boomLen, 0, 0);
   qd.add(qdHead);
   const qdFace = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0012, 0.004, 0.004),
-    new THREE.MeshStandardMaterial({ color: 0x3a4048, metalness: 0.5, roughness: 0.55 }),
+    new THREE.BoxGeometry(0.0012, 0.0044, 0.0044),
+    new THREE.MeshStandardMaterial({ color: 0x2a2e34, metalness: 0.5, roughness: 0.55 }),
   );
-  qdFace.position.set(-0.027, 0, 0);
+  qdFace.position.set(-boomLen - 0.003, 0, 0);
   qd.add(qdFace);
 }
 
@@ -252,7 +148,6 @@ function addOlm(g: THREE.Group, mats: TowerMats): void {
   const olmMat = new THREE.MeshStandardMaterial({
     color: 0x4a4844, metalness: 0.62, roughness: 0.55, side: THREE.DoubleSide,
   });
-  // Open-ended ring (real OLM is a table with a hole) so trench cam sees Raptors.
   const olm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 20, 1, true), olmMat);
   olm.position.set(0, TOWER_OY0 + 0.002, 0);
   olm.name = "pad-olm";
@@ -273,8 +168,8 @@ function addOlmTop(g: THREE.Group): void {
 function addOlmLegs(g: THREE.Group, mats: TowerMats): void {
   for (let i = 0; i < 6; i++) {
     const ang = (i / 6) * Math.PI * 2;
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.008, 0.0025), mats.accent);
-    leg.position.set(Math.cos(ang) * 0.011, TOWER_OY0 + 0.004, Math.sin(ang) * 0.011);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.0028, 0.009, 0.0028), mats.accent);
+    leg.position.set(Math.cos(ang) * 0.011, TOWER_OY0 + 0.0045, Math.sin(ang) * 0.011);
     g.add(leg);
   }
 }
@@ -287,15 +182,14 @@ function addOlmTopAndLegs(g: THREE.Group, mats: TowerMats): void {
 function addTowerUpper(g: THREE.Group, mats: TowerMats): void {
   addTowerColumns(g, mats);
   addTowerRings(g, mats);
-  addTowerBracing(g, TOWER_OX, TOWER_OY0, TOWER_H, TOWER_FACE, TOWER_COL, 12, mats.accent);
+  addTowerBracing(g, TOWER_OX, TOWER_OY0, TOWER_H, TOWER_FACE, TOWER_COL, 14, mats.accent);
   addTowerRailAndPeak(g, mats);
 }
 
 function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {
-  const carryY = TOWER_OY0 + CHOPSTICK_REST_Y;
-  addChopstickCarriage(g, mats, carryY);
-  addChopsticks(g, mats, carryY);
-  addQdArm(g, mats);
+  addChopstickCarriage(g, mats);
+  addQdArm(g, mats, SHIP_QD_Y, "pad-qd-arm", 0.022);
+  addQdArm(g, mats, BOOST_QD_Y, "pad-boost-qd-arm", 0.02);
   addOlm(g, mats);
 }
 
@@ -308,10 +202,6 @@ export function createMechazillaTower(): THREE.Group {
   return g;
 }
 
-/**
- * Diagonal X-brace panels on Mechazilla faces.
- * Places braces every other ring bay to avoid an over-dense lattice from LEO.
- */
 function addBracePairX(
   g: THREE.Group, ox: number, half: number, midY: number, len: number, tilt: number, col: number, mat: THREE.Material,
 ): void {

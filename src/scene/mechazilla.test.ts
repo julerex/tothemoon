@@ -5,7 +5,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { craftLengthKm } from "./craft.ts";
 import {
+  CHOPSTICK_CATCH_M,
   CHOPSTICK_LEN_M,
+  CHOPSTICK_REST_M,
   OLT_HEIGHT_M,
   OLT_TRUSS_M,
   TOWER_BEACON_Y,
@@ -31,5 +33,13 @@ describe("Mechazilla vs stacked Starship", () => {
   it("places the pad beacon at the lightning-rod height", () => {
     assert.equal(TOWER_H, OLT_TRUSS_M / 1000);
     assert.equal(TOWER_BEACON_Y, OLT_HEIGHT_M / 1000);
+  });
+
+  it("parks chopsticks at the ship nose for launch and drops to grid fins for catch", () => {
+    assert.equal(CHOPSTICK_REST_M, 122);
+    assert.equal(CHOPSTICK_CATCH_M, 72);
+    assert.ok(Math.abs(CHOPSTICK_REST_M - STACK_H_M) < 8);
+    assert.ok(CHOPSTICK_REST_M < OLT_TRUSS_M);
+    assert.ok(CHOPSTICK_CATCH_M < 75 && CHOPSTICK_CATCH_M > 65);
   });
 });

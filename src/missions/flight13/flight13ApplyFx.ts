@@ -19,6 +19,9 @@ import type { displayFields } from "./flight13ApplyCore";
 type SampleFrame = ReturnType<typeof sampleAtProgress>;
 type BodyState = ReturnType<typeof bodyPositions>;
 
+/** Pad roll so the T−2 ground cam sees TPS camera-left / stainless right. */
+const PAD_TPS_CLOCK_RAD = -0.55;
+
 export function applyAttitude(
   ctx: F13Ctx,
   physicsT: number,
@@ -28,6 +31,9 @@ export function applyAttitude(
     ctx.orient, ctx.craftVel, ctx.earthPos, ctx.earthVel, true,
     Math.max(0, physicsT), d.displayPhase, d.showBurning, d.displayAltEarth,
   );
+  if (physicsT < 0) {
+    ctx.craft.rotateOnWorldAxis(ctx.orient.localUp, PAD_TPS_CLOCK_RAD);
+  }
 }
 
 export function craftVisualArgs(

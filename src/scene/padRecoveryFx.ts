@@ -17,6 +17,10 @@ import {
   type RecoveryProfile,
   type RecoverySchedule,
 } from "../physics/boosterRecovery";
+import {
+  CHOPSTICK_CATCH_DROP_KM,
+  CHOPSTICK_OPEN_YAW_RAD,
+} from "./earthTheater/mechazillaDims";
 
 /** Mission-time input for chopsticks animation. */
 export type ChopstickRecoveryState = Readonly<{
@@ -66,9 +70,9 @@ export function deriveChopstickPose(state: ChopstickRecoveryState): ChopstickPos
   const close = chopstickCloseAmount(state.age, state.profile);
   return {
     close,
-    yawInRad: 0.042 * close,
+    yawInRad: CHOPSTICK_OPEN_YAW_RAD * 0.9 * close,
     pitchRad: -0.05 * close,
-    carriageDy: -0.0035 * close,
+    carriageDy: CHOPSTICK_CATCH_DROP_KM * close,
   };
 }
 

@@ -1,7 +1,7 @@
 /** Apply pad launch FX poses and lighting from mission state. */
 import * as THREE from "three";
 import {
-  bloomVisual, derivePadFx, flameVisual, floodFixtureEmissive,
+  bloomVisual, delugeJetPose, derivePadFx, flameVisual, floodFixtureEmissive,
   floodSpotDistance, floodSpotIntensity, groundSheetPose, hazeSpritePose,
   olmLampColorHex, padBeaconOpacity, padFillColorHex, padFillDistance,
   padFillIntensity, plumeLightDistance, plumeLightIntensity, plumeLightRgb,
@@ -228,11 +228,35 @@ function updatePadBloom(pad: THREE.Object3D, strength: number, flicker: number):
   }
 }
 
+function updatePadDelugeJets(
+  pad: THREE.Object3D,
+  delugeStr: number,
+  animT: number,
+): void {
+  const jets = pad.getObjectByName("pad-deluge-jets");
+  if (!jets) return;
+  jets.visible = delugeStr > 0.04;
+  const mat = jets.userData.mat as THREE.MeshBasicMaterial | undefined;
+  if (mat) {
+    const pose = delugeJetPose({ phase: 0 }, delugeStr, animT);
+    mat.opacity = pose.opacity;
+  }
+  for (const child of jets.children) {
+    const pose = delugeJetPose(
+      { phase: (child.userData.phase as number) ?? 0 },
+      delugeStr,
+      animT,
+    );
+    child.scale.set(1, pose.scaleY, 1);
+  }
+}
+
 function updatePadSpriteFx(
   pad: THREE.Object3D,
   steamStr: number,
   hazePeak: number,
   ventStr: number,
+  delugeStr: number,
   night: number,
   animT: number,
   flameStrength: number,
@@ -241,6 +265,7 @@ function updatePadSpriteFx(
   updatePadSteam(pad, steamStr, night, animT, warmth);
   updatePadSheets(pad, steamStr, night, animT, warmth);
   updatePadGroundSteam(pad, steamStr, night, animT, warmth);
+  updatePadDelugeJets(pad, delugeStr, animT);
   updatePadHaze(pad, hazePeak, animT);
   updatePadVent(pad, ventStr, night, animT);
 }
@@ -275,9 +300,9 @@ export function updateStarbaseLaunchFx(
   state: LaunchPadFxState,
 ): void {
   const fx = derivePadFx(state);
-  const { animT, night, flame, steamStr, hazePeak, ventStr } = fx;
+  const { animT, night, flame, steamStr, delugeStr, hazePeak, ventStr } = fx;
   updatePadFlame(pad, flame.strength);
-  updatePadSpriteFx(pad, steamStr, hazePeak, ventStr, night, animT, flame.strength);
+  updatePadSpriteFx(pad, steamStr, hazePeak, ventStr, delugeStr, night, animT, flame.strength);
   updatePadLightingFx(pad, fx);
 }
 /**

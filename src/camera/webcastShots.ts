@@ -105,10 +105,12 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     t0: -8,
     mode: "starbase",
     frame: true,
-    frameScale: 0.95,
-    azimuthDeg: 198,
-    elevationDeg: 5,
+    // Ground-level full stack (T−2 ignition still): telephoto up at the stack.
+    frameScale: 0.34,
+    azimuthDeg: 248,
+    elevationDeg: 5.2,
     padTrack: true,
+    fov: 36,
   },
   {
     key: "ascent-track",

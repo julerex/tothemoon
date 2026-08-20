@@ -50,11 +50,12 @@ export type FrostPatchSpec = Readonly<{
  * Sparse enough that stainless still reads between bands.
  */
 export const FROST_PATCHES: readonly FrostPatchSpec[] = [
-  { zFrac: 0.18, hFrac: 0.16, rMul: 1.018, phase: 0.2 },
-  { zFrac: 0.36, hFrac: 0.2, rMul: 1.02, phase: 1.1 },
-  { zFrac: 0.55, hFrac: 0.18, rMul: 1.016, phase: 2.0 },
-  { zFrac: 0.72, hFrac: 0.14, rMul: 1.019, phase: 2.8 },
-  { zFrac: 0.86, hFrac: 0.1, rMul: 1.015, phase: 3.6 },
+  { zFrac: 0.48, hFrac: 0.82, rMul: 1.014, phase: 0.0 },
+  { zFrac: 0.18, hFrac: 0.16, rMul: 1.02, phase: 0.2 },
+  { zFrac: 0.36, hFrac: 0.2, rMul: 1.022, phase: 1.1 },
+  { zFrac: 0.55, hFrac: 0.18, rMul: 1.018, phase: 2.0 },
+  { zFrac: 0.72, hFrac: 0.14, rMul: 1.021, phase: 2.8 },
+  { zFrac: 0.86, hFrac: 0.1, rMul: 1.017, phase: 3.6 },
 ];
 
 /** One ice-flake billboard peeling off the booster during dense-atmosphere burn. */
@@ -142,7 +143,7 @@ export function frostPatchOpacity(
   animT: number,
 ): number {
   const wobble = 0.9 + 0.1 * Math.sin(animT * 0.55 + phase);
-  return 0.56 * frostStr * wobble;
+  return 0.88 * frostStr * wobble;
 }
 
 function flakeRadius(spec: IceFlakeSpec, iceStr: number, animT: number): number {

@@ -6,7 +6,7 @@ import {
 import { geodeticToMeshLocal } from "../../physics/earthFrame";
 import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import {
-  DELUGE_SHEETS, GROUND_SHEETS, expandSteamSprites, hazeBaseZs,
+  DELUGE_SHEETS, GROUND_SHEETS, expandDelugeJets, expandSteamSprites, hazeBaseZs,
 } from "../padLaunchFx";
 import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../../camera/trenchCam";
 import {
@@ -262,6 +262,41 @@ function addPadVentSteam(pad: THREE.Group): void {
   pad.add(createPadVentClouds());
 }
 
+function makeDelugeJetMat(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color: 0xd8e8f2, transparent: true, opacity: 0, depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+}
+
+function addOneDelugeJet(
+  group: THREE.Group, mat: THREE.Material, spec: ReturnType<typeof expandDelugeJets>[number],
+): void {
+  const jet = new THREE.Group();
+  jet.position.set(Math.cos(spec.ang) * spec.r0, spec.y0, Math.sin(spec.ang) * spec.r0);
+  const tangent = spec.ang + Math.PI / 2;
+  jet.rotation.z = Math.sin(tangent) * spec.tilt;
+  jet.rotation.x = -Math.cos(tangent) * spec.tilt;
+  jet.userData.phase = spec.phase;
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(spec.thick * 0.35, spec.thick, spec.h, 6, 1, true),
+    mat,
+  );
+  mesh.position.y = spec.h * 0.5;
+  jet.add(mesh);
+  group.add(jet);
+}
+
+function addPadDelugeJets(pad: THREE.Group): void {
+  const jets = new THREE.Group();
+  jets.name = "pad-deluge-jets";
+  jets.visible = false;
+  const mat = makeDelugeJetMat();
+  jets.userData.mat = mat;
+  for (const spec of expandDelugeJets()) addOneDelugeJet(jets, mat, spec);
+  pad.add(jets);
+}
+
 function addPadBeacon(pad: THREE.Group): void {
   const beacon = new THREE.Mesh(
     new THREE.SphereGeometry(0.003, 10, 8),
@@ -286,6 +321,7 @@ function addPadFxSprites(pad: THREE.Group): void {
   addPadSteamGroup(pad, steamTex);
   addPadDelugeSheets(pad, steamTex);
   addPadGroundSteam(pad, steamTex);
+  addPadDelugeJets(pad);
   addPadHeatHaze(pad);
   addPadVentSteam(pad);
 }
