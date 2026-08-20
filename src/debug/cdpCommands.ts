@@ -62,6 +62,13 @@ export function evalSetCamera(mode: string, frame = false): string {
   return `() => window.__theater?.${method}(${JSON.stringify(mode)}) ?? { ready: false }`;
 }
 
+export const EVAL_GET_CAMERA =
+  "() => window.__theater?.getCamera() ?? { ready: false, cam: null }";
+
+export function evalSetCameraPose(pose: object): string {
+  return `() => window.__theater?.setCameraPose(${JSON.stringify(pose)}) ?? { ready: false }`;
+}
+
 export function evalSetSpeed(speed: number): string {
   return `() => window.__theater?.setSpeed(${JSON.stringify(speed)}) ?? { ready: false }`;
 }

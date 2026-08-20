@@ -35,6 +35,12 @@ import {
 
 export type { CameraMode } from "./cameraMode";
 import type { CameraMode } from "./cameraMode";
+import {
+  readCameraWorldPose,
+  resolveCameraWorldPose,
+  type CameraWorldPose,
+  type CameraWorldPoseInput,
+} from "./worldPose";
 /** Ecliptic / orbital north in this theater. */
 const ECLIPTIC_NORTH = new THREE.Vector3(0, 0, 1);
 /** OrbitControls maps camera.up → +Y internally. */
@@ -338,6 +344,40 @@ export class CameraDirector {
   /** Distance from camera to OrbitControls focus target (km). */
   getFocusDistance(): number {
     return this.camera.position.distanceTo(this.controls.target);
+  }
+
+  /**
+   * JSON pose for `window.__theater.getCamera`: eye, OrbitControls target,
+   * unit look, up, FOV, clip planes. Scene unit = km.
+   */
+  getWorldPose(): CameraWorldPose {
+    return readCameraWorldPose({
+      mode: this.focus,
+      position: this.camera.position,
+      target: this.controls.target,
+      up: this.camera.up,
+      fov: this.camera.fov,
+      near: this.camera.near,
+      far: this.camera.far,
+    });
+  }
+
+  /**
+   * Seat a world pose and switch to free so tracking / Auto-cam do not
+   * overwrite it next frame. Omitted fields keep the current value.
+   */
+  setWorldPose(input: CameraWorldPoseInput = {}): void {
+    const next = resolveCameraWorldPose(this.getWorldPose(), input);
+    this.clearGuidedPose();
+    this.cancelDistanceEase();
+    this.enterFreeFocus();
+    this.camera.position.set(next.position.x, next.position.y, next.position.z);
+    this.controls.target.set(next.target.x, next.target.y, next.target.z);
+    this.camera.up.set(next.up.x, next.up.y, next.up.z);
+    this.setVerticalFov(next.fov);
+    this.camera.lookAt(this.controls.target);
+    this.syncOrbitControlsUp();
+    this.controls.update();
   }
 
   /**

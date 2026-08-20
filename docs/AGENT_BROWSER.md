@@ -73,6 +73,8 @@ nonce URL so the load is never a same-document hash change.
 | `setSpeed(50)` | Playback rate (mission-duration multiples) |
 | `setCamera("hull")` | Rail mode; turns Auto-cam off |
 | `frameCamera("chase")` | Same + frame-to-subject |
+| `getCamera()` | World pose: `position`, OrbitControls `target`, unit `look`, `up`, `fov`, `distance` (km) |
+| `setCameraPose({ position, target, look, up, fov })` | Seat that pose; Auto-cam off, mode `free`. Omitted fields keep the current value. `[x,y,z]` or `{x,y,z}` |
 | `afterFrame()` | Promise: two rAFs so `applyState` has run |
 
 On the menu, `ready` is `false` and mutators return `{ error: "theater not started" }`.
@@ -109,7 +111,19 @@ async () => {
 ```
 
 ```js
+() => window.__theater?.getCamera() ?? { ready: false, cam: null }
+```
+
+```js
 () => window.__theater?.setCamera("hull") ?? { ready: false }
+```
+
+```js
+() => window.__theater?.setCameraPose({
+  position: [1, 2, 3],
+  target: [0, 0, 0],
+  fov: 50,
+}) ?? { ready: false }
 ```
 
 ```js
@@ -179,22 +193,38 @@ Connect: `GET http://127.0.0.1:9222/json/list` then WebSocket `webSocketDebugger
 ```
 
 ```json
-{ "id": 4, "method": "Page.captureScreenshot",
+{ "id": 4, "method": "Runtime.evaluate",
+  "params": {
+    "expression": "window.__theater.getCamera()",
+    "returnByValue": true
+  } }
+```
+
+```json
+{ "id": 5, "method": "Runtime.evaluate",
+  "params": {
+    "expression": "window.__theater.setCameraPose({ position: [1,2,3], target: [0,0,0] })",
+    "returnByValue": true
+  } }
+```
+
+```json
+{ "id": 6, "method": "Page.captureScreenshot",
   "params": { "format": "png" } }
 ```
 
 ```json
-{ "id": 5, "method": "Input.dispatchKeyEvent",
+{ "id": 7, "method": "Input.dispatchKeyEvent",
   "params": { "type": "keyDown", "key": " ", "code": "Space" } }
 ```
 
 ```json
-{ "id": 6, "method": "Input.dispatchKeyEvent",
+{ "id": 8, "method": "Input.dispatchKeyEvent",
   "params": { "type": "keyUp", "key": " ", "code": "Space" } }
 ```
 
 ```json
-{ "id": 7, "method": "Runtime.evaluate",
+{ "id": 9, "method": "Runtime.evaluate",
   "params": {
     "expression": "document.querySelector('canvas#c') && ({ w: document.getElementById('c').width, h: document.getElementById('c').height })",
     "returnByValue": true
@@ -216,6 +246,8 @@ scripts/theater-devtools.sh wait
 scripts/theater-devtools.sh snapshot
 scripts/theater-devtools.sh seek 0:02:21
 scripts/theater-devtools.sh camera hull
+scripts/theater-devtools.sh cam
+scripts/theater-devtools.sh pose '{"position":[1,2,3],"target":[0,0,0]}'
 scripts/theater-devtools.sh play
 scripts/theater-devtools.sh screenshot /tmp/theater.png
 scripts/theater-devtools.sh webgl
@@ -237,8 +269,14 @@ URL with a new `?agent=` query (or `#/missions`, then the mission).
 
 **Clock does not move.** Seek URLs pause. Call `play()` or press Space.
 
-**Auto-cam fights a camera pick.** `setCamera` / `frameCamera` disable Auto-cam.
-`g` toggles it back on.
+**Auto-cam fights a camera pick.** `setCamera` / `frameCamera` / `setCameraPose`
+disable Auto-cam. `g` toggles it back on. `setCameraPose` also switches to
+`free` so subject tracking does not overwrite the seated pose.
+
+**Inspect / move the camera.** `getCamera()` (or `snapshot().cam`) is the live
+eye, look-at target, unit look, up, and vertical FOV. `setCameraPose` accepts
+any subset; `look` alone slides the target along that ray at the current
+distance. `target` wins if both `target` and `look` are set.
 
 **In-theater `t=` edit.** Changing only `?t=` on the same mission seeks via
 `applyTheaterSeek` (no reload). Changing the mission path does **not**.

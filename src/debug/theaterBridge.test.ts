@@ -3,21 +3,26 @@ import { describe, it } from "node:test";
 import { createMissionClock } from "../mission/clock";
 import { physicsTToTransportU } from "../mission/prelaunch";
 import {
+  EVAL_GET_CAMERA,
   EVAL_PAUSE,
   EVAL_PLAY,
   EVAL_SNAPSHOT,
   EVAL_WAIT_READY,
   evalSeek,
   evalSetCamera,
+  evalSetCameraPose,
   theaterUrl,
 } from "./cdpCommands";
+import { readCameraWorldPose } from "../camera/worldPose";
 import {
   inspectWebgl,
   parseCameraMode,
   resolveBridgeSeek,
   scrapeHud,
+  setCameraPoseOnHandle,
   snapshotFromHandle,
   THEATER_HUD_IDS,
+  type TheaterBridgeHandle,
 } from "./theaterBridge";
 
 describe("resolveBridgeSeek", () => {
@@ -58,25 +63,45 @@ describe("inspectWebgl / scrapeHud without a document", () => {
   });
 });
 
+function flight13Handle(
+  over: Partial<TheaterBridgeHandle> = {},
+): TheaterBridgeHandle {
+  const clock = createMissionClock();
+  const pose = readCameraWorldPose({
+    mode: "chase",
+    position: { x: 10, y: 0, z: 0 },
+    target: { x: 0, y: 0, z: 0 },
+    up: { x: 0, y: 0, z: 1 },
+    fov: 50,
+    near: 0.05,
+    far: 1000,
+  });
+  return {
+    mission: "flight-13",
+    clock,
+    physicsDurationS: 4200,
+    director: {
+      getMode: () => "chase",
+      setMode: () => {},
+      frameMode: () => {},
+      getWorldPose: () => pose,
+      setWorldPose: () => {},
+    },
+    camera: { position: pose.position },
+    craftPos: { x: 1, y: 2, z: 3 },
+    craftVel: { x: 3, y: 4, z: 0 },
+    disableAutoCam: () => {},
+    autoCamEnabled: () => true,
+    phaseId: () => "splashdown",
+    ...over,
+  };
+}
+
 describe("snapshotFromHandle", () => {
   it("reports physics time and camera from the handle", () => {
-    const clock = createMissionClock();
-    clock.seek(physicsTToTransportU(3921, 4200));
-    const snap = snapshotFromHandle({
-      mission: "flight-13",
-      clock,
-      physicsDurationS: 4200,
-      director: {
-        getMode: () => "chase",
-        setMode: () => {},
-        frameMode: () => {},
-      },
-      craftPos: { x: 1, y: 2, z: 3 },
-      craftVel: { x: 3, y: 4, z: 0 },
-      disableAutoCam: () => {},
-      autoCamEnabled: () => true,
-      phaseId: () => "splashdown",
-    });
+    const handle = flight13Handle();
+    handle.clock.seek(physicsTToTransportU(3921, 4200));
+    const snap = snapshotFromHandle(handle);
     assert.equal(snap.ready, true);
     assert.equal(snap.mission, "flight-13");
     assert.equal(snap.camera, "chase");
@@ -85,6 +110,32 @@ describe("snapshotFromHandle", () => {
     assert.ok(Math.abs(snap.physicsT - 3921) < 1e-6);
     assert.equal(snap.craft.speed, 5);
     assert.equal(snap.autoCam, true);
+    assert.equal(snap.cam?.distance, 10);
+    assert.deepEqual(snap.cam?.look, { x: -1, y: 0, z: 0 });
+    assert.deepEqual(snap.camPos, { x: 10, y: 0, z: 0 });
+  });
+});
+
+describe("setCameraPoseOnHandle", () => {
+  it("turns Auto-cam off and seats a world pose", () => {
+    let autoOff = false;
+    let applied: unknown;
+    const handle = flight13Handle({
+      disableAutoCam: () => {
+        autoOff = true;
+      },
+      director: {
+        getMode: () => "chase",
+        setMode: () => {},
+        frameMode: () => {},
+        setWorldPose: (input) => {
+          applied = input;
+        },
+      },
+    });
+    setCameraPoseOnHandle(handle, { position: [1, 2, 3], fov: 80 });
+    assert.equal(autoOff, true);
+    assert.deepEqual(applied, { position: [1, 2, 3], fov: 80 });
   });
 });
 
@@ -102,5 +153,10 @@ describe("cdpCommands", () => {
     assert.match(EVAL_PAUSE, /pause\(\)/);
     assert.match(evalSeek("1:05:21"), /seek\("1:05:21"\)/);
     assert.match(evalSetCamera("hull", true), /frameCamera\("hull"\)/);
+    assert.match(EVAL_GET_CAMERA, /getCamera\(\)/);
+    assert.match(
+      evalSetCameraPose({ position: [1, 2, 3], target: [0, 0, 0] }),
+      /setCameraPose\(/,
+    );
   });
 });

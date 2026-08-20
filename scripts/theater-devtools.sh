@@ -20,6 +20,8 @@ Commands:
   speed <n>                          Playback rate
   camera <mode>                      sun moon earth starbase trench gridfin chase fin hull free
   frame <mode>                       Same + frame-to-subject
+  cam                                Live world pose (position / target / look / fov)
+  pose <json>                        Seat a world pose (Auto-cam off, free)
   webgl                              WebGL probe only
   hud                                DOM scrape (works before the hook)
   screenshot [path]                  PNG of the current page
@@ -104,6 +106,13 @@ case "$cmd" in
   frame)
     [[ -n "${1:-}" ]] || { echo "usage: frame <mode>" >&2; exit 2; }
     eval_fn "() => window.__theater?.frameCamera($(json_str "$1")) ?? { ready: false }"
+    ;;
+  cam)
+    eval_fn '() => window.__theater?.getCamera() ?? { ready: false, cam: null }'
+    ;;
+  pose)
+    [[ -n "${1:-}" ]] || { echo "usage: pose <json>" >&2; exit 2; }
+    eval_fn "() => window.__theater?.setCameraPose(JSON.parse($(json_str "$1"))) ?? { ready: false }"
     ;;
   webgl)
     eval_fn '() => window.__theater?.snapshot().webgl ?? { ok: false, lost: true }'

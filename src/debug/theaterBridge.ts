@@ -11,6 +11,7 @@ import {
   replaceMissionSeekHash,
 } from "../app/seekUrl";
 import type { CameraMode } from "../camera/modes";
+import type { CameraWorldPose, CameraWorldPoseInput } from "../camera/worldPose";
 import type { MissionClock } from "../mission/clock";
 import {
   physicsTToTransportU,
@@ -18,6 +19,8 @@ import {
 } from "../mission/prelaunch";
 import { formatWebcastMissionTime } from "../ui/hudFormat";
 import type { PhaseId } from "../physics/missionTypes";
+
+export type { CameraWorldPose, CameraWorldPoseInput } from "../camera/worldPose";
 
 /** Mission id written into snapshots (matches catalog / hash path). */
 export type TheaterBridgeMission = "flight-13" | "to-the-moon";
@@ -44,6 +47,8 @@ export type TheaterBridgeHandle = {
     getMode: () => CameraMode;
     setMode: (mode: CameraMode) => void;
     frameMode: (mode: CameraMode) => void;
+    getWorldPose?: () => CameraWorldPose;
+    setWorldPose?: (input: CameraWorldPoseInput) => void;
   };
   renderer?: { getContext: () => WebGLRenderingContext | WebGL2RenderingContext };
   camera?: { position: { x: number; y: number; z: number } };
@@ -67,6 +72,8 @@ export type TheaterSnapshot = {
   clock: string;
   durationS: number;
   camera: CameraMode | null;
+  /** Full world pose (position, target, look, up, FOV). Null before boot. */
+  cam: CameraWorldPose | null;
   autoCam: boolean;
   phaseId: string | null;
   craft: { x: number; y: number; z: number; speed: number };
@@ -106,6 +113,10 @@ export type TheaterDebugApi = {
   setSpeed: (speed: number) => TheaterSnapshot;
   setCamera: (mode: string) => TheaterSnapshot;
   frameCamera: (mode: string) => TheaterSnapshot;
+  /** World pose (km): position, OrbitControls target, look, up, FOV. */
+  getCamera: () => CameraWorldPose | null;
+  /** Seat a world pose; turns Auto-cam off and switches to free. */
+  setCameraPose: (pose: CameraWorldPoseInput) => TheaterSnapshot;
   afterFrame: () => Promise<TheaterSnapshot>;
 };
 
@@ -216,6 +227,8 @@ function makeLiveApi(handle: TheaterBridgeHandle): TheaterDebugApi {
     setSpeed: (speed) => apply(() => handle.clock.setSpeed(speed)),
     setCamera: (mode) => apply(() => setHandleCamera(handle, mode, false)),
     frameCamera: (mode) => apply(() => setHandleCamera(handle, mode, true)),
+    getCamera: () => cameraPoseFromHandle(handle),
+    setCameraPose: (pose) => apply(() => setCameraPoseOnHandle(handle, pose)),
     afterFrame: () => waitFrames(2).then(snap),
   };
 }
@@ -233,6 +246,8 @@ function makeStubApi(): TheaterDebugApi {
     setSpeed: () => snap("theater not started"),
     setCamera: () => snap("theater not started"),
     frameCamera: () => snap("theater not started"),
+    getCamera: () => null,
+    setCameraPose: () => snap("theater not started"),
     afterFrame: () => Promise.resolve(snap("theater not started")),
   };
 }
@@ -241,6 +256,7 @@ function makeStubApi(): TheaterDebugApi {
 export function snapshotFromHandle(handle: TheaterBridgeHandle): TheaterSnapshot {
   const physicsT = transportUToPhysicsT(handle.clock.t, handle.physicsDurationS);
   const loc = pageLocation();
+  const cam = cameraPoseFromHandle(handle);
   return {
     ready: true,
     mission: handle.mission,
@@ -253,6 +269,7 @@ export function snapshotFromHandle(handle: TheaterBridgeHandle): TheaterSnapshot
     clock: formatWebcastMissionTime(physicsT),
     durationS: handle.physicsDurationS,
     camera: handle.director.getMode(),
+    cam,
     autoCam: handle.autoCamEnabled(),
     phaseId: handle.phaseId?.() ?? null,
     craft: {
@@ -261,13 +278,15 @@ export function snapshotFromHandle(handle: TheaterBridgeHandle): TheaterSnapshot
       z: handle.craftPos.z,
       speed: hypot3(handle.craftVel),
     },
-    camPos: handle.camera
-      ? {
-          x: handle.camera.position.x,
-          y: handle.camera.position.y,
-          z: handle.camera.position.z,
-        }
-      : null,
+    camPos: cam
+      ? cam.position
+      : handle.camera
+        ? {
+            x: handle.camera.position.x,
+            y: handle.camera.position.y,
+            z: handle.camera.position.z,
+          }
+        : null,
     webgl: inspectWebgl(handle.renderer),
     hud: scrapeHud(),
   };
@@ -287,6 +306,7 @@ function stubSnapshot(error?: string): TheaterSnapshot {
     clock: "T+00:00:00",
     durationS: 0,
     camera: null,
+    cam: null,
     autoCam: false,
     phaseId: null,
     craft: { x: 0, y: 0, z: 0, speed: 0 },
@@ -314,6 +334,22 @@ function setHandleCamera(
   handle.disableAutoCam();
   if (frame) handle.director.frameMode(mode);
   else handle.director.setMode(mode);
+}
+
+/** Live pose for `getCamera` / `snapshot().cam`. */
+export function cameraPoseFromHandle(
+  handle: TheaterBridgeHandle,
+): CameraWorldPose | null {
+  return handle.director.getWorldPose?.() ?? null;
+}
+
+/** Seat a world pose; disables Auto-cam so the next frame keeps it. */
+export function setCameraPoseOnHandle(
+  handle: TheaterBridgeHandle,
+  pose: CameraWorldPoseInput,
+): void {
+  handle.disableAutoCam();
+  handle.director.setWorldPose?.(pose ?? {});
 }
 
 function rendererContext(
