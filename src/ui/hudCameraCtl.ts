@@ -113,7 +113,6 @@ export function wireCameraRail(rt: HudRuntime): void {
     const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-cam]");
     if (btn) onCamGridClick(rt, btn);
   });
-  rt.dom.btnCamCycle?.addEventListener("click", () => cycleCamera(rt));
   applyCameraGridPressed(rt.dom.camGridEl, rt.flags.lastCamMode);
 }
 

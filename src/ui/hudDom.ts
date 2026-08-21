@@ -12,7 +12,6 @@ export type HudButtons = {
   btnEarthGc: HTMLButtonElement | null;
   btnPolarMap: HTMLButtonElement | null;
   btnKeymap: HTMLButtonElement | null;
-  btnCamCycle: HTMLButtonElement | null;
 };
 
 export type HudTransport = {
@@ -146,7 +145,6 @@ function collectButtons(): HudButtons {
     btnEarthGc: q("#btn-earth-gc"),
     btnPolarMap: q("#btn-polar-map"),
     btnKeymap: q("#btn-keymap"),
-    btnCamCycle: q("#btn-cam-cycle"),
   };
 }
 
