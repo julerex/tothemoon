@@ -6,6 +6,7 @@ import {
   makeScrubTerrainMat, type PadSurroundMats,
 } from "./padSurroundMats";
 import { buildTankFarm } from "./padTankFarm";
+import { addPadHardstand } from "./padHardstand";
 
 function populatePadSurroundings(g: THREE.Group, mats: PadSurroundMats): void {
   addPadScrubAndPond(g, mats);
@@ -28,36 +29,6 @@ function addPadScrubAndPond(g: THREE.Group, mats: PadSurroundMats): void {
   // Ring (not a disc) so the OLM / trench opening is not roofed from below.
   addGroundRing(g, 0.08, 1.55, makeScrubTerrainMat(), 0, -0.007, 0, 48, "pad-scrub-terrain");
   addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20, "pad-pond");
-}
-
-type PadSlab = { size: [number, number, number]; pos: [number, number, number]; kind: "concrete" | "concreteLight" | "concreteDark" };
-const PAD_SLABS: PadSlab[] = [
-  { size: [0.22, 0.0026, 0.2], pos: [0.14, -0.0026, 0.06], kind: "concrete" },
-  { size: [0.18, 0.0025, 0.12], pos: [0.04, -0.0028, 0.14], kind: "concreteDark" },
-  { size: [0.12, 0.0025, 0.1], pos: [0.12, -0.0028, -0.08], kind: "concrete" },
-  { size: [0.14, 0.0025, 0.1], pos: [0.22, -0.0027, 0.12], kind: "concreteLight" },
-];
-
-function addPadSlab(g: THREE.Group, mats: PadSurroundMats, s: PadSlab): void {
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), mats[s.kind]);
-  slab.position.set(...s.pos);
-  g.add(slab);
-}
-
-function addOlmApronRing(g: THREE.Group, mats: PadSurroundMats): void {
-  const apron = new THREE.Mesh(
-    new THREE.RingGeometry(0.012, 0.08, 40, 1),
-    mats.concreteLight,
-  );
-  apron.rotation.x = -Math.PI / 2;
-  apron.position.y = -0.001;
-  apron.name = "pad-olm-apron";
-  g.add(apron);
-}
-
-function addPadHardstand(g: THREE.Group, mats: PadSurroundMats): void {
-  addOlmApronRing(g, mats);
-  for (const s of PAD_SLABS) addPadSlab(g, mats, s);
 }
 
 function makeScorchMat(): THREE.MeshStandardMaterial {
