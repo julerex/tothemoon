@@ -139,7 +139,7 @@ export const VENT_ANCHORS: readonly (readonly [number, number, number])[] = [
   [0.09, 0.014, 0.085],
 ];
 
-/** One low-poly cryo-cloud cluster (pad-local km). */
+/** One soft cryo-cloud cluster (pad-local km). */
 export type VentCloudSpec = Readonly<{
   x: number;
   y: number;

@@ -151,8 +151,15 @@ function updatePadVent(pad: THREE.Object3D, ventStr: number, night: number, anim
   const on = ventStr > VENT_CLOUD_VISIBLE_EPS;
   vent.visible = on;
   if (!on) return;
-  const mat = vent.userData.mat as THREE.MeshLambertMaterial | undefined;
-  if (mat) mat.opacity = ventCloudOpacity(ventStr, night);
+  const opacity = ventCloudOpacity(ventStr, night);
+  const puffMats = vent.userData.puffMats as { mat: THREE.SpriteMaterial; base: number }[] | undefined;
+  if (puffMats) {
+    for (const m of puffMats) m.mat.opacity = m.base * opacity;
+  } else {
+    // Legacy shared MeshLambertMaterial (pre–V23.5 faceted lobes).
+    const mat = vent.userData.mat as THREE.MeshLambertMaterial | undefined;
+    if (mat) mat.opacity = opacity;
+  }
   for (const child of vent.children) {
     if (!child.userData.cloud) continue;
     const pose = ventCloudPose(ventCloudSpecFromUserData(child), ventStr, animT);

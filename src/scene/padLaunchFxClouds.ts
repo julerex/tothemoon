@@ -1,5 +1,5 @@
 /**
- * Prelaunch cryo-cloud poses — low-poly mesh banks, not vent sprites.
+ * Prelaunch cryo-cloud poses — soft sprite banks (V23.5), not faceted meshes.
  * Also flame-diverter water-jet poses (Starbase water deluge).
  *
  * Scene unit = 1 km. Scrub-safe (mission `t` only).

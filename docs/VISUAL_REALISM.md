@@ -15,10 +15,10 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-21):** V0–V23 are **shipped**. No next visual slice is queued.
-Further photorealism is **out of scope** unless explicitly requested. Flight 13
-highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference;
-faceted pad vent lobes are a noted follow-up, not a numbered slice.
+**Status (2026-08-21):** V0–V23 are **shipped** (including **V23.5** soft pad vent
+puffs). No next visual slice is queued. Further photorealism is **out of scope**
+unless explicitly requested. Flight 13 highlight clips in
+[STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 
 ---
 
@@ -73,7 +73,8 @@ faceted pad vent lobes are a noted follow-up, not a numbered slice.
 gimbal rams, Super Heavy V3 90/90/180 grid fins with catch hardware, **B20** stencil.
 
 **Shipped (V23):** pad T−5 aerial massing — matte white tank farm + berm, open
-tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks + QD hoses.
+tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks + QD hoses;
+**V23.5** soft cryo vent sprite puffs (replacing faceted icosahedron lobes).
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -659,11 +660,16 @@ upgrades **procedural pad geometry** only (no CAD, no draped stills).
 
 **Done when:** HUD-off aerial at T− hold reads as a white-tank compound,
 see-through tower, circular pad, and lattice chopsticks vs the T−5 still.
-Follow-up (not queued): softer pad vent lobes than faceted icosahedra.
+
+### V23.5 Soft pad vent puffs — **done 2026-08-21**
+
+Replace faceted `IcosahedronGeometry` lobes with dense white multi-lobe canvas
+sprites (same scrub pose/opacity contracts). Edges feather; no flat-shaded
+facets at aerial or pad cam.
 
 **Files:** `padTankFarm.ts`, `padHardstand.ts`, `mechazillaTruss.ts`,
 `mechazillaTower.ts`, `mechazillaChopsticks.ts`, `padSurroundings.ts`,
-`padSurroundMats.ts`.
+`padSurroundMats.ts`, `padVentClouds.ts`, `padLaunchFxApply.ts`.
 
 ---
 
@@ -715,3 +721,4 @@ Follow-up (not queued): softer pad vent lobes than faceted icosahedra.
 | 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |
 | 2026-08-19 | V22 shipped: Raptor 3 fluted bells/powerheads, stainless bay + rams, V3 90/90/180 grid fins, B20 |
 | 2026-08-21 | V23 shipped: pad T−5 aerial massing (tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks/QD) |
+| 2026-08-21 | V23.5: soft cryo vent sprite puffs (replace faceted icosahedron lobes) |
