@@ -42,6 +42,7 @@ function addQdArm(g: THREE.Group, mats: TowerMats, y: number, name: string, boom
   const qd = new THREE.Group();
   qd.name = name;
   addQdBoom(qd, mats, boomLen);
+  addQdHoseBundle(qd, mats, boomLen);
   addQdHead(qd, mats, boomLen);
   qd.position.set(TOWER_OX - half, TOWER_OY0 + y, name === "pad-qd-arm" ? 0.004 : -0.003);
   qd.rotation.z = 0.08;
@@ -67,6 +68,19 @@ function addQdBoom(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   addQdBellows(qd, mats, boomLen);
 }
 
+/** Hose bundle + interface plate at the vehicle face (V23.4). */
+function addQdHoseBundle(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
+  const hoseGeo = new THREE.CylinderGeometry(0.00035, 0.0004, boomLen * 0.55, 6);
+  for (let i = 0; i < 5; i++) {
+    const hose = new THREE.Mesh(hoseGeo, i % 2 === 0 ? mats.steelDark : mats.accent);
+    hose.rotation.z = Math.PI / 2;
+    const oy = ((i % 3) - 1) * 0.0011;
+    const oz = (Math.floor(i / 3) - 0.5) * 0.0014;
+    hose.position.set(-boomLen * 0.55, oy - 0.0028, oz);
+    qd.add(hose);
+  }
+}
+
 function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   const qdHead = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.006, 0.006), mats.steelDark);
   qdHead.position.set(-boomLen, 0, 0);
@@ -77,6 +91,13 @@ function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   );
   qdFace.position.set(-boomLen - 0.003, 0, 0);
   qd.add(qdFace);
+  // Interface plate toward the vehicle.
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0008, 0.0055, 0.0055),
+    mats.steelBright,
+  );
+  plate.position.set(-boomLen - 0.0042, 0, 0);
+  qd.add(plate);
 }
 
 function addOlm(g: THREE.Group, mats: TowerMats): void {

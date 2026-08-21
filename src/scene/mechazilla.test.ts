@@ -16,6 +16,7 @@ import {
 } from "./earthTheater/mechazillaTower.ts";
 import { makeTowerMats } from "./earthTheater/mechazillaMats.ts";
 import { addMechazillaTruss } from "./earthTheater/mechazillaTruss.ts";
+import { addChopstickCarriage } from "./earthTheater/mechazillaChopsticks.ts";
 
 const STACK_H_M = craftLengthKm(false) * 1000;
 
@@ -53,5 +54,15 @@ describe("Mechazilla vs stacked Starship", () => {
     const col = g.getObjectByName("pad-tower-column") as THREE.Mesh | undefined;
     assert.ok(col?.isMesh);
     assert.ok(col!.geometry instanceof THREE.CylinderGeometry);
+  });
+});
+
+describe("Mechazilla chopsticks / QD names (V23.4)", () => {
+  it("keeps chopstick and QD node names for recovery + shadows", () => {
+    const g = new THREE.Group();
+    addChopstickCarriage(g, makeTowerMats());
+    assert.ok(g.getObjectByName("pad-chopstick-carriage"));
+    assert.ok(g.getObjectByName("pad-chopstick-L"));
+    assert.ok(g.getObjectByName("pad-chopstick-R"));
   });
 });
