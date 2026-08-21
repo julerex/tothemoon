@@ -15,10 +15,10 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-19):** V0–V22 are **shipped**. No next visual slice is queued.
+**Status (2026-08-21):** V0–V23 are **shipped**. No next visual slice is queued.
 Further photorealism is **out of scope** unless explicitly requested. Flight 13
-highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference,
-not a numbered backlog item.
+highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference;
+faceted pad vent lobes are a noted follow-up, not a numbered slice.
 
 ---
 
@@ -29,7 +29,7 @@ not a numbered backlog item.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2-inspired hardstand, tanks, Mechazilla, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
+| **Pad** | OLP-2 hardstand (circular apron), matte white tank farm + berm, open tubular Mechazilla, lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes, hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -71,6 +71,9 @@ not a numbered backlog item.
 
 **Shipped (V22):** Raptor 3 fluted bells + powerheads, stainless engine-bay puck /
 gimbal rams, Super Heavy V3 90/90/180 grid fins with catch hardware, **B20** stencil.
+
+**Shipped (V23):** pad T−5 aerial massing — matte white tank farm + berm, open
+tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks + QD hoses.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -251,6 +254,7 @@ Shipped order (historical; all **done**). No next visual slice is queued.
 21. ~~**V20** — Moon albedo JPEG (after V9 plate; not Flight 13)~~ **done**
 22. ~~**V21** — splash swell / water texture + weather-altitude cumulus~~ **done**
 23. ~~**V22** — Super Heavy / Raptor 3 booster + engine-bay look~~ **done**
+24. ~~**V23** — Pad models vs T−5 aerial still~~ **done**
 
 ---
 
@@ -624,6 +628,45 @@ and B20. No bake.
 
 ---
 
+## V23 — Pad models vs T−5 aerial still — **done 2026-08-21**
+
+Look target: `assets/flight13-webcast/tminus-000500-pad-hold-wide.jpg` (theater
+`aerial` at T− hold). Craft hulls already ahead of pad massing; this slice
+upgrades **procedural pad geometry** only (no CAD, no draped stills).
+
+### V23.1 Tank farm + GSE compound
+
+- Extract `padTankFarm.ts`; matte white cryo tanks (lower metalness), insulation
+  hoop bands, concrete berm enclosure, cylinder pipe racks, vent poles.
+- Named `pad-tank-farm` / `pad-tank-farm-berm` (shadow cast root unchanged).
+
+### V23.2 Mechazilla open truss
+
+- Extract `mechazillaTruss.ts`; tubular columns / rings / X-braces (shared
+  cylinder geos), west rail kept solid, thin decks at ship/booster QD heights.
+- Published dims unchanged (`mechazillaDims.ts` / `mechazilla.test.ts`).
+
+### V23.3 OLM + circular hardstand
+
+- Extract `padHardstand.ts`; concentric apron rings replace the 220 m grey slab;
+  thicker OLM shell, 8 legs, faceted deflector wedges (`pad-olm-deflector`).
+
+### V23.4 Chopsticks + QD arms
+
+- Coarse lattice arm cheeks + carriage rail/sheave; QD hose bundle + interface
+  plate. Rest/catch heights and node names (`pad-chopstick-L/R`, `pad-qd-arm`)
+  unchanged for recovery kinematics.
+
+**Done when:** HUD-off aerial at T− hold reads as a white-tank compound,
+see-through tower, circular pad, and lattice chopsticks vs the T−5 still.
+Follow-up (not queued): softer pad vent lobes than faceted icosahedra.
+
+**Files:** `padTankFarm.ts`, `padHardstand.ts`, `mechazillaTruss.ts`,
+`mechazillaTower.ts`, `mechazillaChopsticks.ts`, `padSurroundings.ts`,
+`padSurroundMats.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -671,3 +714,4 @@ and B20. No bake.
 | 2026-08-18 | Backlog closed: V0–V21 shipped; no next visual slice queued (highlight clips remain look-reference) |
 | 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |
 | 2026-08-19 | V22 shipped: Raptor 3 fluted bells/powerheads, stainless bay + rams, V3 90/90/180 grid fins, B20 |
+| 2026-08-21 | V23 shipped: pad T−5 aerial massing (tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks/QD) |
