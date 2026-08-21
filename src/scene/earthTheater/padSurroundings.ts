@@ -5,6 +5,7 @@ import {
   GROUND_OFFSET, addGroundDisc, addGroundRing, makePadSurroundMats,
   makeScrubTerrainMat, type PadSurroundMats,
 } from "./padSurroundMats";
+import { buildTankFarm } from "./padTankFarm";
 
 function populatePadSurroundings(g: THREE.Group, mats: PadSurroundMats): void {
   addPadScrubAndPond(g, mats);
@@ -181,123 +182,6 @@ function addParkingCars(g: THREE.Group, mats: PadSurroundMats): void {
     car.position.set(-0.12 + (i % 8) * 0.018, -0.0015, 0.22 + side * 0.012 + (i % 3) * 0.002);
     g.add(car);
   }
-}
-
-function addHorizontalTank(
-  farm: THREE.Group,
-  mats: PadSurroundMats,
-  tankR: number,
-  tankLen: number,
-  x: number,
-  z: number,
-): void {
-  const tank = new THREE.Mesh(new THREE.CylinderGeometry(tankR, tankR, tankLen, 14), mats.tankWhite);
-  tank.rotation.x = Math.PI / 2;
-  tank.position.set(x, tankR + 0.001, z);
-  farm.add(tank);
-  for (const end of [-1, 1] as const) {
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(tankR * 1.02, 10, 8), mats.tankWhite);
-    cap.position.set(x, tankR + 0.001, z + end * (tankLen * 0.5));
-    farm.add(cap);
-  }
-}
-
-function addPrimaryTankBank(farm: THREE.Group, mats: PadSurroundMats): void {
-  const tankR = 0.0038;
-  const tankLen = 0.03;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 4; col++) {
-      addHorizontalTank(farm, mats, tankR, tankLen, 0.01 + col * 0.011, -0.02 + row * 0.012);
-    }
-  }
-}
-
-function addSecondaryHorizTanks(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (let col = 0; col < 3; col++) {
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.022, 12), mats.tankWhite);
-    tank.rotation.x = Math.PI / 2;
-    tank.position.set(0.055 + col * 0.01, 0.0042, 0.03);
-    farm.add(tank);
-  }
-}
-
-function addBulletTanks(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (let i = 0; i < 6; i++) {
-    const h = 0.01 + (i % 3) * 0.003;
-    const bullet = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, h, 10), mats.steel);
-    bullet.position.set(-0.02 + i * 0.008, h * 0.5, 0.045);
-    farm.add(bullet);
-  }
-}
-
-function addSecondaryTanks(farm: THREE.Group, mats: PadSurroundMats): void {
-  addSecondaryHorizTanks(farm, mats);
-  addBulletTanks(farm, mats);
-}
-
-function addPipeRackBoxes(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (let i = 0; i < 5; i++) {
-    const rack = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.006 + (i % 2) * 0.003, 0.01), mats.steelDark);
-    rack.position.set(-0.02, 0.005, -0.025 + i * 0.012);
-    farm.add(rack);
-  }
-}
-
-function addPipeRuns(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (let i = 0; i < 4; i++) {
-    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.0006, 0.0006, 0.05, 6), mats.steel);
-    pipe.rotation.z = Math.PI / 2;
-    pipe.position.set(0.01, 0.008, -0.02 + i * 0.014);
-    farm.add(pipe);
-  }
-}
-
-function addPipeRacks(farm: THREE.Group, mats: PadSurroundMats): void {
-  addPipeRackBoxes(farm, mats);
-  addPipeRuns(farm, mats);
-}
-
-const FARM_EQUIP: { size: [number, number, number]; pos: [number, number, number] }[] = [
-  { size: [0.022, 0.008, 0.016], pos: [0.07, 0.005, -0.01] },
-  { size: [0.016, 0.01, 0.02], pos: [0.08, 0.006, 0.04] },
-  { size: [0.03, 0.005, 0.012], pos: [0.04, 0.004, 0.055] },
-  { size: [0.012, 0.012, 0.012], pos: [-0.03, 0.007, 0.02] },
-  { size: [0.018, 0.004, 0.018], pos: [0.06, 0.003, -0.04] },
-];
-const FARM_STACKS: readonly (readonly [number, number, number])[] = [
-  [0.05, 0.06, 0.03], [0.07, 0.05, 0.024], [0.03, 0.065, 0.02], [0.085, 0.03, 0.018],
-];
-
-function addFarmEquipBoxes(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (const e of FARM_EQUIP) {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(...e.size), mats.steelDark);
-    box.position.set(...e.pos);
-    farm.add(box);
-  }
-}
-
-function addFarmStacks(farm: THREE.Group, mats: PadSurroundMats): void {
-  for (const [sx, sz, h] of FARM_STACKS) {
-    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.0007, 0.0009, h, 8), mats.steelDark);
-    stack.position.set(sx, h * 0.5, sz);
-    farm.add(stack);
-  }
-}
-
-function addFarmEquipment(farm: THREE.Group, mats: PadSurroundMats): void {
-  addFarmEquipBoxes(farm, mats);
-  addFarmStacks(farm, mats);
-}
-
-function buildTankFarm(mats: PadSurroundMats): THREE.Group {
-  const farm = new THREE.Group();
-  farm.name = "pad-tank-farm";
-  farm.position.set(0.09, 0, 0.04);
-  addPrimaryTankBank(farm, mats);
-  addSecondaryTanks(farm, mats);
-  addPipeRacks(farm, mats);
-  addFarmEquipment(farm, mats);
-  return farm;
 }
 
 function addPadWarehouseAndYards(g: THREE.Group, mats: PadSurroundMats): void {

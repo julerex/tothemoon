@@ -54,7 +54,8 @@ export function makePadGroundMats(): Pick<
 export function makePadStructureMats(): Pick<PadSurroundMats, "steel" | "steelDark" | "tankWhite" | "warehouseRoof" | "warehouseWall" | "carPaint"> {
   return {
     steel: groundStd(0x8a9098, 0.72, 0.42, false), steelDark: groundStd(0x4a5058, 0.65, 0.5, false),
-    tankWhite: groundStd(0xd8dce0, 0.5, 0.4, false), warehouseRoof: groundStd(0xc4b8a0, 0.25, 0.75, false),
+    // Matte insulated cryo white (V23.1) — not shiny mill grey.
+    tankWhite: groundStd(0xf2f4f6, 0.12, 0.82, false), warehouseRoof: groundStd(0xc4b8a0, 0.25, 0.75, false),
     warehouseWall: groundStd(0xb8b0a0, 0.2, 0.8, false), carPaint: groundStd(0x3a3e48, 0.4, 0.55, false),
   };
 }
