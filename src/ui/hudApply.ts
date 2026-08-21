@@ -110,6 +110,11 @@ export function applyCameraGridPressed(
   }
 }
 
+/** Visible on/off copy for a rail toggle (`Autocam is on`). */
+export function toggleIsOnLabel(name: string, enabled: boolean): string {
+  return `${name} is ${enabled ? "on" : "off"}`;
+}
+
 /** Sync Auto-cam readout + button chrome. */
 export function applyAutoCamChrome(
   btn: HTMLButtonElement | null,
@@ -119,9 +124,9 @@ export function applyAutoCamChrome(
   if (btn) {
     btn.setAttribute("aria-pressed", enabled ? "true" : "false");
     btn.title = enabled
-      ? "Auto-cam on — Flight 13 follows the webcast left pane (G)"
-      : "Auto-cam off — press G or click to re-enable";
-    btn.textContent = enabled ? "Auto-cam" : "Auto-cam off";
+      ? "Autocam is on — Flight 13 follows the webcast left pane (G)"
+      : "Autocam is off — press G or click to re-enable";
+    btn.textContent = toggleIsOnLabel("Autocam", enabled);
   }
   if (statusEl) statusEl.textContent = enabled ? "On" : "Off";
 }
@@ -129,8 +134,11 @@ export function applyAutoCamChrome(
 export function applyPressed(
   btn: HTMLButtonElement | null,
   pressed: boolean,
+  onOffName?: string,
 ): void {
-  btn?.setAttribute("aria-pressed", pressed ? "true" : "false");
+  if (!btn) return;
+  btn.setAttribute("aria-pressed", pressed ? "true" : "false");
+  if (onOffName) btn.textContent = toggleIsOnLabel(onOffName, pressed);
 }
 
 function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {

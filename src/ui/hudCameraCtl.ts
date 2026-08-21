@@ -60,7 +60,7 @@ export function setAutoCamEnabled(rt: HudRuntime, enabled: boolean): void {
 
 export function setLabelsEnabled(rt: HudRuntime, enabled: boolean): void {
   rt.flags.labelsEnabled = enabled;
-  applyPressed(rt.dom.btnLabels, enabled);
+  applyPressed(rt.dom.btnLabels, enabled, "Labels");
 }
 
 export function setOrbitsEnabled(rt: HudRuntime, enabled: boolean): void {
@@ -98,7 +98,7 @@ export function wireAutoCamButton(rt: HudRuntime): void {
 export function wireSceneToggleButtons(rt: HudRuntime): void {
   rt.dom.btnLabels?.addEventListener("click", () => toggleLabels(rt));
   rt.dom.btnOrbits?.addEventListener("click", () => toggleOrbits(rt));
-  applyPressed(rt.dom.btnLabels, rt.flags.labelsEnabled);
+  applyPressed(rt.dom.btnLabels, rt.flags.labelsEnabled, "Labels");
   applyPressed(rt.dom.btnOrbits, rt.flags.orbitsEnabled);
 }
 
