@@ -20,6 +20,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | File | HUD `T+` | Event | Camera | Theater analog |
 | --- | --- | --- | --- | --- |
 | `tminus-000500-pad-hold-wide.jpg` | T−00:05:00 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Aerial |
+| `tminus-000400-pad-hold-wide.jpg` | T−00:04:00 | Pad hold, Mechazilla + stack, cryo vent at interstage | Aerial wide pad / coastline | Aerial |
 | `tminus-000042-pad-hold-wide.jpg` | T−00:00:42 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Aerial |
 | `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase / trench |
 | `tplus-000000-liftoff-pad.jpg` | T+00:00:00 | Liftoff, 33 engines lit, orange glow in steam | Pad tracking | Starbase |
