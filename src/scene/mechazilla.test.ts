@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as THREE from "three";
 import { craftLengthKm } from "./craft.ts";
 import {
   CHOPSTICK_CATCH_M,
@@ -13,6 +14,8 @@ import {
   TOWER_BEACON_Y,
   TOWER_H,
 } from "./earthTheater/mechazillaTower.ts";
+import { makeTowerMats } from "./earthTheater/mechazillaMats.ts";
+import { addMechazillaTruss } from "./earthTheater/mechazillaTruss.ts";
 
 const STACK_H_M = craftLengthKm(false) * 1000;
 
@@ -41,5 +44,14 @@ describe("Mechazilla vs stacked Starship", () => {
     assert.ok(Math.abs(CHOPSTICK_REST_M - STACK_H_M) < 8);
     assert.ok(CHOPSTICK_REST_M < OLT_TRUSS_M);
     assert.ok(CHOPSTICK_CATCH_M < 75 && CHOPSTICK_CATCH_M > 65);
+  });
+
+  it("builds tubular corner columns for the open truss (V23.2)", () => {
+    const g = new THREE.Group();
+    g.name = "mechazilla";
+    addMechazillaTruss(g, makeTowerMats());
+    const col = g.getObjectByName("pad-tower-column") as THREE.Mesh | undefined;
+    assert.ok(col?.isMesh);
+    assert.ok(col!.geometry instanceof THREE.CylinderGeometry);
   });
 });

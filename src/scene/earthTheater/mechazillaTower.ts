@@ -6,10 +6,10 @@ export {
   CHOPSTICK_REST_M, CHOPSTICK_CATCH_M, CHOPSTICK_CATCH_DROP_KM,
 } from "./mechazillaDims";
 import {
-  BOOST_QD_Y, SHIP_QD_Y, TOWER_BEACON_Y, TOWER_COL, TOWER_FACE, TOWER_H,
-  TOWER_OX, TOWER_OY0,
+  BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0,
 } from "./mechazillaDims";
 import { makeTowerMats, type TowerMats } from "./mechazillaMats";
+import { addMechazillaTruss } from "./mechazillaTruss";
 import { makeScorchTexture } from "./padTextures";
 
 export function updateMechazillaRecovery(
@@ -35,71 +35,6 @@ function applyChopstickArm(
   const sign = restY === 0 ? 1 : Math.sign(restY);
   arm.rotation.y = restY - sign * pose.yawInRad;
   arm.rotation.z = restZ + pose.pitchRad;
-}
-
-function addTowerColumns(g: THREE.Group, mats: TowerMats): void {
-  const half = TOWER_FACE * 0.5;
-  const corners: [number, number][] = [[-half, -half], [half, -half], [-half, half], [half, half]];
-  for (const [cx, cz] of corners) {
-    const col = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL, TOWER_H, TOWER_COL), mats.steel);
-    col.position.set(TOWER_OX + cx, TOWER_OY0 + TOWER_H * 0.5, cz);
-    g.add(col);
-  }
-}
-
-function addTowerRingBeamsZ(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
-  for (const z of [-half, half]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(TOWER_FACE, TOWER_COL * 0.7, TOWER_COL * 0.65), mats.steelDark);
-    beam.position.set(TOWER_OX, y, z);
-    g.add(beam);
-  }
-}
-
-function addTowerRingBeamsX(g: THREE.Group, mats: TowerMats, y: number, half: number): void {
-  for (const x of [-half, half]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 0.65, TOWER_COL * 0.7, TOWER_FACE), mats.steelDark);
-    beam.position.set(TOWER_OX + x, y, 0);
-    g.add(beam);
-  }
-}
-
-function addTowerRings(g: THREE.Group, mats: TowerMats): void {
-  const half = TOWER_FACE * 0.5;
-  const nRings = 14;
-  for (let i = 1; i <= nRings; i++) {
-    addTowerRingBeamsZ(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
-    addTowerRingBeamsX(g, mats, TOWER_OY0 + (i / nRings) * TOWER_H * 0.96, half);
-  }
-}
-
-function addTowerRail(g: THREE.Group, mats: TowerMats, half: number): void {
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(TOWER_COL * 1.35, TOWER_H * 0.94, TOWER_COL * 2.4), mats.steelBright);
-  rail.position.set(TOWER_OX - half - TOWER_COL * 0.45, TOWER_OY0 + TOWER_H * 0.48, 0);
-  g.add(rail);
-}
-
-function addTowerPeakAndSheave(g: THREE.Group, mats: TowerMats, half: number): void {
-  const peakH = 0.008;
-  const peak = new THREE.Mesh(
-    new THREE.BoxGeometry(TOWER_FACE * 1.15, peakH, TOWER_FACE * 1.15),
-    mats.steelBright,
-  );
-  peak.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + peakH * 0.5, 0);
-  g.add(peak);
-  const sheave = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, TOWER_FACE * 0.7, 10), mats.steelDark);
-  sheave.rotation.z = Math.PI / 2;
-  sheave.position.set(TOWER_OX - half * 0.3, TOWER_OY0 + TOWER_H + peakH + 0.002, 0);
-  g.add(sheave);
-  const rodH = TOWER_BEACON_Y - TOWER_H - peakH;
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.00035, 0.00025, rodH, 6), mats.steelDark);
-  rod.position.set(TOWER_OX, TOWER_OY0 + TOWER_H + peakH + rodH * 0.5, 0);
-  g.add(rod);
-}
-
-function addTowerRailAndPeak(g: THREE.Group, mats: TowerMats): void {
-  const half = TOWER_FACE * 0.5;
-  addTowerRail(g, mats, half);
-  addTowerPeakAndSheave(g, mats, half);
 }
 
 function addQdArm(g: THREE.Group, mats: TowerMats, y: number, name: string, boomLen: number): void {
@@ -179,13 +114,6 @@ function addOlmTopAndLegs(g: THREE.Group, mats: TowerMats): void {
   addOlmLegs(g, mats);
 }
 
-function addTowerUpper(g: THREE.Group, mats: TowerMats): void {
-  addTowerColumns(g, mats);
-  addTowerRings(g, mats);
-  addTowerBracing(g, TOWER_OX, TOWER_OY0, TOWER_H, TOWER_FACE, TOWER_COL, 14, mats.accent);
-  addTowerRailAndPeak(g, mats);
-}
-
 function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {
   addChopstickCarriage(g, mats);
   addQdArm(g, mats, SHIP_QD_Y, "pad-qd-arm", 0.022);
@@ -197,53 +125,7 @@ export function createMechazillaTower(): THREE.Group {
   const g = new THREE.Group();
   g.name = "mechazilla";
   const mats = makeTowerMats();
-  addTowerUpper(g, mats);
+  addMechazillaTruss(g, mats);
   addTowerArmsAndOlm(g, mats);
   return g;
-}
-
-function addBracePairX(
-  g: THREE.Group, ox: number, half: number, midY: number, len: number, tilt: number, col: number, mat: THREE.Material,
-): void {
-  for (const flip of [-1, 1]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(col * 0.35, len, col * 0.35), mat);
-    b.position.set(ox - half, midY, 0);
-    b.rotation.x = flip * tilt;
-    g.add(b);
-  }
-}
-
-function addBracePairZ(
-  g: THREE.Group, ox: number, half: number, midY: number, len: number, tilt: number, col: number, mat: THREE.Material,
-): void {
-  for (const z of [-half, half]) {
-    for (const flip of [-1, 1]) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(col * 0.35, len, col * 0.35), mat);
-      b.position.set(ox, midY, z);
-      b.rotation.z = flip * tilt;
-      g.add(b);
-    }
-  }
-}
-
-function addBraceBay(
-  g: THREE.Group, ox: number, half: number, y0: number, h: number, face: number,
-  col: number, nRings: number, i: number, mat: THREE.Material,
-): void {
-  const ya = y0 + ((i + 0.12) / nRings) * h * 0.96;
-  const yb = y0 + ((i + 0.88) / nRings) * h * 0.96;
-  const midY = (ya + yb) * 0.5;
-  const len = Math.hypot(face, yb - ya);
-  const tilt = Math.atan2(face, yb - ya);
-  addBracePairX(g, ox, half, midY, len, tilt, col, mat);
-  addBracePairZ(g, ox, half, midY, len, tilt, col, mat);
-}
-
-function addTowerBracing(
-  g: THREE.Group, ox: number, y0: number, h: number, face: number, col: number, nRings: number, mat: THREE.Material,
-): void {
-  const half = face * 0.5;
-  for (let i = 0; i < nRings - 1; i += 1) {
-    if (i % 2 === 0) addBraceBay(g, ox, half, y0, h, face, col, nRings, i, mat);
-  }
 }
