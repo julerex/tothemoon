@@ -213,9 +213,9 @@ describe("gulf recovery profile", () => {
   it("uses Flight 13 landing-burn ages", () => {
     assert.equal(GULF_SCHEDULE.boostbackStartS, 4);
     assert.equal(GULF_SCHEDULE.boostbackEndS, 42);
-    assert.equal(GULF_SCHEDULE.landingStartS, 246);
+    assert.equal(GULF_SCHEDULE.landingStartS, 243);
     assert.equal(GULF_SCHEDULE.landingEndS, 272);
-    assert.equal(GULF_SCHEDULE.gateAltKm, 5);
+    assert.equal(GULF_SCHEDULE.gateAltKm, 3.5);
     assert.equal(GULF_SCHEDULE.hardSplash, true);
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingStartS + 1, "gulf"), "landing");
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingEndS + 1, "gulf"), "caught");
@@ -253,7 +253,7 @@ describe("gulf recovery profile", () => {
     assert.ok(dPad > 30, `should be offshore, pad dist ${dPad} km`);
   });
 
-  it("lights the Flight 13 landing burn near 5 km AGL", () => {
+  it("lights the Flight 13 landing burn near 3.5 km AGL", () => {
     const stage = syntheticStage(141);
     const kfs = buildBoosterKeyframes(stage, "gulf");
     const lit = sampleBoosterRecovery(
@@ -265,7 +265,7 @@ describe("gulf recovery profile", () => {
     assert.equal(lit.phase, "landing");
     assert.ok(lit.burning);
     const alt = earthAlt(stage.t + GULF_SCHEDULE.landingStartS + 0.5, lit.pos);
-    assert.ok(alt > 2 && alt < 12, `gulf landing-start alt ${alt} km`);
+    assert.ok(alt > 2 && alt < 8, `gulf landing-start alt ${alt} km`);
   });
 
   it("falls into the ocean — landing burn is too weak to hoverslam", () => {

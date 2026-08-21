@@ -90,5 +90,5 @@ export function entryLiftToDrag(altKm: number): number {
   if (altKm >= 90) return 0.12;
   if (altKm <= 20) return 0.22;
   const x = (altKm - 20) / 70;
-  return 0.22 + 0.20 * Math.sin(Math.PI * x);
+  return 0.22 + 0.38 * Math.sin(Math.PI * x);
 }

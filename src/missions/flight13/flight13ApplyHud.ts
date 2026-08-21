@@ -41,11 +41,12 @@ export function hudCore(
   frame: SampleFrame,
   d: ReturnType<typeof displayFields>,
   distSplash: number,
+  speedEarthKmS: number,
 ) {
   return {
     phase: prelaunch ? "Countdown" : frame.phaseLabel, phaseId: d.displayPhase,
     t: physicsT, durationS: ctx.transportS, distanceToMoon: Math.max(0, distSplash),
-    altitude: d.displayAltEarth, speed: prelaunch ? 0 : frame.speed,
+    altitude: d.displayAltEarth, speed: prelaunch ? 0 : speedEarthKmS, speedKmh: true,
     fuelBooster: frame.fuelBooster, fuelShip: frame.fuelShip, thrustN: d.showThrustN,
   };
 }
@@ -106,7 +107,7 @@ export function pushHud(
   showCompleteCard: boolean,
 ): void {
   ctx.hud.update({
-    ...hudCore(ctx, physicsT, prelaunch, frame, d, distSplash),
+    ...hudCore(ctx, physicsT, prelaunch, frame, d, distSplash, speeds.speedEarth),
     ...hudPlayback(ctx, physicsT, showCompleteCard),
     ...hudPackMeta(ctx),
     ...hudDetail(prelaunch, frame, d, speeds),

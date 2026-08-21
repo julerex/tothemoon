@@ -27,8 +27,8 @@ const GOLDEN = {
   peakSpeedKmS: 36.5,
   peakSpeedTol: 4,
   /** First splash sample (natural dynamics, not clock-forced). */
-  splashT: 3488,
-  splashTTol: 120,
+  splashT: 3921,
+  splashTTol: 45,
   /** Splash site geodesy (published Flight 11 IO fix). */
   splashLatDeg: FLIGHT13_SPLASH_LAT_DEG,
   splashLonDeg: FLIGHT13_SPLASH_LON_DEG,

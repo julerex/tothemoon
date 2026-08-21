@@ -2,7 +2,7 @@
 
 import type { bodyPositions } from "../../physics/bodies";
 import { EARTH_SURFACE_ALT_KM, R_EARTH, R_MOON } from "../../physics/constants";
-import { meshLocalToInertial } from "../../physics/earthFrame";
+import { groundRelativeSpeedKmS, meshLocalToInertial } from "../../physics/earthFrame";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LON,
@@ -132,7 +132,7 @@ export function relSpeed(
 
 export function relativeSpeeds(ctx: F13Ctx, b: BodyState) {
   return {
-    speedEarth: relSpeed(ctx.craftVel, b.earthVel),
+    speedEarth: groundRelativeSpeedKmS(ctx.craftPos, ctx.craftVel, b.earth, b.earthVel),
     speedMoon: relSpeed(ctx.craftVel, b.moonVel),
   };
 }

@@ -174,6 +174,15 @@ export function formatSpeed(kmPerS: number): string {
   return `${(v * 1000).toFixed(0)} m/s`;
 }
 
+/**
+ * Webcast-style ground speed (Flight 13 main strip).
+ * `kmPerS` is still km/s; output is integer km/h.
+ */
+export function formatSpeedKmh(kmPerS: number): string {
+  const kmh = Math.max(0, kmPerS) * 3600;
+  return `${Math.round(kmh).toLocaleString("en-US")} km/h`;
+}
+
 /** Metrics dual-unit speed. */
 export function formatSpeedPrecise(kmPerS: number): string {
   const v = Math.max(0, kmPerS);

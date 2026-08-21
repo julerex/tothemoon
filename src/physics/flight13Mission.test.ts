@@ -101,6 +101,10 @@ describe("runFlight13Mission", () => {
     const splash0 = result.samples.find((s) => s.phase === "splashdown");
     assert.ok(splash0, "expected a splashdown sample");
     assert.ok(splash0!.t < F13.SPLASH + 30, `first splash ${splash0!.t}`);
+    assert.ok(
+      splash0!.t > F13.SPLASH - 45,
+      `first splash ${splash0!.t} — expected near webcast T+1:05:21, not an early slam`,
+    );
     assert.equal(firstSplashdownT(result.samples), splash0!.t);
     const last = result.samples[result.samples.length - 1]!;
     assert.equal(last.phase, "splashdown");
@@ -272,7 +276,7 @@ describe("runFlight13Mission", () => {
       Math.abs(cur.t - 1200) < Math.abs(best.t - 1200) ? cur : best,
     );
     const a = altitudeEarth(mid.t, mid.pos, epoch);
-    assert.ok(a > 120, `mid-coast alt ${a} km — expected lofted suborbital`);
+    assert.ok(a > 100, `mid-coast alt ${a} km — expected lofted suborbital`);
   });
 
   it("has a lofted free coast (no multi-minute surface skid before entry)", () => {
@@ -317,8 +321,8 @@ describe("runFlight13Mission", () => {
       (s) => s.phase === "descent" && s.burning && s.thrustN > 1e3,
     );
     assert.ok(land, "expected descent burn sample");
-    // May light earlier than public T+65 once aero has bled speed
-    assert.ok(land!.t >= F13.ENTRY - 120, `land burn t=${land!.t}`);
+    // Public T+1:05:01; aero should have bled speed by then
+    assert.ok(land!.t >= F13.LAND_BURN - 40, `land burn t=${land!.t}`);
   });
 
   it("SECO is near-circular at insert altitude (low radial rate)", () => {

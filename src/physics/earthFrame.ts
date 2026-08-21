@@ -274,6 +274,27 @@ export function surfaceState(
   return surfaceBasis(t, lat, lon, epoch, outPos, outVel);
 }
 
+/**
+ * Speed relative to the rotating Earth (webcast HUD), km/s.
+ * Subtracts Earth COM motion and ω×r so a pad hold reads ~0, not ωR cos φ.
+ */
+export function groundRelativeSpeedKmS(
+  pos: V3,
+  vel: V3,
+  earthPos: V3,
+  earthVel: V3,
+): number {
+  earthNorthPole(_north);
+  set(_omega, _north.x * EARTH_SPIN_RATE, _north.y * EARTH_SPIN_RATE, _north.z * EARTH_SPIN_RATE);
+  set(_tmp, pos.x - earthPos.x, pos.y - earthPos.y, pos.z - earthPos.z);
+  cross(_tmp2, _omega, _tmp);
+  return Math.hypot(
+    vel.x - (earthVel.x + _tmp2.x),
+    vel.y - (earthVel.y + _tmp2.y),
+    vel.z - (earthVel.z + _tmp2.z),
+  );
+}
+
 /** Starbase pad state at mission time t. */
 export function starbasePadState(t: number, epoch: EphemerisEpoch = DEFAULT_EPHEMERIS): SurfaceState {
   return surfaceState(STARBASE_LAT, STARBASE_LON, STARBASE_ALT, t, v3(), v3(), epoch);

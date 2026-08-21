@@ -72,4 +72,4 @@ export const FLOAT_DT_S = 2;
 export const SHIP_PROP_RESERVE = 0.07;
 export const SECO_VCIRC_FRAC = 1.0;
 export const SECO_VRAD_MAX = 0.18;
-export const SECO_ALT_MIN_KM = 165;
+export const SECO_ALT_MIN_KM = 148;

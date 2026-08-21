@@ -245,7 +245,9 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Photorealism track **V13–V21 shipped** (hex TPS / S40 / oil-canning, pink launch plumes, magenta plasma, Pez, splash steam/sea, engine-bay, gated LEO clouds). Highlight clips remain a look-reference; no numbered visual slice is queued ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
 
-**Booster recovery:** force-model **Gulf of America** hard splash (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 and a **partial** landing burn ~T+6:27–6:53 from ~5 km AGL (webcast “Landing startup”; subset of engines, as flown). The booster falls into the water near ~25.55°N 96.15°W (theater, not a surveyed buoy) — no chopsticks seat. Chopsticks RTLS on the same force model is the default for the lunar mission.
+**Booster recovery:** force-model **Gulf of America** hard splash (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 and a **partial** landing burn ~T+6:24–6:53 from ~3.5 km AGL (webcast HUD 3.5 km at T+6:25, 0.1 km at T+6:40; subset of engines, as flown). The booster falls into the water near ~25.55°N 96.15°W (theater, not a surveyed buoy) — no chopsticks seat. Chopsticks RTLS on the same force model is the default for the lunar mission.
+
+**Webcast HUD match:** ship and booster altitude / ground-relative speed are pinned to the overlay on [`assets/flight13-webcast/`](../assets/flight13-webcast/) stills (`src/physics/flight13Webcast.ts`). The theater HUD uses the same Earth-fixed km/h speed as the stream (pad hold ≈ 0), not heliocentric |v|.
 
 ### Earth great-circle section (app)
 

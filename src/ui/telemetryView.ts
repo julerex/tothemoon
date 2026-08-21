@@ -26,6 +26,7 @@ import {
   formatOptional,
   formatProgressPercent,
   formatSpeed,
+  formatSpeedKmh,
   formatThrust,
   formatTranslunarInjectionDv,
   formatWebcastMissionTime,
@@ -49,6 +50,8 @@ export type Telemetry = {
   distanceToMoon: number;
   altitude: number;
   speed: number;
+  /** Main-strip speed as km/h (Flight 13 webcast HUD). Default km/s. */
+  speedKmh?: boolean;
   /** Booster propellant remaining 0–1 */
   fuelBooster: number;
   /** Ship propellant remaining 0–1 */
@@ -281,7 +284,7 @@ function mainRangeFields(tel: Telemetry) {
   return {
     altitude: formatDistance(Math.max(0, tel.altitude)),
     focusDistance: formatFocusDistance(tel.focusDistance),
-    speed: formatSpeed(tel.speed),
+    speed: tel.speedKmh ? formatSpeedKmh(tel.speed) : formatSpeed(tel.speed),
   };
 }
 

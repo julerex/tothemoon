@@ -17,7 +17,7 @@
  *
  * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence.
  * Landing burn lights at the public mark (~T+6:27 Flight 13, ~T+6:30 Flight 5)
- * from ~5 km AGL (Flight 13 webcast “Landing startup”).
+ * from ~3.5 km AGL (Flight 13 webcast Super Heavy 3.5 km at T+6:25).
  *
  * Samples are Earth-relative (heliocentric body motion is added back at
  * sample time). Scene unit = km. Pure + scrub-deterministic from (stage, age).
@@ -134,14 +134,14 @@ export const GULF_SCHEDULE: RecoverySchedule = {
   flipS: 6,
   boostbackStartS: 4, // T+2:25 if stage ≈ T+2:21
   boostbackEndS: 42, // T+3:03
-  landingStartS: 246, // T+6:27
+  landingStartS: 243, // T+6:24 — engines lighting as HUD hits ~3.5 km
   landingEndS: 272, // T+6:53
   holdS: 45,
   fadeS: 22,
   landAltKm: 0.03,
-  /** Flight 13 webcast: ~5 km AGL at “Landing startup” (T+6:27). */
-  gateAltKm: 5.0,
-  coastLoftKm: 14,
+  /** Flight 13 webcast: ~3.5 km AGL at T+6:25 with landing engines already lighting. */
+  gateAltKm: 3.5,
+  coastLoftKm: 10,
   landLat: GULF_LAND_LAT,
   landLon: GULF_LAND_LON,
   hardSplash: true,
@@ -496,7 +496,7 @@ function writeThrustAlong(dir: V3, aMag: number): number {
 
 /**
  * Boostback: close the velocity-to-be-gained to the landing gate at
- * `landingStartS` so the coast arrives near ~5 km AGL at the public mark.
+ * `landingStartS` so the coast arrives near the gate AGL at the public mark.
  */
 function steerBoostback(
   state: CraftState, sched: RecoverySchedule, t0: number, propKg: number, epoch: EphemerisEpoch,

@@ -1,7 +1,7 @@
 /** Corridor steering, intercept plane, and throttle tables. */
 import { BOOSTER_THRUST_N, EARTH_SURFACE_ALT_KM, MU_EARTH, R_EARTH, SHIP_THRUST_N } from "./constants";
 import { corridorAlongAt } from "./flight13Corridor";
-import { earthNorthPole, starbasePadState } from "./earthFrame";
+import { EARTH_SPIN_RATE, earthNorthPole, starbasePadState } from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { earthSurfaceRadiusAlong, radialHeightAboveEllipsoid } from "./wgs84";
 import { getBodies } from "./integrator";
@@ -145,24 +145,48 @@ function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
   return aimToSurfPoint(pos, bL.earth, splash, rSurf, _tmp3);
 }
 
-function steerLandBrake(out: V3, distSplash: number): void {
+function fillGroundRelVel(pos: V3, vel: V3, earth: V3, earthVel: V3): void {
+  sub(_relP, pos, earth);
+  earthNorthPole(_tmp);
+  set(_horiz, _tmp.x * EARTH_SPIN_RATE, _tmp.y * EARTH_SPIN_RATE, _tmp.z * EARTH_SPIN_RATE);
+  cross(_tmp2, _horiz, _relP);
+  set(
+    _relV,
+    vel.x - earthVel.x - _tmp2.x,
+    vel.y - earthVel.y - _tmp2.y,
+    vel.z - earthVel.z - _tmp2.z,
+  );
+}
+
+function steerLandBrake(out: V3, distSplash: number, alt: number): void {
   const v = len(_relV);
   set(out, -_relV.x / v, -_relV.y / v, -_relV.z / v);
   // Only nibble toward the site in the last tens of km. A 500 km
   // landing-burn divert is the late hook on the Earth-fixed trail.
-  if (distSplash > 40) return;
-  const w = Math.min(0.4, (40 - distSplash) / 90);
-  out.x = out.x * (1 - w) + _tmp3.x * w;
-  out.y = out.y * (1 - w) + _tmp3.y * w;
-  out.z = out.z * (1 - w) + _tmp3.z * w;
+  if (distSplash <= 40) {
+    const w = Math.min(0.4, (40 - distSplash) / 90);
+    out.x = out.x * (1 - w) + _tmp3.x * w;
+    out.y = out.y * (1 - w) + _tmp3.y * w;
+    out.z = out.z * (1 - w) + _tmp3.z * w;
+  }
+  // Hold against g while killing the last hundreds of km/h — a pure
+  // retrograde burn from 1 km falls through the landing HUD shots.
+  if (alt < 2.4) {
+    const upW = Math.min(0.7, 0.38 + 0.12 * alt);
+    out.x = out.x * (1 - upW) + _up.x * upW;
+    out.y = out.y * (1 - upW) + _up.y * upW;
+    out.z = out.z * (1 - upW) + _up.z * upW;
+  }
   normalize(out, out);
 }
 
 function steerLand(
-  t: number, pos: V3, alt: number, out: V3, epoch: EphemerisEpoch,
+  t: number, pos: V3, vel: V3, alt: number, out: V3, epoch: EphemerisEpoch,
 ): void {
+  const bL = getBodies(t, epoch);
+  fillGroundRelVel(pos, vel, bL.earth, bL.earthVel);
   const distSplash = fillSplashAim(t, pos, epoch);
-  if (len(_relV) > 0.08) { steerLandBrake(out, distSplash); return; }
+  if (len(_relV) > 0.08) { steerLandBrake(out, distSplash, alt); return; }
   if (alt > 0.4) {
     set(out, _up.x * 0.35 + _tmp3.x * 0.65, _up.y * 0.35 + _tmp3.y * 0.65, _up.z * 0.35 + _tmp3.z * 0.65);
     normalize(out, out);
@@ -193,11 +217,10 @@ function aimPitchAlong(along: V3, pitch: number, out: V3): void {
 }
 
 function pitchBoost(alt: number): number {
-  // Slightly slower pitch-over than a due-west short-arc loft so the eastbound
-  // corridor still has altitude in the bank when horizontal speed arrives.
-  if (alt < 0.6) return 0;
-  if (alt < 55) return smoothstep(0.6, 55, alt) * (Math.PI / 2) * 0.88;
-  return (Math.PI / 2) * 0.9;
+  // Pitch over from ~150 m so T+16 is hundreds of metres, not a 1 km loft.
+  if (alt < 0.15) return 0;
+  if (alt < 48) return smoothstep(0.15, 48, alt) * (Math.PI / 2) * 0.9;
+  return (Math.PI / 2) * 0.92;
 }
 
 /** Boost gravity-turn pitch along corridor. */
@@ -225,6 +248,23 @@ function steerUpperClimb(
   aimPitchAlong(along, pitchUpperClimb(vRad, vHoriz, vTarget), out);
 }
 
+/**
+ * At speed but below insert alt: climb with mostly radial thrust so eastbound
+ * assist does not keep stacking horizontal Δv into a high ellipse.
+ */
+function steerUpperLoft(along: V3, vRad: number, vHoriz: number, vTarget: number, out: V3): void {
+  const upW = vRad > 0.8 ? 0.45 : 0.55;
+  const alongW = vHoriz < vTarget ? 0.35 : -0.08;
+  set(
+    out,
+    _up.x * upW + along.x * alongW,
+    _up.y * upW + along.y * alongW,
+    _up.z * upW + along.z * alongW,
+  );
+  if (len(out) < 1e-8) set(out, _up.x, _up.y, _up.z);
+  normalize(out, out);
+}
+
 /** Above insert altitude: kill radial, push horizontal. */
 function steerUpperCircular(
   vRad: number,
@@ -239,23 +279,6 @@ function steerUpperCircular(
   const hW = 1 - radW + (needH > 0.05 ? 0.15 : 0);
   set(out, along.x * hW + _up.x * tgtRad, along.y * hW + _up.y * tgtRad, along.z * hW + _up.z * tgtRad);
   if (len(out) < 1e-8) set(out, along.x, along.y, along.z);
-  normalize(out, out);
-}
-
-/**
- * At speed but below insert alt: climb with mostly radial thrust so eastbound
- * assist does not keep stacking horizontal Δv into a high ellipse.
- */
-function steerUpperLoft(along: V3, vRad: number, vHoriz: number, vTarget: number, out: V3): void {
-  const upW = vRad > 0.8 ? 0.55 : 0.8;
-  const alongW = vHoriz < vTarget ? 0.2 : -0.12;
-  set(
-    out,
-    _up.x * upW + along.x * alongW,
-    _up.y * upW + along.y * alongW,
-    _up.z * upW + along.z * alongW,
-  );
-  if (len(out) < 1e-8) set(out, _up.x, _up.y, _up.z);
   normalize(out, out);
 }
 
@@ -283,7 +306,7 @@ export function steer(
 ): void {
   const geo = fillSteerFrame(t, pos, vel, epoch, interceptN);
   if (mode === "idle") { set(out, 0, 0, 0); return; }
-  if (mode === "land") { steerLand(t, pos, geo.alt, out, epoch); return; }
+  if (mode === "land") { steerLand(t, pos, vel, geo.alt, out, epoch); return; }
   if (mode === "relight") { steerRelight(geo.vHoriz, geo.along, out); return; }
   if (mode === "boost") { steerBoost(geo.alt, geo.along, out); return; }
   steerUpper(geo, out);
@@ -291,23 +314,29 @@ export function steer(
 
 function throttleBoost(t: number, alt: number): number {
   let thr = 0.9;
-  if (alt > 5 && alt < 30) thr *= 0.78;
-  if (alt < 2) thr = 0.98;
+  // Narrower max-Q dip so staging still reaches ~6,000 km/h.
+  if (alt > 4 && alt < 16) thr *= 0.88;
+  // ~1.4 T/W at liftoff (webcast T+16 is 0.4 km / 219 km/h, not a 1 km punch).
+  if (alt < 2) thr = 0.84;
   if (t > F13.MECO - 8) thr *= Math.max(0.15, (F13.HOT_STAGE - t) / 12);
   return Math.max(0, Math.min(1, thr));
 }
 
-function throttleLand(t: number): number {
-  if (t < F13.LAND_3TO2) return 0.95;
-  if (t < F13.LAND_2TO1) return 0.62;
-  return 0.38;
+function throttleLand(t: number, alt: number): number {
+  let thr = 0.95;
+  if (t >= F13.LAND_3TO2) thr = 0.62;
+  if (t >= F13.LAND_2TO1) thr = 0.38;
+  // SHIP_THRUST_N is sized for wet mass; at landing weight even a
+  // 3-engine fraction is tens of g. Keep the deck-relative T/W ~1.
+  if (alt < 0.7) thr *= 0.55;
+  return thr;
 }
 
 export function throttleFor(t: number, alt: number, mode: BurnMode): number {
   if (mode === "idle") return 0;
   if (mode === "hot_stage") return 0.55;
   if (mode === "relight") return 0.5;
-  if (mode === "land") return throttleLand(t);
+  if (mode === "land") return throttleLand(t, alt);
   if (mode === "boost") return throttleBoost(t, alt);
   if (t >= F13.SECO - 8) return Math.max(0, (F13.SECO - t) / 8) * 0.8;
   return 0.88;
@@ -319,7 +348,8 @@ export function peakForceN(mode: BurnMode, thr: number): number {
     return BOOSTER_THRUST_N * 0.18 * thr + SHIP_THRUST_N * 0.95;
   if (mode === "upper") return SHIP_THRUST_N * thr;
   if (mode === "relight") return SHIP_THRUST_N * 0.34 * thr;
-  if (mode === "land") return SHIP_THRUST_N * thr;
+  // ~1.5 g at landing (dry) mass — full SHIP_THRUST_N is ~50 g on the dry ship.
+  if (mode === "land") return SHIP_THRUST_N * 0.032 * thr;
   return 0;
 }
 

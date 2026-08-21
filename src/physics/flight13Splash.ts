@@ -141,8 +141,9 @@ function placeFloating(loop: F13Loop): void {
 }
 
 function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
-  if (loop.state.t < F13.ENTRY) return false;
-  return geo.curAlt < 2.5 && geo.vRel < 0.45;
+  if (loop.state.t < F13.LAND_BURN - 20) return false;
+  // geo.vRel is ECI (includes ~0.4 km/s Earth rotation on the deck).
+  return geo.curAlt < 0.22 && geo.vRel < 0.55;
 }
 
 function trySplashdown(loop: F13Loop): boolean {
@@ -219,9 +220,9 @@ export function finalizeFlight13(loop: F13Loop): MissionResult {
 function padLiftoffState(epoch: EphemerisEpoch): CraftState {
   const pad = starbasePadState(0, epoch);
   const state: CraftState = { t: 0, pos: clone(pad.pos), vel: clone(pad.vel) };
-  state.vel.x += pad.up.x * 0.015;
-  state.vel.y += pad.up.y * 0.015;
-  state.vel.z += pad.up.z * 0.015;
+  state.vel.x += pad.up.x * 0.002;
+  state.vel.y += pad.up.y * 0.002;
+  state.vel.z += pad.up.z * 0.002;
   return state;
 }
 

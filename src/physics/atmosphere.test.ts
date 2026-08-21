@@ -70,7 +70,7 @@ describe("entry aero tables", () => {
     const peak = entryLiftToDrag(50);
     assert.ok(peak > entryLiftToDrag(95));
     assert.ok(peak > entryLiftToDrag(15));
-    assert.ok(peak < 0.5);
+    assert.ok(peak < 0.7);
     assert.ok(entryLiftToDrag(100) >= 0.05);
   });
 });

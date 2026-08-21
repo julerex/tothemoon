@@ -19,8 +19,10 @@ import {
   starbasePadState,
   starbaseSunElev,
   surfaceState,
+  groundRelativeSpeedKmS,
 } from "./earthFrame.ts";
 import { makeLunarEpoch } from "./missionEpoch.ts";
+import { bodyPositions } from "./bodies.ts";
 import { dist, dot, len, v3 } from "./vec3.ts";
 
 describe("earthFrame geometry", () => {
@@ -114,6 +116,13 @@ describe("earthFrame geometry", () => {
     assert.ok(dist(pad.pos, surf.pos) < 1e-3);
     assert.ok(dist(pad.up, surf.up) < 1e-9);
     assert.ok(dist(pad.east, surf.east) < 1e-9);
+  });
+
+  it("groundRelativeSpeedKmS is ~0 for a co-rotating pad", () => {
+    const pad = starbasePadState(0);
+    const b = bodyPositions(0);
+    const kmS = groundRelativeSpeedKmS(pad.pos, pad.vel, b.earth, b.earthVel);
+    assert.ok(kmS < 1e-6, `pad ground speed ${kmS}`);
   });
 
   it("mesh-local radius is preserved under meshLocalToInertial", () => {

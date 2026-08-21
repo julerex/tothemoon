@@ -79,8 +79,6 @@ function secoShouldCut(loop: F13Loop, alt: number, g: SecoGeom): boolean {
   const t = loop.state.t; const vNeed = SECO_VCIRC_FRAC * g.vCirc;
   const energyOk =
     alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 0.998 && Math.abs(g.vRad) <= SECO_VRAD_MAX;
-  // Cut at 0.998 circular even if radial rate is still a bit lofted — a 0.1 s
-  // step in a thin mesosphere otherwise jumps ~15 m/s and skips Australia.
   const speedCap = alt >= SECO_ALT_MIN_KM && g.vHoriz >= vNeed * 0.998;
   const propLow = fuelShipFrac(loop.prop) <= SHIP_PROP_RESERVE;
   const clockCut =
@@ -106,9 +104,10 @@ function landStartRangeKm(loop: F13Loop): { vRel: number; rangeKm: number } {
 
 function shouldStartLand(t: number, alt: number, vRel: number, rangeKm: number): boolean {
   if (rangeKm > 280) return false;
-  if (t >= F13.LAND_BURN && alt < 40) return true;
-  if (alt < 12 && vRel < 0.9 && t >= F13.ENTRY - 60) return true;
-  return alt < 4 && vRel < 0.55 && t >= F13.ENTRY;
+  // Webcast landing burn is ~1.2 km at T+1:05:02 — do not light at 12 km.
+  if (t >= F13.LAND_BURN && alt < 3.2) return true;
+  if (alt < 2.2 && vRel < 0.28 && t >= F13.LAND_BURN - 40) return true;
+  return false;
 }
 
 /** Light landing burn when aero has bled speed or public mark. */

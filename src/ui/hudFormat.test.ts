@@ -26,6 +26,7 @@ import {
   formatProgressRemainingLine,
   formatRate,
   formatSpeed,
+  formatSpeedKmh,
   formatSpeedPrecise,
   formatThrust,
   formatThrustDetailed,
@@ -116,6 +117,11 @@ describe("distance / speed / thrust", () => {
   it("formatSpeed dual ranges", () => {
     assert.equal(formatSpeed(7.8), "7.80 km/s");
     assert.equal(formatSpeed(0.25), "250 m/s");
+  });
+
+  it("formatSpeedKmh matches webcast integer km/h", () => {
+    assert.equal(formatSpeedKmh(0), "0 km/h");
+    assert.equal(formatSpeedKmh(26496 / 3600), "26,496 km/h");
   });
 
   it("formatSpeedPrecise dual units", () => {

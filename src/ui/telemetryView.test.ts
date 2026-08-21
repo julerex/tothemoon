@@ -100,6 +100,13 @@ describe("buildTelemetryView", () => {
     assert.equal(v.metrics.forceCheckVisible, false);
   });
 
+  it("formats Flight 13 main speed as km/h when flagged", () => {
+    const v = buildTelemetryView(baseTel({ speed: 7.36, speedKmh: true }), {
+      skyLine: () => "sky-test",
+    });
+    assert.equal(v.main.speed, "26,496 km/h");
+  });
+
   it("maps next phase from timeline segments", () => {
     const v = buildTelemetryView(baseTel({ t: 10, phase: "Launch", phaseId: "launch" }), {
       skyLine: () => "sky-test",
