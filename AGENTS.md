@@ -24,6 +24,7 @@ When committing and pushing:
 - Scene unit = 1 km. Prefer small, focused diffs over drive-by refactors. Keep non-test `src/` files under ~400 LOC; extract along domain seams into prefixed siblings or subdirs and leave the old path as a re-export facade (see P3.16 in `docs/NEXT.md`).
 - Hygiene: `npm run typecheck`, `npm run lint` (ESLint), `npm test` (or `npm run ci` for all three).
 - Prefer JSDoc on exported pure helpers and module headers; extend unit tests when changing physics or timeline contracts.
+- **Do not verify in the browser unless the user asks.** Tests and typecheck are the default. When they do ask, follow [`docs/AGENT_BROWSER.md`](docs/AGENT_BROWSER.md).
 
 ## Cursor Cloud specific instructions
 
