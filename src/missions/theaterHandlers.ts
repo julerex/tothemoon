@@ -69,7 +69,11 @@ function onCameraFrame(w: TheaterHudWire, mode: CameraMode): void {
   w.director.frameMode(mode);
 }
 
-function onPanKey(w: TheaterHudWire, key: "w" | "a" | "s" | "d", down: boolean) {
+function onPanKey(
+  w: TheaterHudWire,
+  key: "w" | "a" | "s" | "d" | "t" | "b",
+  down: boolean,
+) {
   const mode = w.director.setPanKey(key, down);
   if (down) w.disableAutoCam();
   return mode;

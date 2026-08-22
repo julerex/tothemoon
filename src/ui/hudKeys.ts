@@ -85,8 +85,13 @@ function handleOrbitHold(rt: HudRuntime, e: KeyboardEvent, k: string): boolean {
   return true;
 }
 
+function isPanKey(k: string): k is "w" | "a" | "s" | "d" | "t" | "b" {
+  return k === "w" || k === "a" || k === "s" || k === "d" || k === "t" ||
+    k === "b";
+}
+
 function handlePanZoomHold(rt: HudRuntime, k: string): boolean {
-  if (k === "w" || k === "a" || k === "s" || k === "d") {
+  if (isPanKey(k)) {
     noteCameraMode(rt, rt.data.handlers.onPanKey(k, true));
     return true;
   }
@@ -145,7 +150,7 @@ function onKeyUp(rt: HudRuntime, e: KeyboardEvent): void {
   const h = rt.data.handlers;
   if (k === "q" || k === "e" || k === "r" || k === "f" || k === "c" || k === "v") {
     h.onOrbitKey(k, false);
-  } else if (k === "w" || k === "a" || k === "s" || k === "d") {
+  } else if (isPanKey(k)) {
     h.onPanKey(k, false);
   } else if (k === "z" || k === "x") {
     h.onZoomKey(k, false);
@@ -155,7 +160,7 @@ function onKeyUp(rt: HudRuntime, e: KeyboardEvent): void {
 function releaseAllHolds(rt: HudRuntime): void {
   const h = rt.data.handlers;
   for (const k of ["q", "e", "r", "f", "c", "v"] as const) h.onOrbitKey(k, false);
-  for (const k of ["w", "a", "s", "d"] as const) h.onPanKey(k, false);
+  for (const k of ["w", "a", "s", "d", "t", "b"] as const) h.onPanKey(k, false);
   for (const k of ["z", "x"] as const) h.onZoomKey(k, false);
 }
 

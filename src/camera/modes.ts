@@ -19,7 +19,8 @@ import {
   type MountFocus,
   type MountLock,
 } from "./mountLock";
-import { panAxesFromHeld } from "./panAxes";
+import { panAxesFromHeld, type PanKey } from "./panAxes";
+import { panUpAxisForMode } from "./panUpAxis";
 import { trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
@@ -118,6 +119,7 @@ export class CameraDirector {
   private readonly tmp = new THREE.Vector3();
   private readonly orbitOffset = new THREE.Vector3();
   private readonly panRight = new THREE.Vector3();
+  private readonly panUp = new THREE.Vector3();
   private readonly panOffset = new THREE.Vector3();
   private readonly orbitQuat = new THREE.Quaternion();
   /** Local surface up / east at the pad (opening shot + upright framing). */
@@ -136,6 +138,8 @@ export class CameraDirector {
   private panA = false;
   private panS = false;
   private panD = false;
+  private panT = false;
+  private panB = false;
   private zoomZ = false;
   private zoomX = false;
   private readonly craftPos = new THREE.Vector3();
@@ -865,14 +869,17 @@ export class CameraDirector {
   }
 
   /**
-   * WASD pan in the view plane. Keeps the current focus so the camera still
-   * co-moves with Earth / craft / Moon / pad; the pan is a sticky offset.
+   * WASD pan in the view plane plus T/B along local up. Keeps the current
+   * focus so the camera still co-moves with Earth / craft / Moon / pad; the
+   * pan is a sticky offset. At Starbase, T/B is pad surface-normal.
    */
-  setPanKey(key: "w" | "a" | "s" | "d", down: boolean): CameraMode {
+  setPanKey(key: PanKey, down: boolean): CameraMode {
     if (key === "w") this.panW = down;
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
-    else this.panD = down;
+    else if (key === "d") this.panD = down;
+    else if (key === "t") this.panT = down;
+    else this.panB = down;
     if (down) this.unlockMount();
     return this.focus;
   }
@@ -1373,27 +1380,36 @@ export class CameraDirector {
   }
 
   /**
-   * Slide camera + target in the camera's view plane (screen-space style).
-   * W/S along look projected ⟂ camera.up; A pans screen-right, D pans screen-left.
-   * Matches what you see at Starbase (pad-up) rather than the ecliptic plane.
+   * Slide camera + target: W/S along look projected ⟂ camera.up; A pans
+   * screen-right, D pans screen-left; T/B along local up (pad surface
+   * normal at Starbase so climb is Earth-perpendicular).
    */
   private applyPan(dt: number): void {
-    const { fwd, right } = panAxesFromHeld({
+    const { fwd, right, up } = panAxesFromHeld({
       w: this.panW,
       a: this.panA,
       s: this.panS,
       d: this.panD,
+      t: this.panT,
+      b: this.panB,
     });
-    if ((fwd === 0 && right === 0) || dt <= 0) return;
+    if ((fwd === 0 && right === 0 && up === 0) || dt <= 0) return;
     this.cancelDistanceEase();
     this.buildPanAxes();
-    this.applyPanOffset(fwd, right, this.panSpeed() * dt);
+    this.buildPanUp();
+    this.applyPanOffset(fwd, right, up, this.panSpeed() * dt);
   }
 
-  private applyPanOffset(fwd: number, right: number, step: number): void {
+  private applyPanOffset(
+    fwd: number,
+    right: number,
+    up: number,
+    step: number,
+  ): void {
     this.panOffset.set(0, 0, 0);
     this.panOffset.addScaledVector(this.tmp, fwd * step);
     this.panOffset.addScaledVector(this.panRight, right * step);
+    this.panOffset.addScaledVector(this.panUp, up * step);
     this.camera.position.add(this.panOffset);
     this.controls.target.add(this.panOffset);
   }
@@ -1430,6 +1446,15 @@ export class CameraDirector {
       -this.tmp.dot(this.camera.up),
     );
     if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
+  }
+
+  /** Pad surface-normal at Starbase / aerial; camera.up in other focuses. */
+  private buildPanUp(): void {
+    if (!panUpAxisForMode(this.focus, this.simTime, this.panUp, this.epoch)) {
+      this.panUp.copy(this.camera.up);
+    }
+    if (this.panUp.lengthSq() <= 1e-12) this.panUp.set(0, 0, 1);
+    else this.panUp.normalize();
   }
 
   /** Scale distance to the focus; Z zooms in, X zooms out. */
@@ -1596,7 +1621,8 @@ export class CameraDirector {
   }
 
   private panHeld(): boolean {
-    return this.panW || this.panA || this.panS || this.panD;
+    return this.panW || this.panA || this.panS || this.panD ||
+      this.panT || this.panB;
   }
 
   private zoomHeld(): boolean {

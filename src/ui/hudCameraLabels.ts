@@ -10,7 +10,7 @@ export const CAMERA_LABELS: Record<
 > = {
   free: {
     title: "Free camera",
-    detail: "No subject track · WASD pan · drag to look",
+    detail: "No subject track · WASD + T/B pan · drag to look",
   },
   sun: { title: "Sun", detail: "Focus · double-tap rail to frame" },
   moon: { title: "Moon", detail: "Focus · double-tap rail to frame" },

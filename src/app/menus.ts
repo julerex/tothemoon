@@ -58,7 +58,7 @@ export const MAIN_MENU_POINTS: readonly MainMenuPoint[] = [
   {
     title: "Cameras",
     detail:
-      "Auto-cam follows the webcast (toggle G). Rail buttons, mouse, and WASD take a seat of your own.",
+      "Auto-cam follows the webcast (toggle G). Rail buttons, mouse, WASD, and T/B take a seat of your own.",
   },
   {
     title: "HUD",

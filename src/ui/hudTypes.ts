@@ -36,8 +36,11 @@ export type HudHandlers = {
     key: "q" | "e" | "r" | "f" | "c" | "v",
     down: boolean,
   ) => CameraMode;
-  /** WASD — pan (hold) */
-  onPanKey: (key: "w" | "a" | "s" | "d", down: boolean) => CameraMode;
+  /** WASD view-plane pan, T/B local-up pan (hold) */
+  onPanKey: (
+    key: "w" | "a" | "s" | "d" | "t" | "b",
+    down: boolean,
+  ) => CameraMode;
   /** Z/X — zoom in/out (hold) */
   onZoomKey: (key: "z" | "x", down: boolean) => CameraMode;
   /** L — toggle scene labels and trajectory overlays */
