@@ -6,7 +6,7 @@
  * address bar stays in sync as the clock moves so a copied URL restores the
  * same moment.
  *
- * Accepted `t` forms: `T+01:05:21` / `T−00:02:00`, `1:05:21`, `65:21` (M:SS),
+ * Accepted `t` forms: `T+01:05:21` / `T−00:05:00`, `1:05:21`, `65:21` (M:SS),
  * raw seconds (`3921`), and compact units (`1h5m21s`). A `+` in the hash is
  * often decoded as a space (`T 01:05:21`) — that still means T+.
  */
@@ -42,7 +42,7 @@ export function parseSeekTime(raw: string): number | null {
 }
 
 /**
- * Compact, URL-safe clock for `t=`: `1:05:21` or `-0:02:00`.
+ * Compact, URL-safe clock for `t=`: `1:05:21` or `-0:05:00`.
  * Floors toward zero so the hash matches the HUD second.
  */
 export function formatSeekTime(physicsT: number): string {

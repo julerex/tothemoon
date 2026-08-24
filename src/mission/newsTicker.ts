@@ -198,12 +198,12 @@ function nearTimelineEvent(timeline: MissionTimeline, t: number): boolean {
  * Active news beat at mission time `t` (last beat with beat.t ≤ t).
  * Returns null only if the beat list is empty.
  */
-/** Pad hold copy during the T−2:00 pre-liftoff window. */
+/** Pad hold copy during the T−5:00 pre-liftoff window. */
 export const PRELAUNCH_NEWS_BEAT: NewsBeat = {
-  t: -120,
+  t: -300,
   id: "prelaunch",
   wire: "PAD",
-  line: "T−2:00 and counting — Starship is vertical at Starbase, awaiting liftoff.",
+  line: "T−5:00 and counting — Starship is vertical at Starbase, awaiting liftoff.",
 };
 
 export function newsAtMissionTime(

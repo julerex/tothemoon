@@ -293,7 +293,7 @@ export class CameraDirector {
    * Azimuth is from the west (inland) so the Gulf sits behind the stack.
    *
    * Uses {@link simTime} so prelaunch (t < 0) seats the camera on the same
-   * pad epoch as the stack — Earth moves ~30 km/s, so a T−2:00 craft at
+   * pad epoch as the stack — Earth moves ~30 km/s, so a T−5:00 craft at
    * pad(t) is thousands of km from pad(0).
    */
   private applyPadOpeningShot(): void {

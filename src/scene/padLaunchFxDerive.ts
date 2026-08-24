@@ -17,7 +17,7 @@ import { ENGINE_START_T, FLAME_DIVERTER_T } from "./padLaunchFxSpecs";
 export type LaunchPadFxState = {
   /**
    * Mission clock seconds. Liftoff = 0; negative = T− hold
-   * (e.g. transport u maps −120…0 before light).
+   * (e.g. transport u maps −300…0 before light).
    */
   missionT: number;
   /**

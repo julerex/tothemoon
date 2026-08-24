@@ -53,11 +53,12 @@ describe("formatSeekTime", () => {
     assert.equal(formatSeekTime(0), "0:00:00");
     assert.equal(formatSeekTime(3921), "1:05:21");
     assert.equal(formatSeekTime(-120), "-0:02:00");
+    assert.equal(formatSeekTime(-300), "-0:05:00");
     assert.equal(formatSeekTime(74), "0:01:14");
   });
 
   it("round-trips through parseSeekTime", () => {
-    for (const t of [0, -120, -5, 74, 3921, 50 * 3600, 3 * 86400 + 10]) {
+    for (const t of [0, -300, -120, -5, 74, 3921, 50 * 3600, 3 * 86400 + 10]) {
       assert.equal(parseSeekTime(formatSeekTime(t)), t);
     }
   });

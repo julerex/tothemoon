@@ -11,7 +11,7 @@ Interactive **Three.js** mission theaters. Open the site to a **main menu**, the
 
 Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13`
 
-**Time-seek URLs** (every mission): append `?t=` on the hash to open at that mission clock. Liftoff is `t=0`. Examples: `#/mission/flight-13?t=1:05:21` (official splash), `#/mission/flight-13?t=-0:02:00` (T− hold), `#/mission/to-the-moon?t=T+50:00:00`. Accepts `T+`/`T−` clocks, `H:MM:SS`, `M:SS`, raw seconds, and `1h5m21s`. The address bar stays in sync as you scrub or play so you can copy a shareable URL.
+**Time-seek URLs** (every mission): append `?t=` on the hash to open at that mission clock. Liftoff is `t=0`. Examples: `#/mission/flight-13?t=1:05:21` (official splash), `#/mission/flight-13?t=-0:05:00` (T− hold), `#/mission/to-the-moon?t=T+50:00:00`. Accepts `T+`/`T−` clocks, `H:MM:SS`, `M:SS`, raw seconds, and `1h5m21s`. The address bar stays in sync as you scrub or play so you can copy a shareable URL.
 
 ## Physics
 

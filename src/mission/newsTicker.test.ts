@@ -160,6 +160,15 @@ describe("expandEventCopy", () => {
 });
 
 describe("buildNewsBeats + newsAtMissionTime", () => {
+  it("uses T−5:00 pad-hold copy during countdown", () => {
+    const beats = buildNewsBeats(flight13Timeline());
+    const hold = newsAtMissionTime(beats, -300);
+    assert.ok(hold);
+    assert.equal(hold!.id, "prelaunch");
+    assert.match(hold!.line, /T−5:00/);
+    assert.equal(newsAtMissionTime(beats, -1)!.id, "prelaunch");
+  });
+
   it("returns beats sorted by time and covers liftoff", () => {
     const beats = buildNewsBeats(flight13Timeline());
     assert.ok(beats.length >= 5);

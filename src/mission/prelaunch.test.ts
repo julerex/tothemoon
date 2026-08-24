@@ -11,7 +11,7 @@ import {
 import type { MissionTimeline } from "./timeline.ts";
 
 describe("prelaunch countdown", () => {
-  it("maps transport u=0 to T−2:00 and liftoff to T+0", () => {
+  it("maps transport u=0 to T−5:00 and liftoff to T+0", () => {
     const dur = 1000;
     assert.equal(transportUToPhysicsT(0, dur), -PRELAUNCH_COUNTDOWN_S);
     assert.ok(
@@ -43,9 +43,12 @@ describe("prelaunch countdown", () => {
       events: [{ id: "liftoff", t: 0, u: 0, title: "Liftoff" }],
     };
     const remapped = timelineWithPrelaunch(tl, 1000);
-    assert.equal(remapped.durationS, 1120);
+    const total = 1000 + PRELAUNCH_COUNTDOWN_S;
+    assert.equal(remapped.durationS, total);
     assert.equal(remapped.events[0]!.t, 0);
     assert.ok(remapped.events[0]!.u > 0.1);
-    assert.ok(Math.abs(remapped.events[0]!.u - 120 / 1120) < 1e-9);
+    assert.ok(
+      Math.abs(remapped.events[0]!.u - PRELAUNCH_COUNTDOWN_S / total) < 1e-9,
+    );
   });
 });

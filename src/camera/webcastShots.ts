@@ -107,7 +107,7 @@ export function splashDroneAzimuthDeg(t: number): number {
 export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "pad-wide",
-    t0: -120,
+    t0: -300,
     mode: "aerial",
     frame: true,
     frameScale: PAD_AERIAL_FRAME_SCALE,

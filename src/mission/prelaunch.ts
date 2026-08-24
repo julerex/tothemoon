@@ -3,13 +3,13 @@
  *
  * Physics samples still start at t = 0 (liftoff). Transport progress maps
  * [0, 1] onto [−PRELAUNCH_COUNTDOWN_S, durationS] so the webcast clock can
- * open at T−00:02:00 with the stack on the pad.
+ * open at T−00:05:00 with the stack on the pad.
  */
 
 import type { MissionTimeline } from "./timeline";
 
 /** Seconds of hold before liftoff (webcast T− clock). */
-export const PRELAUNCH_COUNTDOWN_S = 120;
+export const PRELAUNCH_COUNTDOWN_S = 300;
 
 /** Total transport length: countdown + flight. */
 export function transportDurationS(physicsDurationS: number): number {

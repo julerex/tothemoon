@@ -54,11 +54,11 @@ missions by only changing the hash: a live theater ignores a different
 | Main menu | `http://localhost:5173/tothemoon/#/` |
 | Mission menu | `http://localhost:5173/tothemoon/#/missions` |
 | Flight 13 splash | `http://localhost:5173/tothemoon/?agent=1#/mission/flight-13?t=1:05:21` |
-| Flight 13 T− hold | `http://localhost:5173/tothemoon/?agent=1#/mission/flight-13?t=-0:02:00` |
+| Flight 13 T− hold | `http://localhost:5173/tothemoon/?agent=1#/mission/flight-13?t=-0:05:00` |
 | Lunar T+50 h | `http://localhost:5173/tothemoon/?agent=1#/mission/to-the-moon?t=T+50:00:00` |
 
 `t=` accepts `T+`/`T−` clocks, `H:MM:SS`, `M:SS`, raw seconds, `1h5m21s`.
-A seek URL **pauses**. Flight 13 without `t=` auto-plays from T−00:02:00.
+A seek URL **pauses**. Flight 13 without `t=` auto-plays from T−00:05:00.
 
 `theaterUrl("flight-13", "1:05:21")` in `src/debug/cdpCommands.ts` builds a
 nonce URL so the load is never a same-document hash change.
@@ -82,7 +82,7 @@ On the menu, `ready` is `false` and mutators return `{ error: "theater not start
 
 Camera modes: `sun` `moon` `earth` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `free`.
 
-`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−2:00 through T−8.
+`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−5:00 through T−8.
 
 `setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
 
