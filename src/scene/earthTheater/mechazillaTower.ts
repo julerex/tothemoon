@@ -10,7 +10,7 @@ import {
 } from "./mechazillaDims";
 import { makeTowerMats, type TowerMats } from "./mechazillaMats";
 import { addMechazillaTruss } from "./mechazillaTruss";
-import { makeScorchTexture } from "./padTextures";
+import { addOlm } from "./padOlm";
 
 export function updateMechazillaRecovery(
   pad: THREE.Object3D,
@@ -98,64 +98,6 @@ function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   );
   plate.position.set(-boomLen - 0.0042, 0, 0);
   qd.add(plate);
-}
-
-function addOlm(g: THREE.Group, mats: TowerMats): void {
-  const olmMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4844, metalness: 0.62, roughness: 0.55, side: THREE.DoubleSide,
-  });
-  // Taller / thicker mount shell (V23.3) — raised OLM silhouette from aerial.
-  const olm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0115, 0.0145, 0.0075, 24, 1, true),
-    olmMat,
-  );
-  olm.position.set(0, TOWER_OY0 + 0.0035, 0);
-  olm.name = "pad-olm";
-  g.add(olm);
-  addOlmTopAndLegs(g, mats);
-  addOlmDeflector(g, mats);
-}
-
-function addOlmTop(g: THREE.Group): void {
-  const olmTop = new THREE.Mesh(
-    new THREE.RingGeometry(0.0055, 0.0118, 28, 1),
-    new THREE.MeshStandardMaterial({ color: 0x2a2824, metalness: 0.4, roughness: 0.75, map: makeScorchTexture() }),
-  );
-  olmTop.rotation.x = -Math.PI / 2;
-  olmTop.position.set(0, TOWER_OY0 + 0.0074, 0);
-  g.add(olmTop);
-}
-
-function addOlmLegs(g: THREE.Group, mats: TowerMats): void {
-  for (let i = 0; i < 8; i++) {
-    const ang = (i / 8) * Math.PI * 2;
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.0026, 0.011, 0.0026), mats.accent);
-    leg.position.set(Math.cos(ang) * 0.012, TOWER_OY0 + 0.0055, Math.sin(ang) * 0.012);
-    g.add(leg);
-  }
-}
-
-/** Faceted flame-deflector wedges under the OLM ring (theater silhouette). */
-function addOlmDeflector(g: THREE.Group, mats: TowerMats): void {
-  const deflector = new THREE.Group();
-  deflector.name = "pad-olm-deflector";
-  for (let i = 0; i < 8; i++) {
-    const ang = (i / 8) * Math.PI * 2 + Math.PI / 8;
-    const wedge = new THREE.Mesh(
-      new THREE.BoxGeometry(0.0045, 0.0035, 0.007),
-      mats.steelDark,
-    );
-    wedge.position.set(Math.cos(ang) * 0.0065, TOWER_OY0 + 0.0012, Math.sin(ang) * 0.0065);
-    wedge.rotation.y = -ang;
-    wedge.rotation.x = 0.35;
-    deflector.add(wedge);
-  }
-  g.add(deflector);
-}
-
-function addOlmTopAndLegs(g: THREE.Group, mats: TowerMats): void {
-  addOlmTop(g);
-  addOlmLegs(g, mats);
 }
 
 function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {

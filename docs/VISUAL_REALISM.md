@@ -15,9 +15,9 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-21):** V0–V23 are **shipped** (including **V23.5** soft pad vent
-puffs). No next visual slice is queued. Further photorealism is **out of scope**
-unless explicitly requested. Flight 13 highlight clips in
+**Status (2026-08-24):** V0–V24 are **shipped** (including **V23.5** soft pad vent
+puffs and **V24** hex OLM). No next visual slice is queued. Further photorealism
+is **out of scope** unless explicitly requested. Flight 13 highlight clips in
 [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 
 ---
@@ -29,7 +29,7 @@ unless explicitly requested. Flight 13 highlight clips in
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2 hardstand (circular apron), matte white tank farm + berm, open tubular Mechazilla, lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
+| **Pad** | OLP-2 hardstand (circular apron), hex truncated-pyramid OLM (V24), matte white tank farm + berm, open tubular Mechazilla, lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes, hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -673,6 +673,27 @@ facets at aerial or pad cam.
 
 ---
 
+## V24 — Hex OLM vs T− stills — **done 2026-08-24**
+
+Look targets: `tminus-000500-pad-hold-wide.jpg` (aerial),
+`tminus-000200-full-stack.jpg` (Starbase ground), `tminus-000130-engines-up.jpg`
+(trench / engines-up).
+
+Replace the V23.3 open 24-segment cylinder on 8 box legs with a **hexagonal
+truncated pyramid**: scorched outer frustum, light-grey painted inner bowl,
+inner catwalk + rail, corner ribs, open steel deflector funnel. Trench-cam
+keep-out and `pad-olm` / `pad-olm-deflector` names unchanged. No CAD; no
+draped webcast stills.
+
+**Done when:** HUD-off aerial at T− hold reads as a dark hex mount on the
+circular pad; Starbase ground cam shows sloped faces with the booster sitting
+in the frustum; trench cam shows a painted inner bowl and catwalk, not box
+legs.
+
+**Files:** `padOlm.ts`, `mechazillaTower.ts`, `padLaunchMeshes.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -722,3 +743,4 @@ facets at aerial or pad cam.
 | 2026-08-19 | V22 shipped: Raptor 3 fluted bells/powerheads, stainless bay + rams, V3 90/90/180 grid fins, B20 |
 | 2026-08-21 | V23 shipped: pad T−5 aerial massing (tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks/QD) |
 | 2026-08-21 | V23.5: soft cryo vent sprite puffs (replace faceted icosahedron lobes) |
+| 2026-08-24 | V24 shipped: hex truncated-pyramid OLM (inner catwalk, painted bowl) vs T− stills |

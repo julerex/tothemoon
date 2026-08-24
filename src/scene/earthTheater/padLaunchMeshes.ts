@@ -16,6 +16,7 @@ import { createPadSurroundings } from "./padSurroundings";
 import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX } from "./mechazillaTower";
 import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate";
 import { createPadVentClouds } from "./padVentClouds";
+import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
 
 /** Place pad group at Starbase geodetic on the Earth mesh. */
 export function placePadOnEarth(pad: THREE.Group): void {
@@ -80,7 +81,7 @@ function addOlmLamp(g: THREE.Group, i: number): void {
     new THREE.SphereGeometry(0.0006, 6, 4),
     new THREE.MeshBasicMaterial({ color: 0xf0f4ff }),
   );
-  lamp.position.set(Math.cos(ang) * 0.013, 0.003, Math.sin(ang) * 0.013);
+  lamp.position.set(Math.cos(ang) * OLM_LAMP_R, OLM_LAMP_Y, Math.sin(ang) * OLM_LAMP_R);
   lamp.name = `pad-olm-lamp-${i}`;
   g.add(lamp);
 }

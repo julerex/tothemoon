@@ -34,10 +34,10 @@ export const TRENCH_CAM_LOOK_LOCAL = {
   z: 0,
 } as const;
 
-/** OLM open-cylinder top radius (km) — mount must sit inside this ring. */
+/** OLM hole the trench mount must sit inside (km). Visual inner bowl is ~9.8 m (V24). */
 export const OLM_INNER_RADIUS_KM = 0.012;
 
-/** OLM deck top (km above pad origin). */
+/** Conservative “under the deck” bound (km). Visual hex deck is ~12 m (V24). */
 export const OLM_DECK_TOP_KM = 0.004;
 
 /** Outer Raptor ring plus bell radius, scaled to world km (theater). */
