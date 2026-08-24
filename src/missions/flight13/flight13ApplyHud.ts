@@ -8,6 +8,10 @@ import {
 } from "../../physics/epoch";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
 import { applyLandingBeatEffects } from "../theaterHandlers";
+import {
+  cameraHudTelemetry,
+  type CameraPoseVec,
+} from "../../ui/hudCameraPose";
 import type { F13Ctx } from "./bootstrap";
 import type { displayFields } from "./flight13ApplyCore";
 
@@ -66,7 +70,7 @@ export function hudPlayback(
   };
 }
 
-export function hudPackMeta(ctx: F13Ctx) {
+export function hudPackMeta(ctx: F13Ctx, earth: CameraPoseVec) {
   return {
     translunarInjectionDeltaV: ctx.cache.translunarInjectionDeltaV,
     minMoonAlt: ctx.cache.minMoonAlt,
@@ -76,6 +80,7 @@ export function hudPackMeta(ctx: F13Ctx) {
     focusDistance: ctx.director.getFocusDistance(),
     cameraMode: ctx.director.getMode(),
     forceCompareLine: ctx.forceCompareLine,
+    ...(cameraHudTelemetry(ctx.director.getWorldPose(), earth) ?? {}),
   };
 }
 
@@ -105,11 +110,12 @@ export function pushHud(
   distSplash: number,
   speeds: { speedEarth: number; speedMoon: number },
   showCompleteCard: boolean,
+  earth: CameraPoseVec,
 ): void {
   ctx.hud.update({
     ...hudCore(ctx, physicsT, prelaunch, frame, d, distSplash, speeds.speedEarth),
     ...hudPlayback(ctx, physicsT, showCompleteCard),
-    ...hudPackMeta(ctx),
+    ...hudPackMeta(ctx, earth),
     ...hudDetail(prelaunch, frame, d, speeds),
   });
 }

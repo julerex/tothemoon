@@ -43,6 +43,11 @@ export type HudTelStrip = {
   progEl: HTMLElement;
   altEl: HTMLElement;
   camEl: HTMLElement | null;
+  camTargetEl: HTMLElement | null;
+  camAltRowEl: HTMLElement | null;
+  camAltEl: HTMLElement | null;
+  camPosEl: HTMLElement | null;
+  camDirEl: HTMLElement | null;
   spdEl: HTMLElement;
   boosterEl: HTMLElement;
   shipEl: HTMLElement;
@@ -202,7 +207,10 @@ function collectTelStripB(): Omit<
   keyof ReturnType<typeof collectTelStripA>
 > {
   return {
-    altEl: el("#tel-altitude"), camEl: q("#tel-cam"), spdEl: el("#tel-speed"),
+    altEl: el("#tel-altitude"), camEl: q("#tel-cam"),
+    camTargetEl: q("#tel-cam-target"), camAltRowEl: q("#tel-cam-alt-row"),
+    camAltEl: q("#tel-cam-alt"), camPosEl: q("#tel-cam-pos"),
+    camDirEl: q("#tel-cam-dir"), spdEl: el("#tel-speed"),
     boosterEl: el("#tel-booster"), shipEl: el("#tel-ship"), thrustEl: el("#tel-thrust"),
     skyEl: q("#tel-sky"), barBooster: q("#bar-booster"), barShip: q("#bar-ship"),
     telemetryEl: q(".telemetry"),

@@ -203,6 +203,6 @@ export function finishFrame(
   const show = runLandingBeat(ctx, frame, u);
   const splash = distToSplash(ctx, simT, b);
   const speeds = relativeSpeeds(ctx, b);
-  pushHud(ctx, physicsT, prelaunch, frame, d, splash, speeds, show);
+  pushHud(ctx, physicsT, prelaunch, frame, d, splash, speeds, show, b.earth);
   maybePauseAtEnd(ctx, u, show);
 }

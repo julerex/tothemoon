@@ -98,6 +98,28 @@ describe("buildTelemetryView", () => {
     assert.equal(v.metrics.sky, "sky-test");
     assert.match(v.metrics.playback, /10×/);
     assert.equal(v.metrics.forceCheckVisible, false);
+    assert.equal(v.main.cameraTarget, "—");
+    assert.equal(v.main.cameraAltitudeVisible, false);
+    assert.equal(v.main.cameraPosition, "—");
+    assert.equal(v.main.cameraDirection, "—");
+  });
+
+  it("fills camera target, GEO-gated altitude, and raw pose", () => {
+    const v = buildTelemetryView(
+      baseTel({
+        cameraTarget: { x: 10, y: -2, z: 3 },
+        cameraPosition: { x: 11, y: -2, z: 3 },
+        cameraLook: { x: -1, y: 0, z: 0 },
+        cameraAltEarth: 0.19,
+      }),
+      { skyLine: () => "sky-test" },
+    );
+    assert.match(v.main.cameraTarget, /x 10\.000/);
+    assert.match(v.main.cameraTarget, /y −2\.000/);
+    assert.equal(v.main.cameraAltitudeVisible, true);
+    assert.equal(v.main.cameraAltitude, "190 m");
+    assert.match(v.main.cameraPosition, /x 11\.000/);
+    assert.match(v.main.cameraDirection, /x −1\.00000/);
   });
 
   it("formats Flight 13 main speed as km/h when flagged", () => {

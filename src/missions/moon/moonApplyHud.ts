@@ -14,6 +14,7 @@ import {
 } from "../../mission/frameDerive";
 import { stepLandingBeat } from "../../mission/landingBeatHold";
 import { applyLandingBeatEffects } from "../theaterHandlers";
+import { cameraHudTelemetry } from "../../ui/hudCameraPose";
 import type { MoonCtx } from "./bootstrap";
 import type { displayFields } from "./moonApplyCore";
 
@@ -71,13 +72,14 @@ export function hudPlayback(ctx: MoonCtx, physicsT: number, showCompleteCard: bo
   };
 }
 
-export function hudPackMeta(ctx: MoonCtx) {
+export function hudPackMeta(ctx: MoonCtx, earth: BodyState["earth"]) {
   return {
     translunarInjectionDeltaV: ctx.cache.translunarInjectionDeltaV,
     minMoonAlt: ctx.cache.minMoonAlt, peakSpeedKmS: ctx.cache.peakSpeedKmS,
     stageT: ctx.cache.stageT, keplerRefMaxDevKm: ctx.cache.keplerRefMaxDevKm,
     focusDistance: ctx.director.getFocusDistance(),
     cameraMode: ctx.director.getMode(),
+    ...(cameraHudTelemetry(ctx.director.getWorldPose(), earth) ?? {}),
   };
 }
 
@@ -109,7 +111,7 @@ export function pushHud(
   ctx.hud.update({
     ...hudCore(ctx, physicsT, prelaunch, frame, d, altitude),
     ...hudPlayback(ctx, physicsT, showCompleteCard),
-    ...hudPackMeta(ctx),
+    ...hudPackMeta(ctx, b.earth),
     ...hudDetail(ctx, prelaunch, frame, d, b),
   });
 }

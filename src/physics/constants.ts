@@ -54,6 +54,16 @@ export const R_SUN = 695_700;
 /** Earth gravitational parameter (km³/s²) */
 export const MU_EARTH = 398600.4418;
 
+/**
+ * Geostationary orbital radius from Earth's center (km).
+ * Kepler circular: a³ = μ T² / 4π² with the sidereal day.
+ * Equatorial altitude is ≈ 35 786 km above the WGS84 equator.
+ */
+export const GEO_RADIUS_KM = Math.cbrt(
+  (MU_EARTH * EARTH_SIDEREAL_DAY_S * EARTH_SIDEREAL_DAY_S) /
+    (4 * Math.PI * Math.PI),
+);
+
 /** Moon gravitational parameter (km³/s²) */
 export const MU_MOON = 4902.800066;
 

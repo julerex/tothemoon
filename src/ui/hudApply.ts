@@ -143,6 +143,11 @@ export function applyPressed(
 
 function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {
   if (dom.camEl) dom.camEl.textContent = m.focusDistance;
+  if (dom.camTargetEl) dom.camTargetEl.textContent = m.cameraTarget;
+  if (dom.camAltEl) dom.camAltEl.textContent = m.cameraAltitude;
+  if (dom.camAltRowEl) dom.camAltRowEl.hidden = !m.cameraAltitudeVisible;
+  if (dom.camPosEl) dom.camPosEl.textContent = m.cameraPosition;
+  if (dom.camDirEl) dom.camDirEl.textContent = m.cameraDirection;
   dom.spdEl.textContent = m.speed;
   dom.boosterEl.textContent = m.fuelBooster;
   dom.shipEl.textContent = m.fuelShip;

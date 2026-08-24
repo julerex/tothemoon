@@ -17,6 +17,10 @@ import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { formatSkyPhaseLine } from "../physics/skyPhase";
 import { CAMERA_LABELS } from "./hudCameraLabels";
 import {
+  cameraReadoutLabels,
+  type CameraPoseVec,
+} from "./hudCameraPose";
+import {
   formatCompactDuration,
   formatDistance,
   formatFocusDistance,
@@ -84,6 +88,14 @@ export type Telemetry = {
   focusDistance: number;
   /** Active CameraDirector focus (HUD Cam row) */
   cameraMode: CameraMode;
+  /** OrbitControls look-at point (scene km). */
+  cameraTarget?: CameraPoseVec | null;
+  /** Camera eye (scene km). */
+  cameraPosition?: CameraPoseVec | null;
+  /** Unit look from eye toward target. */
+  cameraLook?: CameraPoseVec | null;
+  /** WGS84 height (km); null when farther from Earth than GEO. */
+  cameraAltEarth?: number | null;
   /** Detailed metrics (M overlay) */
   altEarth: number;
   altMoon: number;
@@ -114,6 +126,11 @@ export type MainTelemetryLabels = Readonly<{
   progress: string;
   altitude: string;
   focusDistance: string;
+  cameraTarget: string;
+  cameraAltitude: string;
+  cameraAltitudeVisible: boolean;
+  cameraPosition: string;
+  cameraDirection: string;
   speed: string;
   fuelBooster: string;
   fuelShip: string;
@@ -284,6 +301,7 @@ function mainRangeFields(tel: Telemetry) {
   return {
     altitude: formatDistance(Math.max(0, tel.altitude)),
     focusDistance: formatFocusDistance(tel.focusDistance),
+    ...cameraReadoutLabels(tel),
     speed: tel.speedKmh ? formatSpeedKmh(tel.speed) : formatSpeed(tel.speed),
   };
 }
