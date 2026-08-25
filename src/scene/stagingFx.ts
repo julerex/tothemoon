@@ -240,12 +240,10 @@ export function createStagingFx(
     plumeLagU = u;
     plumeLagT = missionT;
     const flicker = thrustFlicker(missionT);
-    const plumeLookNow = plumeLook(
-      plumeRegimeFor(undefined, "booster", { recoveryPhase: phase }),
-      "booster",
-    );
+    const regime = plumeRegimeFor(undefined, "booster", { recoveryPhase: phase });
+    const plumeLookNow = plumeLook(regime, "booster");
     if (boostPlume?.name === "plume-booster") {
-      applyPlumeLayers(boostPlume, u, plumeLookNow, flicker, missionT);
+      applyPlumeLayers(boostPlume, u, plumeLookNow, flicker, missionT, { regime });
     } else if (boostPlume) {
       applyLegacyPlumeSprite(boostPlume, u, plumeLookNow, flicker);
     }

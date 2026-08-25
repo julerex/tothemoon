@@ -55,6 +55,15 @@ describe("Mechazilla vs stacked Starship", () => {
     assert.ok(col?.isMesh);
     assert.ok(col!.geometry instanceof THREE.CylinderGeometry);
   });
+
+  it("builds an open elevator cage and a named peak deck (V25)", () => {
+    const g = new THREE.Group();
+    addMechazillaTruss(g, makeTowerMats());
+    assert.ok(g.getObjectByName("pad-tower-rail"));
+    const peak = g.getObjectByName("pad-tower-peak") as THREE.Mesh | undefined;
+    assert.ok(peak?.isMesh);
+    assert.ok(peak!.geometry instanceof THREE.BoxGeometry);
+  });
 });
 
 describe("Mechazilla chopsticks / QD names (V23.4)", () => {

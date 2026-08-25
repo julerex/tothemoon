@@ -15,7 +15,7 @@ import {
 import type { TowerMats } from "./mechazillaMats";
 
 /** Coarse lattice cells along the arm — readable at aerial, not hull-cam density. */
-const ARM_LATTICE_N = 4;
+const ARM_LATTICE_N = 6;
 
 export function addChopstickCarriage(g: THREE.Group, mats: TowerMats): THREE.Group {
   const carryY = TOWER_OY0 + CHOPSTICK_REST_Y;
@@ -32,7 +32,7 @@ export function addChopstickCarriage(g: THREE.Group, mats: TowerMats): THREE.Gro
 
 function addCarriageBody(carriage: THREE.Group, mats: TowerMats): void {
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(TOWER_FACE * 1.45, 0.016, TOWER_FACE * 1.85),
+    new THREE.BoxGeometry(TOWER_FACE * 1.55, 0.02, TOWER_FACE * 2.15),
     mats.steelDark,
   );
   carriage.add(body);
@@ -40,8 +40,15 @@ function addCarriageBody(carriage: THREE.Group, mats: TowerMats): void {
     new THREE.BoxGeometry(TOWER_FACE * 1.2, 0.006, TOWER_FACE * 0.7),
     mats.steel,
   );
-  cap.position.set(-TOWER_FACE * 0.15, 0.009, 0);
+  cap.position.set(-TOWER_FACE * 0.15, 0.011, 0);
   carriage.add(cap);
+  // T-crossbeam: aerial stills read as a dark bar spanning the open arms.
+  const tee = new THREE.Mesh(
+    new THREE.BoxGeometry(TOWER_FACE * 0.45, 0.0055, TOWER_FACE * 2.4),
+    mats.steel,
+  );
+  tee.position.set(-TOWER_FACE * 0.55, 0.004, 0);
+  carriage.add(tee);
   // Rail / sheave volume so the carriage is not one box (V23.4).
   const rail = new THREE.Mesh(
     new THREE.BoxGeometry(TOWER_FACE * 0.35, 0.01, TOWER_FACE * 1.6),
@@ -103,8 +110,8 @@ function buildChopstickArm(mats: TowerMats, side: number): THREE.Group {
 
 function addChopstickParts(stick: THREE.Group, mats: TowerMats): void {
   const armLen = CHOPSTICK_LEN;
-  const armH = 0.0042;
-  const armW = 0.0052;
+  const armH = 0.0064;
+  const armW = 0.0078;
   // Outer frame chords (open lattice arm).
   const top = new THREE.Mesh(
     new THREE.BoxGeometry(armLen, armH * 0.35, armW * 0.35),

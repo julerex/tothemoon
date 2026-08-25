@@ -134,9 +134,9 @@ export function plumeRegimeFor(
 }
 
 const BOOSTER_ATMO: PlumeLook = {
-  radial: 0.85,
-  length: 0.9,
-  opacity: 1.22,
+  radial: 0.62,
+  length: 1.18,
+  opacity: 1.28,
   core: [1.0, 0.78, 0.9],
   rim: [1.0, 0.16, 0.72],
   lightI: 1.05,
@@ -262,6 +262,55 @@ const SHIP_LOOK: Record<PlumeRegimeId, PlumeLook> = {
 
 export function plumeLook(regime: PlumeRegimeId, kind: PlumeKind): PlumeLook {
   return kind === "booster" ? BOOSTER_LOOK[regime] : SHIP_LOOK[regime];
+}
+
+/** Axial exhaust-stream scale (craft mesh units; 1 ≈ 40 m). */
+export type PlumeStreamScale = Readonly<{
+  /** Radial multiplier on the stream mesh (1 = vehicle-width class). */
+  radial: number;
+  /** Shaft length in mesh units. */
+  length: number;
+  /** 0 hides the stream (vacuum / LOI). */
+  opacity: number;
+}>;
+
+function clamp01(x: number): number {
+  if (!Number.isFinite(x)) return 0;
+  return Math.min(1, Math.max(0, x));
+}
+
+const STREAM_REGIMES = new Set<PlumeRegimeId>([
+  "atmosphere",
+  "landing",
+  "boostback",
+  "hotStage",
+]);
+
+/**
+ * Collimated exhaust column vs Flight 13 T+16 tracking still.
+ *
+ * Pad (alt ≲ 0.12 km): short hot punch into the steam. Tower-clear / T+16
+ * (~0.4 km): long pink shaft. Vacuum / LOI hide the stream so billboard
+ * sprites keep the wide sparse look.
+ *
+ * @param regime - From {@link plumeRegimeFor}
+ * @param altEarthKm - Earth altitude (km); missing treats as pad
+ */
+export function plumeStreamScale(
+  regime: PlumeRegimeId,
+  altEarthKm?: number,
+): PlumeStreamScale {
+  if (!STREAM_REGIMES.has(regime)) {
+    return { radial: 1, length: 1, opacity: 0 };
+  }
+  const alt = Number.isFinite(altEarthKm) ? (altEarthKm as number) : 0;
+  const climb = clamp01((alt - 0.12) / 0.5);
+  const landing = regime === "landing";
+  return {
+    radial: (landing ? 0.7 : 0.55) - 0.08 * climb,
+    length: (landing ? 1.0 : 0.9) + (landing ? 2.8 : 7.8) * climb,
+    opacity: 0.82 + 0.18 * climb,
+  };
 }
 
 /**

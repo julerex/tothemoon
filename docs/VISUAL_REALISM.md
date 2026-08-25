@@ -15,10 +15,10 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-24):** V0–V24 are **shipped** (including **V23.5** soft pad vent
-puffs and **V24** hex OLM). No next visual slice is queued. Further photorealism
-is **out of scope** unless explicitly requested. Flight 13 highlight clips in
-[STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
+**Status (2026-08-25):** V0–V25 are **shipped** (including **V25** axial launch
+exhaust stream + denser Mechazilla lattice). No next visual slice is queued.
+Further photorealism is **out of scope** unless explicitly requested. Flight 13
+highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 
 ---
 
@@ -29,8 +29,8 @@ is **out of scope** unless explicitly requested. Flight 13 highlight clips in
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2 hardstand (circular apron), hex truncated-pyramid OLM (V24), matte white tank farm + berm, open tubular Mechazilla, lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
-| **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes, hot-stage, condensation |
+| **Pad** | OLP-2 hardstand (circular apron), hex truncated-pyramid OLM (V24), matte white tank farm + berm, denser open Mechazilla (V25: mid-face columns, all-face X-braces, peak house, elevator cage), lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
+| **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
 | **Overlays** | Trails (phase-reactive), orbit grids, Kepler corridor, cislunar beat whiskers, locators |
@@ -75,6 +75,10 @@ gimbal rams, Super Heavy V3 90/90/180 grid fins with catch hardware, **B20** ste
 **Shipped (V23):** pad T−5 aerial massing — matte white tank farm + berm, open
 tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks + QD hoses;
 **V23.5** soft cryo vent sprite puffs (replacing faceted icosahedron lobes).
+
+**Shipped (V25):** collimated pink–white **axial exhaust stream** (T+0 punch /
+T+16 shaft vs billboard blobs) + denser Mechazilla (mid-face columns, all-face
+X-braces, peak house/railings, open elevator cage, thicker T-chopsticks).
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -256,6 +260,8 @@ Shipped order (historical; all **done**). No next visual slice is queued.
 22. ~~**V21** — splash swell / water texture + weather-altitude cumulus~~ **done**
 23. ~~**V22** — Super Heavy / Raptor 3 booster + engine-bay look~~ **done**
 24. ~~**V23** — Pad models vs T−5 aerial still~~ **done**
+25. ~~**V24** — hex truncated-pyramid OLM~~ **done**
+26. ~~**V25** — axial launch exhaust stream + denser Mechazilla lattice~~ **done**
 
 ---
 
@@ -694,6 +700,40 @@ legs.
 
 ---
 
+## V25 — Launch exhaust stream + Mechazilla lattice — **done 2026-08-25**
+
+Look targets: `tplus-000016-ascent-tracking.jpg` (collimated pink shaft),
+`tplus-000000-liftoff-pad.jpg` (hot punch in steam), `tminus-000500-pad-hold-wide.jpg`
+and `tminus-000200-full-stack.jpg` (open tower + T chopsticks).
+
+### V25.1 Axial exhaust stream
+
+Billboard plume sprites were vehicle-width blobs. Add a **cylinder stream**
+along craft −Z (core / mid / sheath, additive canvas fade) driven by
+`plumeStreamScale(regime, alt)`: short punch on the pad, stretched by T+16
+altitude, hidden in vacuum / LOI. Bell sprites stay as the glow at the bells.
+
+### V25.2 Mechazilla denser cage
+
+Mid-face uprights (2-bay faces), X-braces on all four sides, 22 thinner rings,
+open elevator cage on the vehicle face (not a solid box), peak deck + winch
+house + railings, thicker T-chopsticks. Published dims / node names unchanged.
+
+### V25.3 Pad flame punch
+
+Shorter, hotter trench flame (cylinder + downward tongues) so T+0 reads as
+engine glow in the steam, not tall cones.
+
+**Done when:** HUD-off chase at T+16 is a pink column, not a disc-ended blob;
+T+0 Starbase shows a hot punch in the steam; T−5 side/aerial tower is a
+see-through lattice with a T at the ship nose.
+
+**Files:** `craft/exhaustStream.ts`, `plumeRegime.ts`, `craft/plumes.ts`,
+`mechazillaTruss.ts`, `mechazillaPeak.ts`, `mechazillaRail.ts`,
+`mechazillaChopsticks.ts`, `padLaunchMeshes.ts`, `padLaunchFxPoses.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -744,3 +784,4 @@ legs.
 | 2026-08-21 | V23 shipped: pad T−5 aerial massing (tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks/QD) |
 | 2026-08-21 | V23.5: soft cryo vent sprite puffs (replace faceted icosahedron lobes) |
 | 2026-08-24 | V24 shipped: hex truncated-pyramid OLM (inner catwalk, painted bowl) vs T− stills |
+| 2026-08-25 | V25 shipped: axial launch exhaust stream + denser Mechazilla lattice vs T+16 / T− stills |

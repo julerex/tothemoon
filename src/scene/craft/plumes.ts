@@ -1,7 +1,10 @@
 import * as THREE from "three";
-import { plumeGimbalOffset, type PlumeLook } from "../plumeRegime";
+import {
+  plumeGimbalOffset, plumeStreamScale, type PlumeLook, type PlumeRegimeId,
+} from "../plumeRegime";
 import { ICE_FLAKES } from "../craftFrost";
 import { makeSizedCanvas } from "./materials";
+import { addExhaustStream, applyExhaustStream } from "./exhaustStream";
 
 type PlumePalette = "booster" | "ship";
 
@@ -14,16 +17,17 @@ type PlumeLayerSpec = {
   layer: number;
 };
 
+/** Tight bell-glow sprites — the long shaft is {@link addExhaustStream}. */
 const BOOSTER_PLUME_LAYERS: PlumeLayerSpec[] = [
-  { id: "outer", baseScale: 1.35, yStretch: 1.55, baseOpacity: 0.28, z: -0.14, layer: 2 },
-  { id: "mid", baseScale: 0.85, yStretch: 1.25, baseOpacity: 0.48, z: -0.09, layer: 1 },
-  { id: "core", baseScale: 0.42, yStretch: 1.0, baseOpacity: 0.72, z: -0.05, layer: 0 },
+  { id: "outer", baseScale: 0.58, yStretch: 1.7, baseOpacity: 0.24, z: -0.16, layer: 2 },
+  { id: "mid", baseScale: 0.34, yStretch: 1.35, baseOpacity: 0.46, z: -0.1, layer: 1 },
+  { id: "core", baseScale: 0.18, yStretch: 1.05, baseOpacity: 0.8, z: -0.05, layer: 0 },
 ];
 
 const SHIP_PLUME_LAYERS: PlumeLayerSpec[] = [
-  { id: "outer", baseScale: 0.95, yStretch: 1.65, baseOpacity: 0.26, z: -0.12, layer: 2 },
-  { id: "mid", baseScale: 0.58, yStretch: 1.3, baseOpacity: 0.45, z: -0.08, layer: 1 },
-  { id: "core", baseScale: 0.3, yStretch: 1.05, baseOpacity: 0.7, z: -0.045, layer: 0 },
+  { id: "outer", baseScale: 0.48, yStretch: 1.75, baseOpacity: 0.24, z: -0.13, layer: 2 },
+  { id: "mid", baseScale: 0.3, yStretch: 1.35, baseOpacity: 0.44, z: -0.08, layer: 1 },
+  { id: "core", baseScale: 0.16, yStretch: 1.08, baseOpacity: 0.76, z: -0.045, layer: 0 },
 ];
 
 /** Soft multi-layer exhaust sprites (billboarded). Tint via material.color at runtime. */
@@ -33,6 +37,7 @@ export function makePlumeGroup(name: string, palette: PlumePalette): THREE.Group
   g.visible = false;
   const layers = palette === "booster" ? BOOSTER_PLUME_LAYERS : SHIP_PLUME_LAYERS;
   for (const L of layers) g.add(makePlumeLayerFromSpec(name, palette, L));
+  addExhaustStream(g);
   return g;
 }
 
@@ -138,11 +143,14 @@ export function applyPlumeLayers(
   look: PlumeLook,
   flicker: number,
   missionT: number,
+  opts: { regime?: PlumeRegimeId; altEarthKm?: number } = {},
 ): void {
   const on = u > 0.02;
   plume.visible = on;
   if (!on) hidePlumeChildren(plume);
   else showPlumeLayers(plume, u, look, flicker, missionT);
+  const regime = opts.regime ?? "atmosphere";
+  applyExhaustStream(plume, u, look, plumeStreamScale(regime, opts.altEarthKm), flicker);
 }
 
 function applyOnePlumeLayer(

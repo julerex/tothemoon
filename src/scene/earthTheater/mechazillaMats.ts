@@ -10,9 +10,9 @@ export type TowerMats = {
 
 export function makeTowerMats(): TowerMats {
   return {
-    steel: new THREE.MeshStandardMaterial({ color: 0x6e747c, metalness: 0.7, roughness: 0.46 }),
-    steelDark: new THREE.MeshStandardMaterial({ color: 0x3e444c, metalness: 0.62, roughness: 0.55 }),
-    steelBright: new THREE.MeshStandardMaterial({ color: 0x8a9098, metalness: 0.74, roughness: 0.4 }),
-    accent: new THREE.MeshStandardMaterial({ color: 0x2c3036, metalness: 0.5, roughness: 0.58 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0x4a5058, metalness: 0.68, roughness: 0.5 }),
+    steelDark: new THREE.MeshStandardMaterial({ color: 0x2a2e34, metalness: 0.6, roughness: 0.58 }),
+    steelBright: new THREE.MeshStandardMaterial({ color: 0x6a7078, metalness: 0.72, roughness: 0.44 }),
+    accent: new THREE.MeshStandardMaterial({ color: 0x1e2228, metalness: 0.48, roughness: 0.62 }),
   };
 }

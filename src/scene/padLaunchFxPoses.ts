@@ -232,8 +232,8 @@ export type FlameVisual = Readonly<{
 export function flameVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.02,
-    opacity: 0.14 * strength,
-    scaleY: 0.7 + 0.5 * strength,
+    opacity: 0.34 * strength,
+    scaleY: 0.42 + 0.32 * strength,
   };
 }
 
@@ -243,8 +243,8 @@ export function flameVisual(strength: number): FlameVisual {
 export function tongueVisual(strength: number): FlameVisual {
   return {
     visible: strength > 0.05,
-    opacity: 0.08 * strength,
-    scaleY: 0.6 + 0.7 * strength,
+    opacity: 0.22 * strength,
+    scaleY: 0.38 + 0.42 * strength,
   };
 }
 

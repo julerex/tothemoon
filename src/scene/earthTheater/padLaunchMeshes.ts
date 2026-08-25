@@ -141,9 +141,9 @@ function addTrenchFloor(pad: THREE.Group): void {
 }
 
 function addFlameSheet(pad: THREE.Group): void {
-  const flameMat = makeAdditiveBasic(0xff8a48);
-  const flame = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.028, 0.05), flameMat);
-  flame.position.y = 0.006;
+  const flameMat = makeAdditiveBasic(0xffd090);
+  const flame = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.007, 0.018, 12, 1, true), flameMat);
+  flame.position.y = 0.004;
   flame.name = "pad-flame";
   flame.visible = false;
   flame.userData.mat = flameMat;
@@ -153,13 +153,14 @@ function addFlameSheet(pad: THREE.Group): void {
 const FLAME_TONGUE_ZS = [-0.016, -0.005, 0.005, 0.016] as const;
 
 function addOneFlameTongue(tongues: THREE.Group, mat: THREE.Material, z: number): void {
-  const tongue = new THREE.Mesh(new THREE.ConeGeometry(0.007, 0.05, 10, 1, true), mat);
-  tongue.position.set(0, 0.02, z);
+  const tongue = new THREE.Mesh(new THREE.ConeGeometry(0.0045, 0.022, 10, 1, true), mat);
+  tongue.rotation.x = Math.PI;
+  tongue.position.set(0, 0.006, z);
   tongues.add(tongue);
 }
 
 function addFlameTongues(pad: THREE.Group): void {
-  const tongueMat = makeAdditiveBasic(0xffa060);
+  const tongueMat = makeAdditiveBasic(0xffe0a8);
   const tongues = new THREE.Group();
   tongues.name = "pad-flame-tongues";
   tongues.visible = false;

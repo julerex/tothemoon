@@ -4,6 +4,7 @@ import {
   plumeGimbalOffset,
   plumeLook,
   plumeRegimeFor,
+  plumeStreamScale,
   plumeThrustLag,
 } from "./plumeRegime.ts";
 
@@ -149,6 +150,30 @@ describe("plumeLook", () => {
     const vac = plumeLook("vacuum", "ship");
     assert.ok(hot.lightI > 0);
     assert.deepEqual(bb.light, vac.light);
+  });
+});
+
+describe("plumeStreamScale", () => {
+  it("hides the axial stream in vacuum and LOI", () => {
+    assert.equal(plumeStreamScale("vacuum").opacity, 0);
+    assert.equal(plumeStreamScale("loi", 100).opacity, 0);
+  });
+
+  it("keeps a short punch on the pad and stretches by T+16 altitude", () => {
+    const pad = plumeStreamScale("atmosphere", 0.08);
+    const climb = plumeStreamScale("atmosphere", 0.4);
+    assert.ok(pad.opacity > 0.5);
+    assert.ok(pad.length < 1.5);
+    assert.ok(climb.length > pad.length * 3);
+    assert.ok(climb.length > 4);
+    assert.ok(climb.radial < pad.radial);
+  });
+
+  it("keeps landing streams shorter than ascent", () => {
+    const land = plumeStreamScale("landing", 0.4);
+    const asce = plumeStreamScale("atmosphere", 0.4);
+    assert.ok(land.length < asce.length);
+    assert.ok(land.opacity > 0);
   });
 });
 

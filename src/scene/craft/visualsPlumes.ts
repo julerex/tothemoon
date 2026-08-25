@@ -5,6 +5,7 @@ import {
   plumeThrustLag,
   thrustFlicker,
   type PlumeLook,
+  type PlumeRegimeId,
 } from "../plumeRegime";
 import { applyPlumeLayers } from "./plumes";
 import type { CraftVisualState } from "./visualsTypes";
@@ -96,9 +97,10 @@ function applyStagePlume(
   look: PlumeLook,
   flicker: number,
   missionT: number,
+  opts: { regime?: PlumeRegimeId; altEarthKm?: number } = {},
 ): void {
   if (!plume) return;
-  if (u > 0.02) applyPlumeLayers(plume, u, look, flicker, missionT);
+  if (u > 0.02) applyPlumeLayers(plume, u, look, flicker, missionT, opts);
   else {
     plume.visible = false;
     for (const c of plume.children) c.visible = false;
@@ -183,22 +185,19 @@ export function driveCraftPlumes(
   applyCraftPlumePair(group, state, missionT, hotPre, uBoost, uShip, flicker);
 }
 
-function boosterPlumeLook(state: CraftVisualState): PlumeLook {
-  return plumeLook(
-    plumeRegimeFor(state.phase, "booster", { staged: state.staged, altEarthKm: state.altEarth }),
-    "booster",
-  );
+function boosterRegime(state: CraftVisualState): PlumeRegimeId {
+  return plumeRegimeFor(state.phase, "booster", {
+    staged: state.staged,
+    altEarthKm: state.altEarth,
+  });
 }
 
-function shipPlumeLook(state: CraftVisualState, hotPre: number): PlumeLook {
-  return plumeLook(
-    plumeRegimeFor(state.phase, "ship", {
-      hotPre,
-      staged: state.staged,
-      altEarthKm: state.altEarth,
-    }),
-    "ship",
-  );
+function shipRegime(state: CraftVisualState, hotPre: number): PlumeRegimeId {
+  return plumeRegimeFor(state.phase, "ship", {
+    hotPre,
+    staged: state.staged,
+    altEarthKm: state.altEarth,
+  });
 }
 
 function applyCraftPlumePair(
@@ -210,10 +209,19 @@ function applyCraftPlumePair(
   uShip: number,
   flicker: number,
 ): void {
-  const boostLook = boosterPlumeLook(state);
-  const shipLook = shipPlumeLook(state, hotPre);
-  applyStagePlume(group.getObjectByName("plume-booster"), uBoost, boostLook, flicker, missionT);
-  applyStagePlume(group.getObjectByName("plume-ship"), uShip, shipLook, flicker, missionT);
+  const boostReg = boosterRegime(state);
+  const shipReg = shipRegime(state, hotPre);
+  const boostLook = plumeLook(boostReg, "booster");
+  const shipLook = plumeLook(shipReg, "ship");
+  const streamOpts = { altEarthKm: state.altEarth };
+  applyStagePlume(
+    group.getObjectByName("plume-booster"), uBoost, boostLook, flicker, missionT,
+    { regime: boostReg, ...streamOpts },
+  );
+  applyStagePlume(
+    group.getObjectByName("plume-ship"), uShip, shipLook, flicker, missionT,
+    { regime: shipReg, ...streamOpts },
+  );
   applyCraftLights(group, uBoost, uShip, boostLook, shipLook, flicker);
 }
 
