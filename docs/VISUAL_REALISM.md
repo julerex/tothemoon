@@ -11,6 +11,7 @@ Related:
 - [NEXT.md](./NEXT.md) — overall product roadmap (watchability, physics, architecture)
 - [PLAN.md](../PLAN.md) — physics fidelity track
 - [STARSHIP_13.md](./STARSHIP_13.md) — Flight 13 recap + webcast still SOP + highlight-clip sources (photorealism look target)
+- [STARSHIP.md](./STARSHIP.md) — Super Heavy / ship / Raptor / Starbase pads (public hardware vs theater)
 - [AGENTS.md](../AGENTS.md) — agent commit/hygiene rules
 
 **Live:** https://julerex.github.io/tothemoon/

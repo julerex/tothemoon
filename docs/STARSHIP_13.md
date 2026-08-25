@@ -6,7 +6,7 @@ Captured from the official mission page on **2026-08-15** (post-flight recap).
 - Official replay (use this, not the page embed): https://x.com/i/broadcasts/1AJEmmYdMDnJL
 - Official landing/splash highlight clips (motion look target): https://x.com/SpaceX/status/2082186658162626898
 
-SpaceX page copy below is transcribed for reference. Theater notes at the end are this repo’s Flight 13 mission, not SpaceX ops data.
+SpaceX page copy below is transcribed for reference. Theater notes at the end are this repo’s Flight 13 mission, not SpaceX ops data. Vehicle, Raptor, and Starbase pad/production facts: [STARSHIP.md](./STARSHIP.md).
 
 ---
 
@@ -242,6 +242,8 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 **Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight demo** (~10 s; public table ~12 s); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive near 19°S 107°E (no longitude teleport). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Not ops ephemerides.
 
 **Epoch / lighting:** mission t = 0 is the flown liftoff **2026-07-24 22:51 UTC** (5:51 p.m. CDT). Analytic Earth/Sun (not the July 2027 Horizons table); `sunPhase0` is the USNO solar longitude at that UTC — no theater sun-phase offset. Splash at T+1:05:21 is **2026-07-24 23:56 UTC**, a southern-winter morning at the Indian Ocean site (sun a few degrees up). Starbase is in afternoon sun. Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
+
+**Launch complex:** Flight 13 flew from **OLP-2**. OLP-1’s tower is in the scene empty (mount pulled). Vehicle, pad, and production-site facts: [STARSHIP.md](./STARSHIP.md).
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Photorealism track **V13–V26 shipped** (hull/engine look through V22; **V23** pad T−5 aerial massing — tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks; **V23.5** soft cryo vent puffs; **V24** hex OLM vs T− stills; **V25** axial launch exhaust stream + denser Mechazilla lattice; **V26** OLP-1 second tower). Highlight clips remain a look-reference; no numbered visual slice is queued ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
 

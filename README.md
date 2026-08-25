@@ -79,7 +79,8 @@ Base path is `/tothemoon/` (GitHub project Pages).
 ## Roadmap
 
 Recommended next work (prioritized): [docs/NEXT.md](./docs/NEXT.md).  
-Visual realism backlog (for agents): [docs/VISUAL_REALISM.md](./docs/VISUAL_REALISM.md) (V0–V21 shipped; no next visual slice is queued).
+Visual realism backlog (for agents): [docs/VISUAL_REALISM.md](./docs/VISUAL_REALISM.md) (V0–V26 shipped; no next visual slice is queued).  
+Starship + Starbase hardware (public vs theater): [docs/STARSHIP.md](./docs/STARSHIP.md). Flight 13 recap / webcast SOP: [docs/STARSHIP_13.md](./docs/STARSHIP_13.md).
 
 ## Deploy
 

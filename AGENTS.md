@@ -30,6 +30,7 @@ When committing and pushing:
 
 - Single frontend service; no backend/database/external services. Standard commands live in `package.json` and `README.md` (`npm run dev`, `npm run ci`, `npm run build`, etc.). Node 22 is available and matches the toolchain.
 - The dev server runs at `http://localhost:5173/tothemoon/` — the `/tothemoon/` base path is required; the bare root `http://localhost:5173/` will not load the app.
+- Starship / Super Heavy / Raptor and the Starbase pads (OLP-1 vs OLP-2, Mechazilla, production site): [`docs/STARSHIP.md`](docs/STARSHIP.md).
 - Official Starship Flight 13 page recap and **fullscreen X-replay screenshot SOP** (skip the broken spacex.com embed; use the direct broadcast URL): [`docs/STARSHIP_13.md`](docs/STARSHIP_13.md). Landing/splash **highlight clips** for later visual refinement: https://x.com/SpaceX/status/2082186658162626898 (same file).
 - **Browser theater debug (Chrome DevTools MCP / CDP):** [`docs/AGENT_BROWSER.md`](docs/AGENT_BROWSER.md). After a mission boots, `window.__theater.snapshot()` / `.seek()` / `.setCamera()` / `.getCamera()` / `.setCameraPose()` is the handle — do not scrape the HUD first. Force a **document load** when switching missions (`?agent=<nonce>` on the URL); a hash-only change will not reboot a live theater. CLI: `scripts/theater-devtools.sh`. Evaluate snippets: `src/debug/cdpCommands.ts`.
 - **Gotchas found while verifying visuals in the live theater:**
