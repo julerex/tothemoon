@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V25 shipped incl. V25 launch exhaust stream + denser Mechazilla; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V26 shipped incl. V26 OLP-1 second tower; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
 
@@ -283,3 +283,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-18 | Visual V20: LRO WAC Moon albedo JPEG (procedural fallback) |
 | 2026-08-18 | Plan freshness: locked P0–P2 / V0–V21 closed; remaining is P3.15, P4, physics reassess |
 | 2026-08-25 | Visual V25: axial launch exhaust stream + denser Mechazilla lattice |
+| 2026-08-25 | Visual V26: OLP-1 second tower (empty mount) + Mach-diamond stream cells |

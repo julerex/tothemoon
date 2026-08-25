@@ -14,6 +14,7 @@ import {
 } from "./padTextures";
 import { createPadSurroundings } from "./padSurroundings";
 import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX } from "./mechazillaTower";
+import { createPad1Tower } from "./padSecondTower";
 import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate";
 import { createPadVentClouds } from "./padVentClouds";
 import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
@@ -347,6 +348,7 @@ export function populateStarbasePad(pad: THREE.Group): void {
   addTrenchCamMounts(pad);
   addPadFxSprites(pad);
   pad.add(createMechazillaTower());
+  pad.add(createPad1Tower());
   pad.add(createPadLights());
   addPadBeacon(pad);
   addPadGroundBloom(pad);

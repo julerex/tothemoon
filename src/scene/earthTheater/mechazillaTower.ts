@@ -4,13 +4,20 @@ import { addChopstickCarriage } from "./mechazillaChopsticks";
 export {
   CHOPSTICK_LEN_M, OLT_HEIGHT_M, OLT_TRUSS_M, TOWER_BEACON_Y, TOWER_H, TOWER_OX,
   CHOPSTICK_REST_M, CHOPSTICK_CATCH_M, CHOPSTICK_CATCH_DROP_KM,
+  PAD1_X_KM, PAD1_Z_KM,
 } from "./mechazillaDims";
 import {
   BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0,
 } from "./mechazillaDims";
 import { makeTowerMats, type TowerMats } from "./mechazillaMats";
+import { addMechazillaBase } from "./mechazillaBase";
 import { addMechazillaTruss } from "./mechazillaTruss";
 import { addOlm } from "./padOlm";
+
+export type MechazillaBuildOpts = {
+  /** False for OLP-1 at Flight 13 (mount pulled for V3 rebuild). Default true. */
+  includeOlm?: boolean;
+};
 
 export function updateMechazillaRecovery(
   pad: THREE.Object3D,
@@ -100,18 +107,19 @@ function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
   qd.add(plate);
 }
 
-function addTowerArmsAndOlm(g: THREE.Group, mats: TowerMats): void {
+function addTowerArms(g: THREE.Group, mats: TowerMats): void {
   addChopstickCarriage(g, mats);
   addQdArm(g, mats, SHIP_QD_Y, "pad-qd-arm", 0.022);
   addQdArm(g, mats, BOOST_QD_Y, "pad-boost-qd-arm", 0.02);
-  addOlm(g, mats);
 }
 
-export function createMechazillaTower(): THREE.Group {
+export function createMechazillaTower(opts: MechazillaBuildOpts = {}): THREE.Group {
   const g = new THREE.Group();
   g.name = "mechazilla";
   const mats = makeTowerMats();
   addMechazillaTruss(g, mats);
-  addTowerArmsAndOlm(g, mats);
+  addMechazillaBase(g, mats);
+  addTowerArms(g, mats);
+  if (opts.includeOlm !== false) addOlm(g, mats);
   return g;
 }

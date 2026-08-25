@@ -15,9 +15,9 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-25):** V0–V25 are **shipped** (including **V25** axial launch
-exhaust stream + denser Mechazilla lattice). No next visual slice is queued.
-Further photorealism is **out of scope** unless explicitly requested. Flight 13
+**Status (2026-08-25):** V0–V26 are **shipped** (including **V26** OLP-1 second
+tower + Mach-diamond stream cells). No next visual slice is queued. Further
+photorealism is **out of scope** unless explicitly requested. Flight 13
 highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 
 ---
@@ -29,7 +29,7 @@ highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2 hardstand (circular apron), hex truncated-pyramid OLM (V24), matte white tank farm + berm, denser open Mechazilla (V25: mid-face columns, all-face X-braces, peak house, elevator cage), lattice chopsticks/QD, trench, deluge/vent steam, flood logic; Sentinel-2 surrounds plate |
+| **Pad** | OLP-2 hardstand (circular apron), hex truncated-pyramid OLM (V24), matte white tank farm + berm, denser open Mechazilla (V25), **OLP-1 second tower** ~320 m gulf-side with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -79,6 +79,9 @@ tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks +
 **Shipped (V25):** collimated pink–white **axial exhaust stream** (T+0 punch /
 T+16 shaft vs billboard blobs) + denser Mechazilla (mid-face columns, all-face
 X-braces, peak house/railings, open elevator cage, thicker T-chopsticks).
+
+**Shipped (V26):** OLP-1 second tower ~320 m east (empty mount, Flight 13 is
+OLP-2); tower-base GSE house; Mach-diamond discs on the launch stream.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -262,6 +265,7 @@ Shipped order (historical; all **done**). No next visual slice is queued.
 24. ~~**V23** — Pad models vs T−5 aerial still~~ **done**
 25. ~~**V24** — hex truncated-pyramid OLM~~ **done**
 26. ~~**V25** — axial launch exhaust stream + denser Mechazilla lattice~~ **done**
+27. ~~**V26** — OLP-1 second tower + Mach-diamond stream cells~~ **done**
 
 ---
 
@@ -734,6 +738,38 @@ see-through lattice with a T at the ship nose.
 
 ---
 
+## V26 — Second tower (OLP-1) + stream shock cells — **done 2026-08-25**
+
+Look / facts: Wikipedia (Flight 13 first **OLP-2** launch, 2026-07-24; OLP-1
+decommissioned 2025-10-14 for V3 rebuild); NSF Pad 2 notes (stainless-fill
+base, larger rear house, ~10 m shorter chopsticks on Pad 2 — live pad keeps
+published 36 m); Pad 1 nearer the Gulf (~320 m east of Pad 2). Pad-local +X
+is west.
+
+### V26.1 OLP-1 tower
+
+Reuse the Mechazilla builder **without** an OLM. Empty circular apron +
+stripped foundation ring. Chopstick/QD names prefixed (`pad1-…`) so catch
+kinematics stay on the live pad. `mechazilla-pad1` casts sun shadows.
+
+### V26.2 Tower base
+
+Both towers get a concrete-fill plinth + inland GSE house (NSF Pad 2 base).
+
+### V26.3 Mach diamonds
+
+Four additive shock-cell discs along the axial stream (methane sea-level
+look). Still sprites + cylinders, not CFD.
+
+**Done when:** aerial T− hold shows two towers on the coast; live stack is on
+OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`.
+
+**Files:** `padSecondTower.ts`, `mechazillaBase.ts`, `mechazillaTower.ts`,
+`mechazillaDims.ts`, `padLaunchMeshes.ts`, `cinemaShadows.ts`,
+`craft/exhaustStream.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -785,3 +821,4 @@ see-through lattice with a T at the ship nose.
 | 2026-08-21 | V23.5: soft cryo vent sprite puffs (replace faceted icosahedron lobes) |
 | 2026-08-24 | V24 shipped: hex truncated-pyramid OLM (inner catwalk, painted bowl) vs T− stills |
 | 2026-08-25 | V25 shipped: axial launch exhaust stream + denser Mechazilla lattice vs T+16 / T− stills |
+| 2026-08-25 | V26 shipped: OLP-1 second tower (empty mount) + Mach-diamond stream cells |

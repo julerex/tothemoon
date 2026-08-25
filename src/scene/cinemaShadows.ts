@@ -95,7 +95,7 @@ export function markShadowMeshes(
  *   shadow-map acne on pad cams.
  */
 const PAD_CAST_ROOTS = [
-  "mechazilla", "pad-tank-farm", "pad-warehouse", "pad-olm",
+  "mechazilla", "mechazilla-pad1", "pad-tank-farm", "pad-warehouse", "pad-olm",
   "pad-chopstick-carriage", "pad-chopstick-L", "pad-chopstick-R", "pad-qd-arm",
   "pad-flood-fixture-0", "pad-flood-fixture-1", "pad-flood-fixture-2", "pad-flood-fixture-3",
 ] as const;

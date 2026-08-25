@@ -20,9 +20,17 @@ type StreamLayerSpec = {
 
 /** Tight core → mid → sheath. Super Heavy radius is 0.1125 mesh units (4.5 m). */
 const STREAM_LAYERS: readonly StreamLayerSpec[] = [
-  { id: "sheath", rBell: 0.12, rFar: 0.15, baseOpacity: 0.26, layer: 2 },
-  { id: "mid", rBell: 0.078, rFar: 0.095, baseOpacity: 0.5, layer: 1 },
-  { id: "core", rBell: 0.042, rFar: 0.05, baseOpacity: 0.86, layer: 0 },
+  { id: "sheath", rBell: 0.115, rFar: 0.132, baseOpacity: 0.24, layer: 2 },
+  { id: "mid", rBell: 0.074, rFar: 0.086, baseOpacity: 0.52, layer: 1 },
+  { id: "core", rBell: 0.04, rFar: 0.046, baseOpacity: 0.9, layer: 0 },
+];
+
+/** Mach-diamond discs — methane Raptor sea-level shocks (theater, not CFD). */
+const SHOCK_CELLS: readonly { z: number; r: number; op: number }[] = [
+  { z: -0.14, r: 0.036, op: 0.55 },
+  { z: -0.3, r: 0.04, op: 0.38 },
+  { z: -0.48, r: 0.044, op: 0.24 },
+  { z: -0.66, r: 0.048, op: 0.12 },
 ];
 
 let streamMap: THREE.CanvasTexture | null = null;
@@ -79,12 +87,26 @@ function makeStreamLayer(spec: StreamLayerSpec): THREE.Mesh {
   return mesh;
 }
 
+function makeShockCell(spec: (typeof SHOCK_CELLS)[number], i: number): THREE.Mesh {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(spec.r * 0.55, spec.r, 0.012, 14, 1, false),
+    streamMaterial(spec.op),
+  );
+  mesh.name = `exhaust-shock-${i}`;
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.z = spec.z;
+  mesh.userData.baseOpacity = spec.op;
+  mesh.userData.layer = 0;
+  return mesh;
+}
+
 /** Parent a three-layer stream under a plume group (booster or ship). */
 export function addExhaustStream(plume: THREE.Group): THREE.Group {
   const g = new THREE.Group();
   g.name = "exhaust-stream";
   g.visible = false;
   for (const spec of STREAM_LAYERS) g.add(makeStreamLayer(spec));
+  for (let i = 0; i < SHOCK_CELLS.length; i++) g.add(makeShockCell(SHOCK_CELLS[i]!, i));
   plume.add(g);
   return g;
 }

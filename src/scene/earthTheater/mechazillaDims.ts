@@ -44,3 +44,14 @@ export const SHIP_QD_Y = SHIP_QD_M * M;
 export const BOOST_QD_Y = BOOST_QD_M * M;
 /** Carriage drop (km) from launch-park to catch — negative = down. */
 export const CHOPSTICK_CATCH_DROP_KM = (CHOPSTICK_CATCH_M - CHOPSTICK_REST_M) * M;
+
+/**
+ * OLP-1 (Pad A) empty-mount centre, pad-local km from the Flight 13 OLP-2 origin.
+ *
+ * Wikipedia: Flight 13 (2026-07-24) is the first OLP-2 launch; OLP-1 was
+ * decommissioned 2025-10-14 for a V3 rebuild (new OLM staged at Sanchez).
+ * Pad-local +X is west, −X is gulf/east, so Pad 1 sits east of the live stack.
+ * ~320 m matches the Starbase E–W pad spacing (OLP-1 nearer the beach).
+ */
+export const PAD1_X_KM = -0.32;
+export const PAD1_Z_KM = 0.04;

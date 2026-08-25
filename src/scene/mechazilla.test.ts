@@ -11,12 +11,16 @@ import {
   CHOPSTICK_REST_M,
   OLT_HEIGHT_M,
   OLT_TRUSS_M,
+  PAD1_X_KM,
+  PAD1_Z_KM,
   TOWER_BEACON_Y,
   TOWER_H,
+  createMechazillaTower,
 } from "./earthTheater/mechazillaTower.ts";
 import { makeTowerMats } from "./earthTheater/mechazillaMats.ts";
 import { addMechazillaTruss } from "./earthTheater/mechazillaTruss.ts";
 import { addChopstickCarriage } from "./earthTheater/mechazillaChopsticks.ts";
+import { createPad1Tower } from "./earthTheater/padSecondTower.ts";
 
 const STACK_H_M = craftLengthKm(false) * 1000;
 
@@ -73,5 +77,32 @@ describe("Mechazilla chopsticks / QD names (V23.4)", () => {
     assert.ok(g.getObjectByName("pad-chopstick-carriage"));
     assert.ok(g.getObjectByName("pad-chopstick-L"));
     assert.ok(g.getObjectByName("pad-chopstick-R"));
+  });
+});
+
+describe("OLP-1 second tower (V26)", () => {
+  it("sits east of the live OLP-2 origin toward the gulf", () => {
+    assert.ok(PAD1_X_KM < -0.2);
+    assert.ok(PAD1_X_KM > -0.45);
+    assert.ok(Math.abs(PAD1_Z_KM) < 0.08);
+  });
+
+  it("builds a named Pad 1 tower without an OLM, prefixed chopsticks", () => {
+    const g = createPad1Tower();
+    assert.equal(g.name, "mechazilla-pad1");
+    assert.equal(g.position.x, PAD1_X_KM);
+    assert.ok(g.getObjectByName("pad1-stripped-mount"));
+    assert.ok(g.getObjectByName("pad1-apron"));
+    assert.equal(g.getObjectByName("pad-olm"), undefined);
+    assert.ok(g.getObjectByName("pad1-pad-chopstick-L"));
+    assert.equal(g.getObjectByName("pad-chopstick-L"), undefined);
+  });
+
+  it("keeps the live tower OLM and unprefixed chopstick names", () => {
+    const live = createMechazillaTower();
+    assert.equal(live.name, "mechazilla");
+    assert.ok(live.getObjectByName("pad-olm"));
+    assert.ok(live.getObjectByName("pad-chopstick-L"));
+    assert.ok(live.getObjectByName("pad-tower-base"));
   });
 });
