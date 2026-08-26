@@ -171,6 +171,13 @@ describe("markPadShadowMeshes", () => {
     plate.name = "pad-satellite-plate";
     pad.add(plate);
 
+    const naip = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 8, 2, 2),
+      new THREE.MeshStandardMaterial(),
+    );
+    naip.name = "pad-naip-plate";
+    pad.add(naip);
+
     const tower = new THREE.Group();
     tower.name = "mechazilla";
     const shaft = new THREE.Mesh(
@@ -202,6 +209,8 @@ describe("markPadShadowMeshes", () => {
     assert.equal(terrain.castShadow, false);
     assert.equal(plate.receiveShadow, false);
     assert.equal(plate.castShadow, false);
+    assert.equal(naip.receiveShadow, false);
+    assert.equal(naip.castShadow, false);
     assert.equal(slab.receiveShadow, true);
     assert.equal(slab.castShadow, false);
     assert.equal(disc.receiveShadow, false);

@@ -1,8 +1,9 @@
-/** Sentinel-2 surrounds square + earth-cam landmark rings. */
+/** Sentinel-2 surrounds square, nested NAIP pad plate, earth-cam landmark rings. */
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM, STARBASE_LAT } from "../../physics/constants";
 import { geocentricRadiusAt } from "../../physics/wgs84";
 import {
+  STARBASE_PAD_PLATE_HALF_KM, STARBASE_PAD_PLATE_Y_KM,
   STARBASE_PLATE_HALF_KM, STARBASE_PLATE_INNER_KM, STARBASE_PLATE_SEGS,
   STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlateUv, starbasePlateYawRad,
 } from "../starbasePlate";
@@ -83,36 +84,47 @@ function drapeStarbasePlate(
   geo.computeVertexNormals();
 }
 
-function makeStarbasePlateGeometry(): THREE.PlaneGeometry {
-  const half = STARBASE_PLATE_HALF_KM;
+function makeStarbasePlateGeometry(halfKm: number): THREE.PlaneGeometry {
   const geo = new THREE.PlaneGeometry(
-    half * 2,
-    half * 2,
+    halfKm * 2,
+    halfKm * 2,
     STARBASE_PLATE_SEGS,
     STARBASE_PLATE_SEGS,
   );
   geo.rotateX(-Math.PI / 2);
-  applyStarbasePlateUvs(geo, half);
+  applyStarbasePlateUvs(geo, halfKm);
   drapeStarbasePlate(geo, geocentricRadiusAt(STARBASE_LAT, EARTH_SURFACE_ALT_KM));
   return geo;
 }
 
-function punchPlateOlmHole(mat: THREE.MeshStandardMaterial): void {
-  const half = STARBASE_PLATE_HALF_KM.toFixed(4);
+/** Discard the OLM hole. NAIP also drops near-black Gulf nodata so Sentinel-2 water shows through. */
+function punchPlateOlmHole(
+  mat: THREE.MeshStandardMaterial,
+  halfKm: number,
+  dropNodata: boolean,
+): void {
+  const half = halfKm.toFixed(4);
   const inner2 = (STARBASE_PLATE_INNER_KM * STARBASE_PLATE_INNER_KM).toFixed(6);
-  mat.customProgramCacheKey = () => "starbase-plate-olm-hole";
+  const nodata = dropNodata
+    ? "if (max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) < 0.05) discard;"
+    : "";
+  mat.customProgramCacheKey = () => `starbase-plate-olm-hole-${half}-${dropNodata ? "n" : "s"}`;
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
       `#include <map_fragment>
        vec2 plateKm = (vMapUv - 0.5) * (2.0 * ${half});
        if (dot(plateKm, plateKm) < ${inner2}) discard;
+       ${nodata}
       `,
     );
   };
 }
 
-function makeStarbasePlateMaterial(): THREE.MeshStandardMaterial {
+function makeStarbasePlateMaterial(
+  halfKm: number,
+  dropNodata = false,
+): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     metalness: 0.04,
@@ -122,7 +134,7 @@ function makeStarbasePlateMaterial(): THREE.MeshStandardMaterial {
     alphaMap: makePlateAlphaTexture(),
     ...GROUND_OFFSET,
   });
-  punchPlateOlmHole(mat);
+  punchPlateOlmHole(mat, halfKm, dropNodata);
   return mat;
 }
 
@@ -150,32 +162,65 @@ function applyStarbasePlateTexture(
   hideProceduralPadGround(pad);
 }
 
-function onStarbasePlateMissing(): void {
+function onStarbasePlateMissing(kind: "surrounds" | "naip"): void {
+  const label = kind === "naip" ? "NAIP pad plate" : "surrounds texture";
   console.warn(
-    "[tothemoon] Starbase surrounds texture missing; using procedural scrub",
+    `[tothemoon] Starbase ${label} missing; using ${kind === "naip" ? "Sentinel-2 / procedural scrub" : "procedural scrub"}`,
   );
 }
 
-function loadStarbasePlateTexture(pad: THREE.Group, plate: THREE.Mesh): void {
-  const url = `${import.meta.env.BASE_URL}textures/starbase_surrounds.jpg`;
+function loadStarbasePlateTexture(
+  pad: THREE.Group,
+  plate: THREE.Mesh,
+  file: string,
+  kind: "surrounds" | "naip",
+): void {
+  const url = `${import.meta.env.BASE_URL}textures/${file}`;
   void loadTextureAsset(url).then((tex) => {
     if (tex) applyStarbasePlateTexture(pad, plate, tex);
-    else onStarbasePlateMissing();
+    else onStarbasePlateMissing(kind);
   });
 }
 
-/**
- * North-up Sentinel-2 square around the pad (full JPEG, draped on the globe).
- * Hidden until the JPEG loads so procedural scrub / landmark rings remain
- * the fallback.
- */
-export function addStarbaseSatellitePlate(pad: THREE.Group): void {
-  const plate = new THREE.Mesh(makeStarbasePlateGeometry(), makeStarbasePlateMaterial());
-  plate.name = "pad-satellite-plate";
-  plate.position.y = STARBASE_PLATE_Y_KM;
+function addPlate(
+  pad: THREE.Group,
+  opts: {
+    name: string; halfKm: number; yKm: number; file: string;
+    kind: "surrounds" | "naip"; dropNodata?: boolean;
+  },
+): void {
+  const plate = new THREE.Mesh(
+    makeStarbasePlateGeometry(opts.halfKm),
+    makeStarbasePlateMaterial(opts.halfKm, opts.dropNodata === true),
+  );
+  plate.name = opts.name;
+  plate.position.y = opts.yKm;
   plate.rotation.y = starbasePlateYawRad();
   plate.visible = false;
   plate.renderOrder = -1;
   pad.add(plate);
-  loadStarbasePlateTexture(pad, plate);
+  loadStarbasePlateTexture(pad, plate, opts.file, opts.kind);
+}
+
+/**
+ * North-up Sentinel-2 square around the pad, plus a nested USDA NAIP plate
+ * over the launch/production site. Hidden until each JPEG loads so
+ * procedural scrub / landmark rings remain the fallback.
+ */
+export function addStarbaseSatellitePlate(pad: THREE.Group): void {
+  addPlate(pad, {
+    name: "pad-satellite-plate",
+    halfKm: STARBASE_PLATE_HALF_KM,
+    yKm: STARBASE_PLATE_Y_KM,
+    file: "starbase_surrounds.jpg",
+    kind: "surrounds",
+  });
+  addPlate(pad, {
+    name: "pad-naip-plate",
+    halfKm: STARBASE_PAD_PLATE_HALF_KM,
+    yKm: STARBASE_PAD_PLATE_Y_KM,
+    file: "starbase_pad_naip.jpg",
+    kind: "naip",
+    dropNodata: true,
+  });
 }

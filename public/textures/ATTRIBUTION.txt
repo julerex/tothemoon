@@ -45,6 +45,23 @@ Sentinel-2 cloudless by EOX IT Services GmbH, licensed CC BY 4.0
 
 ---
 
+USDA National Agriculture Imagery Program (NAIP) — Starbase pad plate
+Source: USGS The National Map NAIP ImageServer
+  https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer
+File: starbase_pad_naip.jpg
+  8192×8192 JPEG, ~8×8 km square centered on 25.997°N 97.156°W
+  (EPSG:4326 bbox from STARBASE_PAD_PLATE_HALF_KM = 4 km), north-up.
+  Full rectangle — not a circular crop.
+  Built from a 3×3 USGS export mosaic (`npm run starbase-naip`).
+  Cameron County tile in the mosaic: m_2509707_ne_14_060_20220610
+  (acquired 2022-06-10, 0.6 m GSD). Nested under the 80 km Sentinel-2 plate.
+
+USDA NAIP / USGS The National Map orthoimagery is a U.S. government work
+in the public domain (TNRIS redistributes the 2024 Texas CCMs as CC0-1.0).
+Credit: USDA Farm Service Agency, USGS.
+
+---
+
 NASA SVS CGI Moon Kit — LROC WAC color (2019)
 Source: https://svs.gsfc.nasa.gov/4720/
 File: moon_lroc_wac_4k.jpg

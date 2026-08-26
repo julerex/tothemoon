@@ -103,7 +103,7 @@ const PAD_CAST_ROOTS = [
 /** Large coplanar flats — never cast or receive. */
 const PAD_NO_SHADOW = [
   "pad-landmark-scrub", "pad-landmark-ring", "pad-landmark-rim",
-  "pad-scrub-terrain", "pad-pond", "pad-satellite-plate",
+  "pad-scrub-terrain", "pad-pond", "pad-satellite-plate", "pad-naip-plate",
 ] as const;
 
 /** Small apron surfaces that should still catch craft/tower shadows. */

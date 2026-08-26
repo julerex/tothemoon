@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
 import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
 import {
+  STARBASE_PAD_PLATE_HALF_KM,
   STARBASE_PLATE_HALF_KM,
   drapePlatePoint,
   starbasePlateUv,
@@ -97,6 +98,16 @@ describe("starbasePlateWmsBboxDeg", () => {
     assert.ok(Math.abs((b.minLon + b.maxLon) / 2 - lon0) < 1e-9);
     assert.ok(b.maxLat - b.minLat > 0.4, "wider than the old ~0.14° disc");
     assert.ok(b.maxLon - b.minLon > 0.4);
+  });
+
+  it("nests the NAIP pad plate inside the wide surrounds bbox", () => {
+    const wide = starbasePlateWmsBboxDeg();
+    const pad = starbasePlateWmsBboxDeg(STARBASE_PAD_PLATE_HALF_KM);
+    assert.ok(pad.minLon > wide.minLon);
+    assert.ok(pad.maxLon < wide.maxLon);
+    assert.ok(pad.minLat > wide.minLat);
+    assert.ok(pad.maxLat < wide.maxLat);
+    assert.ok(STARBASE_PAD_PLATE_HALF_KM * 10 === STARBASE_PLATE_HALF_KM);
   });
 });
 

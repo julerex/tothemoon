@@ -1,9 +1,10 @@
 /**
  * Starbase satellite ground plate — geographic yaw, planar UVs, sphere drape.
  *
- * The photo is a north-up square centered on the pad (full JPEG, not a circular
- * crop). The 3D pad group only aligns +Y to local up (`setFromUnitVectors`), so
- * this module yaws **the plate only** until plate +Z = geographic north.
+ * Photos are north-up squares centered on the pad (full JPEG, not a circular
+ * crop): an ~80 km Sentinel-2 surrounds plate plus a nested ~8 km USDA NAIP
+ * pad plate. The 3D pad group only aligns +Y to local up (`setFromUnitVectors`),
+ * so this module yaws **the plate only** until plate +Z = geographic north.
  * Right-handed +Y-up then puts plate +X **west** (east × north = up, so
  * north × up = east = −X). UVs must increase toward −X or the Gulf lands
  * inland.
@@ -23,8 +24,17 @@ export const STARBASE_PLATE_INNER_KM = 0.12;
  */
 export const STARBASE_PLATE_HALF_KM = 40;
 
+/**
+ * Half-extent of the nested USDA NAIP pad plate (km). Covers both orbital
+ * pads, the tank farm, and the production site a few km west of the beach.
+ */
+export const STARBASE_PAD_PLATE_HALF_KM = 4;
+
 /** Pad-local Y of the plate, slightly below hardstand slabs (km). */
 export const STARBASE_PLATE_Y_KM = -0.008;
+
+/** Pad-local Y of the NAIP plate, a hair above the wide Sentinel-2 plate. */
+export const STARBASE_PAD_PLATE_Y_KM = -0.007;
 
 /** Grid density for draping the square onto the sphere. */
 export const STARBASE_PLATE_SEGS = 48;
