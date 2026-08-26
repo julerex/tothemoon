@@ -54,4 +54,4 @@ export const CHOPSTICK_CATCH_DROP_KM = (CHOPSTICK_CATCH_M - CHOPSTICK_REST_M) * 
  * ~320 m matches the Starbase E–W pad spacing (OLP-1 nearer the beach).
  */
 export const PAD1_X_KM = -0.32;
-export const PAD1_Z_KM = 0.04;
+export const PAD1_Z_KM = 0;

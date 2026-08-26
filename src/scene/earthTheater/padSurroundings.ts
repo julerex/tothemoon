@@ -5,6 +5,7 @@ import {
   GROUND_OFFSET, addGroundDisc, addGroundRing, makePadSurroundMats,
   makeScrubTerrainMat, type PadSurroundMats,
 } from "./padSurroundMats";
+import { SH4_Z_KM } from "./padFarmLayout";
 import { buildTankFarm } from "./padTankFarm";
 import { addPadHardstand } from "./padHardstand";
 
@@ -141,16 +142,16 @@ function addNamedBox(
 }
 
 function addBlvd(g: THREE.Group, mats: PadSurroundMats): void {
-  addNamedBox(g, [0.7, 0.002, 0.014], mats.asphalt, [0.1, -0.0035, 0.28], "pad-boca-chica-blvd");
-  addNamedBox(g, [0.72, 0.0015, 0.03], mats.dirt, [0.1, -0.004, 0.28]);
-  addNamedBox(g, [0.2, 0.002, 0.04], mats.concreteDark, [-0.05, -0.003, 0.22]);
+  addNamedBox(g, [0.85, 0.002, 0.012], mats.asphalt, [0.02, -0.0035, SH4_Z_KM], "pad-boca-chica-blvd");
+  addNamedBox(g, [0.88, 0.0015, 0.028], mats.dirt, [0.02, -0.004, SH4_Z_KM]);
+  addNamedBox(g, [0.22, 0.002, 0.036], mats.concreteDark, [-0.04, -0.003, SH4_Z_KM - 0.055]);
 }
 
 function addParkingCars(g: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 14; i++) {
     const car = new THREE.Mesh(new THREE.BoxGeometry(0.0045, 0.0016, 0.0022), mats.carPaint);
     const side = i < 8 ? 1 : -1;
-    car.position.set(-0.12 + (i % 8) * 0.018, -0.0015, 0.22 + side * 0.012 + (i % 3) * 0.002);
+    car.position.set(-0.12 + (i % 8) * 0.018, -0.0015, SH4_Z_KM + 0.022 + side * 0.012 + (i % 3) * 0.002);
     g.add(car);
   }
 }
@@ -184,7 +185,7 @@ function addGseForegroundShed(g: THREE.Group, mats: PadSurroundMats): void {
 function buildWarehouse(mats: PadSurroundMats): THREE.Group {
   const warehouse = new THREE.Group();
   warehouse.name = "pad-warehouse";
-  warehouse.position.set(0.22, 0, 0.12);
+  warehouse.position.set(0.26, 0, 0.08);
   addWarehouseShell(warehouse, mats);
   return warehouse;
 }
@@ -203,7 +204,7 @@ function addWarehouseShell(warehouse: THREE.Group, mats: PadSurroundMats): void 
 
 function addEastYard(g: THREE.Group, mats: PadSurroundMats): void {
   const eastYard = new THREE.Group();
-  eastYard.position.set(0.28, 0, 0.05);
+  eastYard.position.set(0.30, 0, 0.02);
   for (let i = 0; i < 8; i++) {
     const unit = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.006, 0.008), i % 2 === 0 ? mats.steelDark : mats.steel);
     unit.position.set((i % 4) * 0.014, 0.003, Math.floor(i / 4) * 0.015);
@@ -220,10 +221,10 @@ function addPadHopperAndCrane(g: THREE.Group, mats: PadSurroundMats): void {
 
 function addStarhopperSite(g: THREE.Group, mats: PadSurroundMats): void {
   const hopperPad = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.038, 0.002, 24), mats.concreteDark);
-  hopperPad.position.set(0.05, -0.0035, 0.42);
+  hopperPad.position.set(0.04, -0.0035, SH4_Z_KM + 0.055);
   g.add(hopperPad);
   const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.012, 10), mats.steel);
-  hopper.position.set(0.05, 0.005, 0.42);
+  hopper.position.set(0.04, 0.005, SH4_Z_KM + 0.055);
   g.add(hopper);
 }
 
@@ -243,7 +244,7 @@ function addTrailers(g: THREE.Group): void {
       new THREE.BoxGeometry(0.012, 0.0035, 0.005),
       new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.3, roughness: 0.7 }),
     );
-    trailer.position.set(-0.06 + i * 0.02, 0.001, 0.16);
+    trailer.position.set(-0.06 + i * 0.02, 0.001, SH4_Z_KM - 0.028);
     g.add(trailer);
   }
 }

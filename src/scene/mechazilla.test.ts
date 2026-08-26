@@ -85,6 +85,7 @@ describe("OLP-1 second tower (V26)", () => {
     assert.ok(PAD1_X_KM < -0.2);
     assert.ok(PAD1_X_KM > -0.45);
     assert.ok(Math.abs(PAD1_Z_KM) < 0.08);
+    assert.equal(PAD1_Z_KM, 0, "OLP-1 shares OLP-2 northing (E–W pad line)");
   });
 
   it("builds a named Pad 1 tower without an OLM, prefixed chopsticks", () => {

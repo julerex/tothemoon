@@ -211,7 +211,8 @@ The City of **Starbase, Texas** incorporated **2025-05-03**.
 | Facing | Vehicle / OLM **east** of the tower (gulf) | NSF: pad **faces south** (tower north of the mount) |
 | Where | Closer to the **Gulf** | **West** of Pad 1, toward the tank farm / highway |
 
-Pads share a **tank farm** of large **horizontal** cryo vessels; each pad has
+Pads share a **tank farm** of large **12 m** cryo shells (NSF 2021 vertical
+bank) plus Pad 2 **horizontal** water / LN2 vessels; each pad has
 its own pumps / subcoolers so they can load independently (NSF). Deluge water
 is a separate high-pressure farm.
 

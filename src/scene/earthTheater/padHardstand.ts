@@ -46,7 +46,7 @@ function addServicePads(g: THREE.Group, mats: PadSurroundMats): void {
   const pads: { size: [number, number, number]; pos: [number, number, number]; kind: keyof PadSurroundMats }[] = [
     { size: [0.06, 0.0022, 0.04], pos: [0.16, -0.0026, 0.08], kind: "concrete" },
     { size: [0.05, 0.0022, 0.035], pos: [0.18, -0.0027, -0.04], kind: "concreteLight" },
-    { size: [0.045, 0.0022, 0.05], pos: [0.08, -0.0028, 0.14], kind: "concreteDark" },
+    { size: [0.045, 0.0022, 0.05], pos: [0.08, -0.0028, 0.088], kind: "concreteDark" },
   ];
   for (const s of pads) {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), mats[s.kind]);

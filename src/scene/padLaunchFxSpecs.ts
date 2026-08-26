@@ -4,6 +4,8 @@
  * Construction and pose helpers share one source of truth for rest poses.
  */
 
+import { tankFarmVentAnchors } from "./earthTheater/padFarmLayout";
+
 /**
  * One radial tier of deluge steam sprites around the OLM.
  * Used by both `createStarbasePad` (mesh build) and pose helpers.
@@ -123,21 +125,11 @@ export function expandDelugeJets(): readonly DelugeJetSpec[] {
 }
 
 /**
- * Tank-farm vent sprite anchors in pad-local km (+X / +Z ≈ east/north of OLM).
- * Positions sit over the white horizontal tank rows from the satellite layout.
+ * Tank-farm vent sprite anchors in pad-local km (+X west / +Z north of OLM).
+ * Sit over the 12 m cryo bank from {@link tankFarmVentAnchors}.
  */
-export const VENT_ANCHORS: readonly (readonly [number, number, number])[] = [
-  [0.095, 0.014, 0.035],
-  [0.11, 0.016, 0.05],
-  [0.085, 0.013, 0.055],
-  [0.12, 0.018, 0.04],
-  [0.1, 0.015, 0.07],
-  [0.13, 0.017, 0.055],
-  [0.075, 0.012, 0.04],
-  [0.115, 0.02, 0.065],
-  [0.14, 0.015, 0.08],
-  [0.09, 0.014, 0.085],
-];
+export const VENT_ANCHORS: readonly (readonly [number, number, number])[] =
+  tankFarmVentAnchors();
 
 /** One soft cryo-cloud cluster (pad-local km). */
 export type VentCloudSpec = Readonly<{
