@@ -115,7 +115,7 @@ function addPadFences(g: THREE.Group, mats: PadSurroundMats): void {
   fence.position.set(0.08, -0.001, -0.12);
   g.add(fence);
   const fence2 = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.0015, 0.28), mats.steelDark);
-  fence2.position.set(-0.08, -0.001, 0.04);
+  fence2.position.set(0.18, -0.001, 0.04);
   g.add(fence2);
 }
 
@@ -144,7 +144,7 @@ function addNamedBox(
 function addBlvd(g: THREE.Group, mats: PadSurroundMats): void {
   addNamedBox(g, [0.85, 0.002, 0.012], mats.asphalt, [0.02, -0.0035, SH4_Z_KM], "pad-boca-chica-blvd");
   addNamedBox(g, [0.88, 0.0015, 0.028], mats.dirt, [0.02, -0.004, SH4_Z_KM]);
-  addNamedBox(g, [0.22, 0.002, 0.036], mats.concreteDark, [-0.04, -0.003, SH4_Z_KM - 0.055]);
+  addNamedBox(g, [0.22, 0.002, 0.036], mats.concreteDark, [0.14, -0.003, SH4_Z_KM - 0.055]);
 }
 
 function addParkingCars(g: THREE.Group, mats: PadSurroundMats): void {
@@ -244,7 +244,7 @@ function addTrailers(g: THREE.Group): void {
       new THREE.BoxGeometry(0.012, 0.0035, 0.005),
       new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.3, roughness: 0.7 }),
     );
-    trailer.position.set(-0.06 + i * 0.02, 0.001, SH4_Z_KM - 0.028);
+    trailer.position.set(0.1 + i * 0.02, 0.001, SH4_Z_KM - 0.028);
     g.add(trailer);
   }
 }

@@ -126,7 +126,7 @@ export function expandDelugeJets(): readonly DelugeJetSpec[] {
 
 /**
  * Tank-farm vent sprite anchors in pad-local km (+X west / +Z north of OLM).
- * Sit over the 12 m cryo bank from {@link tankFarmVentAnchors}.
+ * Sit over the E–W cryo bank between the pads from {@link tankFarmVentAnchors}.
  */
 export const VENT_ANCHORS: readonly (readonly [number, number, number])[] =
   tankFarmVentAnchors();

@@ -1,24 +1,47 @@
 /**
- * Starbase launch-site plan in pad-local km.
+ * Shared orbital tank farm — between OLP-2 and OLP-1, north of the pads.
  *
- * +X west (inland / tank farm), −X gulf / OLP-1, +Z north (SH 4), +Y up.
- * Live OLP-2 OLM is the origin; Mechazilla stays at +X so trench / webcast
- * cameras keep their pad-local mounts. Tank rows run east–west, parallel to
- * Boca Chica Blvd, matching NAIP / T−5 aerials. Cryo outer shells are 12 m
- * (NSF 2021 orbital farm) — as wide as the 12 m tower face, not 7.6 m kegs.
+ * Pad-local km: +X west (inland), −X gulf/east, +Z north (SH 4), +Y up.
+ * Live origin is the OLP-2 OLM. The farm sits east of Pad 2 (`x < 0`) and
+ * west of Pad 1 (`PAD1_X_KM`), south of SH 4 — matching the Google Maps
+ * orbital-tank-farm pin (rows of white horizontal cylinders between the pads).
+ *
+ * The live Mechazilla stays west of the OLM (`TOWER_OX` > 0) so trench /
+ * webcast cameras keep their mounts. NSF Pad 2 faces south; that yaw is
+ * not applied here.
  */
+import { PAD1_X_KM } from "./mechazillaDims";
 
-/** NSF 2021 orbital-farm outer shell diameter (km). */
-export const CRYO_SHELL_D_KM = 0.012;
-/** Vertical cryo bank height (km) — ring-stack, much shorter than the 146 m OLT. */
-export const CRYO_VERTICAL_H_KM = 0.018;
-/** North row is closer to SH 4. */
-export const CRYO_ROW_Z_KM = [0.036, 0.014] as const;
-/** West of Mechazilla (`TOWER_OX` = 0.020). 24 m column spacing. */
-export const CRYO_COL_X_KM = [0.082, 0.106, 0.130, 0.154] as const;
+/** 10 m shells — the white rows between the pads. */
+export const CRYO_TANK_D_KM = 0.01;
+/** ~36 m E–W cylinders (the long white rows in the aerial). */
+export const CRYO_TANK_LEN_KM = 0.036;
 
-/** Pad-local [x west, z north] centers of the 2×4 vertical cryo bank. */
-export function cryoVerticalCenters(): Array<readonly [number, number]> {
+/**
+ * Six E–W columns spanning Pad 2 → Pad 1.
+ * West bank (~70 m east of the OLP-2 OLM), main bank, east bank (~30 m
+ * west of OLP-1). 42 m column spacing.
+ */
+export const CRYO_COL_X_KM = [-0.07, -0.112, -0.154, -0.196, -0.238, -0.28] as const;
+/** Two E–W rows, north of the OLM line and south of SH 4. */
+export const CRYO_ROW_Z_KM = [0.08, 0.11] as const;
+
+/** Boca Chica Blvd / SH 4 northing (km). Pads sit south of the highway. */
+export const SH4_Z_KM = 0.148;
+
+/** Blast wall south of the farm, between the tanks and the pad line. */
+export const BLAST_WALL_Z_KM = 0.062;
+/** Wall center in X — mid-span of the E–W bank. */
+export const BLAST_WALL_X_KM =
+  (CRYO_COL_X_KM[0] + CRYO_COL_X_KM[CRYO_COL_X_KM.length - 1]!) * 0.5;
+
+export { PAD1_X_KM };
+
+/** Count of E–W cryo tanks (columns × rows). */
+export const CRYO_TANK_COUNT = CRYO_COL_X_KM.length * CRYO_ROW_Z_KM.length;
+
+/** Pad-local [x west, z north] centers of the E–W cryo bank. */
+export function cryoEwCenters(): Array<readonly [number, number]> {
   const out: Array<readonly [number, number]> = [];
   for (const z of CRYO_ROW_Z_KM) {
     for (const x of CRYO_COL_X_KM) out.push([x, z]);
@@ -26,41 +49,38 @@ export function cryoVerticalCenters(): Array<readonly [number, number]> {
   return out;
 }
 
-/** Large N–S horizontals (Pad 2 water / commodity) west of the verticals. */
-export const HORIZ_LARGE_R_KM = 0.005;
-export const HORIZ_LARGE_LEN_KM = 0.036;
-export const HORIZ_LARGE_X_KM = 0.188;
-export const HORIZ_LARGE_Z_KM = [-0.008, 0.014, 0.036, 0.058] as const;
-
-/** Smaller N–S horizontals further west. */
-export const HORIZ_SMALL_R_KM = 0.0028;
-export const HORIZ_SMALL_LEN_KM = 0.020;
-export const HORIZ_SMALL_X_KM = 0.216;
-export const HORIZ_SMALL_Z_KM = [-0.012, 0.006, 0.024, 0.042, 0.060] as const;
-
-/** Compact LN2 verticals at the north-west corner of the farm. */
-export const LN2_R_KM = 0.003;
-export const LN2_H_KM = 0.011;
-export const LN2_XZ_KM: readonly (readonly [number, number])[] = [
-  [0.168, 0.058], [0.178, 0.058], [0.168, 0.069], [0.178, 0.069],
-];
-
-/** Boca Chica Blvd / SH 4 northing (km). Pads sit south of the highway. */
-export const SH4_Z_KM = 0.148;
-/** N–S blast wall between the live tower and the first cryo row. */
-export const BLAST_WALL_X_KM = 0.058;
+/** Berm / slab envelope around the E–W bank (pad-local km). */
+export function farmPlanBounds(): {
+  xWest: number;
+  xEast: number;
+  zSouth: number;
+  zNorth: number;
+} {
+  const halfLen = CRYO_TANK_LEN_KM * 0.5;
+  const halfD = CRYO_TANK_D_KM * 0.5;
+  const pad = 0.012;
+  return {
+    xWest: Math.max(...CRYO_COL_X_KM) + halfLen + pad,
+    xEast: Math.min(...CRYO_COL_X_KM) - halfLen - pad,
+    zSouth: Math.min(...CRYO_ROW_Z_KM) - halfD - pad,
+    zNorth: Math.max(...CRYO_ROW_Z_KM) + halfD + pad,
+  };
+}
 
 /**
- * Cryo-vent sprite anchors (pad-local km) over the vertical bank + two large
- * horizontals. Y is just above the tank roof.
+ * Four vent stacks: SW / SE / NW / NE corners of the E–W bank.
+ * World Y is the tank diameter (horizontal shells sit on the pad).
  */
 export function tankFarmVentAnchors(): Array<readonly [number, number, number]> {
-  const vertY = CRYO_VERTICAL_H_KM * 0.92;
-  const verts = cryoVerticalCenters().map(
-    ([x, z]) => [x, vertY, z] as const,
-  );
-  const horiz = HORIZ_LARGE_Z_KM.slice(0, 2).map(
-    (z) => [HORIZ_LARGE_X_KM, HORIZ_LARGE_R_KM * 2.1, z] as const,
-  );
-  return [...verts, ...horiz];
+  const y = CRYO_TANK_D_KM;
+  const west = CRYO_COL_X_KM[0]!;
+  const east = CRYO_COL_X_KM[CRYO_COL_X_KM.length - 1]!;
+  const south = CRYO_ROW_Z_KM[0]!;
+  const north = CRYO_ROW_Z_KM[CRYO_ROW_Z_KM.length - 1]!;
+  return [
+    [west, y, south],
+    [east, y, south],
+    [west, y, north],
+    [east, y, north],
+  ];
 }

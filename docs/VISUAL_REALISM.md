@@ -654,6 +654,8 @@ upgrades **procedural pad geometry** only (no CAD, no draped stills).
 - Extract `padTankFarm.ts`; matte white cryo tanks (lower metalness), insulation
   hoop bands, concrete berm enclosure, cylinder pipe racks, vent poles.
 - Named `pad-tank-farm` / `pad-tank-farm-berm` (shadow cast root unchanged).
+- **2026-08-26 layout:** E–W horizontal rows **between** the pads (Google Maps
+  orbital-farm pin), not west of Mechazilla. Live tower yaw unchanged.
 
 ### V23.2 Mechazilla open truss
 
@@ -827,7 +829,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-25 | V25 shipped: axial launch exhaust stream + denser Mechazilla lattice vs T+16 / T− stills |
 | 2026-08-25 | V26 shipped: OLP-1 second tower (empty mount) + Mach-diamond stream cells |
 | 2026-08-26 | Nested USDA NAIP pad plate (~8 km, ~1 m/px) under the 80 km Sentinel-2 surrounds. Pad crop: [Sentinel-2 ~20 m/px vs NAIP ~1 m/px](starbase-sentinel-vs-naip.jpg). Site plate: [NAIP 8 km over Sentinel-2](starbase-naip-8km.jpg). |
-| 2026-08-26 | Pad GSE layout vs NAIP / NSF: 12 m cryo shells in two SH-4-parallel rows west of Mechazilla, N–S horizontals further inland, pipe rack + blast wall; OLP-1 on the same E–W line. Live tower stays west of the OLM so trench / webcast cameras keep their mounts. |
+| 2026-08-26 | Pad GSE vs Google Maps orbital-farm pin: E–W horizontal cryo rows **between** OLP-2 and OLP-1, north of the pads / south of SH 4; blast wall on the south edge; pipe racks toward both pads. Live tower stays west of the OLM. The 2022 NAIP (Pad 1–era verticals west of one tower) is not the live farm. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

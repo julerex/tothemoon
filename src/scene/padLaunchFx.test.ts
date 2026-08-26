@@ -203,7 +203,7 @@ describe("vent cryo clouds", () => {
       assert.ok(s.lobes >= 4);
     }
     assert.ok(VENT_CLOUD_SPECS.some((s) => Math.hypot(s.x, s.z) < 0.04));
-    assert.ok(VENT_CLOUD_SPECS.some((s) => s.x > 0.07));
+    assert.ok(VENT_CLOUD_SPECS.some((s) => s.x < -0.05 && s.z > 0.05));
   });
 
   it("is opaque on hold and hidden when vent is off", () => {

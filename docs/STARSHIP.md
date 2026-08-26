@@ -209,12 +209,14 @@ The City of **Starbase, Texas** incorporated **2025-05-03**.
 | Flame management | Steel deluge plate added after Flight 1 cratered the soil | Designed-in **water-cooled flame trench / W-diverter** |
 | Chopsticks | Originally ~36 m; later shortened toward Pad 2 | NSF (2025): **~10 m shorter** than original Pad 1 |
 | Facing | Vehicle / OLM **east** of the tower (gulf) | NSF: pad **faces south** (tower north of the mount) |
-| Where | Closer to the **Gulf** | **West** of Pad 1, toward the tank farm / highway |
+| Where | Closer to the **Gulf** | **West** of Pad 1 (inland); tank farm sits **between** the pads |
 
-Pads share a **tank farm** of large **12 m** cryo shells (NSF 2021 vertical
-bank) plus Pad 2 **horizontal** water / LN2 vessels; each pad has
+Pads share a **tank farm** of large **horizontal** cryo cylinders **between**
+the two pads, north of the OLM line and south of SH 4 (Google Maps / NSF
+orbital-farm pin). Each pad has
 its own pumps / subcoolers so they can load independently (NSF). Deluge water
-is a separate high-pressure farm.
+is a separate high-pressure farm. The 2022 NAIP tile still shows Pad 1–era
+verticals west of one tower — that is **not** the live Flight 13 farm.
 
 This theater: live stack is **OLP-2**. **OLP-1** is the second tower ~**320 m
 east** (pad-local −X = gulf) with a stripped mount and no vehicle. Chopstick
