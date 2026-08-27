@@ -239,7 +239,7 @@ export function autoCamForStagingLunar(): AutoCamSuggestion {
 
 /** Engine-bay (left of hot-stage split) on stage-out (Flight 13 webcast beat). */
 export function autoCamForStagingFlight13(): AutoCamSuggestion {
-  return { mode: "gridfin", frame: true, mount: "engines", fov: 72 };
+  return { mode: "engines", frame: true, mount: "engines", fov: 72 };
 }
 
 /** Staging rising-edge cut for the active profile. */

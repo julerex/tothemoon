@@ -80,11 +80,13 @@ nonce URL so the load is never a same-document hash change.
 On the menu, `ready` is `false` and mutators return `{ error: "theater not started" }`.
 `ready` also stays false while `#theater-loading` is up (Earth / Moon / star / pad JPEGs).
 
-Camera modes: `sun` `moon` `earth` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `free`.
+Camera modes: `sun` `moon` `earth` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `engines` `enginesDown` `free`.
 
 `setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−5:00 through T−8.
 
 `setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
+
+`setCamera("engines")` is the Super Heavy engine-bay looking at the Raptor bells (hot-stage left pane). `setCamera("enginesDown")` looks down through the bells at the pad / Earth (ascent T+0:22).
 
 `craft.speed` is inertial (heliocentric). HUD speed is Earth-relative — they
 will not match. Prefer `hud.phase` / `clock` / `phaseId` for “are we at splash?”.

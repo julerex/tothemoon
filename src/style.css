@@ -1069,7 +1069,7 @@ body.menus-active {
 
 .cam-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.2rem, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.22rem;
   margin-top: 0.15rem;
 }
@@ -1875,7 +1875,7 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   }
 
   .cam-grid {
-    grid-template-columns: repeat(auto-fill, minmax(2rem, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.16rem;
   }
 

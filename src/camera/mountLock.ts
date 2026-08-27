@@ -1,5 +1,6 @@
 /**
- * Hard-lock vs user-orbit for onboard / webcast mounts (fin, gridfin, trench).
+ * Hard-lock vs user-orbit for onboard / webcast mounts (fin, gridfin,
+ * engine-bay, trench, hull).
  *
  * Entering a mount snaps the camera to that pose every frame (`"hard"`).
  * The first mouse or orbit/pan/zoom key switches to `"orbit"`: the look-at
@@ -8,14 +9,27 @@
  * Re-entering the mount (digit key, Auto-cam cut) restores `"hard"`.
  */
 
-export type MountFocus = "fin" | "gridfin" | "trench" | "hull";
+export type MountFocus =
+  | "fin"
+  | "gridfin"
+  | "trench"
+  | "hull"
+  | "engines"
+  | "enginesDown";
 
 /** Snap pose every frame until the user grabs the camera. */
 export type MountLock = "hard" | "orbit";
 
 /** True for onboard / webcast mount focuses. */
 export function isMountFocus(mode: string): mode is MountFocus {
-  return mode === "fin" || mode === "gridfin" || mode === "trench" || mode === "hull";
+  return (
+    mode === "fin" ||
+    mode === "gridfin" ||
+    mode === "trench" ||
+    mode === "hull" ||
+    mode === "engines" ||
+    mode === "enginesDown"
+  );
 }
 
 /** Snap to the mount pose until the user orbits, pans, or zooms. */

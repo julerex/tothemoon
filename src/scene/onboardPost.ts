@@ -20,10 +20,15 @@ export const ONBOARD_DIRT_STRENGTH = 0;
 
 /**
  * True when the cinema stack should apply the onboard look.
- * Fin + gridfin only — not hull, trench, chase, Earth, Free, etc.
+ * Fin / gridfin / engine-bay mounts — not hull, trench, chase, Earth, Free.
  */
 export function onboardPostEnabled(focus: string | undefined): boolean {
-  return focus === "fin" || focus === "gridfin";
+  return (
+    focus === "fin" ||
+    focus === "gridfin" ||
+    focus === "engines" ||
+    focus === "enginesDown"
+  );
 }
 
 /**

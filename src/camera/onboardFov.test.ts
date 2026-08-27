@@ -14,6 +14,8 @@ describe("cameraFovForFocus", () => {
     assert.equal(cameraFovForFocus("fin"), ONBOARD_CAM_FOV_DEG);
     assert.equal(cameraFovForFocus("gridfin"), ONBOARD_CAM_FOV_DEG);
     assert.equal(cameraFovForFocus("hull"), ONBOARD_CAM_FOV_DEG);
+    assert.equal(cameraFovForFocus("engines"), ONBOARD_CAM_FOV_DEG);
+    assert.equal(cameraFovForFocus("enginesDown"), ONBOARD_CAM_FOV_DEG);
     assert.ok(ONBOARD_CAM_FOV_DEG > DEFAULT_CAM_FOV_DEG + 20);
   });
 

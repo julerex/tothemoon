@@ -40,6 +40,8 @@ describe("parseCameraMode", () => {
   it("accepts live rail modes and rejects unknown", () => {
     assert.equal(parseCameraMode("chase"), "chase");
     assert.equal(parseCameraMode("hull"), "hull");
+    assert.equal(parseCameraMode("engines"), "engines");
+    assert.equal(parseCameraMode("enginesDown"), "enginesDown");
     assert.equal(parseCameraMode("starbase"), "starbase");
     assert.equal(parseCameraMode("aerial"), "aerial");
     assert.equal(parseCameraMode("drone"), "drone");

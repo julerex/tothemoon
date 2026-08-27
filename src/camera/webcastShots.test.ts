@@ -42,16 +42,19 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
 
   it("picks the left engine-bay pane at hot-stage and keeps it after sep", () => {
     const hot = webcastShotAt(141);
-    assert.equal(hot.mode, "gridfin");
+    assert.equal(hot.mode, "engines");
     assert.equal(hot.mount, "engines");
     assert.equal(webcastShotAt(160).mount, "engines");
   });
 
   it("follows left-pane booster cuts through boostback and Super Heavy splash", () => {
+    assert.equal(webcastShotAt(190).mode, "enginesDown");
     assert.equal(webcastShotAt(190).mount, "enginesDown");
     assert.equal(webcastShotAt(255).mount, "boosterHull");
+    assert.equal(webcastShotAt(280).mode, "engines");
     assert.equal(webcastShotAt(280).mount, "engines");
     assert.equal(webcastShotAt(320).mount, "boosterHull");
+    assert.equal(webcastShotAt(340).mode, "engines");
     assert.equal(webcastShotAt(340).mount, "engines");
     assert.equal(webcastShotAt(386).mount, "boosterHull");
     assert.equal(webcastShotAt(400).mount, "boosterHull");

@@ -29,7 +29,7 @@ export const CAMERA_LABELS: Record<
   },
   gridfin: {
     title: "Booster",
-    detail: "Grid fin · aft engines",
+    detail: "Grid fin · hull along Earth",
   },
   chase: {
     title: "Starship",
@@ -37,24 +37,38 @@ export const CAMERA_LABELS: Record<
   },
   fin: { title: "Ship fin", detail: "Aft engines" },
   hull: { title: "Ship hull", detail: "Barrel cam" },
+  engines: {
+    title: "Engine bay",
+    detail: "Looking at the Raptor bells",
+  },
+  enginesDown: {
+    title: "Engines down",
+    detail: "Looking down through the plume",
+  },
   drone: {
     title: "Drone",
     detail: "Sea-level orbit of the floating ship",
   },
 };
 
-/** Focus modes cycled by − / =. */
+/**
+ * Focus modes cycled by − / =.
+ * After Sun / Earth / Moon, order is first use in the Flight 13 webcast
+ * (T−5 pad through splash).
+ */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
   "sun",
   "earth",
   "moon",
-  "starbase",
   "aerial",
+  "starbase",
   "trench",
-  "gridfin",
   "chase",
-  "fin",
+  "enginesDown",
   "hull",
+  "engines",
+  "gridfin",
+  "fin",
   "drone",
 ];
 

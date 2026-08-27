@@ -19,7 +19,13 @@ export const ONBOARD_CAM_FOV_DEG = 72;
  * Fin / gridfin use the wide onboard lens; everything else stays default.
  */
 export function cameraFovForFocus(focus: string): number {
-  if (focus === "fin" || focus === "gridfin" || focus === "hull") {
+  if (
+    focus === "fin" ||
+    focus === "gridfin" ||
+    focus === "hull" ||
+    focus === "engines" ||
+    focus === "enginesDown"
+  ) {
     return ONBOARD_CAM_FOV_DEG;
   }
   return DEFAULT_CAM_FOV_DEG;

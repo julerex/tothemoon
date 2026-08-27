@@ -26,7 +26,14 @@ export const LEO_GLITTER_MESH = "leo-ocean-glitter";
  * Camera focuses that may show the LEO shell. Earth-cam / pad / system
  * views stay on cloudless Blue Marble (#14).
  */
-export const LEO_CLOUD_FOCUSES = ["hull", "fin", "gridfin", "chase"] as const;
+export const LEO_CLOUD_FOCUSES = [
+  "hull",
+  "fin",
+  "gridfin",
+  "engines",
+  "enginesDown",
+  "chase",
+] as const;
 
 /** Fade in just above the ~51 km shell so pad/ascent stay inside and FrontSide-culled. */
 export const LEO_CLOUD_FADE_IN_KM = 55;
@@ -71,6 +78,8 @@ export function leoCloudsFocusEnabled(focus: string | undefined): boolean {
     focus === "hull" ||
     focus === "fin" ||
     focus === "gridfin" ||
+    focus === "engines" ||
+    focus === "enginesDown" ||
     focus === "chase"
   );
 }

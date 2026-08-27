@@ -150,7 +150,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "hotstage-engines",
     t0: 130,
-    mode: "gridfin",
+    mode: "engines",
     frame: true,
     mount: "engines",
     fov: WEBCAST_ONBOARD_FOV,
@@ -158,7 +158,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "booster-engines-down",
     t0: 185,
-    mode: "gridfin",
+    mode: "enginesDown",
     frame: true,
     mount: "enginesDown",
     fov: 76,
@@ -174,7 +174,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "booster-engines-mid",
     t0: 272,
-    mode: "gridfin",
+    mode: "engines",
     frame: true,
     mount: "engines",
     fov: WEBCAST_ONBOARD_FOV,
@@ -190,7 +190,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     key: "booster-engines-late",
     t0: 337,
-    mode: "gridfin",
+    mode: "engines",
     frame: true,
     mount: "engines",
     fov: WEBCAST_ONBOARD_FOV,

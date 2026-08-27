@@ -41,7 +41,7 @@ import {
 
 export type { CameraMode } from "./cameraMode";
 export { isPadFocus } from "./cameraMode";
-import { isPadFocus, type CameraMode } from "./cameraMode";
+import { isBoosterMountFocus, isPadFocus, type CameraMode } from "./cameraMode";
 import {
   readCameraWorldPose,
   resolveCameraWorldPose,
@@ -438,7 +438,7 @@ export class CameraDirector {
    * Webcast pose cuts (azimuth / pad-track / onboard mounts) snap instantly.
    */
   private isInstantEaseMode(mode: CameraMode): boolean {
-    return mode === "fin" || mode === "gridfin" || mode === "trench" ||
+    return mode === "fin" || isBoosterMountFocus(mode) || mode === "trench" ||
       mode === "hull" || mode === "drone" || mode === "aerial" || mode === "free";
   }
 
@@ -629,12 +629,19 @@ export class CameraDirector {
     this.trackAnchorValid = false;
     this.controls.enabled = true;
     this.applyClipPlanes();
-    // Manual digit-key mounts (variant still "default") get the wide onboard
+    // Manual rail mounts (variant still "default") get the wide onboard
     // lens. Auto-cam already set a per-shot FOV in applyGuidedPose.
     if (this.mountVariant === "default") {
       this.setVerticalFov(cameraFovForFocus(mode));
     }
+    this.mountVariantFromMode(mode);
     this.applyLockedMountPose();
+  }
+
+  /** Rail pick of engine-bay modes seats the matching Super Heavy mount. */
+  private mountVariantFromMode(mode: MountFocus): void {
+    if (mode === "engines") this.mountVariant = "engines";
+    else if (mode === "enginesDown") this.mountVariant = "enginesDown";
   }
 
   private clampedFocusDistance(): number {
@@ -913,7 +920,7 @@ export class CameraDirector {
       this.focus === "drone" ||
       isPadFocus(this.focus) ||
       this.focus === "fin" ||
-      this.focus === "gridfin" ||
+      isBoosterMountFocus(this.focus) ||
       this.focus === "trench" ||
       this.focus === "hull";
     return close ? 0.0002 : 0.1;
@@ -968,7 +975,7 @@ export class CameraDirector {
   private copyMountLook(mode: MountFocus, out: THREE.Vector3): boolean {
     if (mode === "fin") return this.copyFinLook(out);
     if (mode === "hull") return this.copyNamedLook(this.craft, "hull-cam-look", out);
-    if (mode === "gridfin") return this.copyGridFinVariantLook(out);
+    if (isBoosterMountFocus(mode)) return this.copyGridFinVariantLook(out);
     return this.copyTrenchLook(out);
   }
 
@@ -1561,7 +1568,7 @@ export class CameraDirector {
   private applyLockedMountPose(): void {
     if (this.focus === "fin") { this.applyFinCam(); return; }
     if (this.focus === "hull") { this.applyHullCam(); return; }
-    if (this.focus === "gridfin") { this.applyGridFinVariant(); return; }
+    if (isBoosterMountFocus(this.focus)) { this.applyGridFinVariant(); return; }
     if (this.focus === "trench") this.applyTrenchCam();
   }
 

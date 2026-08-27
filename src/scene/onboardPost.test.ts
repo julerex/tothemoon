@@ -12,9 +12,11 @@ import {
 } from "./onboardPost.ts";
 
 describe("onboardPostEnabled", () => {
-  it("enables only fin and gridfin", () => {
+  it("enables fin, gridfin, and engine-bay mounts", () => {
     assert.equal(onboardPostEnabled("fin"), true);
     assert.equal(onboardPostEnabled("gridfin"), true);
+    assert.equal(onboardPostEnabled("engines"), true);
+    assert.equal(onboardPostEnabled("enginesDown"), true);
   });
 
   it("stays off for hull and all non-onboard cams", () => {

@@ -88,7 +88,7 @@ describe("autoCamForStaging", () => {
 
   it("cuts to booster engine-bay cam on Flight 13 profile", () => {
     const s = autoCamForStaging("flight13");
-    assert.equal(s.mode, "gridfin");
+    assert.equal(s.mode, "engines");
     assert.equal(s.mount, "engines");
     assert.equal(s.frame, true);
   });
@@ -214,7 +214,7 @@ describe("nextAutoCamCut", () => {
       "flight13",
     );
     assert.ok(r.suggestion);
-    assert.equal(r.suggestion!.mode, "gridfin");
+    assert.equal(r.suggestion!.mode, "engines");
     assert.equal(r.suggestion!.mount, "engines");
   });
 
