@@ -33,6 +33,8 @@ describe("padOlm V24", () => {
     const g = buildOlm();
     assert.ok(g.getObjectByName("pad-olm-catwalk"));
     assert.ok(g.getObjectByName("pad-olm-deflector"));
+    assert.ok(g.getObjectByName("pad-olm-underside"));
+    assert.ok(g.getObjectByName("pad-olm-under-chamber"));
     let boxLegs = 0;
     g.traverse((o) => {
       const mesh = o as THREE.Mesh;
@@ -62,7 +64,7 @@ describe("padOlm V24", () => {
         const r = Math.hypot(v.x, v.z);
         const nearCam =
           Math.hypot(v.x - TRENCH_CAM_LOCAL.x, v.y - TRENCH_CAM_LOCAL.y, v.z - TRENCH_CAM_LOCAL.z) < 0.001;
-        const inHole = r < 0.007 && v.y > -0.001 && v.y < 0.004;
+        const inHole = r < 0.0046 && v.y > -0.001 && v.y < 0.004;
         assert.ok(!nearCam, `vertex at cam ${v.x.toFixed(4)},${v.y.toFixed(4)},${v.z.toFixed(4)}`);
         assert.ok(!inHole, `vertex in trench hole r=${r.toFixed(4)} y=${v.y.toFixed(4)}`);
       }

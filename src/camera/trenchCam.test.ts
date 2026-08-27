@@ -15,15 +15,16 @@ import {
 } from "./trenchCam.ts";
 
 describe("trenchCam mount (pad-local)", () => {
-  it("stands inside the OLM ring, outside the engine cluster, under the deck", () => {
+  it("stands inside the OLM ring, outside the engine cluster, in the trench", () => {
     const r = trenchCamRadialKm();
     assert.ok(r > ENGINE_CLUSTER_RADIUS_KM, `radial ${r} should clear the bells`);
     assert.ok(r < OLM_INNER_RADIUS_KM, `radial ${r} should sit inside the OLM hole`);
-    assert.ok(TRENCH_CAM_LOCAL.y > 0, "above pad origin / apron");
+    assert.ok(TRENCH_CAM_LOCAL.y < 0, "below the engine plane so the shot looks into the bells");
+    assert.ok(TRENCH_CAM_LOCAL.y > -0.01, "above the trench floor / Earth mesh budget");
     assert.ok(TRENCH_CAM_LOCAL.y < OLM_DECK_TOP_KM, "under the OLM deck");
   });
 
-  it("looks at the engine plane, not the booster barrel", () => {
+  it("looks up at the engine plane, not the booster barrel", () => {
     assert.ok(TRENCH_CAM_LOOK_LOCAL.y < 0.003);
     assert.ok(TRENCH_CAM_LOOK_LOCAL.y > TRENCH_CAM_LOCAL.y);
     assert.equal(TRENCH_CAM_LOOK_LOCAL.x, 0);
@@ -35,7 +36,6 @@ describe("trenchCam mount (pad-local)", () => {
     assert.equal(PAD_VISUAL_ALT_KM, SURFACE_CLEARANCE_KM);
     assert.equal(PAD_VISUAL_ALT_KM, STARBASE_ALT);
     assert.ok(alt > 0, "must not be inside the Earth sphere");
-    assert.ok(alt >= SURFACE_CLEARANCE_KM, "at or above the shared pad / craft clamp");
   });
 
   it("does not lift physics pad away from the visual pad", () => {

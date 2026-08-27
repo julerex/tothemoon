@@ -4,9 +4,10 @@
  * Pad frame (see `earthTheater.ts`): origin = OLM / stack engines, **+Y up**,
  * **+X toward the tower**, trench along ±Z. Scene unit = 1 km.
  *
- * The mount stands *inside* the OLM ring so the look ray does not hit the
- * table, Earth mesh, or apron discs. Physics pad, visual pad, and stack share
- * {@link STARBASE_ALT} — no separate visual lift.
+ * Webcast look target: `tminus-000130-engines-up.jpg` — under the OLM hole,
+ * looking **up** into the Raptor bells with the painted inner bowl in frame.
+ * The mount sits in the open trench below the engine plane (not a side-on
+ * skirt shot). Physics pad, visual pad, and stack share {@link STARBASE_ALT}.
  */
 
 import { STARBASE_ALT } from "../physics/constants";
@@ -18,21 +19,28 @@ import { STARBASE_ALT } from "../physics/constants";
 export const PAD_VISUAL_ALT_KM = STARBASE_ALT;
 
 /**
- * Camera in pad-local km: west of the stack, under the OLM deck, along the
- * trench so the Raptor field reads as a side cluster rather than head-on.
+ * Camera in pad-local km: in the trench below the engine plane, offset toward
+ * the inner wall so the 33-bell field reads as a circular cluster from below
+ * (Flight 13 T−1:30 engines-up still).
  */
 export const TRENCH_CAM_LOCAL = {
-  x: -0.0035,
-  y: 0.0006,
-  z: 0.007,
+  x: -0.0004,
+  y: -0.0072,
+  z: 0.0058,
 } as const;
 
-/** Look a metre-plus above the engine plane so bells fill the lower frame. */
+/** Look at the engine-hole lip so the bells sit in the upper frame. */
 export const TRENCH_CAM_LOOK_LOCAL = {
   x: 0,
-  y: 0.0012,
+  y: 0.0003,
   z: 0,
 } as const;
+
+/**
+ * Vertical FOV (deg). The webcast still is a wide pad-security lens, not the
+ * 50° theater default — 50° from this mount crops to a few bell sides.
+ */
+export const TRENCH_CAM_FOV = 88;
 
 /** OLM hole the trench mount must sit inside (km). Visual inner bowl is ~9.8 m (V24). */
 export const OLM_INNER_RADIUS_KM = 0.012;
@@ -41,7 +49,7 @@ export const OLM_INNER_RADIUS_KM = 0.012;
 export const OLM_DECK_TOP_KM = 0.004;
 
 /** Outer Raptor ring plus bell radius, scaled to world km (theater). */
-export const ENGINE_CLUSTER_RADIUS_KM = 0.006;
+export const ENGINE_CLUSTER_RADIUS_KM = 0.0045;
 
 /**
  * Extra lift from {@link starbasePadState} to the visual pad origin.

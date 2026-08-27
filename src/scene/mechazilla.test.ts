@@ -88,6 +88,17 @@ describe("OLP-1 second tower (V26)", () => {
     assert.equal(PAD1_Z_KM, 0, "OLP-1 shares OLP-2 northing (E–W pad line)");
   });
 
+  it("keeps the Pad 1 link road out of the live OLM / trench-cam hole", () => {
+    const g = createPad1Tower();
+    const road = g.getObjectByName("pad1-link-road") as THREE.Mesh | undefined;
+    assert.ok(road?.isMesh);
+    const geo = road!.geometry as THREE.BoxGeometry;
+    const len = geo.parameters.width;
+    const localX = g.position.x + road!.position.x;
+    const liveEnd = localX + len * 0.5;
+    assert.ok(liveEnd < -0.04, `road reaches x=${liveEnd}, must stop short of the live OLM`);
+  });
+
   it("builds a named Pad 1 tower without an OLM, prefixed chopsticks", () => {
     const g = createPad1Tower();
     assert.equal(g.name, "mechazilla-pad1");

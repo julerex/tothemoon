@@ -59,13 +59,15 @@ function addStrippedMount(g: THREE.Group): void {
 
 function addPadLinkRoad(g: THREE.Group): void {
   const mats = makePadSurroundMats();
-  const dx = -PAD1_X_KM;
+  // Stop short of the live OLM so the 320 m slab is not in the trench-cam frustum.
+  const stopShortKm = 0.045;
+  const len = -PAD1_X_KM - stopShortKm;
   const road = new THREE.Mesh(
-    new THREE.BoxGeometry(dx, 0.0016, 0.012),
+    new THREE.BoxGeometry(len, 0.0016, 0.012),
     mats.asphalt,
   );
-  // Group origin is Pad 1; live OLP-2 is at local (−PAD1_X, −PAD1_Z).
-  road.position.set(-PAD1_X_KM * 0.5, -0.0028, -PAD1_Z_KM * 0.5);
+  // Group origin is Pad 1; +X toward the live pad. Center sits halfway along `len`.
+  road.position.set(len * 0.5, -0.0028, 0);
   road.name = "pad1-link-road";
   g.add(road);
 }

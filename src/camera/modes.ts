@@ -21,7 +21,7 @@ import {
 } from "./mountLock";
 import { panAxesFromHeld, type PanKey } from "./panAxes";
 import { panUpAxisForMode } from "./panUpAxis";
-import { trenchCamWorldPose } from "./trenchCam";
+import { TRENCH_CAM_FOV, trenchCamWorldPose } from "./trenchCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
@@ -505,6 +505,7 @@ export class CameraDirector {
   private guidedFov(mode: CameraMode, fov?: number): number {
     if (fov != null) return fov;
     if (mode === "aerial") return PAD_AERIAL_FOV;
+    if (mode === "trench") return TRENCH_CAM_FOV;
     if (this.droneTrack) return SPLASH_DRONE_FOV;
     return THEATER_DEFAULT_FOV;
   }
@@ -1106,9 +1107,9 @@ export class CameraDirector {
   }
 
   /**
-   * Flame-trench angle: under the OLM deck, offset to the side, looking at
-   * the Super Heavy engine bells. Pad-fixed mount so the stack rises out of
-   * frame on liftoff (classic webcast under-pad shot).
+   * Flame-trench angle: in the trench below the engine plane, looking up at
+   * the Super Heavy Raptor bells (Flight 13 T−1:30 engines-up still). Pad-fixed
+   * so the stack rises out of frame on liftoff.
    *
    * Prefers named mounts on the pad group; falls back to an ENU pose on
    * `starbasePadState` (physics pad = visual pad = `STARBASE_ALT`).

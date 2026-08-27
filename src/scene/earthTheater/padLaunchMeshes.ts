@@ -117,27 +117,36 @@ function addPadTrenchAndFlame(pad: THREE.Group): void {
 function addTrenchMeshes(pad: THREE.Group): void {
   const trench = new THREE.Group();
   trench.name = "pad-trench";
-  const trenchSteel = new THREE.MeshStandardMaterial({ color: 0x1a1c20, metalness: 0.45, roughness: 0.72 });
-  // Open U-channel along ±Z so trench cam can see engines / flame, not a solid plug.
+  const trenchSteel = new THREE.MeshStandardMaterial({ color: 0xb8bcc2, metalness: 0.22, roughness: 0.78 });
+  // Outer U-channel mouths only — a full-length wall sat in the T−1:30 frustum.
   const wallH = 0.006;
   const wallT = 0.0015;
   const halfW = 0.009;
+  const wallLen = 0.018;
+  const wallZ = 0.024;
   for (const x of [-halfW, halfW]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, 0.055), trenchSteel);
-    wall.position.set(x, -0.006, 0);
-    trench.add(wall);
+    for (const z of [-wallZ, wallZ]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, wallLen), trenchSteel);
+      wall.position.set(x, -0.006, z);
+      trench.add(wall);
+    }
   }
   pad.add(trench);
   addTrenchFloor(pad);
 }
 
 function addTrenchFloor(pad: THREE.Group): void {
-  const trenchFloor = new THREE.Mesh(
-    new THREE.BoxGeometry(0.014, 0.0012, 0.048),
-    new THREE.MeshStandardMaterial({ color: 0x0c0c0e, metalness: 0.35, roughness: 0.9, map: makeScorchTexture() }),
-  );
-  trenchFloor.position.y = -0.0082;
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x9aa0a8, metalness: 0.2, roughness: 0.88, map: makeScorchTexture(),
+  });
+  const trenchFloor = new THREE.Group();
   trenchFloor.name = "pad-trench-floor";
+  // Keep the slab out of the OLM hole so T−1:30 is not a box in the frustum.
+  for (const z of [-0.024, 0.024]) {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.0012, 0.018), mat);
+    slab.position.set(0, -0.0082, z);
+    trenchFloor.add(slab);
+  }
   pad.add(trenchFloor);
 }
 

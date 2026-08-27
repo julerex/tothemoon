@@ -4,9 +4,11 @@
  * Flight 13 fin-cam stills are a wide-angle (slight barrel) look along the
  * hull — the default 50° chase FOV crops to a tight barrel slice and loses
  * the Earth limb. Theater-grade: a wider perspective FOV; mild fisheye + grain
- * for fin/gridfin live in onboardPost.ts (V18). Trench / pad / chase stay at
- * the default.
+ * for fin/gridfin live in onboardPost.ts (V18). Trench uses its own wide pad
+ * lens ({@link TRENCH_CAM_FOV}); pad / chase stay at the default.
  */
+
+import { TRENCH_CAM_FOV } from "./trenchCam";
 
 /** Opening / chase / body cameras (set at bootstrap). */
 export const DEFAULT_CAM_FOV_DEG = 50;
@@ -16,9 +18,10 @@ export const ONBOARD_CAM_FOV_DEG = 72;
 
 /**
  * Vertical FOV (degrees) for a camera focus.
- * Fin / gridfin use the wide onboard lens; everything else stays default.
+ * Fin / gridfin use the wide onboard lens; trench uses the under-pad lens.
  */
 export function cameraFovForFocus(focus: string): number {
+  if (focus === "trench") return TRENCH_CAM_FOV;
   if (
     focus === "fin" ||
     focus === "gridfin" ||

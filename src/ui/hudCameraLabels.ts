@@ -25,7 +25,7 @@ export const CAMERA_LABELS: Record<
   },
   trench: {
     title: "Launchpad",
-    detail: "Flame trench · engines side",
+    detail: "Flame trench · looking up at the bells",
   },
   gridfin: {
     title: "Booster",

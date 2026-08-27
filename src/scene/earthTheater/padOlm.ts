@@ -4,7 +4,8 @@
  *
  * Look targets: `tminus-000500-pad-hold-wide.jpg` (aerial hex),
  * `tminus-000200-full-stack.jpg` (sloped faces), `tminus-000130-engines-up.jpg`
- * (painted inner bowl + catwalk). Open bottom so trench-cam still sees engines.
+ * (painted inner bowl + catwalk). Underside deck at the engine plane so
+ * trench-cam looks up into the bells through a tight hole, not up the barrel.
  */
 import * as THREE from "three";
 import { TOWER_OY0 } from "./mechazillaDims";
@@ -25,12 +26,21 @@ export const OLM_BASE_R = 0.019;
  * the bowl the way T−1:30 does. Must stay inside {@link OLM_TOP_R}.
  */
 export const OLM_INNER_R = 0.0098;
+/**
+ * Engine-plane hole (km) in the underside deck. Just outside the outer Raptor
+ * ring (~4.2 m) so T−1:30 sees a tight bell cluster, not 12 m of barrel.
+ */
+export const OLM_ENGINE_HOLE_R = 0.0049;
 /** Work-lamp ring on the top lip (padLaunchMeshes). */
 export const OLM_LAMP_R = 0.0112;
 export const OLM_LAMP_Y = TOWER_OY0 + OLM_H + 0.00035;
 
 const CATWALK_INNER = 0.0082;
 const CATWALK_Y = TOWER_OY0 + OLM_H - 0.0016;
+/** Underside table around the engine hole (pad-local Y). */
+const UNDERSIDE_Y = TOWER_OY0 + 0.00035;
+/** Painted chamber under the table, down into the trench. */
+const UNDER_CHAMBER_H = 0.0088;
 
 function hexAng(i: number): number {
   return (i / OLM_HEX_SEGMENTS) * Math.PI * 2;
@@ -68,8 +78,10 @@ function makeScorchSteel(): THREE.MeshStandardMaterial {
 function makeInnerPaint(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
     color: 0xc8ccd2,
-    metalness: 0.28,
+    metalness: 0.22,
     roughness: 0.74,
+    emissive: 0x1c1e22,
+    emissiveIntensity: 0.35,
     side: THREE.BackSide,
   });
 }
@@ -205,6 +217,60 @@ function addInnerPipes(olm: THREE.Group, mats: TowerMats): void {
   olm.add(drop);
 }
 
+/**
+ * Engine-plane table seen from the trench: a ring around the bells plus a
+ * short rail, so the T−1:30 shot is a circular cluster, not the booster skirt.
+ */
+function addUndersideDeck(olm: THREE.Group, mats: TowerMats): void {
+  const deck = new THREE.Mesh(
+    new THREE.RingGeometry(OLM_ENGINE_HOLE_R, OLM_BASE_R, 32, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0xd0d4da,
+      metalness: 0.18,
+      roughness: 0.68,
+      emissive: 0x8a8e94,
+      emissiveIntensity: 0.95,
+      side: THREE.DoubleSide,
+    }),
+  );
+  deck.rotation.x = -Math.PI / 2;
+  deck.position.y = UNDERSIDE_Y;
+  deck.name = "pad-olm-underside";
+  olm.add(deck);
+  const rail = new THREE.Mesh(
+    new THREE.TorusGeometry(OLM_ENGINE_HOLE_R + 0.0002, 0.00008, 6, 28),
+    mats.steelBright,
+  );
+  rail.rotation.x = Math.PI / 2;
+  rail.position.y = UNDERSIDE_Y - 0.00045;
+  olm.add(rail);
+}
+
+/**
+ * White inner chamber below the engine table. Open toward −Z (trench mouth)
+ * so the lower frame can read daylight the way the webcast still does.
+ */
+function addUnderChamber(olm: THREE.Group): void {
+  // Open a mouth toward −Z (ahead of the trench cam) for the webcast daylight.
+  const gap = 1.15;
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      OLM_INNER_R,
+      OLM_INNER_R,
+      UNDER_CHAMBER_H,
+      28,
+      1,
+      true,
+      Math.PI * 1.5 + gap * 0.5,
+      Math.PI * 2 - gap,
+    ),
+    makeInnerPaint(),
+  );
+  wall.position.y = UNDERSIDE_Y - UNDER_CHAMBER_H * 0.5;
+  wall.name = "pad-olm-under-chamber";
+  olm.add(wall);
+}
+
 function addDeflector(olm: THREE.Group, mats: TowerMats): void {
   const deflector = new THREE.Group();
   deflector.name = "pad-olm-deflector";
@@ -228,6 +294,8 @@ export function addOlm(g: THREE.Group, mats: TowerMats): void {
   addCornerRibs(olm, mats);
   addCatwalk(olm, mats);
   addInnerPipes(olm, mats);
+  addUndersideDeck(olm, mats);
+  addUnderChamber(olm);
   addDeflector(olm, mats);
   g.add(olm);
 }
