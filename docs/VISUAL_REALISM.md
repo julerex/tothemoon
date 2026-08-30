@@ -841,6 +841,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Pad GSE vs aerial: per-bank concrete slabs + boxy dark north pipe rack; Pad 1 compact rectangular yard + crawler crane (no 70 m disc). |
 | 2026-08-30 | Far-east offload pair: two 8 m × 30 m N–S shells (was three 4.5 m × 32 m guesses). |
 | 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
+| 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

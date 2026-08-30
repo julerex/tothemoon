@@ -15,6 +15,8 @@ import {
   MAIN_CRYO_LEN_KM,
   OFFLOAD_E_CRYO_D_KM,
   OFFLOAD_E_CRYO_LEN_KM,
+  OFFLOAD_W_CRYO_D_KM,
+  OFFLOAD_W_CRYO_LEN_KM,
   PAD2_WEST_A_LEN_KM,
   PAD2_WEST_B_LEN_KM,
   SH4_Z_KM,
@@ -68,6 +70,17 @@ describe("padFarmLayout vs pads / road", () => {
     assert.equal(east!.d, OFFLOAD_E_CRYO_D_KM);
     assert.equal(east!.len, OFFLOAD_E_CRYO_LEN_KM);
     assert.ok(east!.pitch > OFFLOAD_E_CRYO_D_KM, "8 m shells must not overlap");
+  });
+
+  it("sizes the four west offload shells at 5.5 m × 48 m", () => {
+    assert.equal(OFFLOAD_W_CRYO_D_KM, 0.0055);
+    assert.equal(OFFLOAD_W_CRYO_LEN_KM, 0.048);
+    const west = CRYO_BANKS.find((b) => b.id === "offload-w");
+    assert.ok(west);
+    assert.equal(west!.count, 4);
+    assert.equal(west!.d, OFFLOAD_W_CRYO_D_KM);
+    assert.equal(west!.len, OFFLOAD_W_CRYO_LEN_KM);
+    assert.ok(west!.pitch > OFFLOAD_W_CRYO_D_KM, "5.5 m shells must not overlap");
   });
 
   it("puts N–S banks between the pads and south of SH 4", () => {

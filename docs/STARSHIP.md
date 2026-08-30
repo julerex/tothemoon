@@ -215,7 +215,8 @@ Pads share a **tank farm** of large **horizontal** cryo cylinders **between**
 the two pads, north of the OLM line and south of SH 4. The live farm is
 **N–S** shells packed east–west (Pad 2 west banks on the apron: five **39 m**
 thin shells then six **26 m** shells; a main bank of **6 m × 49 m** shells
-between the pads; two **8 m × 30 m** offload tanks east of OLP-1) with an E–W
+between the pads; four **5.5 m × 48 m** offload tanks then two **8 m × 30 m**
+shells east of OLP-1) with an E–W
 pipe header along the north edge, parallel to SH 4. Each pad has
 its own pumps / subcoolers so they can load independently (NSF). Deluge water
 is a separate high-pressure farm. The 2022 NAIP tile still shows Pad 1–era
