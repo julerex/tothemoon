@@ -1,36 +1,46 @@
 /**
- * Pad group yaw: +Z geographic north, +X west (same as the satellite plates).
+ * Pad group yaw and site nudge on the Earth mesh.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
-import { STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
+import { EARTH_SURFACE_ALT_KM, STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
 import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
-import { placePadOnEarth } from "./earthTheater/padLaunchMeshes.ts";
+import { geodeticToEllipsoidMeshLocal } from "../physics/wgs84.ts";
+import {
+  PAD_SITE_CLOCKWISE_RAD,
+  PAD_SITE_SOUTH_KM,
+  PAD_SITE_WEST_KM,
+  placePadOnEarth,
+} from "./earthTheater/padPlaceOnEarth.ts";
 
-describe("placePadOnEarth yaw", () => {
-  it("points pad +Z at geographic north and +X west", () => {
+function starbaseEnu(): { up: THREE.Vector3; east: THREE.Vector3; north: THREE.Vector3 } {
+  const origin = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
+  const up = new THREE.Vector3(origin.x, origin.y, origin.z).normalize();
+  const east = new THREE.Vector3(up.z, 0, -up.x).normalize();
+  const north = new THREE.Vector3().crossVectors(up, east).normalize();
+  return { up, east, north };
+}
+
+describe("placePadOnEarth", () => {
+  it("yaws pad +Z 10° clockwise from geographic north (looking down)", () => {
     const pad = new THREE.Group();
     placePadOnEarth(pad);
-    const origin = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
-    const up = new THREE.Vector3(origin.x, origin.y, origin.z).normalize();
-    const northPt = geodeticToMeshLocal(STARBASE_LAT + 1e-4, STARBASE_LON, 1);
-    const geoNorth = new THREE.Vector3(
-      northPt.x - origin.x,
-      northPt.y - origin.y,
-      northPt.z - origin.z,
-    );
-    geoNorth.addScaledVector(up, -geoNorth.dot(up)).normalize();
-    const eastPt = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON + 1e-4, 1);
-    const geoEast = new THREE.Vector3(
-      eastPt.x - origin.x,
-      eastPt.y - origin.y,
-      eastPt.z - origin.z,
-    );
-    geoEast.addScaledVector(up, -geoEast.dot(up)).normalize();
+    const { east, north } = starbaseEnu();
     const padZ = new THREE.Vector3(0, 0, 1).applyQuaternion(pad.quaternion);
-    const padX = new THREE.Vector3(1, 0, 0).applyQuaternion(pad.quaternion);
-    assert.ok(padZ.dot(geoNorth) > 0.999, `+Z·north=${padZ.dot(geoNorth)}`);
-    assert.ok(padX.dot(geoEast) < -0.999, `+X·east=${padX.dot(geoEast)}`);
+    const yaw = -PAD_SITE_CLOCKWISE_RAD;
+    assert.ok(Math.abs(padZ.dot(north) - Math.cos(yaw)) < 1e-6, `+Z·north=${padZ.dot(north)}`);
+    assert.ok(Math.abs(padZ.dot(east) - Math.sin(yaw)) < 1e-6, `+Z·east=${padZ.dot(east)}`);
+  });
+
+  it("shifts the pad origin 50 m west and 50 m south of the globe pin", () => {
+    const pad = new THREE.Group();
+    placePadOnEarth(pad);
+    const pin = geodeticToEllipsoidMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
+    const { up, east, north } = starbaseEnu();
+    const d = new THREE.Vector3(pad.position.x - pin.x, pad.position.y - pin.y, pad.position.z - pin.z);
+    assert.ok(Math.abs(d.dot(east) + PAD_SITE_WEST_KM) < 1e-6, `east=${d.dot(east)}`);
+    assert.ok(Math.abs(d.dot(north) + PAD_SITE_SOUTH_KM) < 1e-6, `north=${d.dot(north)}`);
+    assert.ok(Math.abs(d.dot(up)) < 1e-6, `up=${d.dot(up)}`);
   });
 });

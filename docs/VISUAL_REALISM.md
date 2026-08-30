@@ -844,6 +844,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
 | 2026-08-30 | Site concrete apron: 15-vertex survey spanning OLP-2 through the farm to OLP-1 (replaces the 3-corner Pad 2 triangle). |
 | 2026-08-30 | Pad group yaws with the satellite plates so +Z is geographic north (GSE was ~173° off — south-facing). |
+| 2026-08-31 | Pad group: extra 10° clockwise (looking down) plus 50 m west and 50 m south of the globe pin. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

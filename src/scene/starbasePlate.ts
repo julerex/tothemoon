@@ -4,10 +4,11 @@
  * Photos are north-up squares centered on the pad (full JPEG, not a circular
  * crop): an ~80 km Sentinel-2 surrounds plate plus a nested ~8 km USDA NAIP
  * pad plate. The 3D pad group aligns +Y to local up then yaws about +Y so
- * pad +Z = geographic north and +X = west (`placePadOnEarth`). Plates inherit
- * that yaw — do not yaw the mesh again. Right-handed +Y-up then puts pad +X
- * **west** (east × north = up, so north × up = east = −X). UVs must increase
- * toward −X or the Gulf lands inland.
+ * pad +Z is geographic north plus a 10° clockwise looking-down nudge
+ * (`placePadOnEarth`). Plates inherit that yaw — do not yaw the mesh again.
+ * Right-handed +Y-up then puts pad +X **west** (east × north = up, so
+ * north × up = east = −X). UVs must increase toward −X or the Gulf lands
+ * inland.
  * Vertices are draped onto the Earth sphere so a wide plate stays on the globe.
  * Scene unit = 1 km.
  */

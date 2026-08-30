@@ -1,14 +1,8 @@
 /** Trench, deluge sprites, pad lights, beacon, bloom, trench cam mounts. */
 import * as THREE from "three";
 import {
-  EARTH_SURFACE_ALT_KM, STARBASE_LAT, STARBASE_LON,
-} from "../../physics/constants";
-import { geodeticToMeshLocal } from "../../physics/earthFrame";
-import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
-import {
   DELUGE_SHEETS, GROUND_SHEETS, expandDelugeJets, expandSteamSprites, hazeBaseZs,
 } from "../padLaunchFx";
-import { starbasePlateYawRad } from "../starbasePlate";
 import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../../camera/trenchCam";
 import {
   makeGroundBloomSprite, makeHeatHazeTexture, makeScorchTexture, makeSteamTexture,
@@ -20,25 +14,7 @@ import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate"
 import { createPadVentClouds } from "./padVentClouds";
 import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
 
-/**
- * Place the pad group at Starbase on the Earth mesh.
- *
- * `setFromUnitVectors(+Y → up)` leaves yaw free; compose
- * {@link starbasePlateYawRad} so pad +Z is geographic north and +X is west.
- * Satellite plates inherit this yaw (they must not yaw again).
- */
-export function placePadOnEarth(pad: THREE.Group): void {
-  const local = geodeticToEllipsoidMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
-  pad.position.set(local.x, local.y, local.z);
-  const up = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
-  const outward = new THREE.Vector3(up.x, up.y, up.z).normalize();
-  const qUp = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
-  const qYaw = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 1, 0),
-    starbasePlateYawRad(),
-  );
-  pad.quaternion.copy(qUp).multiply(qYaw);
-}
+export { placePadOnEarth } from "./padPlaceOnEarth";
 
 const FLOOD_TARGETS: { pos: [number, number, number]; look: [number, number, number] }[] = [
   { pos: [0.018, 0.09, 0.012], look: [0, 0.055, 0] },
