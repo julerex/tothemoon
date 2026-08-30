@@ -40,6 +40,10 @@ export const CRYO_TANK_D_KM = 0.0038;
 /** ~32 m N–S cylinders. */
 export const CRYO_TANK_LEN_KM = 0.032;
 
+/** Main (middle) bank: 6 m diameter × 49 m N–S shells. */
+export const MAIN_CRYO_D_KM = 0.006;
+export const MAIN_CRYO_LEN_KM = 0.049;
+
 /**
  * Horizontal banks west → east from the ~640 m north-up aerial.
  * West pair sits on the Pad 2 apron; main + offload sit between / east of the pads.
@@ -47,7 +51,10 @@ export const CRYO_TANK_LEN_KM = 0.032;
 export const CRYO_BANKS: readonly CryoBankSpec[] = [
   { id: "pad2-west-a", x0: -0.0541, z0: 0.073, count: 5, axis: "ns", pitch: 0.0038 },
   { id: "pad2-west-b", x0: -0.0816, z0: 0.073, count: 6, axis: "ns", pitch: 0.0038 },
-  { id: "main", x0: -0.2286, z0: 0.05, count: 12, axis: "ns", pitch: 0.0068, d: 0.005, len: 0.04 },
+  {
+    id: "main", x0: -0.2286, z0: 0.05, count: 12, axis: "ns", pitch: 0.0068,
+    d: MAIN_CRYO_D_KM, len: MAIN_CRYO_LEN_KM,
+  },
   { id: "offload-w", x0: -0.3874, z0: 0.028, count: 4, axis: "ns", pitch: 0.0062, d: 0.0055, len: 0.045 },
   { id: "offload-e", x0: -0.4243, z0: 0.028, count: 3, axis: "ns", pitch: 0.0051, d: 0.0045, len: 0.032 },
 ];
@@ -65,11 +72,11 @@ export const SH4_Z_KM = 0.158;
 
 /** E–W pipe header along the north edge of the farm (parallel to SH 4). */
 export const PIPE_NORTH_Z_KM = 0.098;
-/** E–W header south of the main bank, between tanks and the pad line. */
-export const PIPE_SOUTH_Z_KM = 0.028;
+/** E–W header just south of the 49 m main-bank caps, between tanks and the pad line. */
+export const PIPE_SOUTH_Z_KM = 0.02;
 
 /** Blast wall south of the Pad 2 / main banks (not the offload). */
-export const BLAST_WALL_Z_KM = 0.03;
+export const BLAST_WALL_Z_KM = 0.016;
 export const BLAST_WALL_X_KM = -0.17;
 
 export { PAD1_X_KM };

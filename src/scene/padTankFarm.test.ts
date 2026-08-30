@@ -10,6 +10,8 @@ import {
   CRYO_TANK_COUNT,
   CRYO_TANK_D_KM,
   CRYO_TANK_LEN_KM,
+  MAIN_CRYO_D_KM,
+  MAIN_CRYO_LEN_KM,
   SH4_Z_KM,
   cryoTankPlacements,
   tankFarmVentAnchors,
@@ -23,6 +25,18 @@ describe("padFarmLayout vs pads / road", () => {
     assert.ok(CRYO_TANK_LEN_KM > CRYO_TANK_D_KM * 2, "cylinders read as horizontals");
     assert.ok(CRYO_TANK_LEN_KM < 0.05, "tanks stay much shorter than the 146 m OLT");
     assert.ok(CRYO_BANKS.every((b) => b.axis === "ns"));
+  });
+
+  it("sizes the middle bank at 6 m × 49 m", () => {
+    assert.equal(MAIN_CRYO_D_KM, 0.006);
+    assert.equal(MAIN_CRYO_LEN_KM, 0.049);
+    const main = CRYO_BANKS.find((b) => b.id === "main");
+    assert.ok(main);
+    assert.equal(main!.d, MAIN_CRYO_D_KM);
+    assert.equal(main!.len, MAIN_CRYO_LEN_KM);
+    const shells = cryoTankPlacements().filter((p) => p.d === MAIN_CRYO_D_KM);
+    assert.ok(shells.length >= 10);
+    assert.ok(shells.every((p) => p.len === MAIN_CRYO_LEN_KM));
   });
 
   it("puts N–S banks between the pads and south of SH 4", () => {

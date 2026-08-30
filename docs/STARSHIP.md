@@ -214,8 +214,8 @@ The City of **Starbase, Texas** incorporated **2025-05-03**.
 Pads share a **tank farm** of large **horizontal** cryo cylinders **between**
 the two pads, north of the OLM line and south of SH 4. The live farm is
 **N–S** shells packed east–west (Pad 2 west banks on the apron, a main bank
-between the pads, offload east of OLP-1) with an E–W pipe header along the
-north edge, parallel to SH 4. Each pad has
+of **6 m × 49 m** shells between the pads, offload east of OLP-1) with an E–W
+pipe header along the north edge, parallel to SH 4. Each pad has
 its own pumps / subcoolers so they can load independently (NSF). Deluge water
 is a separate high-pressure farm. The 2022 NAIP tile still shows Pad 1–era
 verticals west of one tower — that is **not** the live Flight 13 farm; prefer
