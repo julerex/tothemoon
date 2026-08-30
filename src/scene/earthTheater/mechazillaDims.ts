@@ -2,6 +2,7 @@
  * Mechazilla / OLT published dimensions (meters) and pad-km scales.
  * Scene unit = 1 km. Shared by the tower truss and chopsticks builders.
  */
+import { olp1FromOlp2 } from "./starbaseSurvey";
 
 /** Official OLT height (m), ground to lightning rod (FAA / Guinness). */
 export const OLT_HEIGHT_M = 146;
@@ -50,8 +51,8 @@ export const CHOPSTICK_CATCH_DROP_KM = (CHOPSTICK_CATCH_M - CHOPSTICK_REST_M) * 
  *
  * Wikipedia: Flight 13 (2026-07-24) is the first OLP-2 launch; OLP-1 was
  * decommissioned 2025-10-14 for a V3 rebuild (new OLM staged at Sanchez).
- * Pad-local +X is west, −X is gulf/east, so Pad 1 sits east of the live stack.
- * ~320 m matches the Starbase E–W pad spacing (OLP-1 nearer the beach).
+ * Pad-local +X is west, −X is gulf/east. Surveyed ~338 m east and ~74 m south
+ * of the OLP-2 OLM (OLP-1 nearer the beach / slightly gulf-south).
  */
-export const PAD1_X_KM = -0.32;
-export const PAD1_Z_KM = 0;
+export const PAD1_X_KM = olp1FromOlp2.x;
+export const PAD1_Z_KM = olp1FromOlp2.z;

@@ -84,8 +84,10 @@ describe("OLP-1 second tower (V26)", () => {
   it("sits east of the live OLP-2 origin toward the gulf", () => {
     assert.ok(PAD1_X_KM < -0.2);
     assert.ok(PAD1_X_KM > -0.45);
-    assert.ok(Math.abs(PAD1_Z_KM) < 0.08);
-    assert.equal(PAD1_Z_KM, 0, "OLP-1 shares OLP-2 northing (E–W pad line)");
+    assert.ok(PAD1_Z_KM < -0.05, "OLP-1 sits south of the OLP-2 OLM");
+    assert.ok(PAD1_Z_KM > -0.09);
+    const dist = Math.hypot(PAD1_X_KM, PAD1_Z_KM);
+    assert.ok(dist > 0.33 && dist < 0.35, `OLP-1 is ~338 m from OLP-2, got ${dist} km`);
   });
 
   it("keeps the Pad 1 link road out of the live OLM / trench-cam hole", () => {

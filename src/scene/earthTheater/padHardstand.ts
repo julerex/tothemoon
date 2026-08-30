@@ -1,16 +1,18 @@
 /**
- * Circular OLM hardstand (V23.3) — concentric concrete rings, not a 220 m slab.
- * Keeps trench opening + scorch/water decals from the surroundings parent.
+ * OLP-2 hardstand: surveyed polygonal apron + a small circular OLM ring.
+ *
+ * The 80–120 m concentric rings read as a round pad from aerial and fought
+ * the real multi-angled concrete. Keep a ~20 m ring at the mount so trench /
+ * scorch decals still have a circular lip.
  */
 import * as THREE from "three";
+import { pad2ApronXz } from "./starbaseSurvey";
 import { addGroundRing, type PadSurroundMats } from "./padSurroundMats";
 
 /** Inner hole matches trench / OLM clear (~12 m). */
 const APRON_INNER = 0.012;
-/** Primary circular apron outer radius (~80 m). */
-const APRON_OUTER = 0.08;
-/** Outer service ring (~120 m) — reads as the circular pad from aerial. */
-const HARDSTAND_OUTER = 0.12;
+/** Circular mount lip (~20 m). */
+const APRON_OUTER = 0.02;
 
 function addOlmApronRing(g: THREE.Group, mats: PadSurroundMats): void {
   const apron = new THREE.Mesh(
@@ -18,16 +20,37 @@ function addOlmApronRing(g: THREE.Group, mats: PadSurroundMats): void {
     mats.concreteLight,
   );
   apron.rotation.x = -Math.PI / 2;
-  apron.position.y = -0.001;
+  apron.position.y = -0.0006;
   apron.name = "pad-olm-apron";
   g.add(apron);
 }
 
-function addConcentricHardstand(g: THREE.Group, mats: PadSurroundMats): void {
-  // Mid tone ring between apron and outer service deck.
-  addGroundRing(g, APRON_OUTER, 0.1, mats.concrete, 0, -0.0014, 0, 48, "pad-hardstand-mid");
-  addGroundRing(g, 0.1, HARDSTAND_OUTER, mats.concreteDark, 0, -0.0018, 0, 48, "pad-hardstand-outer");
-  // Raised curb lip at the apron edge (thin torus-ish via short cylinder).
+function addPad2Apron(g: THREE.Group, mats: PadSurroundMats): void {
+  const shape = new THREE.Shape();
+  const verts = pad2ApronXz();
+  const first = verts[0]!;
+  // Shape XY → pad XZ via rotation.x = −π/2, so shapeY = −padZ.
+  shape.moveTo(first[0], -first[1]);
+  for (let i = 1; i < verts.length; i++) {
+    const v = verts[i]!;
+    shape.lineTo(v[0], -v[1]);
+  }
+  shape.closePath();
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, APRON_INNER, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.computeVertexNormals();
+  const mat = mats.concreteLight.clone();
+  mat.side = THREE.DoubleSide;
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.0012;
+  mesh.name = "pad2-apron";
+  g.add(mesh);
+}
+
+function addOlmCurb(g: THREE.Group, mats: PadSurroundMats): void {
   const curb = new THREE.Mesh(
     new THREE.TorusGeometry(APRON_OUTER * 0.98, 0.0012, 6, 48),
     mats.concreteDark,
@@ -38,26 +61,10 @@ function addConcentricHardstand(g: THREE.Group, mats: PadSurroundMats): void {
   g.add(curb);
 }
 
-/**
- * Small east/south service pads (not the old 220×200 m rectangle that read as
- * a grey box under aerial). Kept for GSE / warehouse approach massing.
- */
-function addServicePads(g: THREE.Group, mats: PadSurroundMats): void {
-  const pads: { size: [number, number, number]; pos: [number, number, number]; kind: keyof PadSurroundMats }[] = [
-    { size: [0.06, 0.0022, 0.04], pos: [0.16, -0.0026, 0.08], kind: "concrete" },
-    { size: [0.05, 0.0022, 0.035], pos: [0.18, -0.0027, -0.04], kind: "concreteLight" },
-    { size: [0.045, 0.0022, 0.05], pos: [0.08, -0.0028, 0.088], kind: "concreteDark" },
-  ];
-  for (const s of pads) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(...s.size), mats[s.kind]);
-    slab.position.set(...s.pos);
-    g.add(slab);
-  }
-}
-
-/** Circular hardstand + small service pads around the OLM. */
+/** Polygonal Pad 2 apron + small circular OLM lip. */
 export function addPadHardstand(g: THREE.Group, mats: PadSurroundMats): void {
+  addPad2Apron(g, mats);
   addOlmApronRing(g, mats);
-  addConcentricHardstand(g, mats);
-  addServicePads(g, mats);
+  addOlmCurb(g, mats);
+  addGroundRing(g, APRON_OUTER, 0.028, mats.concrete, 0, -0.001, 0, 36, "pad-hardstand-outer");
 }

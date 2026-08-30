@@ -59,7 +59,7 @@ function addStrippedMount(g: THREE.Group): void {
 
 function addPadLinkRoad(g: THREE.Group): void {
   const mats = makePadSurroundMats();
-  // Stop short of the live OLM so the 320 m slab is not in the trench-cam frustum.
+  // Stop short of the live OLM so the ~338 m slab is not in the trench-cam frustum.
   const stopShortKm = 0.045;
   const len = -PAD1_X_KM - stopShortKm;
   const road = new THREE.Mesh(
@@ -73,7 +73,7 @@ function addPadLinkRoad(g: THREE.Group): void {
 }
 
 /**
- * Second launch tower (OLP-1) at the gulf-side pad.
+ * Second launch tower (OLP-1) at the gulf-side pad (~338 m east, ~74 m south).
  * @returns Group named `mechazilla-pad1`, parented in pad-local metres.
  */
 export function createPad1Tower(): THREE.Group {

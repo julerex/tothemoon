@@ -1,50 +1,52 @@
 /**
- * Orbital tank farm: E–W horizontal cryo rows between OLP-2 and OLP-1.
+ * Orbital tank farm: N–S horizontal cryo banks between OLP-2 and OLP-1.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PAD1_X_KM, TOWER_OX } from "./earthTheater/mechazillaDims.ts";
 import {
   BLAST_WALL_Z_KM,
-  CRYO_COL_X_KM,
-  CRYO_ROW_Z_KM,
+  CRYO_BANKS,
   CRYO_TANK_COUNT,
   CRYO_TANK_D_KM,
   CRYO_TANK_LEN_KM,
   SH4_Z_KM,
-  cryoEwCenters,
+  cryoTankPlacements,
   tankFarmVentAnchors,
 } from "./earthTheater/padFarmLayout.ts";
 import { buildTankFarm } from "./earthTheater/padTankFarm.ts";
 import { makePadSurroundMats } from "./earthTheater/padSurroundMats.ts";
 
 describe("padFarmLayout vs pads / road", () => {
-  it("uses long E–W horizontal shells, not 12 m verticals", () => {
-    assert.ok(CRYO_TANK_D_KM >= 0.008 && CRYO_TANK_D_KM <= 0.012);
+  it("uses long N–S horizontal shells, not 12 m verticals", () => {
+    assert.ok(CRYO_TANK_D_KM >= 0.003 && CRYO_TANK_D_KM <= 0.006);
     assert.ok(CRYO_TANK_LEN_KM > CRYO_TANK_D_KM * 2, "cylinders read as horizontals");
     assert.ok(CRYO_TANK_LEN_KM < 0.05, "tanks stay much shorter than the 146 m OLT");
+    assert.ok(CRYO_BANKS.every((b) => b.axis === "ns"));
   });
 
-  it("puts two E–W rows between the pads and south of SH 4", () => {
-    assert.equal(cryoEwCenters().length, CRYO_TANK_COUNT);
-    assert.equal(CRYO_ROW_Z_KM.length, 2);
+  it("puts N–S banks between the pads and south of SH 4", () => {
+    const pts = cryoTankPlacements();
+    assert.equal(pts.length, CRYO_TANK_COUNT);
     assert.ok(TOWER_OX > 0, "live tower stays west of the OLM");
-    for (const x of CRYO_COL_X_KM) {
-      assert.ok(x < 0, `tank column ${x} should be east of the OLP-2 OLM`);
-      assert.ok(x > PAD1_X_KM, `tank column ${x} should be west of OLP-1 ${PAD1_X_KM}`);
+    for (const p of pts) {
+      assert.ok(p.x < 0, `tank at x=${p.x} should be east of the OLP-2 OLM`);
+      assert.ok(p.z > 0, "farm sits north of the OLP-2 pad line");
+      assert.ok(p.z < SH4_Z_KM, "farm sits south of Boca Chica Blvd");
     }
-    for (const z of CRYO_ROW_Z_KM) {
-      assert.ok(z > 0, "farm sits north of the pad line");
-      assert.ok(z < SH4_Z_KM, "farm sits south of Boca Chica Blvd");
-    }
-    assert.ok(BLAST_WALL_Z_KM < Math.min(...CRYO_ROW_Z_KM));
-    assert.ok(BLAST_WALL_Z_KM > 0);
+    const west = pts.filter((p) => p.x > -0.12);
+    const main = pts.filter((p) => p.x < -0.2 && p.x > PAD1_X_KM);
+    const offload = pts.filter((p) => p.x < PAD1_X_KM);
+    assert.ok(west.length >= 10, "Pad 2 west banks on the apron");
+    assert.ok(main.length >= 10, "main farm between the pads");
+    assert.ok(offload.length >= 6, "offload east of OLP-1");
+    assert.ok(BLAST_WALL_Z_KM > 0 && BLAST_WALL_Z_KM < SH4_Z_KM);
   });
 
   it("anchors vents on the cryo bank between the pads", () => {
     const anchors = tankFarmVentAnchors();
     assert.equal(anchors.length, 4);
-    assert.ok(anchors.every((a) => a[0] < 0 && a[0] > PAD1_X_KM));
+    assert.ok(anchors.every((a) => a[0] < 0));
     assert.ok(anchors.every((a) => a[2] > 0 && a[2] < SH4_Z_KM));
   });
 });
@@ -59,12 +61,13 @@ describe("padTankFarm between pads", () => {
     assert.ok(farm.getObjectByName("pad-pipe-rack"));
     const cryo = farm.getObjectByName("pad-cryo-tank-0");
     assert.ok(cryo);
-    assert.ok(Math.abs(cryo!.position.x - CRYO_COL_X_KM[0]) < 1e-9);
-    assert.ok(Math.abs(cryo!.rotation.z - Math.PI / 2) < 1e-9, "tank-0 is E–W");
+    const first = cryoTankPlacements()[0]!;
+    assert.ok(Math.abs(cryo!.position.x - first.x) < 1e-9);
+    assert.ok(Math.abs(cryo!.rotation.x - Math.PI / 2) < 1e-9, "tank-0 is N–S");
     let meshCount = 0;
     farm.traverse((o) => {
       if ((o as { isMesh?: boolean }).isMesh) meshCount++;
     });
-    assert.ok(meshCount >= 40, `expected dense farm, got ${meshCount}`);
+    assert.ok(meshCount >= 80, `expected dense farm, got ${meshCount}`);
   });
 });

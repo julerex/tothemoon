@@ -1,82 +1,130 @@
 /**
- * Shared orbital tank farm — between OLP-2 and OLP-1, north of the pads.
+ * Shared orbital tank farm — between OLP-2 and OLP-1, south of SH 4.
  *
  * Pad-local km: +X west (inland), −X gulf/east, +Z north (SH 4), +Y up.
- * Live origin is the OLP-2 OLM. The farm sits east of Pad 2 (`x < 0`) and
- * west of Pad 1 (`PAD1_X_KM`), south of SH 4 — matching the Google Maps
- * orbital-tank-farm pin (rows of white horizontal cylinders between the pads).
- *
- * The live Mechazilla stays west of the OLM (`TOWER_OX` > 0) so trench /
- * webcast cameras keep their mounts. NSF Pad 2 faces south; that yaw is
- * not applied here.
+ * Live origin is the OLP-2 OLM. Layout is measured from a north-up ~640 m
+ * aerial (OLP-2 on the west, OLP-1 east-south): N–S horizontal cryo banks,
+ * not the 2022 NAIP Pad 1–era verticals. Live Mechazilla stays west of the
+ * OLM (`TOWER_OX` > 0) so trench / webcast cameras keep their mounts.
  */
 import { PAD1_X_KM } from "./mechazillaDims";
 
-/** 10 m shells — the white rows between the pads. */
-export const CRYO_TANK_D_KM = 0.01;
-/** ~36 m E–W cylinders (the long white rows in the aerial). */
-export const CRYO_TANK_LEN_KM = 0.036;
+/** Long-axis of a horizontal shell. */
+export type CryoAxis = "ns" | "ew";
+
+/** One packed bank of identical horizontal tanks. */
+export type CryoBankSpec = {
+  readonly id: string;
+  /** West-most tank centre (pad-local x, km). */
+  readonly x0: number;
+  /** Tank-centre northing (km). */
+  readonly z0: number;
+  readonly count: number;
+  readonly axis: CryoAxis;
+  /** Centre-to-centre spacing toward −X / east (km). */
+  readonly pitch: number;
+  readonly d?: number;
+  readonly len?: number;
+};
+
+export type CryoPlacement = {
+  readonly x: number;
+  readonly z: number;
+  readonly axis: CryoAxis;
+  readonly d: number;
+  readonly len: number;
+};
+
+/** Default 12 ft-class farm shells (west Pad 2 banks). */
+export const CRYO_TANK_D_KM = 0.0038;
+/** ~32 m N–S cylinders. */
+export const CRYO_TANK_LEN_KM = 0.032;
 
 /**
- * Six E–W columns spanning Pad 2 → Pad 1.
- * West bank (~70 m east of the OLP-2 OLM), main bank, east bank (~30 m
- * west of OLP-1). 42 m column spacing.
+ * Horizontal banks west → east from the ~640 m north-up aerial.
+ * West pair sits on the Pad 2 apron; main + offload sit between / east of the pads.
  */
-export const CRYO_COL_X_KM = [-0.07, -0.112, -0.154, -0.196, -0.238, -0.28] as const;
-/** Two E–W rows, north of the OLM line and south of SH 4. */
-export const CRYO_ROW_Z_KM = [0.08, 0.11] as const;
+export const CRYO_BANKS: readonly CryoBankSpec[] = [
+  { id: "pad2-west-a", x0: -0.0541, z0: 0.073, count: 5, axis: "ns", pitch: 0.0038 },
+  { id: "pad2-west-b", x0: -0.0816, z0: 0.073, count: 6, axis: "ns", pitch: 0.0038 },
+  { id: "main", x0: -0.2286, z0: 0.05, count: 12, axis: "ns", pitch: 0.0068, d: 0.005, len: 0.04 },
+  { id: "offload-w", x0: -0.3874, z0: 0.028, count: 4, axis: "ns", pitch: 0.0062, d: 0.0055, len: 0.045 },
+  { id: "offload-e", x0: -0.4243, z0: 0.028, count: 3, axis: "ns", pitch: 0.0051, d: 0.0045, len: 0.032 },
+];
 
-/** Boca Chica Blvd / SH 4 northing (km). Pads sit south of the highway. */
-export const SH4_Z_KM = 0.148;
+/** Short verticals in the pipe corridor between the Pad 2 west banks and the main farm. */
+export const VERTICAL_TANK_D_KM = 0.004;
+export const VERTICAL_TANK_H_KM = 0.011;
+export const VERTICAL_TANK_XZ: ReadonlyArray<readonly [number, number]> = [
+  [-0.155, 0.1], [-0.161, 0.1], [-0.167, 0.1],
+  [-0.155, 0.09], [-0.161, 0.09], [-0.167, 0.09],
+];
 
-/** Blast wall south of the farm, between the tanks and the pad line. */
-export const BLAST_WALL_Z_KM = 0.062;
-/** Wall center in X — mid-span of the E–W bank. */
-export const BLAST_WALL_X_KM =
-  (CRYO_COL_X_KM[0] + CRYO_COL_X_KM[CRYO_COL_X_KM.length - 1]!) * 0.5;
+/** Boca Chica Blvd / SH 4 northing (km) — just north of the Pad 2 apron NW corner. */
+export const SH4_Z_KM = 0.158;
+
+/** E–W pipe header along the north edge of the farm (parallel to SH 4). */
+export const PIPE_NORTH_Z_KM = 0.098;
+/** E–W header south of the main bank, between tanks and the pad line. */
+export const PIPE_SOUTH_Z_KM = 0.028;
+
+/** Blast wall south of the Pad 2 / main banks (not the offload). */
+export const BLAST_WALL_Z_KM = 0.03;
+export const BLAST_WALL_X_KM = -0.17;
 
 export { PAD1_X_KM };
 
-/** Count of E–W cryo tanks (columns × rows). */
-export const CRYO_TANK_COUNT = CRYO_COL_X_KM.length * CRYO_ROW_Z_KM.length;
-
-/** Pad-local [x west, z north] centers of the E–W cryo bank. */
-export function cryoEwCenters(): Array<readonly [number, number]> {
-  const out: Array<readonly [number, number]> = [];
-  for (const z of CRYO_ROW_Z_KM) {
-    for (const x of CRYO_COL_X_KM) out.push([x, z]);
+/** Expand packed banks into per-tank centres. */
+export function cryoTankPlacements(): CryoPlacement[] {
+  const out: CryoPlacement[] = [];
+  for (const b of CRYO_BANKS) {
+    const d = b.d ?? CRYO_TANK_D_KM;
+    const len = b.len ?? CRYO_TANK_LEN_KM;
+    for (let i = 0; i < b.count; i++) {
+      out.push({ x: b.x0 - i * b.pitch, z: b.z0, axis: b.axis, d, len });
+    }
   }
   return out;
 }
 
-/** Berm / slab envelope around the E–W bank (pad-local km). */
+export const CRYO_TANK_COUNT = CRYO_BANKS.reduce((n, b) => n + b.count, 0);
+
+/** Berm / slab envelope around every cryo bank (pad-local km). */
 export function farmPlanBounds(): {
   xWest: number;
   xEast: number;
   zSouth: number;
   zNorth: number;
 } {
-  const halfLen = CRYO_TANK_LEN_KM * 0.5;
-  const halfD = CRYO_TANK_D_KM * 0.5;
-  const pad = 0.012;
-  return {
-    xWest: Math.max(...CRYO_COL_X_KM) + halfLen + pad,
-    xEast: Math.min(...CRYO_COL_X_KM) - halfLen - pad,
-    zSouth: Math.min(...CRYO_ROW_Z_KM) - halfD - pad,
-    zNorth: Math.max(...CRYO_ROW_Z_KM) + halfD + pad,
-  };
+  const pad = 0.014;
+  let xWest = -Infinity;
+  let xEast = Infinity;
+  let zSouth = Infinity;
+  let zNorth = -Infinity;
+  for (const p of cryoTankPlacements()) {
+    const hx = p.axis === "ew" ? p.len * 0.5 : p.d * 0.5;
+    const hz = p.axis === "ns" ? p.len * 0.5 : p.d * 0.5;
+    xWest = Math.max(xWest, p.x + hx);
+    xEast = Math.min(xEast, p.x - hx);
+    zSouth = Math.min(zSouth, p.z - hz);
+    zNorth = Math.max(zNorth, p.z + hz);
+  }
+  return { xWest: xWest + pad, xEast: xEast - pad, zSouth: zSouth - pad, zNorth: zNorth + pad };
 }
 
 /**
- * Four vent stacks: SW / SE / NW / NE corners of the E–W bank.
- * World Y is the tank diameter (horizontal shells sit on the pad).
+ * Vent stacks at the SW / SE / NW / NE corners of the occupied farm.
+ * World Y is a typical tank diameter (horizontal shells sit on the pad).
  */
 export function tankFarmVentAnchors(): Array<readonly [number, number, number]> {
   const y = CRYO_TANK_D_KM;
-  const west = CRYO_COL_X_KM[0]!;
-  const east = CRYO_COL_X_KM[CRYO_COL_X_KM.length - 1]!;
-  const south = CRYO_ROW_Z_KM[0]!;
-  const north = CRYO_ROW_Z_KM[CRYO_ROW_Z_KM.length - 1]!;
+  const pts = cryoTankPlacements();
+  const xs = pts.map((p) => p.x);
+  const zs = pts.map((p) => p.z);
+  const west = Math.max(...xs);
+  const east = Math.min(...xs);
+  const south = Math.min(...zs);
+  const north = Math.max(...zs);
   return [
     [west, y, south],
     [east, y, south],

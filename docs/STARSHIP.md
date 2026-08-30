@@ -209,17 +209,21 @@ The City of **Starbase, Texas** incorporated **2025-05-03**.
 | Flame management | Steel deluge plate added after Flight 1 cratered the soil | Designed-in **water-cooled flame trench / W-diverter** |
 | Chopsticks | Originally ~36 m; later shortened toward Pad 2 | NSF (2025): **~10 m shorter** than original Pad 1 |
 | Facing | Vehicle / OLM **east** of the tower (gulf) | NSF: pad **faces south** (tower north of the mount) |
-| Where | Closer to the **Gulf** | **West** of Pad 1 (inland); tank farm sits **between** the pads |
+| Where | Closer to the **Gulf**, ~74 m south of Pad 2 | **West** of Pad 1 (inland); tank farm sits **between** the pads |
 
 Pads share a **tank farm** of large **horizontal** cryo cylinders **between**
-the two pads, north of the OLM line and south of SH 4 (Google Maps / NSF
-orbital-farm pin). Each pad has
+the two pads, north of the OLM line and south of SH 4. The live farm is
+**N–S** shells packed east–west (Pad 2 west banks on the apron, a main bank
+between the pads, offload east of OLP-1) with an E–W pipe header along the
+north edge, parallel to SH 4. Each pad has
 its own pumps / subcoolers so they can load independently (NSF). Deluge water
 is a separate high-pressure farm. The 2022 NAIP tile still shows Pad 1–era
-verticals west of one tower — that is **not** the live Flight 13 farm.
+verticals west of one tower — that is **not** the live Flight 13 farm; prefer
+a current north-up aerial over that USDA plate.
 
-This theater: live stack is **OLP-2**. **OLP-1** is the second tower ~**320 m
-east** (pad-local −X = gulf) with a stripped mount and no vehicle. Chopstick
+This theater: live stack is **OLP-2**. **OLP-1** is the second tower ~**338 m
+east and ~74 m south** (pad-local −X = gulf, +Z = north) with a stripped mount
+and no vehicle. Chopstick
 length in mesh stays the published **36 m** (not the shorter Pad 2 arms).
 Pad-local **+X is west**. See V26 in [VISUAL_REALISM.md](./VISUAL_REALISM.md).
 
@@ -268,7 +272,7 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 |-------|--------|-----------|
 | Flight 13 vehicles | B20 + S40, V3 / Block 3 | Same labels; 123 m mesh |
 | Flight 13 pad | OLP-2 | Origin of `starbase-pad` |
-| OLP-1 at F13 | Tower up, OLM gone | Second tower, no hex OLM |
+| OLP-1 at F13 | Tower up, OLM gone | Second tower ~338 m east / ~74 m south, no hex OLM |
 | Booster recovery F13 | Hard splash, Gulf of America | Same; ~25.55°N 96.15°W theater, not a surveyed buoy |
 | Chopstick length | Pad 2 shorter than original Pad 1 | 36 m both towers |
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |

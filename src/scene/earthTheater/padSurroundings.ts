@@ -142,16 +142,16 @@ function addNamedBox(
 }
 
 function addBlvd(g: THREE.Group, mats: PadSurroundMats): void {
-  addNamedBox(g, [0.85, 0.002, 0.012], mats.asphalt, [0.02, -0.0035, SH4_Z_KM], "pad-boca-chica-blvd");
-  addNamedBox(g, [0.88, 0.0015, 0.028], mats.dirt, [0.02, -0.004, SH4_Z_KM]);
-  addNamedBox(g, [0.22, 0.002, 0.036], mats.concreteDark, [0.14, -0.003, SH4_Z_KM - 0.055]);
+  addNamedBox(g, [0.72, 0.002, 0.012], mats.asphalt, [-0.16, -0.0035, SH4_Z_KM], "pad-boca-chica-blvd");
+  addNamedBox(g, [0.76, 0.0015, 0.028], mats.dirt, [-0.16, -0.004, SH4_Z_KM]);
+  addNamedBox(g, [0.22, 0.002, 0.036], mats.concreteDark, [0.04, -0.003, SH4_Z_KM - 0.055]);
 }
 
 function addParkingCars(g: THREE.Group, mats: PadSurroundMats): void {
   for (let i = 0; i < 14; i++) {
     const car = new THREE.Mesh(new THREE.BoxGeometry(0.0045, 0.0016, 0.0022), mats.carPaint);
     const side = i < 8 ? 1 : -1;
-    car.position.set(-0.12 + (i % 8) * 0.018, -0.0015, SH4_Z_KM + 0.022 + side * 0.012 + (i % 3) * 0.002);
+    car.position.set(-0.08 + (i % 8) * 0.028, -0.0015, SH4_Z_KM + 0.022 + side * 0.012 + (i % 3) * 0.002);
     g.add(car);
   }
 }
@@ -230,10 +230,10 @@ function addStarhopperSite(g: THREE.Group, mats: PadSurroundMats): void {
 
 function addCrane(g: THREE.Group, mats: PadSurroundMats): void {
   const craneBase = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.004, 0.008), mats.steelDark);
-  craneBase.position.set(-0.04, 0.002, -0.05);
+  craneBase.position.set(-0.312, 0.002, 0.018);
   g.add(craneBase);
   const craneBoom = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.0012, 0.0012), mats.steel);
-  craneBoom.position.set(-0.02, 0.012, -0.05);
+  craneBoom.position.set(-0.292, 0.012, 0.018);
   craneBoom.rotation.z = -0.35;
   g.add(craneBoom);
 }
