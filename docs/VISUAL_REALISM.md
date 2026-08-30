@@ -30,7 +30,7 @@ highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2 surveyed polygonal apron + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + nested USDA NAIP pad plate (farm on NAIP is outdated) |
+| **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + nested USDA NAIP pad plate (farm on NAIP is outdated) |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -842,6 +842,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Far-east offload pair: two 8 m × 30 m N–S shells (was three 4.5 m × 32 m guesses). |
 | 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
 | 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
+| 2026-08-30 | Site concrete apron: 15-vertex survey spanning OLP-2 through the farm to OLP-1 (replaces the 3-corner Pad 2 triangle). |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

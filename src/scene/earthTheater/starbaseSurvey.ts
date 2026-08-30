@@ -2,7 +2,7 @@
  * Surveyed Starbase pad-local geometry (WGS84 → km).
  *
  * Pad-local origin is the OLP-2 OLM: +X west, +Z north, +Y up. Deltas use the
- * WGS84 meridian / prime-vertical radii at OLP-2 so Pad 1 and the Pad 2 apron
+ * WGS84 meridian / prime-vertical radii at OLP-2 so Pad 1 and the site apron
  * sit on the same tangent plane as the farm mesh.
  *
  * The Earth-mesh pin (`STARBASE_LAT` / `STARBASE_LON`) stays the rounded site
@@ -23,13 +23,26 @@ export const OLP1_TOWER_LAT_DEG = 25.99610843707591;
 export const OLP1_TOWER_LON_DEG = -97.15477680548673;
 
 /**
- * Pad 2 concrete apron corners, north-up aerial (NW, SW, east vertex).
- * The three points bound the polygonal hardstand west of the tank farm.
+ * Site concrete apron, north-up aerial, vertices in trace order (Pad 2 NW,
+ * south along the west edge, then east around OLP-1, then back along SH 4).
+ * Covers OLP-2, the tank farm, and OLP-1 — not a Pad-2-only triangle.
  */
 export const PAD2_APRON_CORNERS_DEG: ReadonlyArray<readonly [number, number]> = [
-  [25.998070202727856, -97.15890144142246],
-  [25.99612479210832, -97.15837042097712],
-  [25.99697980239395, -97.15655005546843],
+  [25.99808447639599, -97.15891689066093],
+  [25.996134391339766, -97.15837928694013],
+  [25.996992950474393, -97.15657927448207],
+  [25.99666505928407, -97.15561446780454],
+  [25.996600343809416, -97.15560966777133],
+  [25.996548571404052, -97.15620007185757],
+  [25.99640188279825, -97.15622407202368],
+  [25.996151648871585, -97.15593126999715],
+  [25.99576335379233, -97.15505286391765],
+  [25.995159336674003, -97.15482726235622],
+  [25.995284454760636, -97.1536176539844],
+  [25.996151648871585, -97.15326725155923],
+  [25.997264754320074, -97.15294564933339],
+  [25.99800250444577, -97.1566944752794],
+  [25.998226848594626, -97.15797128411631],
 ];
 
 /**
@@ -69,4 +82,19 @@ export function pad2ApronXz(): Array<readonly [number, number]> {
     const p = geodeticDeltaToPadLocal(lat, lon);
     return [p.x, p.z] as const;
   });
+}
+
+/**
+ * Even-odd inclusion in the surveyed site apron (pad-local km).
+ */
+export function pad2ApronContains(x: number, z: number): boolean {
+  const v = pad2ApronXz();
+  let inside = false;
+  for (let i = 0, j = v.length - 1; i < v.length; j = i++) {
+    const [xi, zi] = v[i]!;
+    const [xj, zj] = v[j]!;
+    const hit = (zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi;
+    if (hit) inside = !inside;
+  }
+  return inside;
 }

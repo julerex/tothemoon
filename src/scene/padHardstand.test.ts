@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
 import { addPadHardstand } from "./earthTheater/padHardstand.ts";
+import { pad2ApronXz } from "./earthTheater/starbaseSurvey.ts";
 import { makePadSurroundMats } from "./earthTheater/padSurroundMats.ts";
 
 describe("padHardstand Pad 2 apron", () => {
@@ -18,6 +19,8 @@ describe("padHardstand Pad 2 apron", () => {
     assert.ok(apron?.isMesh);
     assert.ok(apron!.geometry instanceof THREE.ShapeGeometry);
     assert.ok(!(apron!.geometry instanceof THREE.BoxGeometry));
+    assert.equal(pad2ApronXz().length, 15);
+    assert.ok((apron!.geometry.index?.count ?? 0) >= 90, "concave 15-gon triangulates");
     assert.ok(g.getObjectByName("pad-hardstand-outer"));
   });
 });

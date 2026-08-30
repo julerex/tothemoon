@@ -14,6 +14,7 @@ import {
   geodeticDeltaToPadLocal,
   olp1FromOlp2,
   olp1TowerFromOlp2,
+  pad2ApronContains,
   pad2ApronXz,
 } from "./earthTheater/starbaseSurvey.ts";
 
@@ -44,25 +45,14 @@ describe("starbaseSurvey", () => {
     assert.ok(dz < 0 && dz > -0.008, "tower slightly south of the mount");
   });
 
-  it("keeps the OLM inside the surveyed Pad 2 apron triangle", () => {
+  it("keeps the OLM and OLP-1 inside the surveyed site apron", () => {
     const v = pad2ApronXz();
-    assert.equal(v.length, 3);
-    const [a, b, c] = v as [
-      readonly [number, number],
-      readonly [number, number],
-      readonly [number, number],
-    ];
-    const sign = (
-      p1: readonly [number, number],
-      p2: readonly [number, number],
-      p3: readonly [number, number],
-    ) => (p1[0] - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p3[1]);
-    const b1 = sign([0, 0], a, b) < 0;
-    const b2 = sign([0, 0], b, c) < 0;
-    const b3 = sign([0, 0], c, a) < 0;
-    assert.equal(b1, b2);
-    assert.equal(b2, b3);
-    assert.ok(a[0] > 0 && a[1] > 0.12, "NW corner west and toward SH 4");
-    assert.ok(c[0] < -0.14, "east vertex toward the farm");
+    assert.equal(v.length, 15);
+    assert.ok(pad2ApronContains(0, 0), "OLP-2 OLM is on the apron");
+    assert.ok(pad2ApronContains(olp1FromOlp2.x, olp1FromOlp2.z), "OLP-1 mount is on the apron");
+    const nw = v[0]!;
+    assert.ok(nw[0] > 0 && nw[1] > 0.12, "first vertex is Pad 2 NW, west and toward SH 4");
+    const east = Math.min(...v.map((p) => p[0]));
+    assert.ok(east < PAD1_X_KM, "apron reaches east of OLP-1");
   });
 });

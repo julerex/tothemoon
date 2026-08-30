@@ -1,9 +1,10 @@
 /**
- * OLP-2 hardstand: surveyed polygonal apron + a small circular OLM ring.
+ * Starbase site hardstand: surveyed polygonal apron + a small circular OLM ring.
  *
  * The 80–120 m concentric rings read as a round pad from aerial and fought
  * the real multi-angled concrete. Keep a ~20 m ring at the mount so trench /
- * scorch decals still have a circular lip.
+ * scorch decals still have a circular lip. The polygon spans OLP-2 through
+ * the farm to OLP-1; sit it below per-bank slabs and the Pad 1 yard.
  */
 import * as THREE from "three";
 import { pad2ApronXz } from "./starbaseSurvey";
@@ -45,7 +46,7 @@ function addPad2Apron(g: THREE.Group, mats: PadSurroundMats): void {
   mat.side = THREE.DoubleSide;
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.0012;
+  mesh.position.y = -0.0018;
   mesh.name = "pad2-apron";
   g.add(mesh);
 }
@@ -61,7 +62,7 @@ function addOlmCurb(g: THREE.Group, mats: PadSurroundMats): void {
   g.add(curb);
 }
 
-/** Polygonal Pad 2 apron + small circular OLM lip. */
+/** Surveyed site apron (Pad 2 through farm to Pad 1) + small circular OLM lip. */
 export function addPadHardstand(g: THREE.Group, mats: PadSurroundMats): void {
   addPad2Apron(g, mats);
   addOlmApronRing(g, mats);
