@@ -840,6 +840,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | OLP-1 correction: previous pin was the tower base; empty mount is 363 m east / 69 m south of OLP-2, tower ~32 m west of that mount. |
 | 2026-08-30 | Pad GSE vs aerial: per-bank concrete slabs + boxy dark north pipe rack; Pad 1 compact rectangular yard + crawler crane (no 70 m disc). |
 | 2026-08-30 | Far-east offload pair: two 8 m × 30 m N–S shells (was three 4.5 m × 32 m guesses). |
+| 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

@@ -15,6 +15,8 @@ import {
   MAIN_CRYO_LEN_KM,
   OFFLOAD_E_CRYO_D_KM,
   OFFLOAD_E_CRYO_LEN_KM,
+  PAD2_WEST_A_LEN_KM,
+  PAD2_WEST_B_LEN_KM,
   SH4_Z_KM,
   cryoTankPlacements,
   farmBankSlabs,
@@ -30,6 +32,19 @@ describe("padFarmLayout vs pads / road", () => {
     assert.ok(CRYO_TANK_LEN_KM > CRYO_TANK_D_KM * 2, "cylinders read as horizontals");
     assert.ok(CRYO_TANK_LEN_KM < 0.05, "tanks stay much shorter than the 146 m OLT");
     assert.ok(CRYO_BANKS.every((b) => b.axis === "ns"));
+  });
+
+  it("sizes the Pad 2 west banks at 39 m and 26 m", () => {
+    const westA = CRYO_BANKS.find((b) => b.id === "pad2-west-a");
+    const westB = CRYO_BANKS.find((b) => b.id === "pad2-west-b");
+    assert.ok(westA && westB);
+    assert.equal(westA!.count, 5);
+    assert.equal(westB!.count, 6);
+    assert.equal(westA!.len, PAD2_WEST_A_LEN_KM);
+    assert.equal(westB!.len, PAD2_WEST_B_LEN_KM);
+    assert.equal(PAD2_WEST_A_LEN_KM, 0.039);
+    assert.equal(PAD2_WEST_B_LEN_KM, 0.026);
+    assert.ok(westA!.x0 > westB!.x0, "five thin tanks sit west of the six shorter ones");
   });
 
   it("sizes the middle bank at 6 m × 49 m", () => {

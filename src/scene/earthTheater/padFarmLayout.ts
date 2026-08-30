@@ -35,10 +35,15 @@ export type CryoPlacement = {
   readonly len: number;
 };
 
-/** Default 12 ft-class farm shells (west Pad 2 banks). */
+/** Default 12 ft-class farm shells (Pad 2 west-bank diameter). */
 export const CRYO_TANK_D_KM = 0.0038;
-/** ~32 m N–S cylinders. */
+/** Fallback N–S length when a bank omits `len`. */
 export const CRYO_TANK_LEN_KM = 0.032;
+
+/** Far-west Pad 2 apron: five thin 39 m N–S shells. */
+export const PAD2_WEST_A_LEN_KM = 0.039;
+/** Six shorter shells just east of that west-a bank. */
+export const PAD2_WEST_B_LEN_KM = 0.026;
 
 /** Main (middle) bank: 6 m diameter × 49 m N–S shells. */
 export const MAIN_CRYO_D_KM = 0.006;
@@ -53,8 +58,14 @@ export const OFFLOAD_E_CRYO_LEN_KM = 0.03;
  * West pair sits on the Pad 2 apron; main + offload sit between / east of the pads.
  */
 export const CRYO_BANKS: readonly CryoBankSpec[] = [
-  { id: "pad2-west-a", x0: -0.0541, z0: 0.073, count: 5, axis: "ns", pitch: 0.0038 },
-  { id: "pad2-west-b", x0: -0.0816, z0: 0.073, count: 6, axis: "ns", pitch: 0.0038 },
+  {
+    id: "pad2-west-a", x0: -0.0541, z0: 0.073, count: 5, axis: "ns", pitch: 0.0038,
+    len: PAD2_WEST_A_LEN_KM,
+  },
+  {
+    id: "pad2-west-b", x0: -0.0816, z0: 0.073, count: 6, axis: "ns", pitch: 0.0038,
+    len: PAD2_WEST_B_LEN_KM,
+  },
   {
     id: "main", x0: -0.2286, z0: 0.05, count: 12, axis: "ns", pitch: 0.0068,
     d: MAIN_CRYO_D_KM, len: MAIN_CRYO_LEN_KM,
