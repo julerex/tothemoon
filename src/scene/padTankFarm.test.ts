@@ -13,6 +13,8 @@ import {
   CRYO_TANK_LEN_KM,
   MAIN_CRYO_D_KM,
   MAIN_CRYO_LEN_KM,
+  OFFLOAD_E_CRYO_D_KM,
+  OFFLOAD_E_CRYO_LEN_KM,
   SH4_Z_KM,
   cryoTankPlacements,
   farmBankSlabs,
@@ -40,6 +42,17 @@ describe("padFarmLayout vs pads / road", () => {
     const shells = cryoTankPlacements().filter((p) => p.d === MAIN_CRYO_D_KM);
     assert.ok(shells.length >= 10);
     assert.ok(shells.every((p) => p.len === MAIN_CRYO_LEN_KM));
+  });
+
+  it("sizes the far-east offload pair at 8 m × 30 m", () => {
+    assert.equal(OFFLOAD_E_CRYO_D_KM, 0.008);
+    assert.equal(OFFLOAD_E_CRYO_LEN_KM, 0.03);
+    const east = CRYO_BANKS.find((b) => b.id === "offload-e");
+    assert.ok(east);
+    assert.equal(east!.count, 2);
+    assert.equal(east!.d, OFFLOAD_E_CRYO_D_KM);
+    assert.equal(east!.len, OFFLOAD_E_CRYO_LEN_KM);
+    assert.ok(east!.pitch > OFFLOAD_E_CRYO_D_KM, "8 m shells must not overlap");
   });
 
   it("puts N–S banks between the pads and south of SH 4", () => {

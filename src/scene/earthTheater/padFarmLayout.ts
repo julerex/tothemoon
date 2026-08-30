@@ -44,6 +44,10 @@ export const CRYO_TANK_LEN_KM = 0.032;
 export const MAIN_CRYO_D_KM = 0.006;
 export const MAIN_CRYO_LEN_KM = 0.049;
 
+/** Far-east offload pair: 8 m diameter × 30 m N–S shells. */
+export const OFFLOAD_E_CRYO_D_KM = 0.008;
+export const OFFLOAD_E_CRYO_LEN_KM = 0.03;
+
 /**
  * Horizontal banks west → east from the ~640 m north-up aerial.
  * West pair sits on the Pad 2 apron; main + offload sit between / east of the pads.
@@ -56,7 +60,10 @@ export const CRYO_BANKS: readonly CryoBankSpec[] = [
     d: MAIN_CRYO_D_KM, len: MAIN_CRYO_LEN_KM,
   },
   { id: "offload-w", x0: -0.3874, z0: 0.028, count: 4, axis: "ns", pitch: 0.0062, d: 0.0055, len: 0.045 },
-  { id: "offload-e", x0: -0.4243, z0: 0.028, count: 3, axis: "ns", pitch: 0.0051, d: 0.0045, len: 0.032 },
+  {
+    id: "offload-e", x0: -0.4243, z0: 0.028, count: 2, axis: "ns", pitch: 0.009,
+    d: OFFLOAD_E_CRYO_D_KM, len: OFFLOAD_E_CRYO_LEN_KM,
+  },
 ];
 
 /** Short verticals in the pipe corridor between the Pad 2 west banks and the main farm. */
