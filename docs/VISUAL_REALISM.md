@@ -335,7 +335,7 @@ Longest scrub stretch; corridor already existed — punctuation, not new physics
 
 Photo plate instead of procedural coastline glints:
 
-- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, yawed so photo-north = geographic north, draped onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
+- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad. The pad group yaws so +Z = geographic north; plates inherit that yaw and drape onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
 - Nested **USDA NAIP** pad plate (~8 km, ~1 m/px, 2022-06-10 Cameron County) under the Sentinel-2 square so aerial/trench cams can read the tank farm and SH 4. Gulf nodata is discarded so Sentinel-2 water shows through.
 - Procedural scrub + Earth-cam landmark rings remain the fallback if the JPEG is missing.
 - **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights stay procedural).
@@ -843,6 +843,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
 | 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
 | 2026-08-30 | Site concrete apron: 15-vertex survey spanning OLP-2 through the farm to OLP-1 (replaces the 3-corner Pad 2 triangle). |
+| 2026-08-30 | Pad group yaws with the satellite plates so +Z is geographic north (GSE was ~173° off — south-facing). |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

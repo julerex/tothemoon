@@ -5,7 +5,7 @@ import { geocentricRadiusAt } from "../../physics/wgs84";
 import {
   STARBASE_PAD_PLATE_HALF_KM, STARBASE_PAD_PLATE_Y_KM,
   STARBASE_PLATE_HALF_KM, STARBASE_PLATE_INNER_KM, STARBASE_PLATE_SEGS,
-  STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlateUv, starbasePlateYawRad,
+  STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlateUv,
 } from "../starbasePlate";
 import { loadTextureAsset } from "../assetLoad";
 import { makePlateAlphaTexture } from "./padTextures";
@@ -57,7 +57,7 @@ const STARBASE_PLATE_HIDE = [
   "pad-scrub-terrain",
 ] as const;
 
-/** Planar UVs on an XZ square: after yaw, +Z north / +X west; U grows toward −X (east). */
+/** Planar UVs on an XZ square: pad +Z north / +X west after `placePadOnEarth`; U grows toward −X (east). */
 function applyStarbasePlateUvs(geo: THREE.BufferGeometry, halfKm: number): void {
   const pos = geo.getAttribute("position");
   const uv = geo.getAttribute("uv");
@@ -195,7 +195,6 @@ function addPlate(
   );
   plate.name = opts.name;
   plate.position.y = opts.yKm;
-  plate.rotation.y = starbasePlateYawRad();
   plate.visible = false;
   plate.renderOrder = -1;
   pad.add(plate);

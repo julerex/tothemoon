@@ -8,6 +8,7 @@ import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import {
   DELUGE_SHEETS, GROUND_SHEETS, expandDelugeJets, expandSteamSprites, hazeBaseZs,
 } from "../padLaunchFx";
+import { starbasePlateYawRad } from "../starbasePlate";
 import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../../camera/trenchCam";
 import {
   makeGroundBloomSprite, makeHeatHazeTexture, makeScorchTexture, makeSteamTexture,
@@ -19,13 +20,24 @@ import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate"
 import { createPadVentClouds } from "./padVentClouds";
 import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
 
-/** Place pad group at Starbase geodetic on the Earth mesh. */
+/**
+ * Place the pad group at Starbase on the Earth mesh.
+ *
+ * `setFromUnitVectors(+Y → up)` leaves yaw free; compose
+ * {@link starbasePlateYawRad} so pad +Z is geographic north and +X is west.
+ * Satellite plates inherit this yaw (they must not yaw again).
+ */
 export function placePadOnEarth(pad: THREE.Group): void {
   const local = geodeticToEllipsoidMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
   pad.position.set(local.x, local.y, local.z);
   const up = geodeticToMeshLocal(STARBASE_LAT, STARBASE_LON, 1);
   const outward = new THREE.Vector3(up.x, up.y, up.z).normalize();
-  pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+  const qUp = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+  const qYaw = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    starbasePlateYawRad(),
+  );
+  pad.quaternion.copy(qUp).multiply(qYaw);
 }
 
 const FLOOD_TARGETS: { pos: [number, number, number]; look: [number, number, number] }[] = [

@@ -3,11 +3,11 @@
  *
  * Photos are north-up squares centered on the pad (full JPEG, not a circular
  * crop): an ~80 km Sentinel-2 surrounds plate plus a nested ~8 km USDA NAIP
- * pad plate. The 3D pad group only aligns +Y to local up (`setFromUnitVectors`),
- * so this module yaws **the plate only** until plate +Z = geographic north.
- * Right-handed +Y-up then puts plate +X **west** (east × north = up, so
- * north × up = east = −X). UVs must increase toward −X or the Gulf lands
- * inland.
+ * pad plate. The 3D pad group aligns +Y to local up then yaws about +Y so
+ * pad +Z = geographic north and +X = west (`placePadOnEarth`). Plates inherit
+ * that yaw — do not yaw the mesh again. Right-handed +Y-up then puts pad +X
+ * **west** (east × north = up, so north × up = east = −X). UVs must increase
+ * toward −X or the Gulf lands inland.
  * Vertices are draped onto the Earth sphere so a wide plate stays on the globe.
  * Scene unit = 1 km.
  */
@@ -94,12 +94,13 @@ export function starbasePlateWmsBboxDeg(
 }
 
 /**
- * Yaw (rad about pad +Y) that aligns plate +Z with geographic north.
- * Plate +X is then west (right-handed +Y up); {@link starbasePlateUv}
+ * Yaw (rad about pad +Y) that aligns pad +Z with geographic north.
+ * Pad +X is then west (right-handed +Y up); {@link starbasePlateUv}
  * maps geographic east (−X) to the JPEG’s right edge.
  *
- * Matches `THREE.Quaternion.setFromUnitVectors(+Y, mesh-local up)` used by
- * `placePadOnEarth`. Degenerate at the poles (returns 0).
+ * Applied by `placePadOnEarth` (not on the plate mesh). Matches
+ * `THREE.Quaternion.setFromUnitVectors(+Y, mesh-local up)`. Degenerate at
+ * the poles (returns 0).
  */
 export function starbasePlateYawRad(
   lat = STARBASE_LAT,

@@ -58,14 +58,14 @@ describe("trenchCamWorldPose", () => {
     assert.ok(lookR > R_EARTH);
   });
 
-  it("offsets west/north in the pad ENU frame from the visual origin", () => {
+  it("maps pad-local +X west and +Z north from the visual origin", () => {
     const up = { x: 0, y: 1, z: 0 };
     const east = { x: 1, y: 0, z: 0 };
     const north = { x: 0, y: 0, z: 1 };
     const padPos = { x: 10, y: 20, z: 30 };
     const pose = trenchCamWorldPose(padPos, east, up, north);
     const originY = padPos.y + padVisualLiftKm();
-    assert.ok(Math.abs(pose.position.x - (padPos.x + TRENCH_CAM_LOCAL.x)) < 1e-12);
+    assert.ok(Math.abs(pose.position.x - (padPos.x - TRENCH_CAM_LOCAL.x)) < 1e-12);
     assert.ok(Math.abs(pose.position.z - (padPos.z + TRENCH_CAM_LOCAL.z)) < 1e-12);
     assert.ok(Math.abs(pose.position.y - (originY + TRENCH_CAM_LOCAL.y)) < 1e-12);
     assert.ok(Math.abs(pose.look.x - padPos.x) < 1e-12);

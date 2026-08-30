@@ -2,7 +2,7 @@
  * Flame-trench camera mount in pad-local kilometres.
  *
  * Pad frame (see `earthTheater.ts`): origin = OLM / stack engines, **+Y up**,
- * **+X toward the tower**, trench along ±Z. Scene unit = 1 km.
+ * **+X west** (toward the tower), **+Z north**. Scene unit = 1 km.
  *
  * Webcast look target: `tminus-000130-engines-up.jpg` — under the OLM hole,
  * looking **up** into the Raptor bells with the painted inner bowl in frame.
@@ -73,7 +73,7 @@ export type Vec3Like = { x: number; y: number; z: number };
  * visual pad on {@link STARBASE_ALT}.
  *
  * @param padPos - Pad origin (km)
- * @param east - Unit east
+ * @param east - Unit east (pad-local +X is west, so the X basis is −east)
  * @param up - Unit surface normal
  * @param north - Unit north (`up × east`)
  */
@@ -107,8 +107,8 @@ function offsetFromOrigin(
   local: { x: number; y: number; z: number },
 ): Vec3Like {
   return {
-    x: origin.x + east.x * local.x + up.x * local.y + north.x * local.z,
-    y: origin.y + east.y * local.x + up.y * local.y + north.y * local.z,
-    z: origin.z + east.z * local.x + up.z * local.y + north.z * local.z,
+    x: origin.x - east.x * local.x + up.x * local.y + north.x * local.z,
+    y: origin.y - east.y * local.x + up.y * local.y + north.y * local.z,
+    z: origin.z - east.z * local.x + up.z * local.y + north.z * local.z,
   };
 }
