@@ -2,7 +2,7 @@
  * Mechazilla / OLT published dimensions (meters) and pad-km scales.
  * Scene unit = 1 km. Shared by the tower truss and chopsticks builders.
  */
-import { olp1FromOlp2 } from "./starbaseSurvey";
+import { olp1FromOlp2, olp1TowerFromOlp2 } from "./starbaseSurvey";
 
 /** Official OLT height (m), ground to lightning rod (FAA / Guinness). */
 export const OLT_HEIGHT_M = 146;
@@ -51,8 +51,15 @@ export const CHOPSTICK_CATCH_DROP_KM = (CHOPSTICK_CATCH_M - CHOPSTICK_REST_M) * 
  *
  * Wikipedia: Flight 13 (2026-07-24) is the first OLP-2 launch; OLP-1 was
  * decommissioned 2025-10-14 for a V3 rebuild (new OLM staged at Sanchez).
- * Pad-local +X is west, −X is gulf/east. Surveyed ~338 m east and ~74 m south
- * of the OLP-2 OLM (OLP-1 nearer the beach / slightly gulf-south).
+ * Pad-local +X is west, −X is gulf/east. Surveyed ~363 m east and ~69 m south
+ * of the OLP-2 OLM (OLP-1 nearer the beach / slightly gulf-south). The tower
+ * base is a separate pin ~32 m west of this mount.
  */
 export const PAD1_X_KM = olp1FromOlp2.x;
 export const PAD1_Z_KM = olp1FromOlp2.z;
+/**
+ * Pad-1-local shift so the shared tower builder (meshes at {@link TOWER_OX})
+ * lands on the surveyed OLP-1 tower base instead of Pad 2’s 20 m gap.
+ */
+export const PAD1_TOWER_DX_KM = olp1TowerFromOlp2.x - olp1FromOlp2.x - TOWER_OX;
+export const PAD1_TOWER_DZ_KM = olp1TowerFromOlp2.z - olp1FromOlp2.z;

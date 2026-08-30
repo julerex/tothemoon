@@ -13,6 +13,8 @@ import {
   OLT_TRUSS_M,
   PAD1_X_KM,
   PAD1_Z_KM,
+  PAD1_TOWER_DX_KM,
+  PAD1_TOWER_DZ_KM,
   TOWER_BEACON_Y,
   TOWER_H,
   createMechazillaTower,
@@ -87,7 +89,7 @@ describe("OLP-1 second tower (V26)", () => {
     assert.ok(PAD1_Z_KM < -0.05, "OLP-1 sits south of the OLP-2 OLM");
     assert.ok(PAD1_Z_KM > -0.09);
     const dist = Math.hypot(PAD1_X_KM, PAD1_Z_KM);
-    assert.ok(dist > 0.33 && dist < 0.35, `OLP-1 is ~338 m from OLP-2, got ${dist} km`);
+    assert.ok(dist > 0.36 && dist < 0.38, `OLP-1 is ~369 m from OLP-2, got ${dist} km`);
   });
 
   it("keeps the Pad 1 link road out of the live OLM / trench-cam hole", () => {
@@ -105,6 +107,10 @@ describe("OLP-1 second tower (V26)", () => {
     const g = createPad1Tower();
     assert.equal(g.name, "mechazilla-pad1");
     assert.equal(g.position.x, PAD1_X_KM);
+    const tower = g.getObjectByName("pad1-mechazilla");
+    assert.ok(tower);
+    assert.equal(tower!.position.x, PAD1_TOWER_DX_KM);
+    assert.equal(tower!.position.z, PAD1_TOWER_DZ_KM);
     assert.ok(g.getObjectByName("pad1-stripped-mount"));
     assert.ok(g.getObjectByName("pad1-apron"));
     assert.equal(g.getObjectByName("pad-olm"), undefined);

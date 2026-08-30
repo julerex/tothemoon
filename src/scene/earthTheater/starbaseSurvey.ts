@@ -14,9 +14,13 @@ import { WGS84_A, WGS84_E2, primeVerticalRadius } from "../../physics/wgs84";
 export const OLP2_LAT_DEG = 25.99677211965216;
 export const OLP2_LON_DEG = -97.15807620321927;
 
-/** OLP-1 / Pad A (tower standing, mount pulled at Flight 13). */
-export const OLP1_LAT_DEG = 25.99610843707591;
-export const OLP1_LON_DEG = -97.15477680548673;
+/** OLP-1 / Pad A empty-mount centre (OLM pulled at Flight 13). */
+export const OLP1_LAT_DEG = 25.996153431591285;
+export const OLP1_LON_DEG = -97.15445483846192;
+
+/** OLP-1 Mechazilla base — previously mistaken for the pad centre. */
+export const OLP1_TOWER_LAT_DEG = 25.99610843707591;
+export const OLP1_TOWER_LON_DEG = -97.15477680548673;
 
 /**
  * Pad 2 concrete apron corners, north-up aerial (NW, SW, east vertex).
@@ -50,8 +54,14 @@ export function geodeticDeltaToPadLocal(
   return { x: -east, z: north };
 }
 
-/** OLP-1 centre in pad-local km from the OLP-2 origin. */
+/** OLP-1 empty-mount centre in pad-local km from the OLP-2 origin. */
 export const olp1FromOlp2 = geodeticDeltaToPadLocal(OLP1_LAT_DEG, OLP1_LON_DEG);
+
+/** OLP-1 tower base in pad-local km from the OLP-2 origin. */
+export const olp1TowerFromOlp2 = geodeticDeltaToPadLocal(
+  OLP1_TOWER_LAT_DEG,
+  OLP1_TOWER_LON_DEG,
+);
 
 /** Pad 2 apron vertices `[x west, z north]` (km), same order as the survey. */
 export function pad2ApronXz(): Array<readonly [number, number]> {

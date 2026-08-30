@@ -7,7 +7,7 @@
  * Chopstick / QD node names are prefixed so recovery keeps the live pad.
  */
 import * as THREE from "three";
-import { PAD1_X_KM, PAD1_Z_KM } from "./mechazillaDims";
+import { PAD1_TOWER_DX_KM, PAD1_TOWER_DZ_KM, PAD1_X_KM, PAD1_Z_KM } from "./mechazillaDims";
 import { createMechazillaTower } from "./mechazillaTower";
 import { makePadSurroundMats } from "./padSurroundMats";
 
@@ -59,7 +59,7 @@ function addStrippedMount(g: THREE.Group): void {
 
 function addPadLinkRoad(g: THREE.Group): void {
   const mats = makePadSurroundMats();
-  // Stop short of the live OLM so the ~338 m slab is not in the trench-cam frustum.
+  // Stop short of the live OLM so the ~369 m slab is not in the trench-cam frustum.
   const stopShortKm = 0.045;
   const len = -PAD1_X_KM - stopShortKm;
   const road = new THREE.Mesh(
@@ -73,7 +73,7 @@ function addPadLinkRoad(g: THREE.Group): void {
 }
 
 /**
- * Second launch tower (OLP-1) at the gulf-side pad (~338 m east, ~74 m south).
+ * Second launch tower (OLP-1) at the gulf-side pad (~363 m east, ~69 m south).
  * @returns Group named `mechazilla-pad1`, parented in pad-local metres.
  */
 export function createPad1Tower(): THREE.Group {
@@ -81,6 +81,7 @@ export function createPad1Tower(): THREE.Group {
   g.name = "mechazilla-pad1";
   g.position.set(PAD1_X_KM, 0, PAD1_Z_KM);
   const tower = createMechazillaTower({ includeOlm: false });
+  tower.position.set(PAD1_TOWER_DX_KM, 0, PAD1_TOWER_DZ_KM);
   prefixPadNames(tower, "pad1-");
   g.add(tower);
   addPad1Apron(g);

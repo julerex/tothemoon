@@ -30,7 +30,7 @@ highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | OLP-2 surveyed polygonal apron + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm + berm, denser open Mechazilla (V25), **OLP-1 second tower** ~338 m east / ~74 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + nested USDA NAIP pad plate (farm on NAIP is outdated) |
+| **Pad** | OLP-2 surveyed polygonal apron + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm + berm, denser open Mechazilla (V25), **OLP-1 second tower** ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + nested USDA NAIP pad plate (farm on NAIP is outdated) |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -81,7 +81,7 @@ tubular Mechazilla truss, circular hardstand / thicker OLM, lattice chopsticks +
 T+16 shaft vs billboard blobs) + denser Mechazilla (mid-face columns, all-face
 X-braces, peak house/railings, open elevator cage, thicker T-chopsticks).
 
-**Shipped (V26):** OLP-1 second tower ~338 m east / ~74 m south (empty mount,
+**Shipped (V26):** OLP-1 second tower ~363 m east / ~69 m south (empty mount,
 Flight 13 is OLP-2); tower-base GSE house; Mach-diamond discs on the launch stream.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
@@ -656,8 +656,8 @@ upgrades **procedural pad geometry** only (no CAD, no draped stills).
 - Named `pad-tank-farm` / `pad-tank-farm-berm` (shadow cast root unchanged).
 - **2026-08-30 layout:** N–S horizontal banks **between** the pads (Pad 2
   west banks on the apron, main farm, offload east of OLP-1), not E–W rows
-  and not the 2022 NAIP verticals. Live tower yaw unchanged. OLP-1 is ~338 m
-  east and ~74 m south of the OLP-2 OLM.
+  and not the 2022 NAIP verticals. Live tower yaw unchanged. OLP-1 is ~363 m
+  east and ~69 m south of the OLP-2 OLM.
 
 ### V23.2 Mechazilla open truss
 
@@ -751,7 +751,7 @@ see-through lattice with a T at the ship nose.
 Look / facts: Wikipedia (Flight 13 first **OLP-2** launch, 2026-07-24; OLP-1
 decommissioned 2025-10-14 for V3 rebuild); NSF Pad 2 notes (stainless-fill
 base, larger rear house, ~10 m shorter chopsticks on Pad 2 — live pad keeps
-published 36 m); Pad 1 nearer the Gulf (~338 m east and ~74 m south of Pad 2).
+published 36 m); Pad 1 nearer the Gulf (~363 m east and ~69 m south of Pad 2).
 Pad-local +X is west.
 
 ### V26.1 OLP-1 tower
@@ -833,6 +833,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-26 | Nested USDA NAIP pad plate (~8 km, ~1 m/px) under the 80 km Sentinel-2 surrounds. Pad crop: [Sentinel-2 ~20 m/px vs NAIP ~1 m/px](starbase-sentinel-vs-naip.jpg). Site plate: [NAIP 8 km over Sentinel-2](starbase-naip-8km.jpg). |
 | 2026-08-26 | Pad GSE vs Google Maps orbital-farm pin: E–W horizontal cryo rows **between** OLP-2 and OLP-1, north of the pads / south of SH 4; blast wall on the south edge; pipe racks toward both pads. Live tower stays west of the OLM. The 2022 NAIP (Pad 1–era verticals west of one tower) is not the live farm. |
 | 2026-08-30 | Pad GSE vs current north-up aerial (~640 m): N–S horizontal banks (Pad 2 west + main + offload), E–W pipe header south of SH 4; OLP-1 surveyed 338 m east / 74 m south of the OLP-2 OLM; Pad 2 apron is the surveyed concrete triangle. USDA NAIP farm still outdated. |
+| 2026-08-30 | OLP-1 correction: previous pin was the tower base; empty mount is 363 m east / 69 m south of OLP-2, tower ~32 m west of that mount. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

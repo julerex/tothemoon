@@ -4,7 +4,7 @@ import { addChopstickCarriage } from "./mechazillaChopsticks";
 export {
   CHOPSTICK_LEN_M, OLT_HEIGHT_M, OLT_TRUSS_M, TOWER_BEACON_Y, TOWER_H, TOWER_OX,
   CHOPSTICK_REST_M, CHOPSTICK_CATCH_M, CHOPSTICK_CATCH_DROP_KM,
-  PAD1_X_KM, PAD1_Z_KM,
+  PAD1_X_KM, PAD1_Z_KM, PAD1_TOWER_DX_KM, PAD1_TOWER_DZ_KM,
 } from "./mechazillaDims";
 import {
   BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0,
