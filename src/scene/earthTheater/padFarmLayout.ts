@@ -96,27 +96,55 @@ export function cryoTankPlacements(): CryoPlacement[] {
 
 export const CRYO_TANK_COUNT = CRYO_BANKS.reduce((n, b) => n + b.count, 0);
 
-/** Berm / slab envelope around every cryo bank (pad-local km). */
-export function farmPlanBounds(): {
+/** Axis-aligned envelope of one packed bank (pad-local km). */
+export type PlanBounds = {
   xWest: number;
   xEast: number;
   zSouth: number;
   zNorth: number;
-} {
-  const pad = 0.014;
-  let xWest = -Infinity;
-  let xEast = Infinity;
-  let zSouth = Infinity;
-  let zNorth = -Infinity;
-  for (const p of cryoTankPlacements()) {
-    const hx = p.axis === "ew" ? p.len * 0.5 : p.d * 0.5;
-    const hz = p.axis === "ns" ? p.len * 0.5 : p.d * 0.5;
-    xWest = Math.max(xWest, p.x + hx);
-    xEast = Math.min(xEast, p.x - hx);
-    zSouth = Math.min(zSouth, p.z - hz);
-    zNorth = Math.max(zNorth, p.z + hz);
-  }
-  return { xWest: xWest + pad, xEast: xEast - pad, zSouth: zSouth - pad, zNorth: zNorth + pad };
+};
+
+/** Concrete-slab footprint around a cryo bank. */
+export function bankFootprint(b: CryoBankSpec, pad = 0.006): PlanBounds {
+  const d = b.d ?? CRYO_TANK_D_KM;
+  const len = b.len ?? CRYO_TANK_LEN_KM;
+  const lastX = b.x0 - (b.count - 1) * b.pitch;
+  const hx = b.axis === "ew" ? len * 0.5 : d * 0.5;
+  const hz = b.axis === "ns" ? len * 0.5 : d * 0.5;
+  const xHi = Math.max(b.x0, lastX) + hx;
+  const xLo = Math.min(b.x0, lastX) - hx;
+  return {
+    xWest: xHi + pad,
+    xEast: xLo - pad,
+    zSouth: b.z0 - hz - pad,
+    zNorth: b.z0 + hz + pad,
+  };
+}
+
+/** One slab per cryo bank (separate yards, not one farm rectangle). */
+export function farmBankSlabs(): Array<{ id: string } & PlanBounds> {
+  return CRYO_BANKS.map((b) => ({ id: b.id, ...bankFootprint(b) }));
+}
+
+function unionBounds(parts: PlanBounds[]): PlanBounds {
+  return {
+    xWest: Math.max(...parts.map((p) => p.xWest)),
+    xEast: Math.min(...parts.map((p) => p.xEast)),
+    zSouth: Math.min(...parts.map((p) => p.zSouth)),
+    zNorth: Math.max(...parts.map((p) => p.zNorth)),
+  };
+}
+
+/** Union envelope of every cryo bank (pipe-header span). */
+export function farmPlanBounds(): PlanBounds {
+  const pad = 0.008;
+  const u = unionBounds(farmBankSlabs());
+  return {
+    xWest: u.xWest + pad,
+    xEast: u.xEast - pad,
+    zSouth: u.zSouth - pad,
+    zNorth: u.zNorth + pad,
+  };
 }
 
 /**

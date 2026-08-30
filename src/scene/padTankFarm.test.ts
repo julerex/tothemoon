@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as THREE from "three";
 import { PAD1_X_KM, TOWER_OX } from "./earthTheater/mechazillaDims.ts";
 import {
   BLAST_WALL_Z_KM,
@@ -14,6 +15,8 @@ import {
   MAIN_CRYO_LEN_KM,
   SH4_Z_KM,
   cryoTankPlacements,
+  farmBankSlabs,
+  farmPlanBounds,
   tankFarmVentAnchors,
 } from "./earthTheater/padFarmLayout.ts";
 import { buildTankFarm } from "./earthTheater/padTankFarm.ts";
@@ -57,6 +60,16 @@ describe("padFarmLayout vs pads / road", () => {
     assert.ok(BLAST_WALL_Z_KM > 0 && BLAST_WALL_Z_KM < SH4_Z_KM);
   });
 
+  it("pours a concrete slab per bank, not one farm rectangle", () => {
+    const slabs = farmBankSlabs();
+    assert.equal(slabs.length, CRYO_BANKS.length);
+    const main = slabs.find((s) => s.id === "main");
+    assert.ok(main);
+    const farmW = farmPlanBounds().xWest - farmPlanBounds().xEast;
+    const mainW = main!.xWest - main!.xEast;
+    assert.ok(mainW < farmW * 0.4, "main slab is a strip, not the whole farm");
+  });
+
   it("anchors vents on the cryo bank between the pads", () => {
     const anchors = tankFarmVentAnchors();
     assert.equal(anchors.length, 4);
@@ -73,6 +86,12 @@ describe("padTankFarm between pads", () => {
     assert.ok(farm.getObjectByName("pad-tank-farm-berm"));
     assert.ok(farm.getObjectByName("pad-blast-wall"));
     assert.ok(farm.getObjectByName("pad-pipe-rack"));
+    const north = farm.getObjectByName("pad-pipe-rack-north") as THREE.Mesh | undefined;
+    assert.ok(north?.isMesh);
+    assert.ok(north!.geometry instanceof THREE.BoxGeometry);
+    const mainSlab = farm.getObjectByName("pad-cryo-slab-main") as THREE.Mesh | undefined;
+    assert.ok(mainSlab?.isMesh);
+    assert.ok(mainSlab!.geometry instanceof THREE.BoxGeometry);
     const cryo = farm.getObjectByName("pad-cryo-tank-0");
     assert.ok(cryo);
     const first = cryoTankPlacements()[0]!;

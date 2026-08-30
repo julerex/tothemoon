@@ -103,6 +103,16 @@ describe("OLP-1 second tower (V26)", () => {
     assert.ok(liveEnd < -0.04, `road reaches x=${liveEnd}, must stop short of the live OLM`);
   });
 
+  it("uses a compact rectangular Pad 1 yard, not a 70 m disc", () => {
+    const g = createPad1Tower();
+    const apron = g.getObjectByName("pad1-apron") as THREE.Mesh | undefined;
+    assert.ok(apron?.isMesh);
+    assert.ok(apron!.geometry instanceof THREE.BoxGeometry);
+    const { width, depth } = apron!.geometry.parameters;
+    assert.ok(width > 0.07 && width < 0.12, `apron width ${width} km`);
+    assert.ok(depth > 0.04 && depth < 0.07, `apron depth ${depth} km`);
+  });
+
   it("builds a named Pad 1 tower without an OLM, prefixed chopsticks", () => {
     const g = createPad1Tower();
     assert.equal(g.name, "mechazilla-pad1");
@@ -113,6 +123,7 @@ describe("OLP-1 second tower (V26)", () => {
     assert.equal(tower!.position.z, PAD1_TOWER_DZ_KM);
     assert.ok(g.getObjectByName("pad1-stripped-mount"));
     assert.ok(g.getObjectByName("pad1-apron"));
+    assert.ok(g.getObjectByName("pad1-crane"));
     assert.equal(g.getObjectByName("pad-olm"), undefined);
     assert.ok(g.getObjectByName("pad1-pad-chopstick-L"));
     assert.equal(g.getObjectByName("pad-chopstick-L"), undefined);

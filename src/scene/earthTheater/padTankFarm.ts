@@ -2,22 +2,28 @@
  * Orbital tank farm — N–S horizontal cryo banks between OLP-2 and OLP-1.
  *
  * Look target: north-up ~640 m aerial (OLP-2 west, farm between the pads,
- * offload east of OLP-1). Live Mechazilla stays west of the OLM. The 2022
- * USDA NAIP farm is outdated and is covered by the berm slab.
+ * offload east of OLP-1). Per-bank concrete slabs and a dark north pipe rack;
+ * the 2022 USDA NAIP farm is outdated. Live Mechazilla stays west of the OLM.
  */
 import * as THREE from "three";
 import type { PadSurroundMats } from "./padSurroundMats";
 import {
   BLAST_WALL_X_KM,
   BLAST_WALL_Z_KM,
+  CRYO_BANKS,
+  CRYO_TANK_LEN_KM,
   PAD1_X_KM,
   PIPE_NORTH_Z_KM,
   PIPE_SOUTH_Z_KM,
   VERTICAL_TANK_D_KM,
   VERTICAL_TANK_H_KM,
   VERTICAL_TANK_XZ,
+  type CryoBankSpec,
   type CryoPlacement,
+  type PlanBounds,
+  bankFootprint,
   cryoTankPlacements,
+  farmBankSlabs,
   farmPlanBounds,
 } from "./padFarmLayout";
 
@@ -27,7 +33,6 @@ const unitCap = new THREE.SphereGeometry(0.51, 10, 6);
 const unitBand = new THREE.CylinderGeometry(0.53, 0.53, 0.015, 12);
 const unitVert = new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
 const pipeRunGeo = new THREE.CylinderGeometry(0.0005, 0.0005, 1, 6);
-const pipeRiserGeo = new THREE.CylinderGeometry(0.00035, 0.00035, 0.01, 6);
 
 function addHorizontalTank(
   farm: THREE.Group,
@@ -99,29 +104,49 @@ function addNsPipe(parent: THREE.Group, mat: THREE.Material, x: number, y: numbe
   parent.add(run);
 }
 
+function addNorthHeader(racks: THREE.Group, mats: PadSurroundMats, span: PlanBounds): void {
+  const midX = (span.xWest + span.xEast) * 0.5;
+  const spanX = span.xWest - span.xEast;
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(spanX, 0.0034, 0.006), mats.steelDark);
+  deck.name = "pad-pipe-rack-north";
+  deck.position.set(midX, 0.0028, PIPE_NORTH_Z_KM);
+  racks.add(deck);
+  for (let tier = 0; tier < 3; tier++) {
+    addEwPipe(racks, mats.steel, midX, 0.005 + tier * 0.0016, PIPE_NORTH_Z_KM - 0.0018 + tier * 0.0018, spanX);
+  }
+  const posts = 9;
+  for (let i = 0; i < posts; i++) {
+    const x = span.xWest - (i / (posts - 1)) * spanX;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.0009, 0.0034, 0.0009), mats.steelDark);
+    post.position.set(x, 0.0017, PIPE_NORTH_Z_KM);
+    racks.add(post);
+  }
+}
+
+function addBankManifold(racks: THREE.Group, mats: PadSurroundMats, bank: CryoBankSpec): void {
+  const fp = bankFootprint(bank);
+  const len = bank.len ?? CRYO_TANK_LEN_KM;
+  const spanX = (fp.xWest - fp.xEast) * 0.92;
+  const midX = (fp.xWest + fp.xEast) * 0.5;
+  const z = bank.z0 + len * 0.5 + 0.002;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(spanX, 0.0026, 0.0042), mats.steelDark);
+  box.position.set(midX, 0.0024, z);
+  racks.add(box);
+  const spurLen = Math.abs(PIPE_NORTH_Z_KM - z);
+  addNsPipe(racks, mats.steelDark, midX, 0.0044, (z + PIPE_NORTH_Z_KM) * 0.5, spurLen);
+}
+
 function addPipeRacks(farm: THREE.Group, mats: PadSurroundMats): void {
   const racks = new THREE.Group();
   racks.name = "pad-pipe-rack";
-  const b = farmPlanBounds();
-  const midX = (b.xWest + b.xEast) * 0.5;
-  const spanX = b.xWest - b.xEast;
-  for (let tier = 0; tier < 3; tier++) {
-    const y = 0.0036 + tier * 0.0022;
-    addEwPipe(racks, mats.steel, midX, y, PIPE_NORTH_Z_KM, spanX);
-    addEwPipe(racks, mats.steelDark, midX, y, PIPE_SOUTH_Z_KM, spanX * 0.72);
-  }
-  for (const p of cryoTankPlacements()) {
-    const header = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0004, 0.0004, p.len * 0.55, 6),
-      mats.steelDark,
-    );
-    header.rotation.x = Math.PI / 2;
-    header.position.set(p.x, 0.0062, p.z);
-    racks.add(header);
-    const riser = new THREE.Mesh(pipeRiserGeo, mats.steel);
-    riser.position.set(p.x, 0.0075, p.z + p.len * 0.22);
-    racks.add(riser);
-  }
+  const span = farmPlanBounds();
+  addNorthHeader(racks, mats, span);
+  for (const bank of CRYO_BANKS) addBankManifold(racks, mats, bank);
+  const southSpan = (span.xWest - span.xEast) * 0.55;
+  const southMid = (span.xWest + span.xEast) * 0.5 + 0.04;
+  const south = new THREE.Mesh(new THREE.BoxGeometry(southSpan, 0.0022, 0.0035), mats.steelDark);
+  south.position.set(southMid, 0.002, PIPE_SOUTH_Z_KM);
+  racks.add(south);
   addNsPipe(racks, mats.steelDark, -0.06, 0.0052, 0.04, 0.055);
   addNsPipe(racks, mats.steelDark, PAD1_X_KM + 0.012, 0.0052, -0.02, 0.07);
   farm.add(racks);
@@ -134,31 +159,31 @@ function addBlastWall(farm: THREE.Group, mats: PadSurroundMats): void {
   farm.add(wall);
 }
 
+function addSlab(parent: THREE.Group, b: PlanBounds, mat: THREE.Material, y: number, name?: string): void {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(b.xWest - b.xEast, 0.0008, b.zNorth - b.zSouth),
+    mat,
+  );
+  mesh.position.set((b.xWest + b.xEast) * 0.5, y, (b.zSouth + b.zNorth) * 0.5);
+  if (name) mesh.name = name;
+  parent.add(mesh);
+}
+
 function addFarmBerm(farm: THREE.Group, mats: PadSurroundMats): void {
   const berm = new THREE.Group();
   berm.name = "pad-tank-farm-berm";
-  const { xWest, xEast, zSouth, zNorth } = farmPlanBounds();
-  const h = 0.0034;
-  const t = 0.004;
-  const cx = (xWest + xEast) * 0.5;
-  const cz = (zSouth + zNorth) * 0.5;
-  const walls: { size: [number, number, number]; pos: [number, number, number] }[] = [
-    { size: [xWest - xEast, h, t], pos: [cx, h * 0.5, zSouth] },
-    { size: [xWest - xEast, h, t], pos: [cx, h * 0.5, zNorth] },
-    { size: [t, h, zNorth - zSouth], pos: [xWest, h * 0.5, cz] },
-    { size: [t, h, zNorth - zSouth], pos: [xEast, h * 0.5, cz] },
-  ];
-  for (const w of walls) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), mats.dirt);
-    mesh.position.set(...w.pos);
-    berm.add(mesh);
+  for (const s of farmBankSlabs()) {
+    addSlab(berm, s, mats.concrete, 0.0003, s.id === "main" ? "pad-cryo-slab-main" : undefined);
   }
-  const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(xWest - xEast - 0.004, 0.0008, zNorth - zSouth - 0.004),
-    mats.concrete,
-  );
-  slab.position.set(cx, 0.0003, cz);
-  berm.add(slab);
+  const vz = VERTICAL_TANK_XZ;
+  const xs = vz.map((p) => p[0]);
+  const zs = vz.map((p) => p[1]);
+  addSlab(berm, {
+    xWest: Math.max(...xs) + 0.006,
+    xEast: Math.min(...xs) - 0.006,
+    zSouth: Math.min(...zs) - 0.006,
+    zNorth: Math.max(...zs) + 0.006,
+  }, mats.concreteDark, 0.00025);
   farm.add(berm);
 }
 
