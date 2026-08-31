@@ -13,7 +13,7 @@ Capture SOP: [docs/STARSHIP_13.md](../../docs/STARSHIP_13.md). Filenames use the
 
 Motion source for later landing/splash refinement (not captured into this folder yet): https://x.com/SpaceX/status/2082186658162626898 — see [Motion sources](#motion-sources-not-captured-yet).
 
-Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Starbase**, **Launchpad / trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
+Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Starbase**, **Flame trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
 
 ## Catalog
 

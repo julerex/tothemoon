@@ -188,6 +188,18 @@ describe("buildTelemetryView", () => {
       buildTelemetryView(baseTel({ cameraMode: "chase" }), sky).main.cameraMode,
       "Starship",
     );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "trench" }), sky).main.cameraMode,
+      "Flame trench",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "engines" }), sky).main.cameraMode,
+      "Engine bay",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "enginesDown" }), sky).main.cameraMode,
+      "Engines down",
+    );
   });
 
   it("builds complete card when missionComplete", () => {

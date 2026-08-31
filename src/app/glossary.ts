@@ -108,7 +108,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Flame trench",
     category: "vehicle",
     definition:
-      "Open channel under the launch mount that directs engine exhaust away from the pad at liftoff. The Launchpad camera on the Fixed rail stands in this trench looking up at the Super Heavy engine bells.",
+      "Open channel under the launch mount that directs engine exhaust away from the pad at liftoff. The Flame trench camera on the Fixed rail stands there looking up at the Super Heavy engine bells.",
   },
   {
     id: "free-cam",
@@ -178,7 +178,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "OLM (Orbital Launch Mount)",
     category: "vehicle",
     definition:
-      "Steel ring-table the Super Heavy stack sits on at Starbase. Open in the center so engine exhaust dumps into the flame trench; the Launchpad camera looks through that opening at the Raptors.",
+      "Steel ring-table the Super Heavy stack sits on at Starbase. Open in the center so engine exhaust dumps into the flame trench; the Flame trench camera looks through that opening at the Raptors.",
   },
   {
     id: "polar-map",

@@ -49,6 +49,13 @@ describe("free vs fixed cameras", () => {
     assert.ok(!FIXED_CAMERAS.includes("chase"));
   });
 
+  it("locks the flame-trench look and both booster engine-bay mounts", () => {
+    for (const mode of ["trench", "engines", "enginesDown"] as const) {
+      assert.equal(isFixedCamera(mode), true, mode);
+      assert.ok(FIXED_CAMERAS.includes(mode), mode);
+    }
+  });
+
   it("classifies every CameraMode as exactly one of free-look or fixed", () => {
     for (const mode of ALL_MODES) {
       assert.equal(

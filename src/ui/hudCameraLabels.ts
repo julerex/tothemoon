@@ -36,8 +36,8 @@ export const CAMERA_LABELS: Record<
     detail: "Free · WASD along the ground",
   },
   trench: {
-    title: "Launchpad",
-    detail: "Fixed · flame trench looking up at the bells",
+    title: "Flame trench",
+    detail: "Fixed · looking up at the booster bells",
   },
   gridfin: {
     title: "Grid fin",
