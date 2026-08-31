@@ -20,13 +20,6 @@ export type GlossaryEntry = {
  */
 export const GLOSSARY: readonly GlossaryEntry[] = [
   {
-    id: "aerial",
-    term: "Aerial (pad drone)",
-    category: "views",
-    definition:
-      "Flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash.",
-  },
-  {
     id: "ascent",
     term: "Ascent",
     category: "mission",
@@ -123,6 +116,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "physics",
     definition:
       "Dashed amber 2-body reference ellipse from the translunar injection state, overlaid on the n-body trail (toggle O with orbits). Metrics show max |Δr| between the two paths.",
+  },
+  {
+    id: "aerial",
+    term: "Launchpad Drone",
+    category: "views",
+    definition:
+      "Flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash.",
   },
   {
     id: "leo",

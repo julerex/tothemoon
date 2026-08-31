@@ -20,8 +20,8 @@ export const CAMERA_LABELS: Record<
     detail: "Pad · double-tap rail to frame",
   },
   aerial: {
-    title: "Aerial",
-    detail: "Pad drone · wide hold of the stack",
+    title: "Launchpad Drone",
+    detail: "Pad flying drone · wide hold of the stack",
   },
   trench: {
     title: "Launchpad",

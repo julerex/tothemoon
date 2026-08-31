@@ -174,7 +174,7 @@ describe("buildTelemetryView", () => {
     );
     assert.equal(
       buildTelemetryView(baseTel({ cameraMode: "aerial" }), sky).main.cameraMode,
-      "Aerial",
+      "Launchpad Drone",
     );
   });
 
