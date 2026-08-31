@@ -4,6 +4,7 @@ import { FIXED_CAMERAS, FREE_LOOK_CAMERAS } from "../camera/cameraMode.ts";
 import {
   CAMERA_CYCLE,
   CAMERA_LABELS,
+  cameraKindLabel,
   cycleCameraMode,
   FIXED_CAM_LOCK_NOTE,
 } from "./hudCameraLabels.ts";
@@ -20,9 +21,20 @@ describe("CAMERA_CYCLE", () => {
   });
 });
 
+describe("cameraKindLabel", () => {
+  it("labels free-look cameras Free and livestream mounts Mounted", () => {
+    assert.equal(cameraKindLabel("earth"), "Free");
+    assert.equal(cameraKindLabel("tower"), "Free");
+    assert.equal(cameraKindLabel("chase"), "Free");
+    assert.equal(cameraKindLabel("aerial"), "Mounted");
+    assert.equal(cameraKindLabel("tower1cam"), "Mounted");
+    assert.equal(cameraKindLabel("trench"), "Mounted");
+  });
+});
+
 describe("FIXED_CAM_LOCK_NOTE", () => {
-  it("tells the user movement is locked on a fixed camera", () => {
-    assert.match(FIXED_CAM_LOCK_NOTE, /fixed camera/i);
+  it("tells the user movement is locked on a mounted camera", () => {
+    assert.match(FIXED_CAM_LOCK_NOTE, /mounted camera/i);
     assert.match(FIXED_CAM_LOCK_NOTE, /locked/i);
     assert.match(FIXED_CAM_LOCK_NOTE, /free/i);
   });

@@ -1047,6 +1047,14 @@ body.menus-active {
   word-break: break-word;
 }
 
+.camera-rail > div > span.cam-kind {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .telemetry .tel-actions {
   pointer-events: auto;
   margin-top: auto;

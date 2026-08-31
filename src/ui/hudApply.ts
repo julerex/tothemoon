@@ -86,6 +86,7 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   if (dom.nextPhaseEl) dom.nextPhaseEl.textContent = m.nextPhase;
   if (dom.phaseLeftEl) dom.phaseLeftEl.textContent = m.phaseLeft;
   if (dom.camModeEl) dom.camModeEl.textContent = m.cameraMode;
+  if (dom.camKindEl) dom.camKindEl.textContent = m.cameraKind;
   if (dom.missionClockEl) dom.missionClockEl.textContent = m.missionClock;
   if (dom.missionClockRateEl) {
     dom.missionClockRateEl.textContent = formatRate(m.playbackSpeed);

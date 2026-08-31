@@ -219,7 +219,11 @@
           class="panel camera-rail hud-chrome"
           aria-label="Camera"
         >
-          <div><span class="label">Camera</span> <span id="tel-cam-mode">—</span></div>
+          <div>
+            <span class="label">Camera</span>
+            <span id="tel-cam-mode">—</span>
+            <span id="tel-cam-kind" class="cam-kind">—</span>
+          </div>
           <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
           <div>
             <span class="label">Cam target</span>
@@ -251,8 +255,8 @@
               </div>
             </div>
             <div class="cam-rail-group">
-              <span class="label">Fixed</span>
-              <div class="cam-grid" id="cam-grid-fixed" role="group" aria-label="Fixed cameras">
+              <span class="label">Mounted</span>
+              <div class="cam-grid" id="cam-grid-fixed" role="group" aria-label="Mounted cameras">
                 <button type="button" data-cam="aerial" title="Fixed — 1 — Launchpad Drone — wide hold of the stack" aria-label="Fixed — 1 — Launchpad Drone — wide hold of the stack">1️⃣</button>
                 <button type="button" data-cam="starbase" title="Fixed — 2 — Starbase pad — launch mount and Mechazilla" aria-label="Fixed — 2 — Starbase pad — launch mount and Mechazilla">2️⃣</button>
                 <button type="button" data-cam="trench" title="Fixed — 3 — Flame trench — looking up at the engine bells" aria-label="Fixed — 3 — Flame trench — looking up at the engine bells">3️⃣</button>

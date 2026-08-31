@@ -15,7 +15,7 @@ import type { PhaseId } from "../physics/missionTypes";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { formatSkyPhaseLine } from "../physics/skyPhase";
-import { CAMERA_LABELS } from "./hudCameraLabels";
+import { CAMERA_LABELS, cameraKindLabel } from "./hudCameraLabels";
 import {
   cameraReadoutLabels,
   type CameraPoseVec,
@@ -117,6 +117,7 @@ export type MainTelemetryLabels = Readonly<{
   nextPhase: string;
   phaseLeft: string;
   cameraMode: string;
+  cameraKind: string;
   cameraDetail: string;
   missionClock: string;
   dateUtc: string;
@@ -282,6 +283,7 @@ function mainClockFields(tel: Telemetry, segments?: readonly PhaseSegment[]) {
     nextPhase: phase.nextLabel ?? "—",
     phaseLeft: phaseLeftLabel(phase.remainingS, phase.nextLabel),
     cameraMode: cam.title,
+    cameraKind: cameraKindLabel(tel.cameraMode),
     cameraDetail: cam.detail,
     missionClock: formatWebcastMissionTime(tel.t),
     dateUtc: tel.dateUtc,

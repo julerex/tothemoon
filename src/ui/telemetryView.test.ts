@@ -80,6 +80,7 @@ describe("buildTelemetryView", () => {
     assert.equal(v.main.nextPhase, "—");
     assert.equal(v.main.phaseLeft, "—");
     assert.equal(v.main.cameraMode, "Earth");
+    assert.equal(v.main.cameraKind, "Free");
     assert.match(v.main.cameraDetail, /Free/i);
     assert.equal(v.main.missionClock, "T+00:02:00");
     assert.equal(v.main.dateUtc, "2027-07-18 12:00 UTC");
@@ -175,6 +176,10 @@ describe("buildTelemetryView", () => {
     assert.equal(
       buildTelemetryView(baseTel({ cameraMode: "aerial" }), sky).main.cameraMode,
       "Launchpad Drone",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "aerial" }), sky).main.cameraKind,
+      "Mounted",
     );
     assert.equal(
       buildTelemetryView(baseTel({ cameraMode: "ground1" }), sky).main.cameraMode,

@@ -5,6 +5,7 @@
 import {
   FIXED_CAMERAS,
   FREE_LOOK_CAMERAS,
+  isFixedCamera,
   type CameraMode,
 } from "../camera/cameraMode";
 
@@ -75,9 +76,14 @@ export const CAMERA_LABELS: Record<
   },
 };
 
-/** Shown when the user tries to pan / orbit / zoom a fixed camera. */
+/** HUD subtitle under the camera title. */
+export function cameraKindLabel(mode: CameraMode): "Free" | "Mounted" {
+  return isFixedCamera(mode) ? "Mounted" : "Free";
+}
+
+/** Shown when the user tries to pan / orbit / zoom a mounted camera. */
 export const FIXED_CAM_LOCK_NOTE =
-  "Fixed camera — movement is locked. Pick a Free camera to look around.";
+  "Mounted camera — movement is locked. Pick a Free camera to look around.";
 
 /** How long the lock note stays visible (ms). */
 export const CAM_LOCK_NOTE_MS = 2800;
