@@ -3,9 +3,10 @@
  *
  * Applied only on phase (or staging) transitions while Auto-cam is enabled,
  * except Flight 13 which follows a time-keyed webcast shot list (left pane
- * when the replay is split). Manual camera picks, WASD pan, and mouse orbit
- * disable Auto-cam so guided cuts do not fight user framing mid-drag
- * (tracking of the current focus stays).
+ * when the replay is split) — livestream cameras only. Manual camera picks,
+ * WASD/T/B pan, QERF/CV orbit, ZX zoom, and mouse orbit/pan/zoom disable
+ * Auto-cam (HUD shows off) so guided cuts do not fight user framing.
+ * Tracking of the current focus stays.
  *
  * Profiles:
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)

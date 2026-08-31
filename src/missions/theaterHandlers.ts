@@ -69,12 +69,12 @@ function onCameraFrame(w: TheaterHudWire, mode: CameraMode): void {
   w.director.frameMode(mode);
 }
 
-function onPanKey(
+function onCameraHold(
   w: TheaterHudWire,
-  key: "w" | "a" | "s" | "d" | "t" | "b",
   down: boolean,
-) {
-  const mode = w.director.setPanKey(key, down);
+  run: () => CameraMode,
+): CameraMode {
+  const mode = run();
   if (down) w.disableAutoCam();
   return mode;
 }
@@ -86,9 +86,12 @@ function cameraHandlers(w: TheaterHudWire): Pick<
   return {
     onCamera: (mode) => onCamera(w, mode),
     onCameraFrame: (mode) => onCameraFrame(w, mode),
-    onOrbitKey: (key, down) => w.director.setOrbitKey(key, down),
-    onPanKey: (key, down) => onPanKey(w, key, down),
-    onZoomKey: (key, down) => w.director.setZoomKey(key, down),
+    onOrbitKey: (key, down) =>
+      onCameraHold(w, down, () => w.director.setOrbitKey(key, down)),
+    onPanKey: (key, down) =>
+      onCameraHold(w, down, () => w.director.setPanKey(key, down)),
+    onZoomKey: (key, down) =>
+      onCameraHold(w, down, () => w.director.setZoomKey(key, down)),
   };
 }
 

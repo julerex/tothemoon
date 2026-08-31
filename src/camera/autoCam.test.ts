@@ -5,11 +5,13 @@ import {
   autoCamForPhase,
   autoCamForPhaseFlight13,
   autoCamForStaging,
+  autoCamFromWebcastShot,
   finaleChaseBias,
   lunarFinaleChaseScale,
   lunarFinaleShouldCut,
   nextAutoCamCut,
 } from "./autoCam.ts";
+import { webcastShotAt } from "./webcastShots.ts";
 
 const ALL_PHASES: PhaseId[] = [
   "launch",
@@ -224,6 +226,16 @@ describe("nextAutoCamCut", () => {
       staged: true,
     });
     assert.equal(r.suggestion, null);
+  });
+});
+
+describe("Flight 13 webcast Auto-cam", () => {
+  it("only uses livestream analog cameras, never booster or tower rail looks", () => {
+    for (const t of [-300, -8, 0, 22, 130, 256, 400, 2800, 3920]) {
+      const s = autoCamFromWebcastShot(webcastShotAt(t));
+      assert.notEqual(s.mode, "booster", `t=${t}`);
+      assert.notEqual(s.mode, "tower", `t=${t}`);
+    }
   });
 });
 

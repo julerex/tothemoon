@@ -222,7 +222,6 @@ export class CameraDirector {
     this.controls.addEventListener("start", () => {
       this.cancelDistanceEase();
       this.unlockMount();
-      this.onUserControl?.();
     });
   }
 
@@ -1628,8 +1627,10 @@ export class CameraDirector {
   /**
    * Leave a hard lock: keep the current view as a sticky offset around the
    * mount look-at so WASD / QERF / mouse match Starbase / chase.
+   * Any user grab also drops Auto-cam (webcast cuts must not fight framing).
    */
   private unlockMount(): void {
+    this.onUserControl?.();
     if (this.padTrack) this.padTrack = false;
     if (this.droneTrack) this.droneTrack = false;
     if (!isHardLockedMount(this.focus, this.mountLock)) return;

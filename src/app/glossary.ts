@@ -31,7 +31,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Auto-cam",
     category: "views",
     definition:
-      "Guided camera that matches the Flight 13 webcast (left pane when split) and eases to a sensible view when a lunar phase changes. Toggle with G; manual camera controls turn it off.",
+      "Guided camera that matches the Flight 13 webcast (left pane when split) and eases to a sensible view when a lunar phase changes. Toggle with G. Moving the camera (WASD, QERF, ZX, mouse) turns it off.",
   },
   {
     id: "ballistic-coast",
