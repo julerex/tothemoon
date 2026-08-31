@@ -1,9 +1,10 @@
 /**
- * Seat `starbase-pad` on the Earth mesh: up-align, north yaw, site nudge.
+ * Seat `starbase-pad` on the Earth mesh: up-align, north yaw.
  *
- * Pad-local after yaw: +Y up, +Z geographic north, +X west. A further
- * clockwise yaw (looking down) and a geographic west/south shift match the
- * live aerial against the globe pin.
+ * Pad-local after yaw: +Y up, +Z geographic north, +X west. Origin is the
+ * OLP-2 OLM so surveyed apron corners sit on their WGS84 mesh positions.
+ * Satellite plates are offset to the committed JPEG pin — they inherit this
+ * yaw and must not yaw again.
  */
 import * as THREE from "three";
 import {
@@ -13,20 +14,11 @@ import { geodeticToMeshLocal } from "../../physics/earthFrame";
 import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import { starbasePlateYawRad } from "../starbasePlate";
 
-/** Clockwise yaw from geographic north, looking down (rad). Three.js +Y is CCW. */
-export const PAD_SITE_CLOCKWISE_RAD = (-10 * Math.PI) / 180;
-/** Geographic west shift of the pad origin (km). */
-export const PAD_SITE_WEST_KM = 0.05;
-/** Geographic south shift of the pad origin (km). */
-export const PAD_SITE_SOUTH_KM = 0.05;
-
 /**
  * Place the pad group at Starbase on the Earth mesh.
  *
  * `setFromUnitVectors(+Y → up)` leaves yaw free; compose
- * {@link starbasePlateYawRad} so pad +Z is geographic north, then the
- * site clockwise nudge. Satellite plates inherit this yaw (they must not
- * yaw again).
+ * {@link starbasePlateYawRad} so pad +Z is geographic north.
  */
 export function placePadOnEarth(pad: THREE.Group): void {
   const local = geodeticToEllipsoidMeshLocal(STARBASE_LAT, STARBASE_LON, EARTH_SURFACE_ALT_KM);
@@ -36,11 +28,7 @@ export function placePadOnEarth(pad: THREE.Group): void {
   const qUp = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
   const qYaw = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(0, 1, 0),
-    starbasePlateYawRad() + PAD_SITE_CLOCKWISE_RAD,
+    starbasePlateYawRad(STARBASE_LAT, STARBASE_LON),
   );
   pad.quaternion.copy(qUp).multiply(qYaw);
-  const east = new THREE.Vector3(outward.z, 0, -outward.x).normalize();
-  const north = new THREE.Vector3().crossVectors(outward, east).normalize();
-  pad.position.addScaledVector(east, -PAD_SITE_WEST_KM);
-  pad.position.addScaledVector(north, -PAD_SITE_SOUTH_KM);
 }

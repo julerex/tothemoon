@@ -13,7 +13,7 @@ import {
 } from "./earthFrame.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { altitudeEarth, getBodies } from "./integrator.ts";
-import { R_EARTH } from "./constants.ts";
+import { R_EARTH, STARBASE_LON } from "./constants.ts";
 import {
   FLIGHT13_SPLASH_LAT,
   FLIGHT13_SPLASH_LAT_DEG,
@@ -350,7 +350,7 @@ describe("runFlight13Mission", () => {
   it("ascends eastward along the Flight 13 corridor (not west across the Pacific)", () => {
     // Regression: short geodetic path Starbase → Indian Ocean splash is westward; steering
     // must follow the Earth GC plane (Starbase → Gauteng → Indian Ocean) instead.
-    const padLonDeg = -97.156;
+    const padLonDeg = (STARBASE_LON * 180) / Math.PI;
     const s = result.samples.reduce((best, cur) =>
       Math.abs(cur.t - 120) < Math.abs(best.t - 120) ? cur : best,
     );

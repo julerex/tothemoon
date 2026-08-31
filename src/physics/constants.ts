@@ -157,11 +157,15 @@ export const LOW_EARTH_ORBIT_ALTITUDE = 200;
 export const LOW_EARTH_ORBIT_RADIUS = R_EARTH + LOW_EARTH_ORBIT_ALTITUDE;
 
 /**
- * SpaceX Starbase / Boca Chica, Texas (geodetic, WGS84-ish).
+ * SpaceX Starbase OLP-2 OLM (Flight 13 live pad), WGS84.
  * Due-east launch → parking inclination ≈ site latitude.
+ * Sentinel-2 / NAIP JPEGs stay on the older rounded pin — see
+ * `STARBASE_PLATE_LAT_DEG` in `starbasePlate.ts`.
  */
-export const STARBASE_LAT = (25.997 * Math.PI) / 180;
-export const STARBASE_LON = (-97.156 * Math.PI) / 180; // °W negative
+export const STARBASE_LAT_DEG = 25.99677211965216;
+export const STARBASE_LON_DEG = -97.15807620321927;
+export const STARBASE_LAT = (STARBASE_LAT_DEG * Math.PI) / 180;
+export const STARBASE_LON = (STARBASE_LON_DEG * Math.PI) / 180;
 
 /**
  * Shared height above the WGS84 ellipsoid (km).

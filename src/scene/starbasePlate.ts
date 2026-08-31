@@ -1,11 +1,11 @@
 /**
  * Starbase satellite ground plate — geographic yaw, planar UVs, sphere drape.
  *
- * Photos are north-up squares centered on the pad (full JPEG, not a circular
- * crop): an ~80 km Sentinel-2 surrounds plate plus a nested ~8 km USDA NAIP
- * pad plate. The 3D pad group aligns +Y to local up then yaws about +Y so
- * pad +Z is geographic north plus a 10° clockwise looking-down nudge
- * (`placePadOnEarth`). Plates inherit that yaw — do not yaw the mesh again.
+ * Photos are north-up squares centered on the committed WMS pin (full JPEG,
+ * not a circular crop): an ~80 km Sentinel-2 surrounds plate plus a nested
+ * ~8 km USDA NAIP pad plate. The 3D pad group aligns +Y to local up then
+ * yaws about +Y so pad +Z is geographic north (`placePadOnEarth`). Plates
+ * inherit that yaw and sit on this JPEG pin — do not yaw the mesh again.
  * Right-handed +Y-up then puts pad +X **west** (east × north = up, so
  * north × up = east = −X). UVs must increase toward −X or the Gulf lands
  * inland.
@@ -15,6 +15,12 @@
 
 import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
+
+/** Center of the committed Sentinel-2 / NAIP JPEGs (degrees, not the OLP-2 OLM). */
+export const STARBASE_PLATE_LAT_DEG = 25.997;
+export const STARBASE_PLATE_LON_DEG = -97.156;
+export const STARBASE_PLATE_LAT = (STARBASE_PLATE_LAT_DEG * Math.PI) / 180;
+export const STARBASE_PLATE_LON = (STARBASE_PLATE_LON_DEG * Math.PI) / 180;
 
 /** Inner hole so the photo’s real OLM is not drawn under Mechazilla (km). */
 export const STARBASE_PLATE_INNER_KM = 0.12;
@@ -80,8 +86,8 @@ export function drapePlatePoint(
  */
 export function starbasePlateWmsBboxDeg(
   halfKm = STARBASE_PLATE_HALF_KM,
-  lat = STARBASE_LAT,
-  lon = STARBASE_LON,
+  lat = STARBASE_PLATE_LAT,
+  lon = STARBASE_PLATE_LON,
   radiusKm = R_EARTH,
 ): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
   const dlat = halfKm / radiusKm;

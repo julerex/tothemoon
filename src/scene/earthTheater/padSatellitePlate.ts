@@ -10,6 +10,7 @@ import {
 import { loadTextureAsset } from "../assetLoad";
 import { makePlateAlphaTexture } from "./padTextures";
 import { GROUND_OFFSET } from "./padSurroundMats";
+import { starbasePlatePinFromOlp2 } from "./starbaseSurvey";
 
 export function addPadLandmarks(pad: THREE.Group): void {
   addLandmarkScrub(pad);
@@ -97,7 +98,11 @@ function makeStarbasePlateGeometry(halfKm: number): THREE.PlaneGeometry {
   return geo;
 }
 
-/** Discard the OLM hole. NAIP also drops near-black Gulf nodata so Sentinel-2 water shows through. */
+/**
+ * Discard the OLM hole. JPEG UVs are centered on the committed WMS pin;
+ * the hole is at the OLP-2 origin in that map (east, north) km.
+ * NAIP also drops near-black Gulf nodata so Sentinel-2 water shows through.
+ */
 function punchPlateOlmHole(
   mat: THREE.MeshStandardMaterial,
   halfKm: number,
@@ -105,16 +110,22 @@ function punchPlateOlmHole(
 ): void {
   const half = halfKm.toFixed(4);
   const inner2 = (STARBASE_PLATE_INNER_KM * STARBASE_PLATE_INNER_KM).toFixed(6);
+  const pin = starbasePlatePinFromOlp2;
+  const olmE = pin.x.toFixed(8);
+  const olmN = (-pin.z).toFixed(8);
   const nodata = dropNodata
     ? "if (max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) < 0.05) discard;"
     : "";
-  mat.customProgramCacheKey = () => `starbase-plate-olm-hole-${half}-${dropNodata ? "n" : "s"}`;
+  mat.customProgramCacheKey = () =>
+    `starbase-plate-olm-hole-${half}-${dropNodata ? "n" : "s"}-${olmE}-${olmN}`;
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
       `#include <map_fragment>
        vec2 plateKm = (vMapUv - 0.5) * (2.0 * ${half});
-       if (dot(plateKm, plateKm) < ${inner2}) discard;
+       vec2 olmKm = vec2(${olmE}, ${olmN});
+       vec2 olmDelta = plateKm - olmKm;
+       if (dot(olmDelta, olmDelta) < ${inner2}) discard;
        ${nodata}
       `,
     );
@@ -194,7 +205,8 @@ function addPlate(
     makeStarbasePlateMaterial(opts.halfKm, opts.dropNodata === true),
   );
   plate.name = opts.name;
-  plate.position.y = opts.yKm;
+  const pin = starbasePlatePinFromOlp2;
+  plate.position.set(pin.x, opts.yKm, pin.z);
   plate.visible = false;
   plate.renderOrder = -1;
   pad.add(plate);
@@ -203,8 +215,9 @@ function addPlate(
 
 /**
  * North-up Sentinel-2 square around the pad, plus a nested USDA NAIP plate
- * over the launch/production site. Hidden until each JPEG loads so
- * procedural scrub / landmark rings remain the fallback.
+ * over the launch/production site. Meshes sit on the committed JPEG pin
+ * (`starbasePlatePinFromOlp2`), not the OLP-2 origin. Hidden until each
+ * JPEG loads so procedural scrub / landmark rings remain the fallback.
  */
 export function addStarbaseSatellitePlate(pad: THREE.Group): void {
   addPlate(pad, {

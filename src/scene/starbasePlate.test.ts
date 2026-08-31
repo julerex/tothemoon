@@ -5,15 +5,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
 import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
-import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
 import {
   STARBASE_PAD_PLATE_HALF_KM,
   STARBASE_PLATE_HALF_KM,
+  STARBASE_PLATE_LAT,
+  STARBASE_PLATE_LON,
   drapePlatePoint,
   starbasePlateUv,
   starbasePlateWmsBboxDeg,
   starbasePlateYawRad,
 } from "./starbasePlate.ts";
+import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
 
 describe("starbasePlateUv", () => {
   it("maps the pad origin to the photo center", () => {
@@ -90,10 +92,10 @@ describe("drapePlatePoint", () => {
 });
 
 describe("starbasePlateWmsBboxDeg", () => {
-  it("is a lon/lat square centered on Starbase", () => {
+  it("is a lon/lat square centered on the committed JPEG pin", () => {
     const b = starbasePlateWmsBboxDeg();
-    const lat0 = STARBASE_LAT * (180 / Math.PI);
-    const lon0 = STARBASE_LON * (180 / Math.PI);
+    const lat0 = STARBASE_PLATE_LAT * (180 / Math.PI);
+    const lon0 = STARBASE_PLATE_LON * (180 / Math.PI);
     assert.ok(Math.abs((b.minLat + b.maxLat) / 2 - lat0) < 1e-9);
     assert.ok(Math.abs((b.minLon + b.maxLon) / 2 - lon0) < 1e-9);
     assert.ok(b.maxLat - b.minLat > 0.4, "wider than the old ~0.14° disc");

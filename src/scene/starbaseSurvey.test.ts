@@ -16,6 +16,7 @@ import {
   olp1TowerFromOlp2,
   pad2ApronContains,
   pad2ApronXz,
+  starbasePlatePinFromOlp2,
 } from "./earthTheater/starbaseSurvey.ts";
 
 describe("starbaseSurvey", () => {
@@ -23,6 +24,14 @@ describe("starbaseSurvey", () => {
     const p = geodeticDeltaToPadLocal(OLP2_LAT_DEG, OLP2_LON_DEG);
     assert.ok(Math.abs(p.x) < 1e-12);
     assert.ok(Math.abs(p.z) < 1e-12);
+  });
+
+  it("puts the committed JPEG pin ~209 m east of OLP-2", () => {
+    const p = starbasePlatePinFromOlp2;
+    const dist = Math.hypot(p.x, p.z);
+    assert.ok(dist > 0.2 && dist < 0.22, `pin ${dist} km from OLP-2`);
+    assert.ok(p.x < -0.2 && p.x > -0.22, "east is −X");
+    assert.ok(p.z > 0.02 && p.z < 0.03, "rounded pin is north of OLP-2");
   });
 
   it("puts OLP-1 ~363 m east and ~69 m south of OLP-2", () => {

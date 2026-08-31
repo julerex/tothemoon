@@ -189,7 +189,7 @@ Brownsville, at the Gulf:
 
 | Cluster | What | Rough place |
 |---------|------|-------------|
-| **Launch site** | OLP-1 + OLP-2, tank farm, GSE | Beach end of SH 4 (~25.997°N, 97.156°W in this repo) |
+| **Launch site** | OLP-1 + OLP-2, tank farm, GSE | Beach end of SH 4 (OLP-2 OLM 25.9968°N, 97.1581°W; JPEG plates still 25.997°N, 97.156°W) |
 | **Production / build site** | Starfactory, Mega Bays, Gigabay | ~few km west, Boca Chica village |
 | **Massey’s** | Cryo proofs, ship static fires | ~6.5 mi from the pads (former gun range) |
 

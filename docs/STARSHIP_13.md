@@ -257,7 +257,7 @@ Theater whole-Earth cross-section plane is a **best-fit great circle** through:
 
 | Site | Approx. coordinates (theater) |
 |------|-------------------------------|
-| Starbase | 25.997°N, 97.156°W |
+| Starbase | 25.9968°N, 97.1581°W (OLP-2 OLM) |
 | Gauteng (Johannesburg) | 26.20°S, 28.05°E |
 | Indian Ocean splashdown | 19°S, 107°E (NW of Western Australia; Flight 11 McDowell analog, not a surveyed Flight 13 buoy) |
 | Australia (label) | 25.27°S, 133.78°E |

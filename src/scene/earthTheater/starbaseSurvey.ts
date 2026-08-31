@@ -3,16 +3,19 @@
  *
  * Pad-local origin is the OLP-2 OLM: +X west, +Z north, +Y up. Deltas use the
  * WGS84 meridian / prime-vertical radii at OLP-2 so Pad 1 and the site apron
- * sit on the same tangent plane as the farm mesh.
+ * sit on the same tangent plane as the farm mesh. Physics and `placePadOnEarth`
+ * use this same pin (`STARBASE_LAT` / `STARBASE_LON`).
  *
- * The Earth-mesh pin (`STARBASE_LAT` / `STARBASE_LON`) stays the rounded site
- * coordinate used by the committed Sentinel/NAIP plates (~209 m east of this origin).
+ * Committed Sentinel-2 / NAIP JPEGs stay centered on the older rounded site
+ * pin (~209 m east) — {@link starbasePlatePinFromOlp2}.
  */
+import { STARBASE_LAT_DEG, STARBASE_LON_DEG } from "../../physics/constants";
 import { WGS84_A, WGS84_E2, primeVerticalRadius } from "../../physics/wgs84";
+import { STARBASE_PLATE_LAT_DEG, STARBASE_PLATE_LON_DEG } from "../starbasePlate";
 
-/** OLP-2 / Pad 2 OLM (Flight 13 live pad). */
-export const OLP2_LAT_DEG = 25.99677211965216;
-export const OLP2_LON_DEG = -97.15807620321927;
+/** OLP-2 / Pad 2 OLM (Flight 13 live pad). Same pin as {@link STARBASE_LAT_DEG}. */
+export const OLP2_LAT_DEG = STARBASE_LAT_DEG;
+export const OLP2_LON_DEG = STARBASE_LON_DEG;
 
 /** OLP-1 / Pad A empty-mount centre (OLM pulled at Flight 13). */
 export const OLP1_LAT_DEG = 25.996153431591285;
@@ -66,6 +69,12 @@ export function geodeticDeltaToPadLocal(
   const north = dlat * rm;
   return { x: -east, z: north };
 }
+
+/** Committed JPEG center (rounded site pin) in pad-local km from OLP-2. */
+export const starbasePlatePinFromOlp2 = geodeticDeltaToPadLocal(
+  STARBASE_PLATE_LAT_DEG,
+  STARBASE_PLATE_LON_DEG,
+);
 
 /** OLP-1 empty-mount centre in pad-local km from the OLP-2 origin. */
 export const olp1FromOlp2 = geodeticDeltaToPadLocal(OLP1_LAT_DEG, OLP1_LON_DEG);
