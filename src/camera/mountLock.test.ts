@@ -7,7 +7,7 @@ import {
   mountLockOnEnter,
 } from "./mountLock.ts";
 
-const MOUNTS = ["fin", "gridfin", "trench", "hull", "engines", "enginesDown"] as const;
+const MOUNTS = ["fin", "gridfin", "trench", "hull", "engines", "enginesDown", "tower1cam", "tower2cam"] as const;
 const TRACKED = ["sun", "moon", "earth", "starbase", "aerial", "ground1", "chase", "drone", "free"] as const;
 
 describe("mount lock contract", () => {

@@ -31,6 +31,14 @@ export const CAMERA_LABELS: Record<
     title: "Ground Camera One",
     detail: "Fixed · T−2 full stack and tower",
   },
+  tower1cam: {
+    title: "Tower One Cam",
+    detail: "Fixed · OLP-1 peak looking at the stack",
+  },
+  tower2cam: {
+    title: "Tower Two Cam",
+    detail: "Fixed · OLP-2 peak looking at the stack",
+  },
   booster: {
     title: "Booster",
     detail: "Free · Super Heavy from outside",

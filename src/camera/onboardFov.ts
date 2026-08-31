@@ -9,6 +9,7 @@
  */
 
 import { TRENCH_CAM_FOV } from "./trenchCam";
+import { TOWER1_CAM_FOV, TOWER2_CAM_FOV } from "./towerCam";
 
 /** Opening / chase / body cameras (set at bootstrap). */
 export const DEFAULT_CAM_FOV_DEG = 50;
@@ -22,6 +23,8 @@ export const ONBOARD_CAM_FOV_DEG = 72;
  */
 export function cameraFovForFocus(focus: string): number {
   if (focus === "trench") return TRENCH_CAM_FOV;
+  if (focus === "tower1cam") return TOWER1_CAM_FOV;
+  if (focus === "tower2cam") return TOWER2_CAM_FOV;
   if (
     focus === "fin" ||
     focus === "gridfin" ||

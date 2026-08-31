@@ -19,6 +19,8 @@ const ALL_MODES: readonly CameraMode[] = [
   "starbase",
   "aerial",
   "ground1",
+  "tower1cam",
+  "tower2cam",
   "fin",
   "gridfin",
   "trench",
@@ -45,6 +47,8 @@ describe("free vs fixed cameras", () => {
   it("puts livestream analogs on the fixed rail", () => {
     assert.ok(FIXED_CAMERAS.includes("aerial"));
     assert.ok(FIXED_CAMERAS.includes("ground1"));
+    assert.ok(FIXED_CAMERAS.includes("tower1cam"));
+    assert.ok(FIXED_CAMERAS.includes("tower2cam"));
     assert.ok(FIXED_CAMERAS.includes("fin"));
     assert.ok(FIXED_CAMERAS.includes("drone"));
     assert.ok(!FIXED_CAMERAS.includes("tower"));

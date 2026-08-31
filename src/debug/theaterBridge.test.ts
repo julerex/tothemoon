@@ -45,6 +45,8 @@ describe("parseCameraMode", () => {
     assert.equal(parseCameraMode("starbase"), "starbase");
     assert.equal(parseCameraMode("aerial"), "aerial");
     assert.equal(parseCameraMode("ground1"), "ground1");
+    assert.equal(parseCameraMode("tower1cam"), "tower1cam");
+    assert.equal(parseCameraMode("tower2cam"), "tower2cam");
     assert.equal(parseCameraMode("drone"), "drone");
     assert.equal(parseCameraMode("booster"), "booster");
     assert.equal(parseCameraMode("tower"), "tower");

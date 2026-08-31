@@ -9,6 +9,7 @@ import {
   cameraFovForFocus,
 } from "./onboardFov.ts";
 import { TRENCH_CAM_FOV } from "./trenchCam.ts";
+import { TOWER1_CAM_FOV, TOWER2_CAM_FOV } from "./towerCam.ts";
 
 describe("cameraFovForFocus", () => {
   it("widens only the hull / grid-fin mounts", () => {
@@ -23,6 +24,11 @@ describe("cameraFovForFocus", () => {
   it("uses the wide under-pad lens for trench", () => {
     assert.equal(cameraFovForFocus("trench"), TRENCH_CAM_FOV);
     assert.ok(TRENCH_CAM_FOV > DEFAULT_CAM_FOV_DEG + 20);
+  });
+
+  it("uses elevated peak lenses for the tower cams", () => {
+    assert.equal(cameraFovForFocus("tower1cam"), TOWER1_CAM_FOV);
+    assert.equal(cameraFovForFocus("tower2cam"), TOWER2_CAM_FOV);
   });
 
   it("keeps chase / pad / body cams at the default", () => {

@@ -101,7 +101,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Fixed camera",
     category: "views",
     definition:
-      "Livestream-style mounts on the Fixed rail (launch drone, Ground Camera One, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
+      "Livestream-style mounts on the Fixed rail (launch drone, Ground Camera One, Tower One / Tower Two peak cams, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
   },
   {
     id: "flame-trench",
@@ -228,6 +228,20 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "vehicle",
     definition:
       "Two-stage stack: Super Heavy booster + Starship upper stage (Ship). The mesh is near-true size; after stage-out the booster free-flies while Ship continues the mission.",
+  },
+  {
+    id: "tower1cam",
+    term: "Tower One Cam",
+    category: "views",
+    definition:
+      "Fixed camera on the peak of OLP-1 Mechazilla, looking west at the live OLP-2 stack. Matches the elevated full-stack framing of the Flight 13 T−4:00 pad-hold still. Movement is locked.",
+  },
+  {
+    id: "tower2cam",
+    term: "Tower Two Cam",
+    category: "views",
+    definition:
+      "Fixed camera on the peak of the live OLP-2 launch tower, looking down at the stack from the vehicle-facing edge of the deck. Movement is locked.",
   },
   {
     id: "tli",

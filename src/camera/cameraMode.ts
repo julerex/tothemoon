@@ -3,6 +3,7 @@
  * `"drone"` is the Flight 13 sea-level recovery orbit of the floating ship.
  * `"aerial"` is the Starbase pad flying-drone hover (T− hold wide).
  * `"ground1"` is Ground Camera One — T−2 full stack and tower from the pad.
+ * `"tower1cam"` / `"tower2cam"` sit on the OLP-1 / OLP-2 Mechazilla peaks.
  * `"engines"` / `"enginesDown"` are Super Heavy engine-bay webcast mounts.
  * `"booster"` looks at Super Heavy from outside; `"tower"` looks at Mechazilla.
  *
@@ -18,6 +19,8 @@ export type CameraMode =
   | "starbase"
   | "aerial"
   | "ground1"
+  | "tower1cam"
+  | "tower2cam"
   | "fin"
   | "gridfin"
   | "trench"
@@ -43,6 +46,8 @@ const LOOK_KIND: Record<CameraMode, "free" | "fixed"> = {
   starbase: "fixed",
   aerial: "fixed",
   ground1: "fixed",
+  tower1cam: "fixed",
+  tower2cam: "fixed",
   fin: "fixed",
   gridfin: "fixed",
   trench: "fixed",
@@ -67,12 +72,14 @@ export const FREE_LOOK_CAMERAS: readonly CameraMode[] = [
 
 /**
  * Fixed rail (no pan / orbit / zoom). Livestream analogs: pad drone,
- * Ground Camera One, Starbase, trench, engine-bay, hull, grid-fin, ship
- * fin, recovery drone.
+ * Ground Camera One, tower peak cams, Starbase, trench, engine-bay, hull,
+ * grid-fin, ship fin, recovery drone.
  */
 export const FIXED_CAMERAS: readonly CameraMode[] = [
   "aerial",
   "ground1",
+  "tower1cam",
+  "tower2cam",
   "starbase",
   "trench",
   "enginesDown",

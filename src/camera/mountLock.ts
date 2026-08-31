@@ -15,7 +15,9 @@ export type MountFocus =
   | "trench"
   | "hull"
   | "engines"
-  | "enginesDown";
+  | "enginesDown"
+  | "tower1cam"
+  | "tower2cam";
 
 /** Snap pose every frame until the user grabs the camera. */
 export type MountLock = "hard" | "orbit";
@@ -28,7 +30,9 @@ export function isMountFocus(mode: string): mode is MountFocus {
     mode === "trench" ||
     mode === "hull" ||
     mode === "engines" ||
-    mode === "enginesDown"
+    mode === "enginesDown" ||
+    mode === "tower1cam" ||
+    mode === "tower2cam"
   );
 }
 

@@ -181,6 +181,14 @@ describe("buildTelemetryView", () => {
       "Ground Camera One",
     );
     assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "tower1cam" }), sky).main.cameraMode,
+      "Tower One Cam",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "tower2cam" }), sky).main.cameraMode,
+      "Tower Two Cam",
+    );
+    assert.equal(
       buildTelemetryView(baseTel({ cameraMode: "booster" }), sky).main.cameraMode,
       "Booster",
     );

@@ -5,6 +5,16 @@ import {
 } from "../padLaunchFx";
 import { TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL } from "../../camera/trenchCam";
 import {
+  TOWER1_CAM_LOCAL,
+  TOWER1_CAM_LOOK,
+  TOWER1_CAM_LOOK_LOCAL,
+  TOWER1_CAM_MOUNT,
+  TOWER2_CAM_LOCAL,
+  TOWER2_CAM_LOOK,
+  TOWER2_CAM_LOOK_LOCAL,
+  TOWER2_CAM_MOUNT,
+} from "../../camera/towerCam";
+import {
   makeGroundBloomSprite, makeHeatHazeTexture, makeScorchTexture, makeSteamTexture,
 } from "./padTextures";
 import { createPadSurroundings } from "./padSurroundings";
@@ -326,15 +336,36 @@ function addPadFxSprites(pad: THREE.Group): void {
   addPadVentSteam(pad);
 }
 
-function addTrenchCamMounts(pad: THREE.Group): void {
+function addNamedCamMount(
+  pad: THREE.Group,
+  mountName: string,
+  lookName: string,
+  local: { x: number; y: number; z: number },
+  look: { x: number; y: number; z: number },
+): void {
   const mount = new THREE.Object3D();
-  mount.name = "trench-cam";
-  mount.position.set(TRENCH_CAM_LOCAL.x, TRENCH_CAM_LOCAL.y, TRENCH_CAM_LOCAL.z);
+  mount.name = mountName;
+  mount.position.set(local.x, local.y, local.z);
   pad.add(mount);
-  const look = new THREE.Object3D();
-  look.name = "trench-cam-look";
-  look.position.set(TRENCH_CAM_LOOK_LOCAL.x, TRENCH_CAM_LOOK_LOCAL.y, TRENCH_CAM_LOOK_LOCAL.z);
-  pad.add(look);
+  const lookAt = new THREE.Object3D();
+  lookAt.name = lookName;
+  lookAt.position.set(look.x, look.y, look.z);
+  pad.add(lookAt);
+}
+
+function addTrenchCamMounts(pad: THREE.Group): void {
+  addNamedCamMount(
+    pad, "trench-cam", "trench-cam-look", TRENCH_CAM_LOCAL, TRENCH_CAM_LOOK_LOCAL,
+  );
+}
+
+function addTowerCamMounts(pad: THREE.Group): void {
+  addNamedCamMount(
+    pad, TOWER2_CAM_MOUNT, TOWER2_CAM_LOOK, TOWER2_CAM_LOCAL, TOWER2_CAM_LOOK_LOCAL,
+  );
+  addNamedCamMount(
+    pad, TOWER1_CAM_MOUNT, TOWER1_CAM_LOOK, TOWER1_CAM_LOCAL, TOWER1_CAM_LOOK_LOCAL,
+  );
 }
 
 export function populateStarbasePad(pad: THREE.Group): void {
@@ -342,6 +373,7 @@ export function populateStarbasePad(pad: THREE.Group): void {
   addStarbaseSatellitePlate(pad);
   addPadTrenchAndFlame(pad);
   addTrenchCamMounts(pad);
+  addTowerCamMounts(pad);
   addPadFxSprites(pad);
   pad.add(createMechazillaTower());
   pad.add(createPad1Tower());

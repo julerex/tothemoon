@@ -22,6 +22,11 @@ import {
 import { panAxesFromHeld, type PanKey } from "./panAxes";
 import { panUpAxisForMode } from "./panUpAxis";
 import { TRENCH_CAM_FOV, trenchCamWorldPose } from "./trenchCam";
+import {
+  isTowerCamFocus,
+  towerCamLookName,
+  towerCamMountName,
+} from "./towerCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
@@ -497,7 +502,7 @@ export class CameraDirector {
   private isInstantEaseMode(mode: CameraMode): boolean {
     return mode === "fin" || isBoosterMountFocus(mode) || mode === "trench" ||
       mode === "hull" || mode === "drone" || mode === "aerial" ||
-      mode === "ground1" || mode === "free";
+      mode === "ground1" || isTowerCamFocus(mode) || mode === "free";
   }
 
   private beginDistanceEase(mode: CameraMode, frameScale: number): void {
@@ -1010,7 +1015,8 @@ export class CameraDirector {
       this.focus === "fin" ||
       isBoosterMountFocus(this.focus) ||
       this.focus === "trench" ||
-      this.focus === "hull";
+      this.focus === "hull" ||
+      isTowerCamFocus(this.focus);
     return close ? 0.0002 : 0.1;
   }
 
@@ -1093,6 +1099,9 @@ export class CameraDirector {
     if (mode === "fin") return this.copyFinLook(out);
     if (mode === "hull") return this.copyNamedLook(this.craft, "hull-cam-look", out);
     if (isBoosterMountFocus(mode)) return this.copyGridFinVariantLook(out);
+    if (isTowerCamFocus(mode)) {
+      return this.copyNamedLook(this.pad, towerCamLookName(mode), out);
+    }
     return this.copyTrenchLook(out);
   }
 
@@ -1123,6 +1132,7 @@ export class CameraDirector {
   ): boolean {
     const look = host?.getObjectByName(lookName);
     if (!host || !look) return false;
+    this.pad?.updateMatrixWorld(true);
     this.craft?.updateMatrixWorld(true);
     this.detachedBooster?.updateMatrixWorld(true);
     look.getWorldPosition(out);
@@ -1687,7 +1697,18 @@ export class CameraDirector {
     if (this.focus === "fin") { this.applyFinCam(); return; }
     if (this.focus === "hull") { this.applyHullCam(); return; }
     if (isBoosterMountFocus(this.focus)) { this.applyGridFinVariant(); return; }
+    if (isTowerCamFocus(this.focus)) { this.applyTowerCam(this.focus); return; }
     if (this.focus === "trench") this.applyTrenchCam();
+  }
+
+  /** Peak-deck mounts on OLP-1 / OLP-2; pad +Y is local up. */
+  private applyTowerCam(mode: "tower1cam" | "tower2cam"): void {
+    if (!this.pad) return;
+    this.pad.updateMatrixWorld(true);
+    const mount = this.pad.getObjectByName(towerCamMountName(mode));
+    const look = this.pad.getObjectByName(towerCamLookName(mode));
+    if (!mount || !look) return;
+    this.seatMountCam(mount, look, this.pad);
   }
 
   private applyHullCam(): void {

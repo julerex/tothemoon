@@ -21,7 +21,7 @@ describe("onboardPostEnabled", () => {
 
   it("stays off for hull and all non-onboard cams", () => {
     for (const mode of [
-      "hull", "trench", "chase", "starbase", "aerial", "ground1", "earth", "moon", "sun", "free",
+      "hull", "trench", "chase", "starbase", "aerial", "ground1", "tower1cam", "tower2cam", "earth", "moon", "sun", "free",
     ]) {
       assert.equal(onboardPostEnabled(mode), false, mode);
     }
