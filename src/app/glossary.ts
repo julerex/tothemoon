@@ -101,7 +101,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Fixed camera",
     category: "views",
     definition:
-      "Livestream-style mounts on the Fixed rail (launch drone, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
+      "Livestream-style mounts on the Fixed rail (launch drone, Ground Camera One, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
   },
   {
     id: "flame-trench",
@@ -116,6 +116,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "views",
     definition:
       "Sun, Earth, Moon, Launch Tower, Booster, and Starship. Pan, orbit, and zoom are allowed. Choosing one turns Auto-cam off.",
+  },
+  {
+    id: "ground1",
+    term: "Ground Camera One",
+    category: "views",
+    definition:
+      "Fixed pad camera matching the Flight 13 T−2:00 webcast still: telephoto up at the full stack and Mechazilla from south-southwest of the OLM. Movement is locked.",
   },
   {
     id: "hardstand",

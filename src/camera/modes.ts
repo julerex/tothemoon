@@ -26,6 +26,11 @@ import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
 import {
+  GROUND1_AZ_DEG,
+  GROUND1_EL_DEG,
+  GROUND1_FOV,
+  GROUND1_FRAME_SCALE,
+  GROUND1_LOOK_UP_KM,
   PAD_AERIAL_AZ_DEG,
   PAD_AERIAL_EL_DEG,
   PAD_AERIAL_FOV,
@@ -463,8 +468,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode);
-    const aerial = this.armAerialPose(mode);
-    this.applyFocus(mode, aerial != null, aerial?.frameScale ?? 1, aerial ?? undefined);
+    const posed = this.armAerialPose(mode) ?? this.armGround1Pose(mode);
+    this.applyFocus(mode, posed != null, posed?.frameScale ?? 1, posed ?? undefined);
   }
 
   /**
@@ -480,8 +485,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode, frameScale);
-    const aerial = this.armAerialPose(mode, frameScale);
-    this.applyFocus(mode, /* frame */ true, aerial?.frameScale ?? frameScale, aerial ?? undefined);
+    const posed = this.armAerialPose(mode, frameScale) ?? this.armGround1Pose(mode, frameScale);
+    this.applyFocus(mode, /* frame */ true, posed?.frameScale ?? frameScale, posed ?? undefined);
   }
 
   /**
@@ -491,7 +496,8 @@ export class CameraDirector {
    */
   private isInstantEaseMode(mode: CameraMode): boolean {
     return mode === "fin" || isBoosterMountFocus(mode) || mode === "trench" ||
-      mode === "hull" || mode === "drone" || mode === "aerial" || mode === "free";
+      mode === "hull" || mode === "drone" || mode === "aerial" ||
+      mode === "ground1" || mode === "free";
   }
 
   private beginDistanceEase(mode: CameraMode, frameScale: number): void {
@@ -557,6 +563,7 @@ export class CameraDirector {
   private guidedFov(mode: CameraMode, fov?: number): number {
     if (fov != null) return fov;
     if (mode === "aerial") return PAD_AERIAL_FOV;
+    if (mode === "ground1") return GROUND1_FOV;
     if (mode === "trench") return TRENCH_CAM_FOV;
     if (this.droneTrack) return SPLASH_DRONE_FOV;
     return THEATER_DEFAULT_FOV;
@@ -582,6 +589,26 @@ export class CameraDirector {
       azimuthDeg: PAD_AERIAL_AZ_DEG,
       elevationDeg: PAD_AERIAL_EL_DEG,
       frameScale: frameScale ?? PAD_AERIAL_FRAME_SCALE,
+    };
+  }
+
+  /**
+   * Rail pick: Ground Camera One — T−2 full-stack telephoto, Earth-fixed
+   * on the pad, looking at the stack and tower.
+   */
+  private armGround1Pose(
+    mode: CameraMode,
+    frameScale?: number,
+  ): { azimuthDeg: number; elevationDeg: number; frameScale: number } | null {
+    if (mode !== "ground1") return null;
+    this.padTrack = true;
+    this.padTrackAz = GROUND1_AZ_DEG;
+    this.padTrackEl = GROUND1_EL_DEG;
+    this.setVerticalFov(GROUND1_FOV);
+    return {
+      azimuthDeg: GROUND1_AZ_DEG,
+      elevationDeg: GROUND1_EL_DEG,
+      frameScale: frameScale ?? GROUND1_FRAME_SCALE,
     };
   }
 
@@ -1028,9 +1055,11 @@ export class CameraDirector {
     if (this.focus === "tower" && this.copyTowerLook(outTarget)) return;
     const pad = starbasePadState(this.simTime, this.epoch);
     outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
-    if (this.focus === "aerial") {
+    if (this.focus === "aerial" || this.focus === "ground1") {
       this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
-      outTarget.addScaledVector(this.padUp, PAD_AERIAL_LOOK_UP_KM);
+      const lift =
+        this.focus === "ground1" ? GROUND1_LOOK_UP_KM : PAD_AERIAL_LOOK_UP_KM;
+      outTarget.addScaledVector(this.padUp, lift);
     }
   }
 

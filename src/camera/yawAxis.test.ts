@@ -42,6 +42,7 @@ describe("yawAxisForMode", () => {
     assert.equal(sameAsPole, false);
     assert.equal(yawAxisForMode("tower", t, v3())?.x, pad.up.x);
     assert.equal(yawAxisForMode("starbase", t, v3())?.x, pad.up.x);
+    assert.equal(yawAxisForMode("ground1", t, v3())?.x, pad.up.x);
   });
 
   it("other modes have no dedicated yaw axis", () => {

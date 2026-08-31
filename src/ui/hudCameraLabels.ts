@@ -27,6 +27,10 @@ export const CAMERA_LABELS: Record<
     title: "Launchpad Drone",
     detail: "Fixed · pad flying drone",
   },
+  ground1: {
+    title: "Ground Camera One",
+    detail: "Fixed · T−2 full stack and tower",
+  },
   booster: {
     title: "Booster",
     detail: "Free · Super Heavy from outside",

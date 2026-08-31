@@ -2,6 +2,7 @@
  * Camera focus presets. `"free"` is internal (no subject co-motion).
  * `"drone"` is the Flight 13 sea-level recovery orbit of the floating ship.
  * `"aerial"` is the Starbase pad flying-drone hover (T− hold wide).
+ * `"ground1"` is Ground Camera One — T−2 full stack and tower from the pad.
  * `"engines"` / `"enginesDown"` are Super Heavy engine-bay webcast mounts.
  * `"booster"` looks at Super Heavy from outside; `"tower"` looks at Mechazilla.
  *
@@ -16,6 +17,7 @@ export type CameraMode =
   | "moon"
   | "starbase"
   | "aerial"
+  | "ground1"
   | "fin"
   | "gridfin"
   | "trench"
@@ -40,6 +42,7 @@ const LOOK_KIND: Record<CameraMode, "free" | "fixed"> = {
   chase: "free",
   starbase: "fixed",
   aerial: "fixed",
+  ground1: "fixed",
   fin: "fixed",
   gridfin: "fixed",
   trench: "fixed",
@@ -64,10 +67,12 @@ export const FREE_LOOK_CAMERAS: readonly CameraMode[] = [
 
 /**
  * Fixed rail (no pan / orbit / zoom). Livestream analogs: pad drone,
- * Starbase, trench, engine-bay, hull, grid-fin, ship fin, recovery drone.
+ * Ground Camera One, Starbase, trench, engine-bay, hull, grid-fin, ship
+ * fin, recovery drone.
  */
 export const FIXED_CAMERAS: readonly CameraMode[] = [
   "aerial",
+  "ground1",
   "starbase",
   "trench",
   "enginesDown",
@@ -92,13 +97,18 @@ export function isFreeLookCamera(mode: CameraMode): boolean {
 }
 
 /**
- * Starbase ground/opening, pad flying-drone, and launch-tower looks share
- * pad ENU: WASD slides parallel to the Earth, T/B is surface-normal.
- * The flying drone and Starbase pad-track are still {@link isFixedCamera};
- * only the launch tower accepts that pan.
+ * Starbase ground/opening, pad flying-drone, Ground Camera One, and
+ * launch-tower looks share pad ENU: WASD slides parallel to the Earth,
+ * T/B is surface-normal. Aerial, Starbase, and Ground Camera One are still
+ * {@link isFixedCamera}; only the launch tower accepts that pan.
  */
 export function isPadFocus(mode: CameraMode): boolean {
-  return mode === "starbase" || mode === "aerial" || mode === "tower";
+  return (
+    mode === "starbase" ||
+    mode === "aerial" ||
+    mode === "ground1" ||
+    mode === "tower"
+  );
 }
 
 /**

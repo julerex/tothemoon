@@ -38,10 +38,10 @@ describe("cycleCameraMode", () => {
       "tower",
       "chase",
       "aerial",
-      "starbase",
+      "ground1",
     ]);
-    assert.equal(CAMERA_CYCLE[8], "trench");
-    assert.equal(CAMERA_CYCLE[9], "enginesDown");
+    assert.equal(CAMERA_CYCLE[8], "starbase");
+    assert.equal(CAMERA_CYCLE[9], "trench");
     assert.equal(CAMERA_CYCLE.at(-1), "drone");
   });
 
@@ -54,7 +54,8 @@ describe("cycleCameraMode", () => {
     assert.equal(cycleCameraMode("moon", -1), "earth");
     assert.equal(cycleCameraMode("earth", -1), "sun");
     assert.equal(cycleCameraMode("chase", 1), "aerial");
-    assert.equal(cycleCameraMode("aerial", 1), "starbase");
+    assert.equal(cycleCameraMode("aerial", 1), "ground1");
+    assert.equal(cycleCameraMode("ground1", 1), "starbase");
     assert.equal(cycleCameraMode("starbase", 1), "trench");
     assert.equal(cycleCameraMode("fin", 1), "drone");
     assert.equal(cycleCameraMode("drone", 1), "sun");

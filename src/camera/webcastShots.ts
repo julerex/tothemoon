@@ -68,6 +68,23 @@ export const PAD_AERIAL_FOV = 62;
 /** Look-at height above the OLM (km) so the stack, not the apron, is centered. */
 export const PAD_AERIAL_LOOK_UP_KM = 0.058;
 
+/**
+ * Ground Camera One — `tminus-000200-full-stack.jpg`.
+ * South-southwest of the OLM, telephoto up at the full stack and chopsticks.
+ * Gulf (east) to the right; TPS camera-left / stainless right.
+ */
+export const GROUND1_AZ_DEG = 248;
+/** Elevation above the local horizon (deg) — rooftop / pad-fence height. */
+export const GROUND1_EL_DEG = 5.2;
+/** Telephoto vertical FOV so the stack + tower fill the frame. */
+export const GROUND1_FOV = 36;
+/** Tight framed-pad multiplier — OLM in the footer, chopsticks at the top. */
+export const GROUND1_FRAME_SCALE = 0.34;
+/** Look-at height above the OLM (km) so the camera frames the stack, not dirt. */
+export const GROUND1_LOOK_UP_KM = 0.085;
+/** Mission time (s) of the T−2:00 Ground Camera One cut. */
+export const GROUND1_T0 = -120;
+
 /** Mission time (s) when Auto-cam cuts from aerial splash to the sea drone. */
 export const SPLASH_DRONE_T0 = 3926;
 /** Opening ENU azimuth (deg from east toward north) for the drone hold. */
@@ -98,7 +115,7 @@ export function splashDroneAzimuthDeg(t: number): number {
  * Times follow `assets/flight13-webcast/README.md` HUD clocks. Consecutive
  * stills that keep the same left-pane mount are collapsed into one hold.
  *
- * Pad: wide aerial → ground stack that tracks the climb.
+ * Pad: wide aerial → Ground Camera One (T−2 full stack) through liftoff.
  * Ascent through Super Heavy splash: booster hull / engine-bay (left of split).
  * After SH landing: ship hull-cam (payload / coast / landing) and flap-cam
  * on the entry split. Splash: brief aerial chase, then sea-level drone orbit
@@ -117,16 +134,15 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: PAD_AERIAL_FOV,
   },
   {
-    key: "pad-track",
-    t0: -8,
-    mode: "starbase",
+    key: "ground-cam-1",
+    t0: GROUND1_T0,
+    mode: "ground1",
     frame: true,
-    // Ground-level full stack (T−2 ignition still): telephoto up at the stack.
-    frameScale: 0.34,
-    azimuthDeg: 248,
-    elevationDeg: 5.2,
+    frameScale: GROUND1_FRAME_SCALE,
+    azimuthDeg: GROUND1_AZ_DEG,
+    elevationDeg: GROUND1_EL_DEG,
     padTrack: true,
-    fov: 36,
+    fov: GROUND1_FOV,
   },
   {
     key: "ascent-track",

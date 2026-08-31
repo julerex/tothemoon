@@ -5,7 +5,7 @@ import { v3 } from "../physics/vec3.ts";
 import { panUpAxisForMode } from "./panUpAxis.ts";
 
 describe("panUpAxisForMode", () => {
-  it("starbase, aerial, and tower climb along pad local up, not Earth's pole", () => {
+  it("starbase, aerial, Ground Camera One, and tower climb along pad local up, not Earth's pole", () => {
     const t = 3600;
     const out = v3();
     const axis = panUpAxisForMode("starbase", t, out);
@@ -22,6 +22,7 @@ describe("panUpAxisForMode", () => {
       Math.abs(axis.z - pole.z) < 1e-9;
     assert.equal(sameAsPole, false);
     assert.equal(panUpAxisForMode("aerial", t, v3())?.x, pad.up.x);
+    assert.equal(panUpAxisForMode("ground1", t, v3())?.x, pad.up.x);
     assert.equal(panUpAxisForMode("tower", t, v3())?.x, pad.up.x);
   });
 

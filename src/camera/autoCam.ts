@@ -10,8 +10,8 @@
  *
  * Profiles:
  * - **lunar** — cislunar arc (pad → ship → wide Earth coast → Moon)
- * - **flight13** — official Flight 13 X-replay cuts (pad aerial → ground
- *   track → booster hull / engine-bay through Super Heavy splash → ship
+ * - **flight13** — official Flight 13 X-replay cuts (pad aerial → Ground
+ *   Camera One → booster hull / engine-bay through Super Heavy splash → ship
  *   hull / entry flap → splash chase → sea-level drone)
  */
 

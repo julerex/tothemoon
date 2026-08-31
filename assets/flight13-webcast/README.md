@@ -13,7 +13,7 @@ Capture SOP: [docs/STARSHIP_13.md](../../docs/STARSHIP_13.md). Filenames use the
 
 Motion source for later landing/splash refinement (not captured into this folder yet): https://x.com/SpaceX/status/2082186658162626898 — see [Motion sources](#motion-sources-not-captured-yet).
 
-Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Starbase**, **Flame trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
+Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Ground Camera One** (T−2 full stack), **Starbase**, **Flame trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
 
 ## Catalog
 
@@ -22,7 +22,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tminus-000500-pad-hold-wide.jpg` | T−00:05:00 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000400-pad-hold-wide.jpg` | T−00:04:00 | Pad hold, Mechazilla + stack, cryo vent at interstage | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000300-pad-hold-wide.jpg` | T−00:03:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
-| `tminus-000200-full-stack.jpg` | T−00:02:00 | Full stack, chopsticks at interstage, booster cryo vent | Ground-level full stack | Starbase |
+| `tminus-000200-full-stack.jpg` | T−00:02:00 | Full stack, chopsticks at interstage, booster cryo vent | Ground-level full stack | Ground Camera One |
 | `tminus-000130-engines-up.jpg` | T−00:01:30 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
 | `tminus-000100-pad-hold-wide.jpg` | T−00:01:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000042-pad-hold-wide.jpg` | T−00:00:42 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |

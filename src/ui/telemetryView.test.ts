@@ -177,6 +177,10 @@ describe("buildTelemetryView", () => {
       "Launchpad Drone",
     );
     assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "ground1" }), sky).main.cameraMode,
+      "Ground Camera One",
+    );
+    assert.equal(
       buildTelemetryView(baseTel({ cameraMode: "booster" }), sky).main.cameraMode,
       "Booster",
     );

@@ -18,6 +18,7 @@ const ALL_MODES: readonly CameraMode[] = [
   "moon",
   "starbase",
   "aerial",
+  "ground1",
   "fin",
   "gridfin",
   "trench",
@@ -43,6 +44,7 @@ describe("free vs fixed cameras", () => {
 
   it("puts livestream analogs on the fixed rail", () => {
     assert.ok(FIXED_CAMERAS.includes("aerial"));
+    assert.ok(FIXED_CAMERAS.includes("ground1"));
     assert.ok(FIXED_CAMERAS.includes("fin"));
     assert.ok(FIXED_CAMERAS.includes("drone"));
     assert.ok(!FIXED_CAMERAS.includes("tower"));
@@ -82,9 +84,10 @@ describe("free vs fixed cameras", () => {
 });
 
 describe("isPadFocus", () => {
-  it("is true for Starbase, the pad flying drone, and the launch tower", () => {
+  it("is true for Starbase, the pad flying drone, Ground Camera One, and the launch tower", () => {
     assert.equal(isPadFocus("starbase"), true);
     assert.equal(isPadFocus("aerial"), true);
+    assert.equal(isPadFocus("ground1"), true);
     assert.equal(isPadFocus("tower"), true);
   });
 

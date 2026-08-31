@@ -33,6 +33,7 @@ const CAMERA_MODES: readonly CameraMode[] = [
   "moon",
   "starbase",
   "aerial",
+  "ground1",
   "fin",
   "gridfin",
   "trench",

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   FLIGHT13_WEBCAST_SHOTS,
+  GROUND1_AZ_DEG,
+  GROUND1_EL_DEG,
+  GROUND1_FOV,
+  GROUND1_FRAME_SCALE,
+  GROUND1_T0,
   SPLASH_DRONE_T0,
   splashDroneAzimuthDeg,
   webcastShotAt,
@@ -26,11 +31,21 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.ok((open.elevationDeg ?? 0) > 15);
     assert.ok((open.fov ?? 0) > 50);
     assert.ok((open.frameScale ?? 1) < 2.5);
-    assert.equal(webcastShotAt(-42).key, "pad-wide");
-    assert.equal(webcastShotAt(-42).mode, "aerial");
-    const track = webcastShotAt(-2);
-    assert.equal(track.mode, "starbase");
-    assert.equal(track.padTrack, true);
+    assert.equal(webcastShotAt(-180).key, "pad-wide");
+    assert.equal(webcastShotAt(-180).mode, "aerial");
+    const ground = webcastShotAt(GROUND1_T0);
+    assert.equal(ground.key, "ground-cam-1");
+    assert.equal(ground.mode, "ground1");
+    assert.equal(ground.padTrack, true);
+    assert.equal(ground.azimuthDeg, GROUND1_AZ_DEG);
+    assert.equal(ground.elevationDeg, GROUND1_EL_DEG);
+    assert.equal(ground.fov, GROUND1_FOV);
+    assert.equal(ground.frameScale, GROUND1_FRAME_SCALE);
+    assert.ok(GROUND1_EL_DEG < 10, "rooftop / pad-fence height");
+    assert.ok(GROUND1_FOV < 45, "telephoto stack+tower");
+    const hold = webcastShotAt(-2);
+    assert.equal(hold.mode, "ground1");
+    assert.equal(hold.padTrack, true);
     assert.equal(webcastShotAt(16).key, "ascent-track");
   });
 
