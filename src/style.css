@@ -61,14 +61,46 @@ body.menus-active {
   background: var(--bg);
 }
 
+/* HUD rails stay up as the info-bar frame; theater controls are inert. */
+body.menus-active .hud-header,
+body.menus-active .cam-grid,
+body.menus-active .cam-toggles,
+body.menus-active .tel-actions,
+body.menus-active .transport {
+  pointer-events: none;
+}
+
+body.menus-active .hud-header {
+  visibility: hidden;
+}
+
+/* Ticker strip stays; crawl copy is empty on menus. */
+body.menus-active .news-ticker,
+body.menus-active .news-ticker[hidden] {
+  display: flex;
+}
+
+body.menus-active .news-ticker-text {
+  visibility: hidden;
+}
+
+body.menus-active .news-ticker-track {
+  animation: none;
+}
+
 .menus {
   position: absolute;
-  inset: 0;
+  /* Sit flush against the inner edge of the left/right HUD rails and
+   * above the bottom ticker strip. */
+  top: 0;
+  right: var(--rail-width);
+  bottom: var(--bottom-chrome);
+  left: var(--rail-width);
   z-index: 20;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
+  padding: 0;
   overflow: auto;
   pointer-events: auto;
 }
@@ -154,10 +186,15 @@ body.menus-active {
 
 .menu-screen {
   width: min(100%, 52rem);
+  margin: auto;
 }
 
 .menu-screen-home {
-  width: min(100%, 76rem);
+  align-self: stretch;
+  flex: 1 1 auto;
+  width: auto;
+  min-height: 100%;
+  margin: 0;
 }
 
 .menu-screen[hidden] {
@@ -178,10 +215,18 @@ body.menus-active {
 
 .menu-panel-home {
   width: 100%;
-  min-height: min(44rem, calc(100dvh - 2.5rem));
+  min-height: 100%;
+  height: 100%;
   padding: 2.6rem 3rem 1.85rem;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  border-radius: 0;
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+  overflow: auto;
 }
 
 .menu-kicker {
@@ -453,7 +498,6 @@ body.menus-active {
   }
 
   .menu-panel-home {
-    min-height: 0;
     padding: 1.5rem 1.25rem 1.25rem;
   }
 }

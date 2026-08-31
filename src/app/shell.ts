@@ -12,14 +12,12 @@ function el(id: string): HTMLElement | null {
 }
 
 /**
- * Show or hide the 3D canvas and mission HUD.
- * Menus stay independent so a mission can opt into theater later.
+ * Show or hide the 3D canvas. HUD chrome (side info bars + ticker) stays
+ * up so menus can sit flush against those rails.
  */
 export function setTheaterVisible(visible: boolean): void {
   const canvas = el("c");
-  const hud = el("hud");
   if (canvas) canvas.hidden = !visible;
-  if (hud) hud.hidden = !visible;
   if (visible) {
     document.body.classList.add("theater-active");
     document.body.classList.remove("menus-active");
