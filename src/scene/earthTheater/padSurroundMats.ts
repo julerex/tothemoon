@@ -1,6 +1,5 @@
 /** Shared materials and ground helpers for pad surroundings. */
 import * as THREE from "three";
-import { makeScrubTerrainTexture } from "./padTextures";
 
 export const GROUND_OFFSET = {
   polygonOffset: true,
@@ -62,37 +61,6 @@ export function makePadStructureMats(): Pick<PadSurroundMats, "steel" | "steelDa
 
 export function makePadSurroundMats(): PadSurroundMats {
   return { ...makePadGroundMats(), ...makePadStructureMats() };
-}
-
-export function addGroundDisc(
-  g: THREE.Group,
-  r: number,
-  mat: THREE.Material,
-  x: number,
-  y: number,
-  z: number,
-  segs = 24,
-  name?: string,
-): void {
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(r, segs), mat);
-  disc.rotation.x = -Math.PI / 2;
-  disc.position.set(x, y, z);
-  if (name) disc.name = name;
-  g.add(disc);
-}
-
-/**
- * One soft-edged terrain disc for coastal scrub — avoids stacked coplanar
- * CircleGeometry patches that z-fight into TV-snow at pad cams.
- */
-export function makeScrubTerrainMat(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
-    map: makeScrubTerrainTexture(),
-    color: 0xffffff,
-    metalness: 0.04,
-    roughness: 0.98,
-    ...GROUND_OFFSET,
-  });
 }
 
 export function addGroundRing(

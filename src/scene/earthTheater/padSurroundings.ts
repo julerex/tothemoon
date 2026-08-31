@@ -2,15 +2,13 @@
 import * as THREE from "three";
 import { makeScorchTexture, makeWaterStainTexture } from "./padTextures";
 import {
-  GROUND_OFFSET, addGroundDisc, addGroundRing, makePadSurroundMats,
-  makeScrubTerrainMat, type PadSurroundMats,
+  GROUND_OFFSET, makePadSurroundMats, type PadSurroundMats,
 } from "./padSurroundMats";
 import { SH4_Z_KM } from "./padFarmLayout";
 import { buildTankFarm } from "./padTankFarm";
 import { addPadHardstand } from "./padHardstand";
 
 function populatePadSurroundings(g: THREE.Group, mats: PadSurroundMats): void {
-  addPadScrubAndPond(g, mats);
   addPadHardstand(g, mats);
   addPadApronDecals(g);
   addPadRoadsAndCars(g, mats);
@@ -24,12 +22,6 @@ export function createPadSurroundings(): THREE.Group {
   g.name = "pad-surroundings";
   populatePadSurroundings(g, makePadSurroundMats());
   return g;
-}
-
-function addPadScrubAndPond(g: THREE.Group, mats: PadSurroundMats): void {
-  // Ring (not a disc) so the OLM / trench opening is not roofed from below.
-  addGroundRing(g, 0.08, 1.55, makeScrubTerrainMat(), 0, -0.007, 0, 48, "pad-scrub-terrain");
-  addGroundDisc(g, 0.08, mats.water, 0.05, -0.0058, 0.42, 20, "pad-pond");
 }
 
 function makeScorchMat(): THREE.MeshStandardMaterial {

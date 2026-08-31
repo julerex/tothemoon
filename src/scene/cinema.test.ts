@@ -146,23 +146,9 @@ describe("cameraAltitudeMoonKm / shadowAltitudeKm", () => {
 });
 
 describe("markPadShadowMeshes", () => {
-  it("keeps hardstand receiving; large scrub discs neither cast nor receive", () => {
+  it("keeps hardstand receiving; satellite plates neither cast nor receive", () => {
     const pad = new THREE.Group();
     pad.name = "starbase-pad";
-
-    const scrub = new THREE.Mesh(
-      new THREE.CircleGeometry(1, 8),
-      new THREE.MeshStandardMaterial(),
-    );
-    scrub.name = "pad-landmark-scrub";
-    pad.add(scrub);
-
-    const terrain = new THREE.Mesh(
-      new THREE.CircleGeometry(1.5, 8),
-      new THREE.MeshStandardMaterial(),
-    );
-    terrain.name = "pad-scrub-terrain";
-    pad.add(terrain);
 
     const plate = new THREE.Mesh(
       new THREE.PlaneGeometry(80, 80, 2, 2),
@@ -203,10 +189,6 @@ describe("markPadShadowMeshes", () => {
 
     markPadShadowMeshes(pad);
 
-    assert.equal(scrub.receiveShadow, false);
-    assert.equal(scrub.castShadow, false);
-    assert.equal(terrain.receiveShadow, false);
-    assert.equal(terrain.castShadow, false);
     assert.equal(plate.receiveShadow, false);
     assert.equal(plate.castShadow, false);
     assert.equal(naip.receiveShadow, false);

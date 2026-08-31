@@ -116,39 +116,6 @@ export function makeScorchTexture(): THREE.CanvasTexture {
   return makeSizedCanvasTexture(128, paintScorch);
 }
 
-/** Soft coastal scrub blotches (fixed seeds — scrub-stable recreate). */
-const SCRUB_TERRAIN_BLOTS: readonly (readonly [number, number, number, string])[] = [
-  [0.32, 0.38, 0.28, "rgba(154, 138, 104, 0.95)"],
-  [0.68, 0.28, 0.24, "rgba(122, 106, 78, 0.9)"],
-  [0.28, 0.68, 0.26, "rgba(176, 160, 128, 0.88)"],
-  [0.72, 0.62, 0.22, "rgba(154, 138, 104, 0.9)"],
-  [0.5, 0.52, 0.3, "rgba(138, 122, 90, 0.75)"],
-  [0.42, 0.22, 0.18, "rgba(122, 106, 78, 0.85)"],
-  [0.78, 0.45, 0.2, "rgba(176, 160, 128, 0.8)"],
-  [0.55, 0.78, 0.22, "rgba(122, 106, 78, 0.88)"],
-];
-
-function paintScrubTerrain(ctx: CanvasRenderingContext2D, size: number): void {
-  ctx.fillStyle = "#8a7a5c";
-  ctx.fillRect(0, 0, size, size);
-  for (const [ux, uy, ur, color] of SCRUB_TERRAIN_BLOTS) {
-    const x = ux * size;
-    const y = uy * size;
-    const r = ur * size;
-    const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
-    g.addColorStop(0, color);
-    g.addColorStop(1, "rgba(138, 122, 92, 0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-export function makeScrubTerrainTexture(): THREE.CanvasTexture {
-  return makeSizedCanvasTexture(256, paintScrubTerrain);
-}
-
 /**
  * Soft green-gray water / deluge runoff stain for apron decals.
  * Used as a transparent map on thin ground planes around the OLM.

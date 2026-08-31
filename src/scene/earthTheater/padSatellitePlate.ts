@@ -1,4 +1,4 @@
-/** Sentinel-2 surrounds square, nested NAIP pad plate, earth-cam landmark rings. */
+/** Sentinel-2 surrounds square and nested NAIP pad plate. */
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM, STARBASE_LAT } from "../../physics/constants";
 import { geocentricRadiusAt } from "../../physics/wgs84";
@@ -11,52 +11,6 @@ import { loadTextureAsset } from "../assetLoad";
 import { makePlateAlphaTexture } from "./padTextures";
 import { GROUND_OFFSET } from "./padSurroundMats";
 import { starbasePlatePinFromOlp2 } from "./starbaseSurvey";
-
-export function addPadLandmarks(pad: THREE.Group): void {
-  addLandmarkScrub(pad);
-  addLandmarkConcrete(pad);
-  addLandmarkRim(pad);
-}
-
-function addLandmarkScrub(pad: THREE.Group): void {
-  const mesh = new THREE.Mesh(
-    new THREE.RingGeometry(0.4, 2.7, 64, 1),
-    new THREE.MeshStandardMaterial({ color: 0x8a7a5c, metalness: 0.05, roughness: 0.97, ...GROUND_OFFSET }),
-  );
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.01;
-  mesh.name = "pad-landmark-scrub";
-  pad.add(mesh);
-}
-
-function addLandmarkConcrete(pad: THREE.Group): void {
-  const mesh = new THREE.Mesh(
-    new THREE.RingGeometry(0.08, 0.48, 48, 1),
-    new THREE.MeshStandardMaterial({ color: 0x7a7e84, metalness: 0.22, roughness: 0.85, ...GROUND_OFFSET }),
-  );
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.008;
-  mesh.name = "pad-landmark-ring";
-  pad.add(mesh);
-}
-
-function addLandmarkRim(pad: THREE.Group): void {
-  const mesh = new THREE.Mesh(
-    new THREE.TorusGeometry(2.65, 0.028, 8, 64),
-    new THREE.MeshStandardMaterial({ color: 0x6a7a70, metalness: 0.12, roughness: 0.9 }),
-  );
-  mesh.rotation.x = Math.PI / 2;
-  mesh.position.y = -0.005;
-  mesh.name = "pad-landmark-rim";
-  pad.add(mesh);
-}
-
-const STARBASE_PLATE_HIDE = [
-  "pad-landmark-scrub",
-  "pad-landmark-ring",
-  "pad-landmark-rim",
-  "pad-scrub-terrain",
-] as const;
 
 /** Planar UVs on an XZ square: pad +Z north / +X west after `placePadOnEarth`; U grows toward −X (east). */
 function applyStarbasePlateUvs(geo: THREE.BufferGeometry, halfKm: number): void {
@@ -149,18 +103,7 @@ function makeStarbasePlateMaterial(
   return mat;
 }
 
-function hideProceduralPadGround(pad: THREE.Group): void {
-  for (const name of STARBASE_PLATE_HIDE) {
-    const node = pad.getObjectByName(name);
-    if (node) node.visible = false;
-  }
-}
-
-function applyStarbasePlateTexture(
-  pad: THREE.Group,
-  plate: THREE.Mesh,
-  tex: THREE.Texture,
-): void {
+function applyStarbasePlateTexture(plate: THREE.Mesh, tex: THREE.Texture): void {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.wrapS = THREE.ClampToEdgeWrapping;
@@ -170,25 +113,23 @@ function applyStarbasePlateTexture(
   mat.map = tex;
   mat.needsUpdate = true;
   plate.visible = true;
-  hideProceduralPadGround(pad);
 }
 
 function onStarbasePlateMissing(kind: "surrounds" | "naip"): void {
   const label = kind === "naip" ? "NAIP pad plate" : "surrounds texture";
   console.warn(
-    `[tothemoon] Starbase ${label} missing; using ${kind === "naip" ? "Sentinel-2 / procedural scrub" : "procedural scrub"}`,
+    `[tothemoon] Starbase ${label} missing; using ${kind === "naip" ? "Sentinel-2 / globe albedo" : "globe albedo"}`,
   );
 }
 
 function loadStarbasePlateTexture(
-  pad: THREE.Group,
   plate: THREE.Mesh,
   file: string,
   kind: "surrounds" | "naip",
 ): void {
   const url = `${import.meta.env.BASE_URL}textures/${file}`;
   void loadTextureAsset(url).then((tex) => {
-    if (tex) applyStarbasePlateTexture(pad, plate, tex);
+    if (tex) applyStarbasePlateTexture(plate, tex);
     else onStarbasePlateMissing(kind);
   });
 }
@@ -210,14 +151,14 @@ function addPlate(
   plate.visible = false;
   plate.renderOrder = -1;
   pad.add(plate);
-  loadStarbasePlateTexture(pad, plate, opts.file, opts.kind);
+  loadStarbasePlateTexture(plate, opts.file, opts.kind);
 }
 
 /**
  * North-up Sentinel-2 square around the pad, plus a nested USDA NAIP plate
  * over the launch/production site. Meshes sit on the committed JPEG pin
  * (`starbasePlatePinFromOlp2`), not the OLP-2 origin. Hidden until each
- * JPEG loads so procedural scrub / landmark rings remain the fallback.
+ * JPEG loads.
  */
 export function addStarbaseSatellitePlate(pad: THREE.Group): void {
   addPlate(pad, {

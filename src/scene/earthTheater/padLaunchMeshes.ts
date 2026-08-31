@@ -10,7 +10,7 @@ import {
 import { createPadSurroundings } from "./padSurroundings";
 import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX } from "./mechazillaTower";
 import { createPad1Tower } from "./padSecondTower";
-import { addPadLandmarks, addStarbaseSatellitePlate } from "./padSatellitePlate";
+import { addStarbaseSatellitePlate } from "./padSatellitePlate";
 import { createPadVentClouds } from "./padVentClouds";
 import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
 
@@ -339,7 +339,6 @@ function addTrenchCamMounts(pad: THREE.Group): void {
 
 export function populateStarbasePad(pad: THREE.Group): void {
   pad.add(createPadSurroundings());
-  addPadLandmarks(pad);
   addStarbaseSatellitePlate(pad);
   addPadTrenchAndFlame(pad);
   addTrenchCamMounts(pad);
