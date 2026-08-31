@@ -179,6 +179,22 @@ export function bookmarkForDigit(
   return bookmarks[digit - 1] ?? null;
 }
 
+/**
+ * Next or previous bookmark in the built list.
+ * Unknown current (`< 0`) wraps from the start (`dir > 0`) or end (`dir < 0`).
+ */
+export function cycleBookmark(
+  bookmarks: readonly CinematicBookmark[],
+  currentIndex: number,
+  dir: -1 | 1,
+): { bookmark: CinematicBookmark; index: number } | null {
+  const n = bookmarks.length;
+  if (n === 0) return null;
+  const from = currentIndex < 0 || currentIndex >= n ? (dir > 0 ? -1 : 0) : currentIndex;
+  const index = (from + dir + n) % n;
+  return { bookmark: bookmarks[index]!, index };
+}
+
 function eventT(tl: MissionTimeline, id: string): number | null {
   const ev = findEvent(tl.events, id);
   return ev ? ev.t : null;

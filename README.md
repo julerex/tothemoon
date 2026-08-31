@@ -41,7 +41,7 @@ Texture credits (NASA Blue Marble, LRO WAC Moon, Sentinel-2 cloudless, USDA NAIP
 - **KeyMap** (**K**, **Tab** cycle, or button) — white-outline keyboard on black with the action under each key
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
-- Cameras: **Auto-cam** (toggle **G**; Flight 13 follows the official webcast left-pane cuts only. WASD / QERF / ZX / mouse turns it **off**) · Free orbit · rail buttons (**🚀 Booster**, **🏗️ Launch Tower**, **🚢 Starship**; **Launchpad Drone** = pad flying drone, **Drone** = recovery drone around the floating ship) or **−** / **=** cycle · **C**/**V** roll · **T**/**B** pan up/down (Earth-perpendicular at Starbase and the launch tower) · mouse / WASD / T/B leave a locked mount (same on both missions)
+- Cameras: **Auto-cam** (toggle **G**; Flight 13 follows the official webcast left-pane cuts only. WASD / QERF / ZX / mouse turns it **off**) · Free orbit · rail buttons (**🚀 Booster**, **🏗️ Launch Tower**, **🚢 Starship**; **Launchpad Drone** = pad flying drone, **Drone** = recovery drone around the floating ship) or **[** / **]** cycle cameras, **−** / **=** cycle bookmarks · **C**/**V** roll · **T**/**B** pan up/down (Earth-perpendicular at Starbase and the launch tower) · mouse / WASD / T/B leave a locked mount (same on both missions)
 - HUD: phase, mission time, **Sky** (Moon phase % lit + Sun λ), distance, altitude, speed, fuel bars + thrust
 - Metrics (**M**): full telemetry; Flight 13 also shows **Force check** (n-body vs Earth-only coast |Δr|)
 - Logarithmic depth buffer for near craft + far Moon

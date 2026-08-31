@@ -5,6 +5,7 @@ import { v3 } from "../physics/vec3.ts";
 import {
   BOOKMARK_IDS,
   bookmarkForDigit,
+  cycleBookmark,
   buildBookmarks,
 } from "./bookmarks.ts";
 import { buildTimeline } from "./timeline.ts";
@@ -173,5 +174,27 @@ describe("bookmarkForDigit", () => {
     assert.equal(bookmarkForDigit(marks, marks.length)?.id, "touchdown");
     assert.equal(bookmarkForDigit(marks, 0), null);
     assert.equal(bookmarkForDigit(marks, 99), null);
+  });
+});
+
+describe("cycleBookmark", () => {
+  it("steps forward and wraps", () => {
+    const tl = buildTimeline(landingArcSamples(), 1000);
+    const marks = buildBookmarks(tl);
+    const first = cycleBookmark(marks, -1, 1);
+    assert.equal(first?.index, 0);
+    assert.equal(first?.bookmark.id, "pad");
+    const second = cycleBookmark(marks, 0, 1);
+    assert.equal(second?.index, 1);
+    const wrap = cycleBookmark(marks, marks.length - 1, 1);
+    assert.equal(wrap?.index, 0);
+  });
+
+  it("steps backward from an unknown index to the last bookmark", () => {
+    const tl = buildTimeline(landingArcSamples(), 1000);
+    const marks = buildBookmarks(tl);
+    const last = cycleBookmark(marks, -1, -1);
+    assert.equal(last?.index, marks.length - 1);
+    assert.equal(cycleBookmark([], -1, 1), null);
   });
 });

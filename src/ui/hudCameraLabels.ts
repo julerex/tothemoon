@@ -60,7 +60,7 @@ export const CAMERA_LABELS: Record<
 };
 
 /**
- * Focus modes cycled by − / =.
+ * Focus modes cycled by [ / ].
  * After Sun / Earth / Moon, order is first use in the Flight 13 webcast
  * (T−5 pad through splash).
  */

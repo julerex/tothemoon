@@ -2,7 +2,7 @@
  * Keyboard: transport, bookmarks, camera holds, panels, scene toggles.
  */
 
-import { bookmarkForDigit } from "../mission/bookmarks";
+import { bookmarkForDigit, cycleBookmark } from "../mission/bookmarks";
 import { cycleCamera, noteCameraMode, toggleAutoCam, toggleLabels, toggleOrbits } from "./hudCameraCtl";
 import {
   anyPanelOpen,
@@ -61,15 +61,27 @@ function handleDigitBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {
   return true;
 }
 
+function stepBookmark(rt: HudRuntime, dir: -1 | 1): void {
+  const next = cycleBookmark(rt.data.bookmarks, rt.flags.lastBookmarkIndex, dir);
+  if (!next) return;
+  jumpToBookmark(rt, next.bookmark);
+}
+
 function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.code === "Space") {
     return preventAnd(e, () => rt.data.handlers.onPlayToggle());
   }
-  if (e.code === "Minus") {
+  if (e.code === "BracketLeft") {
     return preventAnd(e, () => cycleCamera(rt, -1));
   }
-  if (e.code === "Equal") {
+  if (e.code === "BracketRight") {
     return preventAnd(e, () => cycleCamera(rt, 1));
+  }
+  if (e.code === "Minus") {
+    return preventAnd(e, () => stepBookmark(rt, -1));
+  }
+  if (e.code === "Equal") {
+    return preventAnd(e, () => stepBookmark(rt, 1));
   }
   return handleDigitBookmark(rt, e);
 }

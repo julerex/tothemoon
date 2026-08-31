@@ -32,8 +32,8 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "8" },
     { label: "9" },
     { label: "0" },
-    { label: "-", action: "Prev camera" },
-    { label: "=", action: "Next camera" },
+    { label: "-", action: "Prev bookmark" },
+    { label: "=", action: "Next bookmark" },
     { label: "⌫", w: 1.5 },
   ],
   [
@@ -48,8 +48,8 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "I" },
     { label: "O", action: "Labels" },
     { label: "P" },
-    { label: "[" },
-    { label: "]" },
+    { label: "[", action: "Prev camera" },
+    { label: "]", action: "Next camera" },
     { label: "\\", w: 1.5 },
   ],
   [

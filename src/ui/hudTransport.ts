@@ -128,6 +128,8 @@ export function seekToEvent(rt: HudRuntime, ev: MissionEvent): void {
 }
 
 export function jumpToBookmark(rt: HudRuntime, bm: CinematicBookmark): void {
+  const i = rt.data.bookmarks.findIndex((b) => b.id === bm.id);
+  if (i >= 0) rt.flags.lastBookmarkIndex = i;
   setActiveBookmark(rt, bm.id);
   setActiveEventTick(rt, null);
   rt.dom.scrub.value = String(Math.round(bm.u * 1000));
