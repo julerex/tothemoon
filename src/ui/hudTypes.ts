@@ -49,7 +49,8 @@ export type HudHandlers = {
   onToggleOrbits?: () => boolean;
   /**
    * Toggle guided phase cameras. Returns the new enabled state.
-   * Default on; rail picks, mouse orbit/pan/zoom, and camera-move keys turn it off.
+   * Default on; rail picks and free-look mouse / move keys turn it off.
+   * Fixed livestream cameras reject movement and leave Auto-cam on.
    */
   onAutoCamToggle?: () => boolean;
   /**

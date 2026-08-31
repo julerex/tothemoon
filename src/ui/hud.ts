@@ -36,7 +36,13 @@ import {
   applyMetricsLabels,
 } from "./hudApply";
 import { collectHudDom, collectMetricsDom } from "./hudDom";
-import { rememberCameraMode, setAutoCamEnabled, notifyAutoCamera, wireCameraChrome } from "./hudCameraCtl";
+import {
+  rememberCameraMode,
+  setAutoCamEnabled,
+  notifyAutoCamera,
+  showCamLockNote,
+  wireCameraChrome,
+} from "./hudCameraCtl";
 import { wireKeyboard } from "./hudKeys";
 import { redrawCrossSection, redrawKeymap, wireOverlayCloses, wirePanelOpenButtons } from "./hudPanels";
 import {
@@ -220,6 +226,7 @@ export function bindHud(
   update: (tel: Telemetry) => void;
   setAutoCamEnabled: (enabled: boolean) => void;
   notifyAutoCamera: (mode: CameraMode) => void;
+  notifyFixedCamMove: () => void;
 } {
   const rt = createHudRuntime(timeline, handlers, samples, recoveryProfile, epoch);
   wireHud(rt);
@@ -227,5 +234,6 @@ export function bindHud(
     update: (tel) => update(rt, tel),
     setAutoCamEnabled: (enabled) => setAutoCamEnabled(rt, enabled),
     notifyAutoCamera: (mode) => notifyAutoCamera(rt, mode),
+    notifyFixedCamMove: () => showCamLockNote(rt),
   };
 }

@@ -2,7 +2,11 @@
  * Camera mode toast copy and cycle order for the theater HUD.
  */
 
-import type { CameraMode } from "../camera/modes";
+import {
+  FIXED_CAMERAS,
+  FREE_LOOK_CAMERAS,
+  type CameraMode,
+} from "../camera/cameraMode";
 
 export const CAMERA_LABELS: Record<
   CameraMode,
@@ -12,74 +16,66 @@ export const CAMERA_LABELS: Record<
     title: "Free camera",
     detail: "No subject track · WASD + T/B pan · drag to look",
   },
-  sun: { title: "Sun", detail: "Focus · double-tap rail to frame" },
-  moon: { title: "Moon", detail: "Focus · double-tap rail to frame" },
-  earth: { title: "Earth", detail: "Focus · double-tap rail to frame" },
+  sun: { title: "Sun", detail: "Free · double-tap rail to frame" },
+  moon: { title: "Moon", detail: "Free · double-tap rail to frame" },
+  earth: { title: "Earth", detail: "Free · double-tap rail to frame" },
   starbase: {
     title: "Starbase",
-    detail: "Pad · double-tap rail to frame",
+    detail: "Fixed · pad track of the stack",
   },
   aerial: {
     title: "Launchpad Drone",
-    detail: "Pad flying drone · wide hold of the stack",
+    detail: "Fixed · pad flying drone",
   },
   booster: {
     title: "Booster",
-    detail: "Super Heavy · exterior look at the first stage",
+    detail: "Free · Super Heavy from outside",
   },
   tower: {
     title: "Launch Tower",
-    detail: "Mechazilla · WASD along the ground",
+    detail: "Free · WASD along the ground",
   },
   trench: {
     title: "Launchpad",
-    detail: "Flame trench · looking up at the bells",
+    detail: "Fixed · flame trench looking up at the bells",
   },
   gridfin: {
     title: "Grid fin",
-    detail: "Booster hull · along Earth",
+    detail: "Fixed · booster hull cam",
   },
   chase: {
     title: "Starship",
-    detail: "Ship · exterior look at the upper stage",
+    detail: "Free · ship from outside",
   },
-  fin: { title: "Ship fin", detail: "Aft engines" },
-  hull: { title: "Ship hull", detail: "Barrel cam" },
+  fin: { title: "Ship fin", detail: "Fixed · aft engines" },
+  hull: { title: "Ship hull", detail: "Fixed · barrel cam" },
   engines: {
     title: "Engine bay",
-    detail: "Looking at the Raptor bells",
+    detail: "Fixed · looking at the Raptor bells",
   },
   enginesDown: {
     title: "Engines down",
-    detail: "Looking down through the plume",
+    detail: "Fixed · looking down through the plume",
   },
   drone: {
     title: "Drone",
-    detail: "Sea-level orbit of the floating ship",
+    detail: "Fixed · sea-level orbit of the floating ship",
   },
 };
 
+/** Shown when the user tries to pan / orbit / zoom a fixed camera. */
+export const FIXED_CAM_LOCK_NOTE =
+  "Fixed camera — movement is locked. Pick a Free camera to look around.";
+
+/** How long the lock note stays visible (ms). */
+export const CAM_LOCK_NOTE_MS = 2800;
+
 /**
- * Focus modes cycled by [ / ].
- * After Sun / Earth / Moon, order is first use in the Flight 13 webcast
- * (T−5 pad through splash).
+ * Focus modes cycled by [ / ]: Free rail, then Fixed rail.
  */
 export const CAMERA_CYCLE: readonly CameraMode[] = [
-  "sun",
-  "earth",
-  "moon",
-  "booster",
-  "tower",
-  "chase",
-  "aerial",
-  "starbase",
-  "trench",
-  "enginesDown",
-  "hull",
-  "engines",
-  "gridfin",
-  "fin",
-  "drone",
+  ...FREE_LOOK_CAMERAS,
+  ...FIXED_CAMERAS,
 ];
 
 /**

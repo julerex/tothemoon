@@ -31,7 +31,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Auto-cam",
     category: "views",
     definition:
-      "Guided camera that matches the Flight 13 webcast (left pane when split) and eases to a sensible view when a lunar phase changes. Toggle with G. Moving the camera (WASD, QERF, ZX, mouse) turns it off.",
+      "Guided camera that matches the Flight 13 webcast (left pane when split) and eases to a sensible view when a lunar phase changes. Toggle with G. Picking or moving a Free camera turns it off. Fixed cameras cannot be moved.",
   },
   {
     id: "ballistic-coast",
@@ -52,7 +52,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Booster",
     category: "views",
     definition:
-      "Exterior camera looking at Super Heavy. After stage-out it follows the detached booster. Distinct from the Grid fin hull-cam mounted on the booster.",
+      "Free exterior camera looking at Super Heavy. After stage-out it follows the detached booster. Distinct from the Grid fin hull-cam mounted on the booster.",
   },
   {
     id: "chopsticks",
@@ -97,11 +97,25 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Earth’s orbital plane around the Sun. The theater frame is ecliptic J2000 (XY = ecliptic, +Z = ecliptic north). The Polar map looks along +Z onto that plane.",
   },
   {
+    id: "fixed-cam",
+    term: "Fixed camera",
+    category: "views",
+    definition:
+      "Livestream-style mounts on the Fixed rail (launch drone, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
+  },
+  {
     id: "flame-trench",
     term: "Flame trench",
     category: "vehicle",
     definition:
-      "Open channel under the launch mount that directs engine exhaust away from the pad at liftoff. The Launchpad camera (key 5) stands in this trench looking up at the Super Heavy engine bells.",
+      "Open channel under the launch mount that directs engine exhaust away from the pad at liftoff. The Launchpad camera on the Fixed rail stands in this trench looking up at the Super Heavy engine bells.",
+  },
+  {
+    id: "free-cam",
+    term: "Free camera",
+    category: "views",
+    definition:
+      "Sun, Earth, Moon, Launch Tower, Booster, and Starship. Pan, orbit, and zoom are allowed. Choosing one turns Auto-cam off.",
   },
   {
     id: "hardstand",
@@ -129,14 +143,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Launch Tower",
     category: "views",
     definition:
-      "Exterior look at Mechazilla. WASD slides the camera parallel to the Earth; T/B is straight up and down from the pad.",
+      "Free camera looking at Mechazilla. WASD slides parallel to the Earth; T/B is straight up and down from the pad.",
   },
   {
     id: "aerial",
     term: "Launchpad Drone",
     category: "views",
     definition:
-      "Flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash.",
+      "Fixed flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash. Movement is locked.",
   },
   {
     id: "leo",

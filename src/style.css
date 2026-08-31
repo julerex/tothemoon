@@ -1013,7 +1013,7 @@ body.menus-active {
 }
 
 .telemetry > div,
-.camera-rail > div:not(.cam-grid):not(.cam-toggles) {
+.camera-rail > div:not(.cam-grid):not(.cam-toggles):not(.cam-rail-groups) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1061,11 +1061,44 @@ body.menus-active {
   padding: 0.32rem 0.4rem;
 }
 
+.cam-rail-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+  min-width: 0;
+}
+
+.cam-rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
 .cam-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.22rem;
   margin-top: 0.15rem;
+}
+
+.cam-rail-group .cam-grid {
+  margin-top: 0;
+}
+
+.cam-lock-note {
+  margin: 0;
+  padding: 0.32rem 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--text);
+  background: var(--accent-dim);
+  border: 1px solid var(--panel-border);
+}
+
+.cam-lock-note[hidden] {
+  display: none;
 }
 
 .cam-grid button {

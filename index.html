@@ -238,22 +238,33 @@
             <span id="tel-cam-dir" class="cam-pose-vec">—</span>
           </div>
           <div><span class="label">Auto-cam</span> <span id="tel-auto-cam">On</span></div>
-          <div class="cam-grid" id="cam-grid" role="group" aria-label="Camera focus">
-            <button type="button" data-cam="sun" title="Sun — look at the Sun" aria-label="Sun — look at the Sun">☀️</button>
-            <button type="button" data-cam="earth" title="Earth — wide view of the globe" aria-label="Earth — wide view of the globe">🌍</button>
-            <button type="button" data-cam="moon" title="Moon — look at the Moon" aria-label="Moon — look at the Moon">🌙</button>
-            <button type="button" data-cam="booster" title="Booster — Super Heavy from outside" aria-label="Booster — Super Heavy from outside">🚀</button>
-            <button type="button" data-cam="tower" title="Launch Tower — Mechazilla, pan along the ground" aria-label="Launch Tower — Mechazilla, pan along the ground">🏗️</button>
-            <button type="button" data-cam="chase" title="Starship — upper stage from outside" aria-label="Starship — upper stage from outside">🚢</button>
-            <button type="button" data-cam="aerial" title="1 — Launchpad Drone — wide hold of the stack" aria-label="1 — Launchpad Drone — wide hold of the stack">1️⃣</button>
-            <button type="button" data-cam="starbase" title="2 — Starbase pad — launch mount and Mechazilla" aria-label="2 — Starbase pad — launch mount and Mechazilla">2️⃣</button>
-            <button type="button" data-cam="trench" title="3 — Flame trench — looking up at the engine bells" aria-label="3 — Flame trench — looking up at the engine bells">3️⃣</button>
-            <button type="button" data-cam="enginesDown" title="5 — Engines down — looking down through the plume" aria-label="5 — Engines down — looking down through the plume">5️⃣</button>
-            <button type="button" data-cam="hull" title="6 — Ship hull-cam — barrel and heat-shield tiles" aria-label="6 — Ship hull-cam — barrel and heat-shield tiles">6️⃣</button>
-            <button type="button" data-cam="engines" title="7 — Engine bay — looking at the Raptor bells" aria-label="7 — Engine bay — looking at the Raptor bells">7️⃣</button>
-            <button type="button" data-cam="gridfin" title="8 — Super Heavy — grid-fin and booster hull cam" aria-label="8 — Super Heavy — grid-fin and booster hull cam">8️⃣</button>
-            <button type="button" data-cam="fin" title="9 — Ship fin-cam — flaps and aft engines" aria-label="9 — Ship fin-cam — flaps and aft engines">9️⃣</button>
-            <button type="button" data-cam="drone" title="10 — Recovery drone — sea-level orbit of the floating ship" aria-label="10 — Recovery drone — sea-level orbit of the floating ship">🔟</button>
+          <div class="cam-rail-groups" id="cam-grids">
+            <div class="cam-rail-group">
+              <span class="label">Free</span>
+              <div class="cam-grid" id="cam-grid-free" role="group" aria-label="Free cameras">
+                <button type="button" data-cam="sun" title="Free — Sun — look at the Sun" aria-label="Free — Sun — look at the Sun">☀️</button>
+                <button type="button" data-cam="earth" title="Free — Earth — wide view of the globe" aria-label="Free — Earth — wide view of the globe">🌍</button>
+                <button type="button" data-cam="moon" title="Free — Moon — look at the Moon" aria-label="Free — Moon — look at the Moon">🌙</button>
+                <button type="button" data-cam="booster" title="Free — Booster — Super Heavy from outside" aria-label="Free — Booster — Super Heavy from outside">🚀</button>
+                <button type="button" data-cam="tower" title="Free — Launch Tower — Mechazilla, pan along the ground" aria-label="Free — Launch Tower — Mechazilla, pan along the ground">🏗️</button>
+                <button type="button" data-cam="chase" title="Free — Starship — upper stage from outside" aria-label="Free — Starship — upper stage from outside">🚢</button>
+              </div>
+            </div>
+            <div class="cam-rail-group">
+              <span class="label">Fixed</span>
+              <div class="cam-grid" id="cam-grid-fixed" role="group" aria-label="Fixed cameras">
+                <button type="button" data-cam="aerial" title="Fixed — 1 — Launchpad Drone — wide hold of the stack" aria-label="Fixed — 1 — Launchpad Drone — wide hold of the stack">1️⃣</button>
+                <button type="button" data-cam="starbase" title="Fixed — 2 — Starbase pad — launch mount and Mechazilla" aria-label="Fixed — 2 — Starbase pad — launch mount and Mechazilla">2️⃣</button>
+                <button type="button" data-cam="trench" title="Fixed — 3 — Flame trench — looking up at the engine bells" aria-label="Fixed — 3 — Flame trench — looking up at the engine bells">3️⃣</button>
+                <button type="button" data-cam="enginesDown" title="Fixed — 5 — Engines down — looking down through the plume" aria-label="Fixed — 5 — Engines down — looking down through the plume">5️⃣</button>
+                <button type="button" data-cam="hull" title="Fixed — 6 — Ship hull-cam — barrel and heat-shield tiles" aria-label="Fixed — 6 — Ship hull-cam — barrel and heat-shield tiles">6️⃣</button>
+                <button type="button" data-cam="engines" title="Fixed — 7 — Engine bay — looking at the Raptor bells" aria-label="Fixed — 7 — Engine bay — looking at the Raptor bells">7️⃣</button>
+                <button type="button" data-cam="gridfin" title="Fixed — 8 — Super Heavy — grid-fin and booster hull cam" aria-label="Fixed — 8 — Super Heavy — grid-fin and booster hull cam">8️⃣</button>
+                <button type="button" data-cam="fin" title="Fixed — 9 — Ship fin-cam — flaps and aft engines" aria-label="Fixed — 9 — Ship fin-cam — flaps and aft engines">9️⃣</button>
+                <button type="button" data-cam="drone" title="Fixed — 10 — Recovery drone — sea-level orbit of the floating ship" aria-label="Fixed — 10 — Recovery drone — sea-level orbit of the floating ship">🔟</button>
+              </div>
+            </div>
+            <p id="cam-lock-note" class="cam-lock-note" hidden role="status" aria-live="polite"></p>
           </div>
           <div class="cam-toggles" role="group" aria-label="View toggles">
             <button

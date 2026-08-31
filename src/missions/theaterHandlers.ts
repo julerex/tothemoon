@@ -1,5 +1,6 @@
 /**
  * Shared HUD + pointer wiring for mission theaters.
+ * Free-look cameras drop Auto-cam on a move key; fixed cameras do not.
  *
  * Both theaters bound the same transport, camera, and toggle handlers to their
  * HUD — the two copies were identical apart from local function names. The
@@ -8,8 +9,11 @@
  */
 
 import type * as THREE from "three";
-import type { CameraDirector } from "../camera/modes";
-import type { CameraMode } from "../camera/modes";
+import {
+  isFixedCamera,
+  type CameraDirector,
+  type CameraMode,
+} from "../camera/modes";
 import type { MissionClock } from "../mission/clock";
 import type { CinematicBookmark } from "../mission/bookmarks";
 import type { LandingBeatEffects } from "../mission/landingBeatHold";
@@ -65,6 +69,10 @@ function onCamera(w: TheaterHudWire, mode: CameraMode): void {
 }
 
 function onCameraFrame(w: TheaterHudWire, mode: CameraMode): void {
+  if (isFixedCamera(mode)) {
+    w.director.frameMode(mode);
+    return;
+  }
   w.disableAutoCam();
   w.director.frameMode(mode);
 }
@@ -74,6 +82,7 @@ function onCameraHold(
   down: boolean,
   run: () => CameraMode,
 ): CameraMode {
+  if (isFixedCamera(w.director.getMode())) return run();
   const mode = run();
   if (down) w.disableAutoCam();
   return mode;

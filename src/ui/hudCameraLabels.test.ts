@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { FIXED_CAMERAS, FREE_LOOK_CAMERAS } from "../camera/cameraMode.ts";
 import {
   CAMERA_CYCLE,
   CAMERA_LABELS,
   cycleCameraMode,
+  FIXED_CAM_LOCK_NOTE,
 } from "./hudCameraLabels.ts";
 
 describe("CAMERA_CYCLE", () => {
@@ -11,6 +13,18 @@ describe("CAMERA_CYCLE", () => {
     for (const mode of CAMERA_CYCLE) {
       assert.ok(CAMERA_LABELS[mode].title.length > 0);
     }
+  });
+
+  it("is the free rail then the fixed rail", () => {
+    assert.deepEqual([...CAMERA_CYCLE], [...FREE_LOOK_CAMERAS, ...FIXED_CAMERAS]);
+  });
+});
+
+describe("FIXED_CAM_LOCK_NOTE", () => {
+  it("tells the user movement is locked on a fixed camera", () => {
+    assert.match(FIXED_CAM_LOCK_NOTE, /fixed camera/i);
+    assert.match(FIXED_CAM_LOCK_NOTE, /locked/i);
+    assert.match(FIXED_CAM_LOCK_NOTE, /free/i);
   });
 });
 

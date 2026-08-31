@@ -3,10 +3,10 @@
  * engine-bay, trench, hull).
  *
  * Entering a mount snaps the camera to that pose every frame (`"hard"`).
- * The first mouse or orbit/pan/zoom key switches to `"orbit"`: the look-at
- * still tracks the mount, but pan / orbit / zoom offsets stick — same as
- * Starbase / chase on either mission.
- * Re-entering the mount (digit key, Auto-cam cut) restores `"hard"`.
+ * These mounts are fixed livestream cameras: pan / orbit / zoom is rejected
+ * and the pose stays hard-locked. (Free-look cameras such as chase / tower
+ * still accept sticky offsets.)
+ * Re-entering the mount (rail pick, Auto-cam cut) restores `"hard"`.
  */
 
 export type MountFocus =

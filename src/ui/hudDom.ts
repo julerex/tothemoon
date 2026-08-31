@@ -57,6 +57,7 @@ export type HudTelStrip = {
   telemetryEl: HTMLElement | null;
   cameraRailEl: HTMLElement | null;
   camGridEl: HTMLElement | null;
+  camLockNoteEl: HTMLElement | null;
 };
 
 export type HudCompleteCard = {
@@ -212,7 +213,8 @@ function collectTelStripB(): Omit<
     skyEl: q("#tel-sky"), barBooster: q("#bar-booster"), barShip: q("#bar-ship"),
     telemetryEl: q(".telemetry"),
     cameraRailEl: q("#camera-rail"),
-    camGridEl: q("#cam-grid"),
+    camGridEl: q("#cam-grids"),
+    camLockNoteEl: q("#cam-lock-note"),
   };
 }
 

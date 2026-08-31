@@ -62,6 +62,7 @@ export function bindHudPack(
   const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples, "chopsticks", cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());
+  world.director.setOnFixedMoveAttempt(() => hud.notifyFixedCamMove());
   return { hud, notifyAutoCamera: hud.notifyAutoCamera };
 }
 

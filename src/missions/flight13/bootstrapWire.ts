@@ -57,6 +57,7 @@ export function bindRuntimeHud(w: RuntimeHudWire): {
   const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.cache.samples, "gulf", w.cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   w.director.setOnUserControl(() => disableAutoCam());
+  w.director.setOnFixedMoveAttempt(() => hud.notifyFixedCamMove());
   return { hud, setAutoCamUi, notifyAutoCamera: hud.notifyAutoCamera, disableAutoCam };
 }
 

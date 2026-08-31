@@ -40,8 +40,13 @@ import {
 } from "./webcastShots";
 
 export type { CameraMode } from "./cameraMode";
-export { isPadFocus } from "./cameraMode";
-import { isBoosterMountFocus, isPadFocus, type CameraMode } from "./cameraMode";
+export { isFixedCamera, isFreeLookCamera, isPadFocus } from "./cameraMode";
+import {
+  isBoosterMountFocus,
+  isFixedCamera,
+  isPadFocus,
+  type CameraMode,
+} from "./cameraMode";
 import {
   readCameraWorldPose,
   resolveCameraWorldPose,
@@ -107,7 +112,10 @@ const SUN_DEFAULT_DIST = R_SUN * 8;
 
 export class CameraDirector {
   readonly controls: OrbitControls;
-  /** What we track; OrbitControls stay enabled in every focus. */
+  /**
+   * What we track. OrbitControls stay enabled on free-look cameras;
+   * livestream (fixed) mounts lock the view.
+   */
   private focus: CameraMode = "starbase";
   private readonly desiredTarget = new THREE.Vector3();
   /**
@@ -193,6 +201,8 @@ export class CameraDirector {
   private mountLock: MountLock = "orbit";
   /** Fired when the user starts mouse orbit / pan / zoom on the canvas. */
   private onUserControl: (() => void) | null = null;
+  /** Fired when the user tries to move a fixed (livestream) camera. */
+  private onFixedMoveAttempt: (() => void) | null = null;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -201,6 +211,7 @@ export class CameraDirector {
     this.controls = new OrbitControls(camera, domElement);
     this.initOrbitControls();
     this.bindControlsStart();
+    this.bindFixedMoveGuards();
     this.finishCameraInit();
   }
 
@@ -220,9 +231,26 @@ export class CameraDirector {
     this.camera.up.copy(ECLIPTIC_NORTH);
     this.syncOrbitControlsUp();
     this.controls.addEventListener("start", () => {
+      if (this.rejectIfFixed(true)) return;
       this.cancelDistanceEase();
       this.unlockMount();
     });
+  }
+
+  /**
+   * OrbitControls is disabled on fixed cameras, so listen on the canvas
+   * for pointer / wheel and tell the HUD instead of moving.
+   */
+  private bindFixedMoveGuards(): void {
+    const el = this.controls.domElement;
+    if (!el) return;
+    const onAttempt = (ev: Event) => {
+      if (!isFixedCamera(this.focus)) return;
+      if (ev.type === "wheel") ev.preventDefault();
+      this.onFixedMoveAttempt?.();
+    };
+    el.addEventListener("pointerdown", onAttempt);
+    el.addEventListener("wheel", onAttempt, { passive: false });
   }
 
   private finishCameraInit(): void {
@@ -238,6 +266,25 @@ export class CameraDirector {
    */
   setOnUserControl(cb: (() => void) | null): void {
     this.onUserControl = cb;
+  }
+
+  /**
+   * Register a callback when the user tries to pan / orbit / zoom a
+   * {@link isFixedCamera} mount (HUD lock note).
+   */
+  setOnFixedMoveAttempt(cb: (() => void) | null): void {
+    this.onFixedMoveAttempt = cb;
+  }
+
+  /** True when this focus rejects user movement (and the callback fired). */
+  private rejectIfFixed(down: boolean): boolean {
+    if (!isFixedCamera(this.focus)) return false;
+    if (down) this.onFixedMoveAttempt?.();
+    return true;
+  }
+
+  private syncControlsEnabled(): void {
+    this.controls.enabled = !isFixedCamera(this.focus);
   }
 
   /** Abort an in-progress framed-distance ease. */
@@ -301,6 +348,7 @@ export class CameraDirector {
     this.buildPadOpeningDirection();
     this.placePadOpeningCamera();
     this.clampOutsideBodies();
+    this.syncControlsEnabled();
   }
 
   private seatPadTargetAndAxes(): void {
@@ -422,8 +470,13 @@ export class CameraDirector {
   /**
    * Focus on a body/object and zoom so it fills a comfortable fraction of the
    * view (distance scales with object size). Double-tap number keys use this.
+   * Fixed cameras skip the zoom and notify instead.
    */
   frameMode(mode: CameraMode, frameScale = 1): void {
+    if (isFixedCamera(mode)) {
+      this.onFixedMoveAttempt?.();
+      return;
+    }
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode, frameScale);
@@ -562,8 +615,9 @@ export class CameraDirector {
     frameScale = 1,
     pose?: { azimuthDeg?: number; elevationDeg?: number; frameScale?: number },
   ): void {
+    if (isFixedCamera(mode)) this.clearCameraHolds();
     if (this.applyLockedOrFreeFocus(mode, frame, frameScale)) return;
-    this.controls.enabled = true;
+    this.syncControlsEnabled();
     this.applyTrackedFocus(mode, frame, frameScale, pose);
   }
 
@@ -619,7 +673,7 @@ export class CameraDirector {
   private enterFreeFocus(): void {
     this.focus = "free";
     this.trackAnchorValid = false;
-    this.controls.enabled = true;
+    this.syncControlsEnabled();
     this.applyClipPlanes();
   }
 
@@ -627,7 +681,7 @@ export class CameraDirector {
     this.focus = mode;
     this.mountLock = mountLockOnEnter();
     this.trackAnchorValid = false;
-    this.controls.enabled = true;
+    this.syncControlsEnabled();
     this.applyClipPlanes();
     // Manual rail mounts (variant still "default") get the wide onboard
     // lens. Auto-cam already set a per-shot FOV in applyGuidedPose.
@@ -867,6 +921,7 @@ export class CameraDirector {
     key: "q" | "e" | "r" | "f" | "c" | "v",
     down: boolean,
   ): CameraMode {
+    if (this.rejectIfFixed(down)) return this.focus;
     if (key === "q") this.orbitQ = down;
     else if (key === "e") this.orbitE = down;
     else if (key === "r") this.orbitR = down;
@@ -884,6 +939,7 @@ export class CameraDirector {
    * WASD stays parallel to the ground.
    */
   setPanKey(key: PanKey, down: boolean): CameraMode {
+    if (this.rejectIfFixed(down)) return this.focus;
     if (key === "w") this.panW = down;
     else if (key === "a") this.panA = down;
     else if (key === "s") this.panS = down;
@@ -896,6 +952,7 @@ export class CameraDirector {
 
   /** Z/X hold state — zoom in / out toward the focus. */
   setZoomKey(key: "z" | "x", down: boolean): CameraMode {
+    if (this.rejectIfFixed(down)) return this.focus;
     if (key === "z") this.zoomZ = down;
     else this.zoomX = down;
     if (down) this.unlockMount();
@@ -1330,6 +1387,7 @@ export class CameraDirector {
     const camYaw = (this.orbitE ? 1 : 0) - (this.orbitQ ? 1 : 0);
     const pitch = (this.orbitR ? 1 : 0) - (this.orbitF ? 1 : 0);
     const roll = (this.orbitC ? 1 : 0) - (this.orbitV ? 1 : 0);
+    if (isFixedCamera(this.focus)) return;
     if ((camYaw === 0 && pitch === 0 && roll === 0) || dt <= 0) return;
     this.cancelDistanceEase();
     this.applyOrbitAxes(camYaw, pitch, roll, dt);
@@ -1424,6 +1482,7 @@ export class CameraDirector {
    * stays parallel to the ground and T/B is perpendicular.
    */
   private applyPan(dt: number): void {
+    if (isFixedCamera(this.focus)) return;
     const { fwd, right, up } = panAxesFromHeld({
       w: this.panW,
       a: this.panA,
@@ -1495,6 +1554,7 @@ export class CameraDirector {
 
   /** Scale distance to the focus; Z zooms in, X zooms out. */
   private applyZoom(dt: number): void {
+    if (isFixedCamera(this.focus)) return;
     const dir = (this.zoomZ ? 1 : 0) - (this.zoomX ? 1 : 0);
     if (dir === 0 || dt <= 0) return;
     this.cancelDistanceEase();
@@ -1532,7 +1592,7 @@ export class CameraDirector {
   /** Reseat a hard-locked mount, or unlock if orbit/pan/zoom keys are held. */
   private holdHardLockMount(): boolean {
     if (!isHardLockedMount(this.focus, this.mountLock)) return false;
-    if (this.hasCameraHold()) {
+    if (this.userGrabOnMovable()) {
       this.unlockMount();
       return false;
     }
@@ -1543,7 +1603,7 @@ export class CameraDirector {
   /** Earth-fixed pad camera: reseat every frame until the user grabs it. */
   private holdPadTrack(): boolean {
     if (!this.padTrack || !isPadFocus(this.focus)) return false;
-    if (this.hasCameraHold()) {
+    if (this.userGrabOnMovable()) {
       this.padTrack = false;
       this.unlockMount();
       return false;
@@ -1558,7 +1618,7 @@ export class CameraDirector {
    */
   private holdDroneTrack(): boolean {
     if (!this.droneTrack || !this.isDroneFocus()) return false;
-    if (this.hasCameraHold()) {
+    if (this.userGrabOnMovable()) {
       this.droneTrack = false;
       this.unlockMount();
       return false;
@@ -1626,10 +1686,12 @@ export class CameraDirector {
 
   /**
    * Leave a hard lock: keep the current view as a sticky offset around the
-   * mount look-at so WASD / QERF / mouse match Starbase / chase.
-   * Any user grab also drops Auto-cam (webcast cuts must not fight framing).
+   * mount look-at so WASD / QERF / mouse match free-look chase / tower.
+   * Fixed cameras stay hard-locked. Any user grab on a free camera also
+   * drops Auto-cam (webcast cuts must not fight framing).
    */
   private unlockMount(): void {
+    if (this.rejectIfFixed(true)) return;
     this.onUserControl?.();
     if (this.padTrack) this.padTrack = false;
     if (this.droneTrack) this.droneTrack = false;
@@ -1651,6 +1713,28 @@ export class CameraDirector {
 
   private hasCameraHold(): boolean {
     return this.orbitHeld() || this.panHeld() || this.zoomHeld();
+  }
+
+  /** Held pan / orbit / zoom on a camera that allows movement. */
+  private userGrabOnMovable(): boolean {
+    return this.hasCameraHold() && !isFixedCamera(this.focus);
+  }
+
+  private clearCameraHolds(): void {
+    this.orbitQ = false;
+    this.orbitE = false;
+    this.orbitR = false;
+    this.orbitF = false;
+    this.orbitC = false;
+    this.orbitV = false;
+    this.panW = false;
+    this.panA = false;
+    this.panS = false;
+    this.panD = false;
+    this.panT = false;
+    this.panB = false;
+    this.zoomZ = false;
+    this.zoomX = false;
   }
 
   private orbitHeld(): boolean {

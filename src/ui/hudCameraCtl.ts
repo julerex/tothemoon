@@ -8,8 +8,27 @@ import {
   applyCameraGridPressed,
   applyPressed,
 } from "./hudApply";
-import { CAM_DOUBLE_TAP_MS, cycleCameraMode } from "./hudCameraLabels";
+import {
+  CAM_DOUBLE_TAP_MS,
+  CAM_LOCK_NOTE_MS,
+  cycleCameraMode,
+  FIXED_CAM_LOCK_NOTE,
+} from "./hudCameraLabels";
 import type { HudRuntime } from "./hudTypes";
+
+let camLockHideTimer = 0;
+
+/** Flash the rail note when the user tries to move a fixed camera. */
+export function showCamLockNote(rt: HudRuntime): void {
+  const el = rt.dom.camLockNoteEl;
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = FIXED_CAM_LOCK_NOTE;
+  window.clearTimeout(camLockHideTimer);
+  camLockHideTimer = window.setTimeout(() => {
+    el.hidden = true;
+  }, CAM_LOCK_NOTE_MS);
+}
 
 export function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
   rt.flags.lastCamMode = mode;
