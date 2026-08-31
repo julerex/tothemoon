@@ -3,6 +3,7 @@
  * `"drone"` is the Flight 13 sea-level recovery orbit of the floating ship.
  * `"aerial"` is the Starbase pad flying-drone hover (T− hold wide).
  * `"engines"` / `"enginesDown"` are Super Heavy engine-bay webcast mounts.
+ * `"booster"` looks at Super Heavy from outside; `"tower"` looks at Mechazilla.
  */
 export type CameraMode =
   | "free"
@@ -18,11 +19,16 @@ export type CameraMode =
   | "hull"
   | "drone"
   | "engines"
-  | "enginesDown";
+  | "enginesDown"
+  | "booster"
+  | "tower";
 
-/** Starbase ground/opening and the pad flying-drone hover share pad ENU. */
+/**
+ * Starbase ground/opening, pad flying-drone, and launch-tower looks share
+ * pad ENU: WASD slides parallel to the Earth, T/B is surface-normal.
+ */
 export function isPadFocus(mode: CameraMode): boolean {
-  return mode === "starbase" || mode === "aerial";
+  return mode === "starbase" || mode === "aerial" || mode === "tower";
 }
 
 /**

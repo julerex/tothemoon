@@ -48,6 +48,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Super Heavy recovery is integrated on the Earth force model. Chopsticks seats on the tower; Flight 13 gulf is a hard splash after a partial landing-burn relight.",
   },
   {
+    id: "booster-cam",
+    term: "Booster",
+    category: "views",
+    definition:
+      "Exterior camera looking at Super Heavy. After stage-out it follows the detached booster. Distinct from the Grid fin hull-cam mounted on the booster.",
+  },
+  {
     id: "chopsticks",
     term: "Chopsticks / Mechazilla",
     category: "vehicle",
@@ -116,6 +123,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "physics",
     definition:
       "Dashed amber 2-body reference ellipse from the translunar injection state, overlaid on the n-body trail (toggle O with orbits). Metrics show max |Δr| between the two paths.",
+  },
+  {
+    id: "tower",
+    term: "Launch Tower",
+    category: "views",
+    definition:
+      "Exterior look at Mechazilla. WASD slides the camera parallel to the Earth; T/B is straight up and down from the pad.",
   },
   {
     id: "aerial",

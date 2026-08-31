@@ -6,7 +6,7 @@ import { bodyPositions } from "../physics/bodies";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthNorthPole, starbasePadState } from "../physics/earthFrame";
-import { craftLengthKm } from "../scene/craft";
+import { boosterLengthKm, craftLengthKm } from "../scene/craft";
 import {
   clampOutsideBodies as clampPosOutsideBodies,
   SURFACE_CLEARANCE_KM,
@@ -825,7 +825,9 @@ export class CameraDirector {
     if (mode === "earth") return this.distanceForRadius(WGS84_A, 0.65);
     if (mode === "moon") return this.distanceForRadius(R_MOON, 0.65);
     if (mode === "chase") return this.chaseFrameDistance();
+    if (mode === "booster") return this.distanceForRadius(boosterLengthKm() * 0.5, 0.45);
     if (this.isDroneFocus(mode)) return this.droneFrameDistance();
+    if (mode === "tower") return this.distanceForRadius(0.08, 0.5);
     if (isPadFocus(mode)) return this.distanceForRadius(0.12, 0.5);
     if (mode === "trench" || mode === "hull") return this.distanceForRadius(0.02, 0.55);
     return this.getFocusDistance();
@@ -879,7 +881,8 @@ export class CameraDirector {
   /**
    * WASD pan in the view plane plus T/B along local up. Keeps the current
    * focus so the camera still co-moves with Earth / craft / Moon / pad; the
-   * pan is a sticky offset. At Starbase, T/B is pad surface-normal.
+   * pan is a sticky offset. At pad focuses, T/B is Earth-perpendicular and
+   * WASD stays parallel to the ground.
    */
   setPanKey(key: PanKey, down: boolean): CameraMode {
     if (key === "w") this.panW = down;
@@ -918,6 +921,7 @@ export class CameraDirector {
   private nearForFocus(): number {
     const close =
       this.focus === "chase" ||
+      this.focus === "booster" ||
       this.focus === "drone" ||
       isPadFocus(this.focus) ||
       this.focus === "fin" ||
@@ -959,16 +963,43 @@ export class CameraDirector {
       this.chaseTarget(outTarget);
       return;
     }
+    if (mode === "booster") { this.boosterTarget(outTarget); return; }
     if (isPadFocus(mode)) { this.starbaseTarget(outTarget); return; }
     this.bodyTarget(mode, outTarget);
   }
 
   private starbaseTarget(outTarget: THREE.Vector3): void {
+    if (this.focus === "tower" && this.copyTowerLook(outTarget)) return;
     const pad = starbasePadState(this.simTime, this.epoch);
     outTarget.set(pad.pos.x, pad.pos.y, pad.pos.z);
     if (this.focus === "aerial") {
       this.padUp.set(pad.up.x, pad.up.y, pad.up.z).normalize();
       outTarget.addScaledVector(this.padUp, PAD_AERIAL_LOOK_UP_KM);
+    }
+  }
+
+  /** Mid-truss of the live OLP-2 Mechazilla (pad-tower-column). */
+  private copyTowerLook(out: THREE.Vector3): boolean {
+    const col = this.pad?.getObjectByName("pad-tower-column");
+    if (!this.pad || !col) return false;
+    this.pad.updateMatrixWorld(true);
+    col.getWorldPosition(out);
+    return true;
+  }
+
+  /** Super Heavy mesh center — detached free-flyer after stage-out. */
+  private boosterTarget(out: THREE.Vector3): void {
+    const host = this.resolveGridFinHost();
+    if (!host) {
+      this.chaseTarget(out);
+      return;
+    }
+    host.updateMatrixWorld(true);
+    host.getWorldPosition(out);
+    this.tmp.set(0, 0, 1).transformDirection(host.matrixWorld);
+    if (this.tmp.lengthSq() > 1e-12) {
+      this.tmp.normalize();
+      out.addScaledVector(this.tmp, boosterLengthKm() * 0.5);
     }
   }
 
@@ -1388,9 +1419,10 @@ export class CameraDirector {
   }
 
   /**
-   * Slide camera + target: W/S along look projected ⟂ camera.up; A pans
-   * screen-right, D pans screen-left; T/B along local up (pad surface
-   * normal at Starbase so climb is Earth-perpendicular).
+   * Slide camera + target: W/S along look projected ⟂ local up; A pans
+   * screen-right, D pans screen-left; T/B along local up. On pad focuses
+   * (Starbase, aerial, tower) local up is the Earth surface normal so WASD
+   * stays parallel to the ground and T/B is perpendicular.
    */
   private applyPan(dt: number): void {
     const { fwd, right, up } = panAxesFromHeld({
@@ -1403,8 +1435,8 @@ export class CameraDirector {
     });
     if ((fwd === 0 && right === 0 && up === 0) || dt <= 0) return;
     this.cancelDistanceEase();
-    this.buildPanAxes();
     this.buildPanUp();
+    this.buildPanAxes();
     this.applyPanOffset(fwd, right, up, this.panSpeed() * dt);
   }
 
@@ -1432,14 +1464,14 @@ export class CameraDirector {
 
   private buildPanAxes(): void {
     this.tmp.copy(this.controls.target).sub(this.camera.position);
-    this.tmp.addScaledVector(this.camera.up, -this.tmp.dot(this.camera.up));
+    this.tmp.addScaledVector(this.panUp, -this.tmp.dot(this.panUp));
     this.ensurePanForward();
     this.tmp.normalize();
     this.buildPanRight();
   }
 
   private buildPanRight(): void {
-    this.panRight.crossVectors(this.camera.up, this.tmp);
+    this.panRight.crossVectors(this.panUp, this.tmp);
     if (this.panRight.lengthSq() < 1e-12) {
       this.panRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
     }
@@ -1449,10 +1481,7 @@ export class CameraDirector {
   private ensurePanForward(): void {
     if (this.tmp.lengthSq() >= 1e-12) return;
     this.tmp.set(1, 0, 0);
-    this.tmp.addScaledVector(
-      this.camera.up,
-      -this.tmp.dot(this.camera.up),
-    );
+    this.tmp.addScaledVector(this.panUp, -this.tmp.dot(this.panUp));
     if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
   }
 

@@ -33,6 +33,7 @@ export const LEO_CLOUD_FOCUSES = [
   "engines",
   "enginesDown",
   "chase",
+  "booster",
 ] as const;
 
 /** Fade in just above the ~51 km shell so pad/ascent stay inside and FrontSide-culled. */
@@ -74,14 +75,7 @@ export type LeoCloudsFrame = {
  * True when this camera focus is allowed to see the LEO shell.
  */
 export function leoCloudsFocusEnabled(focus: string | undefined): boolean {
-  return (
-    focus === "hull" ||
-    focus === "fin" ||
-    focus === "gridfin" ||
-    focus === "engines" ||
-    focus === "enginesDown" ||
-    focus === "chase"
-  );
+  return (LEO_CLOUD_FOCUSES as readonly string[]).includes(focus ?? "");
 }
 
 /**

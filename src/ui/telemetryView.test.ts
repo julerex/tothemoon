@@ -176,6 +176,18 @@ describe("buildTelemetryView", () => {
       buildTelemetryView(baseTel({ cameraMode: "aerial" }), sky).main.cameraMode,
       "Launchpad Drone",
     );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "booster" }), sky).main.cameraMode,
+      "Booster",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "tower" }), sky).main.cameraMode,
+      "Launch Tower",
+    );
+    assert.equal(
+      buildTelemetryView(baseTel({ cameraMode: "chase" }), sky).main.cameraMode,
+      "Starship",
+    );
   });
 
   it("builds complete card when missionComplete", () => {

@@ -15,26 +15,31 @@ describe("CAMERA_CYCLE", () => {
 });
 
 describe("cycleCameraMode", () => {
-  it("starts with Sun / Earth / Moon, then Flight 13 webcast first-use order", () => {
-    assert.deepEqual(CAMERA_CYCLE.slice(0, 6), [
+  it("starts with Sun / Earth / Moon, then booster / tower / Starship", () => {
+    assert.deepEqual(CAMERA_CYCLE.slice(0, 8), [
       "sun",
       "earth",
       "moon",
+      "booster",
+      "tower",
+      "chase",
       "aerial",
       "starbase",
-      "trench",
     ]);
-    assert.equal(CAMERA_CYCLE[6], "chase");
-    assert.equal(CAMERA_CYCLE[7], "enginesDown");
+    assert.equal(CAMERA_CYCLE[8], "trench");
+    assert.equal(CAMERA_CYCLE[9], "enginesDown");
     assert.equal(CAMERA_CYCLE.at(-1), "drone");
   });
 
   it("steps forward and backward along CAMERA_CYCLE", () => {
     assert.equal(cycleCameraMode("sun", 1), "earth");
     assert.equal(cycleCameraMode("earth", 1), "moon");
-    assert.equal(cycleCameraMode("moon", 1), "aerial");
+    assert.equal(cycleCameraMode("moon", 1), "booster");
+    assert.equal(cycleCameraMode("booster", 1), "tower");
+    assert.equal(cycleCameraMode("tower", 1), "chase");
     assert.equal(cycleCameraMode("moon", -1), "earth");
     assert.equal(cycleCameraMode("earth", -1), "sun");
+    assert.equal(cycleCameraMode("chase", 1), "aerial");
     assert.equal(cycleCameraMode("aerial", 1), "starbase");
     assert.equal(cycleCameraMode("starbase", 1), "trench");
     assert.equal(cycleCameraMode("fin", 1), "drone");

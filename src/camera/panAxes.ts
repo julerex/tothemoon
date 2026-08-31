@@ -3,7 +3,8 @@
  *
  * Forward is W minus S along look. Lateral is A minus D along camera-right:
  * A pans screen-right, D pans screen-left. Vertical is T minus B along local
- * up (pad surface normal at Starbase; camera.up otherwise).
+ * up (pad surface normal at Starbase / aerial / launch tower; camera.up
+ * otherwise).
  */
 
 export type PanKey = "w" | "a" | "s" | "d" | "t" | "b";

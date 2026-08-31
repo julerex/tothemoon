@@ -3,15 +3,17 @@ import { describe, it } from "node:test";
 import { isBoosterMountFocus, isPadFocus } from "./cameraMode.ts";
 
 describe("isPadFocus", () => {
-  it("is true for Starbase and the pad flying drone", () => {
+  it("is true for Starbase, the pad flying drone, and the launch tower", () => {
     assert.equal(isPadFocus("starbase"), true);
     assert.equal(isPadFocus("aerial"), true);
+    assert.equal(isPadFocus("tower"), true);
   });
 
   it("is false for recovery drone and other rails", () => {
     assert.equal(isPadFocus("drone"), false);
     assert.equal(isPadFocus("chase"), false);
     assert.equal(isPadFocus("trench"), false);
+    assert.equal(isPadFocus("booster"), false);
   });
 });
 

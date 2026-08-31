@@ -25,7 +25,7 @@ describe("yawAxisForMode", () => {
     assert.equal(axis.z, pole.z);
   });
 
-  it("starbase and aerial yaw about pad local up, not Earth's pole", () => {
+  it("starbase, aerial, and tower yaw about pad local up, not Earth's pole", () => {
     const t = 3600;
     const out = v3();
     const axis = yawAxisForMode("aerial", t, out);
@@ -40,6 +40,8 @@ describe("yawAxisForMode", () => {
       Math.abs(axis.y - pole.y) < 1e-9 &&
       Math.abs(axis.z - pole.z) < 1e-9;
     assert.equal(sameAsPole, false);
+    assert.equal(yawAxisForMode("tower", t, v3())?.x, pad.up.x);
+    assert.equal(yawAxisForMode("starbase", t, v3())?.x, pad.up.x);
   });
 
   it("other modes have no dedicated yaw axis", () => {

@@ -1,9 +1,9 @@
 /**
  * World-space T/B pan axis for tracked camera focuses.
  *
- * Starbase and the pad aerial drone climb along local surface up so T/B is
- * perpendicular to the Earth at the pad. Other modes return null so the
- * director pans along camera.up.
+ * Starbase, the pad aerial drone, and the launch-tower look climb along
+ * local surface up so T/B is perpendicular to the Earth at the pad. Other
+ * modes return null so the director pans along camera.up.
  */
 
 import { starbasePadState } from "../physics/earthFrame";
