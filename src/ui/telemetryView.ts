@@ -86,7 +86,7 @@ export type Telemetry = {
   keplerRefMaxDevKm?: number;
   /** Camera distance to focus target (km) */
   focusDistance: number;
-  /** Active CameraDirector focus (HUD Cam row) */
+  /** Active CameraDirector focus (HUD Camera row) */
   cameraMode: CameraMode;
   /** OrbitControls look-at point (scene km). */
   cameraTarget?: CameraPoseVec | null;

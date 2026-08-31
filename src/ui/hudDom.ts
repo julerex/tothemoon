@@ -27,7 +27,6 @@ export type HudTelStrip = {
   nextPhaseEl: HTMLElement | null;
   phaseLeftEl: HTMLElement | null;
   camModeEl: HTMLElement | null;
-  camDetailEl: HTMLElement | null;
   autoCamEl: HTMLElement | null;
   missionClockEl: HTMLElement | null;
   missionClockRateEl: HTMLElement | null;
@@ -169,7 +168,6 @@ function collectTelStripA(): Pick<
   | "nextPhaseEl"
   | "phaseLeftEl"
   | "camModeEl"
-  | "camDetailEl"
   | "autoCamEl"
   | "missionClockEl"
   | "missionClockRateEl"
@@ -189,7 +187,6 @@ function collectTelStripA(): Pick<
     nextPhaseEl: q("#tel-next"),
     phaseLeftEl: q("#tel-phase-left"),
     camModeEl: q("#tel-cam-mode"),
-    camDetailEl: q("#tel-cam-detail"),
     autoCamEl: q("#tel-auto-cam"),
     missionClockEl: q("#mission-clock-value"),
     missionClockRateEl: q("#mission-clock-rate"),

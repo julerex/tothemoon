@@ -1039,12 +1039,6 @@ body.menus-active {
   word-break: break-word;
 }
 
-.camera-rail #tel-cam-detail {
-  font-size: 0.68rem;
-  color: var(--muted);
-  line-height: 1.3;
-}
-
 .camera-rail .cam-pose-vec {
   font-size: 0.68rem;
   line-height: 1.25;

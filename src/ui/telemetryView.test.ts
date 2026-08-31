@@ -157,7 +157,7 @@ describe("buildTelemetryView", () => {
     assert.equal(v.main.phaseLeft, "10s left");
   });
 
-  it("maps cameraMode to the HUD Cam title", () => {
+  it("maps cameraMode to the HUD Camera title", () => {
     const sky = { skyLine: () => "sky-test" };
     assert.equal(buildTelemetryView(baseTel(), sky).main.cameraMode, "Earth");
     assert.equal(
