@@ -9,6 +9,7 @@ Related:
 - [VISUAL_REALISM.md](./VISUAL_REALISM.md) — what the 3D pad/craft currently draw
 - [NEXT.md](./NEXT.md) — product roadmap
 - Mesh numbers in `src/scene/craft/dimensions.ts` and `src/scene/earthTheater/mechazillaDims.ts`
+- [`assets/public-domain/`](../assets/public-domain/) — NASA/FAA stills (pad plan, engine bay, HLS, Flight 6 ISS plume); look reference only
 
 **Honesty:** figures below are from public sources (Wikipedia, NSF, FAA notices,
 SpaceX vehicle page / updates) as of **2026-08**. Where the theater uses a
