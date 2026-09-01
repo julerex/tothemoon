@@ -18,6 +18,8 @@ import { updateZoomLabels } from "../scene/zoomLabels";
 import type { CameraDirector } from "../camera/modes";
 import type { MissionClock } from "../mission/clock";
 import { transportUToPhysicsT } from "../mission/prelaunch";
+import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
+import { syncUndergroundOverlay } from "../ui/undergroundOverlay";
 
 /** The context fields every theater loop touches, whatever the mission. */
 export type MissionLoopCtx = {
@@ -30,6 +32,8 @@ export type MissionLoopCtx = {
   starbasePad: THREE.Group;
   director: CameraDirector;
   clock: MissionClock;
+  /** Mission ephemeris (Earth / Moon centers for the underground overlay). */
+  epoch: EphemerisEpoch;
   /** Wall-clock delta source (also drives pad beacon pulse). */
   wall: THREE.Clock;
   /** Transport duration (s) at 1× playback. */
@@ -75,6 +79,7 @@ function updateDirector(ctx: MissionLoopCtx, dt: number): void {
   const simT = transportUToPhysicsT(ctx.clock.t, ctx.physicsDurationS);
   ctx.director.update(dt, simT, ctx.craftPos, ctx.craftVel);
   updateZoomLabels(ctx.scene, ctx.camera);
+  syncUndergroundOverlay(ctx.camera.position, simT, ctx.epoch);
 }
 
 function frame<C extends MissionLoopCtx>(ctx: C, hooks: MissionLoopHooks<C>): void {

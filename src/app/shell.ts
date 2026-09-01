@@ -18,6 +18,10 @@ function el(id: string): HTMLElement | null {
 export function setTheaterVisible(visible: boolean): void {
   const canvas = el("c");
   if (canvas) canvas.hidden = !visible;
+  if (!visible) {
+    const underground = el("underground");
+    if (underground) underground.hidden = true;
+  }
   if (visible) {
     document.body.classList.add("theater-active");
     document.body.classList.remove("menus-active");

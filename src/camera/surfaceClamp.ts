@@ -1,12 +1,13 @@
 /**
- * Keep the free camera outside Sun / Moon spheres and the WGS84 Earth
- * ellipsoid. OrbitControls only limits distance to its focus target; when the
- * target is on a surface (Starbase) or free-panned, the camera can still dive
- * under the mesh.
+ * Sun exclusion for the free camera, plus Earth / Moon underground tests.
+ *
+ * OrbitControls only limits distance to its focus target. The Sun still
+ * pushes the eye out (no "underground" analog). Earth and Moon no longer
+ * lock — the theater shows a brown overlay instead.
  */
 
 import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
-import { clampAboveEllipsoid } from "../physics/wgs84";
+import { radialHeightAboveEllipsoid } from "../physics/wgs84";
 
 /**
  * Extra km above the mesh radius so the near plane does not bite into terrain.
@@ -113,9 +114,8 @@ export type SolarSystemBodies = {
 };
 
 /**
- * Push `pos` outside the Sun and Moon spheres, then onto the WGS84 Earth
- * ellipsoid + {@link SURFACE_CLEARANCE_KM}. Earth is *not* a sphere of
- * equatorial radius — that shoved pad / chase cameras ~4 km out at Starbase.
+ * Push `pos` outside the Sun sphere + {@link SURFACE_CLEARANCE_KM}.
+ * Earth and Moon are not clamped — {@link cameraUnderground} reports those.
  *
  * @returns true when the position changed.
  */
@@ -124,15 +124,45 @@ export function clampOutsideBodies(
   bodies: SolarSystemBodies,
   out: Vec3Like = pos,
 ): boolean {
-  const c = SURFACE_CLEARANCE_KM;
-  const sphereMoved = pushOutsideSpheres(pos, [
-    { x: bodies.sun.x, y: bodies.sun.y, z: bodies.sun.z, r: bodies.sunRadius + c },
-    { x: bodies.moon.x, y: bodies.moon.y, z: bodies.moon.z, r: bodies.moonRadius + c },
+  return pushOutsideSpheres(pos, [
+    {
+      x: bodies.sun.x,
+      y: bodies.sun.y,
+      z: bodies.sun.z,
+      r: bodies.sunRadius + SURFACE_CLEARANCE_KM,
+    },
   ], out);
-  const clamped = clampAboveEllipsoid(out, bodies.earth, bodies.north, c);
-  const earthMoved = clamped !== out;
-  out.x = clamped.x;
-  out.y = clamped.y;
-  out.z = clamped.z;
-  return sphereMoved || earthMoved;
+}
+
+function insideMoonSphere(pos: Vec3Like, moon: Vec3Like, radius: number): boolean {
+  if (!(radius > 0)) return false;
+  const dx = pos.x - moon.x;
+  const dy = pos.y - moon.y;
+  const dz = pos.z - moon.z;
+  return dx * dx + dy * dy + dz * dz < radius * radius;
+}
+
+function insideEarthEllipsoid(
+  pos: Vec3Like,
+  earth: Vec3Like,
+  north: Vec3Like,
+): boolean {
+  return radialHeightAboveEllipsoid(
+    { x: pos.x - earth.x, y: pos.y - earth.y, z: pos.z - earth.z },
+    north,
+  ) < 0;
+}
+
+/**
+ * True when `pos` is under the WGS84 Earth ellipsoid or inside the Moon
+ * sphere (the visual meshes). On-surface points are not underground.
+ */
+export function cameraUnderground(
+  pos: Vec3Like,
+  bodies: Pick<SolarSystemBodies, "earth" | "moon" | "north" | "moonRadius">,
+): boolean {
+  return (
+    insideMoonSphere(pos, bodies.moon, bodies.moonRadius) ||
+    insideEarthEllipsoid(pos, bodies.earth, bodies.north)
+  );
 }

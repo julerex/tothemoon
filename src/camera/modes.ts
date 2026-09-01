@@ -7,10 +7,7 @@ import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import { earthNorthPole, starbasePadState } from "../physics/earthFrame";
 import { boosterLengthKm, craftLengthKm } from "../scene/craft";
-import {
-  clampOutsideBodies as clampPosOutsideBodies,
-  SURFACE_CLEARANCE_KM,
-} from "./surfaceClamp";
+import { clampOutsideBodies as clampPosOutsideBodies } from "./surfaceClamp";
 import {
   isHardLockedMount,
   isMountFocus,
@@ -1001,8 +998,8 @@ export class CameraDirector {
 
   private minDistanceForFocus(): number {
     if (this.focus === "sun") return SUN_MIN_DIST;
-    if (this.focus === "earth") return WGS84_A + SURFACE_CLEARANCE_KM;
-    if (this.focus === "moon") return R_MOON + SURFACE_CLEARANCE_KM;
+    // Earth / Moon allow zooming under the mesh; the underground overlay
+    // covers the view instead of locking the eye on the surface.
     return 0.05;
   }
 
@@ -1021,9 +1018,10 @@ export class CameraDirector {
   }
 
   /**
-   * Push the camera outside Sun / Earth / Moon meshes. Call after any free
-   * orbit, pan, zoom, or track step. Hard-locked mounts skip this (they reseat
-   * on the craft / pad); unlocked mounts clamp like other focuses.
+   * Push the camera outside the Sun. Call after any free orbit, pan, zoom,
+   * or track step. Earth / Moon no longer lock — going under those meshes
+   * shows the underground overlay. Hard-locked mounts skip this (they reseat
+   * on the craft / pad).
    */
   private clampOutsideBodies(): void {
     this.surfaceClampPos.copy(this.camera.position);

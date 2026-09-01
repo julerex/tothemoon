@@ -8,6 +8,7 @@ import {
   WGS84_A,
 } from "../physics/wgs84.ts";
 import {
+  cameraUnderground,
   clampOutsideBodies,
   pushOutsideSpheres,
   solarSystemExclusionSpheres,
@@ -106,7 +107,7 @@ describe("solarSystemExclusionSpheres", () => {
   });
 });
 
-describe("clampOutsideBodies (Earth ellipsoid)", () => {
+describe("clampOutsideBodies (Sun only)", () => {
   it("does not push a camera sitting on the Starbase pad shell", () => {
     const pad = geodeticToEllipsoidMeshLocal(STARBASE_LAT, 0, STARBASE_ALT);
     const out = { x: pad.x, y: pad.y, z: pad.z };
@@ -117,35 +118,80 @@ describe("clampOutsideBodies (Earth ellipsoid)", () => {
     assert.ok(Math.abs(out.z - pad.z) < 1e-9);
   });
 
-  it("lifts a point 1 km under Starbase onto the ellipsoid + clearance", () => {
-    const surf = geodeticToEllipsoidMeshLocal(STARBASE_LAT, 0, 0);
-    const r = len(surf);
-    const s = (r - 1) / r;
-    const pos = { x: surf.x * s, y: surf.y * s, z: surf.z * s };
-    const out = { x: 0, y: 0, z: 0 };
-    const moved = clampOutsideBodies(pos, farBodies(), out);
-    assert.equal(moved, true);
-    const expected = earthSurfaceRadiusAlong(pos, meshNorth, SURFACE_CLEARANCE_KM);
-    assert.ok(Math.abs(len(out) - expected) < 1e-6);
-  });
-
-  it("still lifts an equatorial under-surface point to WGS84_A + clearance", () => {
+  it("leaves an under-Earth camera unmoved", () => {
     const pos = { x: WGS84_A - 5, y: 0, z: 0 };
     const out = { x: 0, y: 0, z: 0 };
     const moved = clampOutsideBodies(pos, farBodies(), out);
-    assert.equal(moved, true);
-    assert.ok(Math.abs(len(out) - (WGS84_A + SURFACE_CLEARANCE_KM)) < 1e-6);
-    assert.ok(Math.abs(out.y) < 1e-9);
-    assert.ok(Math.abs(out.z) < 1e-9);
+    assert.equal(moved, false);
+    assert.deepEqual(out, pos);
   });
 
-  it("still pops a camera out of the Moon sphere", () => {
+  it("leaves an inside-Moon camera unmoved", () => {
     const moon = { x: 0, y: 0, z: 4e5 };
     const pos = { x: 1, y: 0, z: 4e5 };
     const out = { x: 0, y: 0, z: 0 };
     const moved = clampOutsideBodies(pos, farBodies(), out);
+    assert.equal(moved, false);
+    assert.deepEqual(out, pos);
+    const d = Math.hypot(pos.x - moon.x, pos.y - moon.y, pos.z - moon.z);
+    assert.ok(d < R_MOON);
+  });
+
+  it("still pops a camera out of the Sun sphere", () => {
+    const bodies = farBodies();
+    const pos = { x: bodies.sun.x + 1, y: bodies.sun.y, z: bodies.sun.z };
+    const out = { x: 0, y: 0, z: 0 };
+    const moved = clampOutsideBodies(pos, bodies, out);
     assert.equal(moved, true);
-    const d = Math.hypot(out.x - moon.x, out.y - moon.y, out.z - moon.z);
-    assert.ok(Math.abs(d - (R_MOON + SURFACE_CLEARANCE_KM)) < 1e-6);
+    const d = Math.hypot(
+      out.x - bodies.sun.x,
+      out.y - bodies.sun.y,
+      out.z - bodies.sun.z,
+    );
+    assert.ok(Math.abs(d - (R_SUN + SURFACE_CLEARANCE_KM)) < 1e-6);
+  });
+});
+
+describe("cameraUnderground", () => {
+  it("is false on the Starbase pad shell", () => {
+    const pad = geodeticToEllipsoidMeshLocal(STARBASE_LAT, 0, STARBASE_ALT);
+    assert.equal(cameraUnderground(pad, farBodies()), false);
+  });
+
+  it("is false on the WGS84 surface and true 1 km under Starbase", () => {
+    const surf = geodeticToEllipsoidMeshLocal(STARBASE_LAT, 0, 0);
+    assert.equal(cameraUnderground(surf, farBodies()), false);
+    const r = len(surf);
+    const s = (r - 1) / r;
+    const pos = { x: surf.x * s, y: surf.y * s, z: surf.z * s };
+    assert.equal(cameraUnderground(pos, farBodies()), true);
+    const expected = earthSurfaceRadiusAlong(pos, meshNorth, 0);
+    assert.ok(len(pos) < expected);
+  });
+
+  it("is true for an equatorial under-surface point", () => {
+    assert.equal(
+      cameraUnderground({ x: WGS84_A - 5, y: 0, z: 0 }, farBodies()),
+      true,
+    );
+  });
+
+  it("is true inside the Moon sphere and false on / outside it", () => {
+    const moon = { x: 0, y: 0, z: 4e5 };
+    assert.equal(
+      cameraUnderground({ x: 1, y: 0, z: 4e5 }, farBodies()),
+      true,
+    );
+    assert.equal(
+      cameraUnderground({ x: moon.x, y: moon.y, z: moon.z + R_MOON }, farBodies()),
+      false,
+    );
+    assert.equal(
+      cameraUnderground(
+        { x: moon.x, y: moon.y, z: moon.z + R_MOON + 1 },
+        farBodies(),
+      ),
+      false,
+    );
   });
 });
