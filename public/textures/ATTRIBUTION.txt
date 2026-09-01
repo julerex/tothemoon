@@ -39,6 +39,16 @@ File: starbase_surrounds.jpg
   Full rectangle — not a circular crop.
   Built from a 3×3 EOX WMS mosaic (`npm run starbase-surrounds`).
 
+Landward neighbors (same source, layer, and mosaic method):
+  starbase_surrounds_n.jpg   — north      (`npm run starbase-land-plates`)
+  starbase_surrounds_nw.jpg  — northwest
+  starbase_surrounds_w.jpg   — west
+  starbase_surrounds_sw.jpg  — southwest
+  starbase_surrounds_s.jpg   — south
+  Each is a 4096×4096 JPEG, ~80×80 km, sharing an edge with the center
+  plate (or with the adjacent land neighbor). East / NE / SE stay Gulf
+  water on the Blue Marble globe.
+
 Contains modified Copernicus Sentinel data [2024].
 Sentinel-2 cloudless by EOX IT Services GmbH, licensed CC BY 4.0
   https://creativecommons.org/licenses/by/4.0/

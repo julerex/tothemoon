@@ -11,6 +11,7 @@
     "horizons": "tsx scripts/fetch-horizons-epoch.ts",
     "horizons:flight13": "tsx scripts/fetch-horizons-epoch.ts --flight13",
     "starbase-surrounds": "tsx scripts/fetch-starbase-surrounds.ts",
+    "starbase-land-plates": "tsx scripts/fetch-starbase-surrounds.ts --land",
     "starbase-naip": "tsx scripts/fetch-starbase-naip.ts",
     "dev": "vite",
     "typecheck": "tsc --noEmit",

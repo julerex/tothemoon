@@ -6,11 +6,19 @@ import { describe, it } from "node:test";
 import * as THREE from "three";
 import { R_EARTH, STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
 import {
+  STARBASE_CENTER_PLATE_FADE,
+  STARBASE_LAND_PLATES,
   STARBASE_PAD_PLATE_HALF_KM,
+  STARBASE_PLATE_FADE,
   STARBASE_PLATE_HALF_KM,
   STARBASE_PLATE_LAT,
   STARBASE_PLATE_LON,
+  STARBASE_PLATE_STEP_KM,
   drapePlatePoint,
+  plateEdgeAlpha,
+  starbaseNeighborPlateWmsBboxDeg,
+  starbasePlateEastNorthKm,
+  starbasePlatePadLocalOffset,
   starbasePlateUv,
   starbasePlateWmsBboxDeg,
   starbasePlateYawRad,
@@ -110,6 +118,68 @@ describe("starbasePlateWmsBboxDeg", () => {
     assert.ok(pad.minLat > wide.minLat);
     assert.ok(pad.maxLat < wide.maxLat);
     assert.ok(STARBASE_PAD_PLATE_HALF_KM * 10 === STARBASE_PLATE_HALF_KM);
+  });
+});
+
+describe("STARBASE_LAND_PLATES", () => {
+  it("covers the five landward neighbors and skips the Gulf", () => {
+    const ids = STARBASE_LAND_PLATES.map((p) => p.id);
+    assert.deepEqual(ids, ["n", "nw", "w", "sw", "s"]);
+    assert.equal(STARBASE_LAND_PLATES.length, 5);
+    assert.equal(STARBASE_PLATE_STEP_KM, STARBASE_PLATE_HALF_KM * 2);
+  });
+
+  it("uses unique files and mesh names", () => {
+    const files = new Set(STARBASE_LAND_PLATES.map((p) => p.file));
+    const names = new Set(STARBASE_LAND_PLATES.map((p) => p.name));
+    assert.equal(files.size, 5);
+    assert.equal(names.size, 5);
+    for (const p of STARBASE_LAND_PLATES) {
+      assert.match(p.file, /^starbase_surrounds_[a-z]+\.jpg$/);
+      assert.match(p.name, /^pad-satellite-plate-[a-z]+$/);
+    }
+  });
+});
+
+describe("starbaseNeighborPlateWmsBboxDeg", () => {
+  it("shares edges with the center plate on the landward sides", () => {
+    const c = starbasePlateWmsBboxDeg();
+    const w = starbaseNeighborPlateWmsBboxDeg(-1, 0);
+    const n = starbaseNeighborPlateWmsBboxDeg(0, 1);
+    const s = starbaseNeighborPlateWmsBboxDeg(0, -1);
+    assert.ok(Math.abs(w.maxLon - c.minLon) < 1e-12);
+    assert.ok(Math.abs(n.minLat - c.maxLat) < 1e-12);
+    assert.ok(Math.abs(s.maxLat - c.minLat) < 1e-12);
+    assert.ok(Math.abs(w.minLat - c.minLat) < 1e-12);
+    assert.ok(Math.abs(w.maxLat - c.maxLat) < 1e-12);
+  });
+
+  it("places the west plate one step inland in pad-local +X", () => {
+    const off = starbasePlatePadLocalOffset(-1, 0);
+    assert.equal(off.x, STARBASE_PLATE_STEP_KM);
+    assert.equal(off.z, 0);
+    const { eastKm, northKm } = starbasePlateEastNorthKm(-1, 1);
+    assert.equal(eastKm, -STARBASE_PLATE_STEP_KM);
+    assert.equal(northKm, STARBASE_PLATE_STEP_KM);
+  });
+});
+
+describe("plateEdgeAlpha", () => {
+  it("stays opaque on unlisted edges and fades listed ones", () => {
+    const fade = STARBASE_CENTER_PLATE_FADE;
+    assert.equal(plateEdgeAlpha(0.5, 0.5, fade), 1);
+    assert.equal(plateEdgeAlpha(0, 0.5, fade), 1);
+    assert.equal(plateEdgeAlpha(0.5, 1, fade), 1);
+    assert.equal(plateEdgeAlpha(1, 0.5, fade), 0);
+    const half = 1 - STARBASE_PLATE_FADE / 2;
+    assert.ok(Math.abs(plateEdgeAlpha(half, 0.5, fade) - 0.5) < 1e-12);
+  });
+
+  it("keeps shared land seams opaque on the west neighbor", () => {
+    const w = STARBASE_LAND_PLATES.find((p) => p.id === "w")!;
+    assert.equal(plateEdgeAlpha(1, 0.5, w.fade), 1);
+    assert.equal(plateEdgeAlpha(0.5, 1, w.fade), 1);
+    assert.equal(plateEdgeAlpha(0, 0.5, w.fade), 0);
   });
 });
 

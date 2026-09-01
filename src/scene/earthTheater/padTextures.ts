@@ -1,15 +1,22 @@
 /** Canvas texture factories for Starbase pad decals, steam, and surrounds. */
 import * as THREE from "three";
+import {
+  plateEdgeAlpha,
+  type PlateEdgeFade,
+} from "../starbasePlate";
 
-function paintPlateAlpha(ctx: CanvasRenderingContext2D, size: number): void {
+function paintPlateAlpha(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  fade: PlateEdgeFade,
+): void {
   const img = ctx.createImageData(size, size);
-  const fade = 0.08;
+  const denom = size - 1;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const nx = Math.abs(x / (size - 1) - 0.5) * 2;
-      const nz = Math.abs(y / (size - 1) - 0.5) * 2;
-      const rim = Math.max(nx, nz);
-      const a = rim <= 1 - fade ? 255 : Math.round(255 * (1 - rim) / fade);
+      const u = x / denom;
+      const v = 1 - y / denom;
+      const a = Math.round(255 * plateEdgeAlpha(u, v, fade));
       const i = (y * size + x) * 4;
       img.data[i] = img.data[i + 1] = img.data[i + 2] = a;
       img.data[i + 3] = 255;
@@ -18,8 +25,9 @@ function paintPlateAlpha(ctx: CanvasRenderingContext2D, size: number): void {
   ctx.putImageData(img, 0, 0);
 }
 
-export function makePlateAlphaTexture(): THREE.CanvasTexture {
-  const map = makeSizedCanvasTexture(256, paintPlateAlpha);
+/** Soft-rim alpha; omit an edge to keep a shared seam with a neighbor plate. */
+export function makePlateAlphaTexture(fade: PlateEdgeFade): THREE.CanvasTexture {
+  const map = makeSizedCanvasTexture(256, (ctx, size) => paintPlateAlpha(ctx, size, fade));
   map.colorSpace = THREE.NoColorSpace;
   return map;
 }

@@ -157,6 +157,13 @@ describe("markPadShadowMeshes", () => {
     plate.name = "pad-satellite-plate";
     pad.add(plate);
 
+    const west = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80, 2, 2),
+      new THREE.MeshStandardMaterial(),
+    );
+    west.name = "pad-satellite-plate-w";
+    pad.add(west);
+
     const naip = new THREE.Mesh(
       new THREE.PlaneGeometry(8, 8, 2, 2),
       new THREE.MeshStandardMaterial(),
@@ -191,6 +198,8 @@ describe("markPadShadowMeshes", () => {
 
     assert.equal(plate.receiveShadow, false);
     assert.equal(plate.castShadow, false);
+    assert.equal(west.receiveShadow, false);
+    assert.equal(west.castShadow, false);
     assert.equal(naip.receiveShadow, false);
     assert.equal(naip.castShadow, false);
     assert.equal(slab.receiveShadow, true);

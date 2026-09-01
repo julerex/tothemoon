@@ -2,8 +2,9 @@
  * Starbase satellite ground plate — geographic yaw, planar UVs, sphere drape.
  *
  * Photos are north-up squares centered on the committed WMS pin (full JPEG,
- * not a circular crop): an ~80 km Sentinel-2 surrounds plate plus a nested
- * ~8 km USDA NAIP pad plate. The 3D pad group aligns +Y to local up then
+ * not a circular crop): an ~80 km Sentinel-2 surrounds plate, five landward
+ * 80 km neighbors (N / NW / W / SW / S), plus a nested ~8 km USDA NAIP pad
+ * plate. The 3D pad group aligns +Y to local up then
  * yaws about +Y so pad +Z is geographic north (`placePadOnEarth`). Plates
  * inherit that yaw and sit on this JPEG pin — do not yaw the mesh again.
  * Right-handed +Y-up then puts pad +X **west** (east × north = up, so
@@ -45,6 +46,131 @@ export const STARBASE_PAD_PLATE_Y_KM = -0.007;
 
 /** Grid density for draping the square onto the sphere. */
 export const STARBASE_PLATE_SEGS = 48;
+
+/** Full width of one Sentinel-2 square (km). Adjacent plates step by this. */
+export const STARBASE_PLATE_STEP_KM = STARBASE_PLATE_HALF_KM * 2;
+
+/** Which JPEG edges fade into Blue Marble (shared edges stay opaque). */
+export type PlateEdgeFade = Readonly<{
+  n: boolean;
+  e: boolean;
+  s: boolean;
+  w: boolean;
+}>;
+
+/**
+ * Landward 80 km neighbors of the committed Starbase plate. East / NE / SE
+ * are Gulf of Mexico, so they stay Blue Marble.
+ */
+export type StarbaseLandPlateId = "n" | "nw" | "w" | "sw" | "s";
+
+export type StarbaseLandPlate = {
+  id: StarbaseLandPlateId;
+  /** Integer tile steps east of the JPEG pin (negative = west). */
+  eastSteps: number;
+  /** Integer tile steps north of the JPEG pin (negative = south). */
+  northSteps: number;
+  file: string;
+  name: string;
+  fade: PlateEdgeFade;
+};
+
+export const STARBASE_LAND_PLATES: readonly StarbaseLandPlate[] = [
+  {
+    id: "n",
+    eastSteps: 0,
+    northSteps: 1,
+    file: "starbase_surrounds_n.jpg",
+    name: "pad-satellite-plate-n",
+    fade: { n: true, e: true, s: false, w: false },
+  },
+  {
+    id: "nw",
+    eastSteps: -1,
+    northSteps: 1,
+    file: "starbase_surrounds_nw.jpg",
+    name: "pad-satellite-plate-nw",
+    fade: { n: true, e: false, s: false, w: true },
+  },
+  {
+    id: "w",
+    eastSteps: -1,
+    northSteps: 0,
+    file: "starbase_surrounds_w.jpg",
+    name: "pad-satellite-plate-w",
+    fade: { n: false, e: false, s: false, w: true },
+  },
+  {
+    id: "sw",
+    eastSteps: -1,
+    northSteps: -1,
+    file: "starbase_surrounds_sw.jpg",
+    name: "pad-satellite-plate-sw",
+    fade: { n: false, e: false, s: true, w: true },
+  },
+  {
+    id: "s",
+    eastSteps: 0,
+    northSteps: -1,
+    file: "starbase_surrounds_s.jpg",
+    name: "pad-satellite-plate-s",
+    fade: { n: false, e: true, s: true, w: false },
+  },
+];
+
+/** Center plate meets land neighbors on N/W/S; only the Gulf (east) fades. */
+export const STARBASE_CENTER_PLATE_FADE: PlateEdgeFade = {
+  n: false,
+  e: true,
+  s: false,
+  w: false,
+};
+
+/** Soft-rim width as a fraction of the JPEG (matches the old all-edge fade). */
+export const STARBASE_PLATE_FADE = 0.08;
+
+/**
+ * Alpha 0…1 at JPEG UV (`u` east, `v` north). Listed edges soften into the
+ * globe; unlisted edges stay opaque so adjacent plates can share a seam.
+ */
+export function plateEdgeAlpha(
+  u: number,
+  v: number,
+  fade: PlateEdgeFade,
+  width = STARBASE_PLATE_FADE,
+): number {
+  let a = 1;
+  if (fade.w && u < width) a = Math.min(a, u / width);
+  if (fade.e && u > 1 - width) a = Math.min(a, (1 - u) / width);
+  if (fade.s && v < width) a = Math.min(a, v / width);
+  if (fade.n && v > 1 - width) a = Math.min(a, (1 - v) / width);
+  if (a < 0) return 0;
+  if (a > 1) return 1;
+  return a;
+}
+
+/** Geographic east/north of a plate center from the JPEG pin (km). */
+export function starbasePlateEastNorthKm(
+  eastSteps: number,
+  northSteps: number,
+): { eastKm: number; northKm: number } {
+  return {
+    eastKm: eastSteps * STARBASE_PLATE_STEP_KM,
+    northKm: northSteps * STARBASE_PLATE_STEP_KM,
+  };
+}
+
+/**
+ * Pad-local offset of a plate center from the JPEG pin.
+ * +X west, +Z north (same frame as {@link starbasePlateUv}).
+ */
+export function starbasePlatePadLocalOffset(
+  eastSteps: number,
+  northSteps: number,
+): { x: number; z: number } {
+  const { eastKm, northKm } = starbasePlateEastNorthKm(eastSteps, northSteps);
+  return { x: -eastKm, z: northKm };
+}
 
 /**
  * Planar UV for a north-up square photo covering ±`halfKm`.
@@ -97,6 +223,25 @@ export function starbasePlateWmsBboxDeg(
     maxLon: (lon + dlon) * (180 / Math.PI),
     minLat: (lat - dlat) * (180 / Math.PI),
     maxLat: (lat + dlat) * (180 / Math.PI),
+  };
+}
+
+/**
+ * WMS bbox for a neighbor square that shares edges with the center plate.
+ * Uses the center plate’s lon/lat spans so tiles stitch without a gap.
+ */
+export function starbaseNeighborPlateWmsBboxDeg(
+  eastSteps: number,
+  northSteps: number,
+): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
+  const c = starbasePlateWmsBboxDeg();
+  const lonSpan = c.maxLon - c.minLon;
+  const latSpan = c.maxLat - c.minLat;
+  return {
+    minLon: c.minLon + eastSteps * lonSpan,
+    maxLon: c.maxLon + eastSteps * lonSpan,
+    minLat: c.minLat + northSteps * latSpan,
+    maxLat: c.maxLat + northSteps * latSpan,
   };
 }
 

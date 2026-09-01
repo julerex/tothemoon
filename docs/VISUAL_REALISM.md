@@ -30,7 +30,7 @@ highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + nested USDA NAIP pad plate (farm on NAIP is outdated) |
+| **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + five landward 80 km neighbors + nested USDA NAIP pad plate (farm on NAIP is outdated) |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -91,7 +91,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 ## Working agreements
 
 - **Theater vs ops:** document approximations in README or short code comments when adding “realistic-looking” FX.
-- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe, LRO WAC Moon, Sentinel-2 Starbase plate + USDA NAIP pad inset, with procedural fallback) are the accepted exception — not a tile server or DEM.
+- **Procedural first:** prefer canvas / GPU-cheap materials over huge DEM/satellite assets unless an explicit asset pipeline is accepted. Committed theater-grade JPEGs (NASA Blue Marble globe, LRO WAC Moon, Sentinel-2 Starbase plate + landward neighbors + USDA NAIP pad inset, with procedural fallback) are the accepted exception — not a tile server or DEM.
 - **Scrub-safe:** opacity/scale/position from mission `t`, phase, alt, burn flags — not `performance.now()` alone (wall-clock OK only for toast/UI animation).
 - **Scale honesty:** scene unit = 1 km; craft/pad true-scale; do not inflate the stack for “cinematics.”
 - **Performance:** pad/chase cameras are the hot path; avoid full-scene real-time shadows without a tight focus frustum.
@@ -335,12 +335,12 @@ Longest scrub stretch; corridor already existed — punctuation, not new physics
 
 Photo plate instead of procedural coastline glints:
 
-- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad. The pad group yaws so +Z = geographic north; plates inherit that yaw, sit on the committed JPEG pin (~209 m east of OLP-2), and drape onto the globe. Soft square-rim alpha vs the globe; corners of the JPEG are used.
+- **Sentinel-2 cloudless** square (~40 km half-extent, inner hole at the OLM) parented under the pad, plus five landward 80 km neighbors (N / NW / W / SW / S). East / NE / SE stay Gulf water on Blue Marble. The pad group yaws so +Z = geographic north; plates inherit that yaw, sit on the committed JPEG pin (~209 m east of OLP-2), and drape onto the globe. Soft-rim alpha only on mosaic outer / Gulf edges so land seams stay opaque.
 - Nested **USDA NAIP** pad plate (~8 km, ~1 m/px, 2022-06-10 Cameron County) under the Sentinel-2 square so aerial/trench cams can read the tank farm and SH 4. Gulf nodata is discarded so Sentinel-2 water shows through.
 - The globe albedo shows through if a JPEG is missing (no procedural scrub rings).
 - **NASA Blue Marble** 4k equirectangular albedo on the globe (roughness derived from the photo; night lights stay procedural).
 
-**Files:** `starbasePlate.ts` (+ tests), `earthTheater.ts`, `bodies.ts`, `public/textures/{earth_bluemarble_4k,starbase_surrounds,starbase_pad_naip}.jpg`.
+**Files:** `starbasePlate.ts` (+ tests), `earthTheater.ts`, `bodies.ts`, `public/textures/{earth_bluemarble_4k,starbase_surrounds,starbase_surrounds_{n,nw,w,sw,s},starbase_pad_naip}.jpg`.
 
 Pad GSD look: [Sentinel-2 vs NAIP](starbase-sentinel-vs-naip.jpg) · [8 km NAIP plate](starbase-naip-8km.jpg).
 
@@ -846,6 +846,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Pad group yaws with the satellite plates so +Z is geographic north (GSE was ~173° off — south-facing). |
 | 2026-08-31 | Pad origin is the OLP-2 OLM (survey / physics pin); satellite plates stay on the committed JPEG pin (~209 m east). Dropped the 10° / 50 m whole-group nudge that had moved the plates with the GSE. |
 | 2026-08-31 | Removed leftover km-scale scrub / landmark rings (dark-green + grey circles under the satellite plates). |
+| 2026-09-01 | Five landward Sentinel-2 80 km plates (N / NW / W / SW / S) adjacent to the Starbase surrounds square. Gulf tiles stay Blue Marble. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

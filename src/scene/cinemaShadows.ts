@@ -101,9 +101,9 @@ const PAD_CAST_ROOTS = [
 ] as const;
 
 /** Large coplanar flats — never cast or receive. */
-const PAD_NO_SHADOW = [
-  "pad-satellite-plate", "pad-naip-plate",
-] as const;
+function isPadSatellitePlateName(name: string): boolean {
+  return name === "pad-naip-plate" || name.startsWith("pad-satellite-plate");
+}
 
 /** Small apron surfaces that should still catch craft/tower shadows. */
 const PAD_RECEIVE_ONLY = ["pad-scorch"] as const;
@@ -149,10 +149,10 @@ function markPadCastRoots(pad: THREE.Object3D): void {
 }
 
 function markPadNoShadow(pad: THREE.Object3D): void {
-  for (const name of PAD_NO_SHADOW) {
-    const node = pad.getObjectByName(name);
-    if (node) markShadowMeshes(node, { cast: false, receive: false });
-  }
+  pad.traverse((obj) => {
+    if (!isPadSatellitePlateName(obj.name)) return;
+    markShadowMeshes(obj, { cast: false, receive: false });
+  });
 }
 
 function markPadReceiveOnly(pad: THREE.Object3D): void {

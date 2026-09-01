@@ -1,12 +1,16 @@
-/** Sentinel-2 surrounds square and nested NAIP pad plate. */
+/** Sentinel-2 surrounds square, landward neighbors, and nested NAIP pad plate. */
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM, STARBASE_LAT } from "../../physics/constants";
 import { geocentricRadiusAt } from "../../physics/wgs84";
 import {
+  STARBASE_CENTER_PLATE_FADE,
+  STARBASE_LAND_PLATES,
   STARBASE_PAD_PLATE_HALF_KM, STARBASE_PAD_PLATE_Y_KM,
   STARBASE_PLATE_HALF_KM, STARBASE_PLATE_INNER_KM, STARBASE_PLATE_SEGS,
-  STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlateUv,
+  STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlatePadLocalOffset,
+  starbasePlateUv,
 } from "../starbasePlate";
+import type { PlateEdgeFade } from "../starbasePlate";
 import { loadTextureAsset } from "../assetLoad";
 import { makePlateAlphaTexture } from "./padTextures";
 import { GROUND_OFFSET } from "./padSurroundMats";
@@ -39,7 +43,21 @@ function drapeStarbasePlate(
   geo.computeVertexNormals();
 }
 
-function makeStarbasePlateGeometry(halfKm: number): THREE.PlaneGeometry {
+function offsetPlateVerts(geo: THREE.BufferGeometry, ox: number, oz: number): void {
+  if (ox === 0 && oz === 0) return;
+  const pos = geo.getAttribute("position");
+  if (!pos) return;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setX(i, pos.getX(i) + ox);
+    pos.setZ(i, pos.getZ(i) + oz);
+  }
+}
+
+function makeStarbasePlateGeometry(
+  halfKm: number,
+  ox = 0,
+  oz = 0,
+): THREE.PlaneGeometry {
   const geo = new THREE.PlaneGeometry(
     halfKm * 2,
     halfKm * 2,
@@ -48,6 +66,7 @@ function makeStarbasePlateGeometry(halfKm: number): THREE.PlaneGeometry {
   );
   geo.rotateX(-Math.PI / 2);
   applyStarbasePlateUvs(geo, halfKm);
+  offsetPlateVerts(geo, ox, oz);
   drapeStarbasePlate(geo, geocentricRadiusAt(STARBASE_LAT, EARTH_SURFACE_ALT_KM));
   return geo;
 }
@@ -86,20 +105,24 @@ function punchPlateOlmHole(
   };
 }
 
-function makeStarbasePlateMaterial(
-  halfKm: number,
-  dropNodata = false,
-): THREE.MeshStandardMaterial {
+function makeStarbasePlateMaterial(opts: {
+  halfKm: number;
+  fade: PlateEdgeFade;
+  dropNodata?: boolean;
+  punchOlm?: boolean;
+}): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     metalness: 0.04,
     roughness: 0.95,
     transparent: true,
     depthWrite: false,
-    alphaMap: makePlateAlphaTexture(),
+    alphaMap: makePlateAlphaTexture(opts.fade),
     ...GROUND_OFFSET,
   });
-  punchPlateOlmHole(mat, halfKm, dropNodata);
+  if (opts.punchOlm !== false) {
+    punchPlateOlmHole(mat, opts.halfKm, opts.dropNodata === true);
+  }
   return mat;
 }
 
@@ -138,12 +161,18 @@ function addPlate(
   pad: THREE.Group,
   opts: {
     name: string; halfKm: number; yKm: number; file: string;
-    kind: "surrounds" | "naip"; dropNodata?: boolean;
+    kind: "surrounds" | "naip"; fade: PlateEdgeFade;
+    dropNodata?: boolean; punchOlm?: boolean; ox?: number; oz?: number;
   },
 ): void {
   const plate = new THREE.Mesh(
-    makeStarbasePlateGeometry(opts.halfKm),
-    makeStarbasePlateMaterial(opts.halfKm, opts.dropNodata === true),
+    makeStarbasePlateGeometry(opts.halfKm, opts.ox ?? 0, opts.oz ?? 0),
+    makeStarbasePlateMaterial({
+      halfKm: opts.halfKm,
+      fade: opts.fade,
+      dropNodata: opts.dropNodata,
+      punchOlm: opts.punchOlm,
+    }),
   );
   plate.name = opts.name;
   const pin = starbasePlatePinFromOlp2;
@@ -154,11 +183,29 @@ function addPlate(
   loadStarbasePlateTexture(plate, opts.file, opts.kind);
 }
 
+function addLandNeighborPlates(pad: THREE.Group): void {
+  for (const land of STARBASE_LAND_PLATES) {
+    const off = starbasePlatePadLocalOffset(land.eastSteps, land.northSteps);
+    addPlate(pad, {
+      name: land.name,
+      halfKm: STARBASE_PLATE_HALF_KM,
+      yKm: STARBASE_PLATE_Y_KM,
+      file: land.file,
+      kind: "surrounds",
+      fade: land.fade,
+      punchOlm: false,
+      ox: off.x,
+      oz: off.z,
+    });
+  }
+}
+
 /**
- * North-up Sentinel-2 square around the pad, plus a nested USDA NAIP plate
- * over the launch/production site. Meshes sit on the committed JPEG pin
- * (`starbasePlatePinFromOlp2`), not the OLP-2 origin. Hidden until each
- * JPEG loads.
+ * North-up Sentinel-2 square around the pad, five landward 80 km neighbors
+ * (N / NW / W / SW / S — the Gulf stays Blue Marble), plus a nested USDA
+ * NAIP plate over the launch/production site. Meshes sit on the committed
+ * JPEG pin (`starbasePlatePinFromOlp2`), not the OLP-2 origin. Hidden until
+ * each JPEG loads.
  */
 export function addStarbaseSatellitePlate(pad: THREE.Group): void {
   addPlate(pad, {
@@ -167,13 +214,16 @@ export function addStarbaseSatellitePlate(pad: THREE.Group): void {
     yKm: STARBASE_PLATE_Y_KM,
     file: "starbase_surrounds.jpg",
     kind: "surrounds",
+    fade: STARBASE_CENTER_PLATE_FADE,
   });
+  addLandNeighborPlates(pad);
   addPlate(pad, {
     name: "pad-naip-plate",
     halfKm: STARBASE_PAD_PLATE_HALF_KM,
     yKm: STARBASE_PAD_PLATE_Y_KM,
     file: "starbase_pad_naip.jpg",
     kind: "naip",
+    fade: { n: true, e: true, s: true, w: true },
     dropNodata: true,
   });
 }
