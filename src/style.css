@@ -1125,6 +1125,78 @@ body.menus-active .news-ticker-track {
   text-transform: uppercase;
 }
 
+.camera-rail > .cam-compass {
+  align-items: center;
+  gap: 0.18rem;
+  margin: 0.1rem 0 0.15rem;
+  pointer-events: none;
+}
+
+.cam-compass-svg {
+  width: 5.4rem;
+  height: 5.4rem;
+  display: block;
+}
+
+.cam-compass-ring {
+  fill: #000;
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+
+.cam-compass-ticks {
+  stroke: #fff;
+  stroke-linecap: square;
+  fill: none;
+}
+
+.cam-compass-ticks line:nth-child(-n+4) {
+  stroke-width: 2.2;
+}
+
+.cam-compass-ticks line:nth-child(n+5) {
+  stroke-width: 1.2;
+}
+
+.cam-compass-cardinal {
+  fill: #fff;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.cam-compass-n {
+  font-size: 13px;
+}
+
+.cam-compass-needle-n {
+  fill: #fff;
+}
+
+.cam-compass-needle-s {
+  fill: #000;
+  stroke: #fff;
+  stroke-width: 0.9;
+}
+
+.cam-compass-hub-outer {
+  fill: #fff;
+}
+
+.cam-compass-hub-inner {
+  fill: #000;
+}
+
+.cam-compass-deg {
+  color: var(--text);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
 .telemetry .tel-actions {
   pointer-events: auto;
   margin-top: auto;
@@ -1977,6 +2049,11 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   .telemetry > div > span:not(.label),
   .camera-rail > div > span:not(.label) {
     font-size: 0.72rem;
+  }
+
+  .cam-compass-svg {
+    width: 4.4rem;
+    height: 4.4rem;
   }
 
   .cam-grid {

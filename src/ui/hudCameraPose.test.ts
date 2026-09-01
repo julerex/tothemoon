@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { GEO_RADIUS_KM } from "../physics/constants.ts";
 import { WGS84_A } from "../physics/wgs84.ts";
+import { earthNorthPole } from "../physics/earthFrame.ts";
 import {
   cameraAltEarthKm,
+  cameraHeadingDeg,
   cameraHudTelemetry,
   cameraReadoutLabels,
+  formatHeadingDeg,
   formatLookVec3,
   formatSceneVec3,
 } from "./hudCameraPose.ts";
@@ -91,5 +94,56 @@ describe("cameraHudTelemetry / cameraReadoutLabels", () => {
     assert.equal(empty.cameraPosition, "—");
     assert.equal(empty.cameraDirection, "—");
     assert.equal(empty.cameraAltitude, "—");
+    assert.equal(empty.cameraHeadingDeg, null);
+    assert.equal(empty.cameraHeadingLabel, "—");
+  });
+});
+
+describe("cameraHeadingDeg", () => {
+  const earth = { x: 0, y: 0, z: 0 };
+  const cam = { x: 10_000, y: 0, z: 0 };
+
+  function enuAtCam() {
+    const pole = earthNorthPole();
+    const up = { x: 1, y: 0, z: 0 };
+    const el = Math.hypot(
+      pole.y * up.z - pole.z * up.y,
+      pole.z * up.x - pole.x * up.z,
+      pole.x * up.y - pole.y * up.x,
+    );
+    const east = {
+      x: (pole.y * up.z - pole.z * up.y) / el,
+      y: (pole.z * up.x - pole.x * up.z) / el,
+      z: (pole.x * up.y - pole.y * up.x) / el,
+    };
+    const north = {
+      x: up.y * east.z - up.z * east.y,
+      y: up.z * east.x - up.x * east.z,
+      z: up.x * east.y - up.y * east.x,
+    };
+    return { east, north, up };
+  }
+
+  it("is 0 looking local north and 90 looking local east", () => {
+    const { east, north } = enuAtCam();
+    const n = cameraHeadingDeg(north, cam, earth);
+    const e = cameraHeadingDeg(east, cam, earth);
+    assert.ok(n != null);
+    assert.ok(e != null);
+    assert.ok(Math.abs(n!) < 1e-6, `north=${n}`);
+    assert.ok(Math.abs(e! - 90) < 1e-6, `east=${e}`);
+  });
+
+  it("is null looking along local up or with missing inputs", () => {
+    assert.equal(cameraHeadingDeg({ x: 1, y: 0, z: 0 }, cam, earth), null);
+    assert.equal(cameraHeadingDeg({ x: 0, y: 1, z: 0 }, cam, null), null);
+    assert.equal(cameraHeadingDeg(null, cam, earth), null);
+  });
+
+  it("formats a three-digit degree label", () => {
+    assert.equal(formatHeadingDeg(7.2), "007°");
+    assert.equal(formatHeadingDeg(270), "270°");
+    assert.equal(formatHeadingDeg(359.6), "000°");
+    assert.equal(formatHeadingDeg(null), "—");
   });
 });

@@ -141,6 +141,17 @@ export function applyPressed(
   if (onOffName) btn.textContent = toggleIsOnLabel(onOffName, pressed);
 }
 
+function applyCompass(
+  dom: HudDom,
+  headingDeg: number | null,
+  label: string,
+): void {
+  if (dom.compassDegEl) dom.compassDegEl.textContent = label;
+  if (!dom.compassNeedleEl) return;
+  const deg = headingDeg != null && Number.isFinite(headingDeg) ? headingDeg : 0;
+  dom.compassNeedleEl.setAttribute("transform", `rotate(${deg} 50 50)`);
+}
+
 function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {
   if (dom.camEl) dom.camEl.textContent = m.focusDistance;
   if (dom.camTargetEl) dom.camTargetEl.textContent = m.cameraTarget;
@@ -148,6 +159,7 @@ function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {
   if (dom.camAltRowEl) dom.camAltRowEl.hidden = !m.cameraAltitudeVisible;
   if (dom.camPosEl) dom.camPosEl.textContent = m.cameraPosition;
   if (dom.camDirEl) dom.camDirEl.textContent = m.cameraDirection;
+  applyCompass(dom, m.cameraHeadingDeg, m.cameraHeadingLabel);
   dom.spdEl.textContent = m.speed;
   dom.boosterEl.textContent = m.fuelBooster;
   dom.shipEl.textContent = m.fuelShip;

@@ -20,6 +20,8 @@ export type CameraHudTelemetry = {
   cameraLook: CameraPoseVec;
   /** WGS84 height (km), or null when outside GEO / missing. */
   cameraAltEarth: number | null;
+  /** Look azimuth (deg, 0 = north, 90 = east), or null if undefined. */
+  cameraHeadingDeg: number | null;
 };
 
 /** Formatted camera-rail rows. */
@@ -29,6 +31,8 @@ export type CameraReadoutLabels = {
   cameraAltitudeVisible: boolean;
   cameraPosition: string;
   cameraDirection: string;
+  cameraHeadingDeg: number | null;
+  cameraHeadingLabel: string;
 };
 
 const DASH = "—";
@@ -48,6 +52,56 @@ export function cameraAltEarthKm(
   return radialHeightAboveEllipsoid(rel, earthNorthPole());
 }
 
+/**
+ * Camera look azimuth in the local ENU frame at the eye (degrees).
+ * 0 = north, 90 = east. Null when the look is too close to local vertical
+ * or the eye sits on Earth's center / a pole.
+ */
+export function cameraHeadingDeg(
+  look: CameraPoseVec | null | undefined,
+  cam: CameraPoseVec | null | undefined,
+  earth: CameraPoseVec | null | undefined,
+): number | null {
+  if (!isVec(look) || !isVec(cam) || !isVec(earth)) return null;
+  const ux = cam.x - earth.x;
+  const uy = cam.y - earth.y;
+  const uz = cam.z - earth.z;
+  const ul = Math.hypot(ux, uy, uz);
+  if (!(ul > 1e-6)) return null;
+  const upx = ux / ul;
+  const upy = uy / ul;
+  const upz = uz / ul;
+  const pole = earthNorthPole();
+  let ex = pole.y * upz - pole.z * upy;
+  let ey = pole.z * upx - pole.x * upz;
+  let ez = pole.x * upy - pole.y * upx;
+  const el = Math.hypot(ex, ey, ez);
+  if (!(el > 1e-8)) return null;
+  ex /= el;
+  ey /= el;
+  ez /= el;
+  const nx = upy * ez - upz * ey;
+  const ny = upz * ex - upx * ez;
+  const nz = upx * ey - upy * ex;
+  const dup = look.x * upx + look.y * upy + look.z * upz;
+  const hx = look.x - dup * upx;
+  const hy = look.y - dup * upy;
+  const hz = look.z - dup * upz;
+  if (!(Math.hypot(hx, hy, hz) > 1e-6)) return null;
+  const east = hx * ex + hy * ey + hz * ez;
+  const north = hx * nx + hy * ny + hz * nz;
+  let deg = (Math.atan2(east, north) * 180) / Math.PI;
+  if (deg < 0) deg += 360;
+  return deg;
+}
+
+/** `047°` or an em dash when heading is undefined. */
+export function formatHeadingDeg(deg: number | null | undefined): string {
+  if (deg == null || !Number.isFinite(deg)) return DASH;
+  const wrapped = ((Math.round(deg) % 360) + 360) % 360;
+  return `${String(wrapped).padStart(3, "0")}°`;
+}
+
 /** Snapshot pose + Earth-relative altitude for the HUD. */
 export function cameraHudTelemetry(
   pose: {
@@ -63,6 +117,7 @@ export function cameraHudTelemetry(
     cameraPosition: copyVec(pose.position),
     cameraLook: copyVec(pose.look),
     cameraAltEarth: cameraAltEarthKm(pose.position, earth),
+    cameraHeadingDeg: cameraHeadingDeg(pose.look, pose.position, earth),
   };
 }
 
@@ -72,15 +127,19 @@ export function cameraReadoutLabels(tel: {
   cameraPosition?: CameraPoseVec | null;
   cameraLook?: CameraPoseVec | null;
   cameraAltEarth?: number | null;
+  cameraHeadingDeg?: number | null;
 }): CameraReadoutLabels {
   const alt = tel.cameraAltEarth;
   const visible = alt != null && Number.isFinite(alt);
+  const heading = tel.cameraHeadingDeg ?? null;
   return {
     cameraTarget: formatSceneVec3(tel.cameraTarget),
     cameraAltitude: visible ? formatFocusDistance(Math.max(0, alt)) : DASH,
     cameraAltitudeVisible: visible,
     cameraPosition: formatSceneVec3(tel.cameraPosition),
     cameraDirection: formatLookVec3(tel.cameraLook),
+    cameraHeadingDeg: heading,
+    cameraHeadingLabel: formatHeadingDeg(heading),
   };
 }
 

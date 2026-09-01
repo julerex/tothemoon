@@ -227,6 +227,46 @@
           class="panel camera-rail hud-chrome"
           aria-label="Camera"
         >
+          <div
+            class="cam-compass"
+            id="cam-compass"
+            aria-label="Camera heading"
+          >
+            <svg
+              class="cam-compass-svg"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+            >
+              <circle class="cam-compass-ring" cx="50" cy="50" r="47" />
+              <g class="cam-compass-ticks">
+                <line x1="50" y1="5" x2="50" y2="13" />
+                <line x1="95" y1="50" x2="87" y2="50" />
+                <line x1="50" y1="95" x2="50" y2="87" />
+                <line x1="5" y1="50" x2="13" y2="50" />
+                <line x1="82.5" y1="17.5" x2="77.5" y2="22.5" />
+                <line x1="82.5" y1="82.5" x2="77.5" y2="77.5" />
+                <line x1="17.5" y1="82.5" x2="22.5" y2="77.5" />
+                <line x1="17.5" y1="17.5" x2="22.5" y2="22.5" />
+              </g>
+              <text class="cam-compass-cardinal cam-compass-n" x="50" y="24">N</text>
+              <text class="cam-compass-cardinal" x="78" y="54">E</text>
+              <text class="cam-compass-cardinal" x="50" y="86">S</text>
+              <text class="cam-compass-cardinal" x="22" y="54">W</text>
+              <g id="cam-compass-needle">
+                <polygon
+                  class="cam-compass-needle-n"
+                  points="50,14 55,50 50,46 45,50"
+                />
+                <polygon
+                  class="cam-compass-needle-s"
+                  points="50,86 55,50 50,54 45,50"
+                />
+              </g>
+              <circle class="cam-compass-hub-outer" cx="50" cy="50" r="4" />
+              <circle class="cam-compass-hub-inner" cx="50" cy="50" r="1.8" />
+            </svg>
+            <span id="cam-compass-deg" class="cam-compass-deg">—</span>
+          </div>
           <div>
             <span class="label">Camera</span>
             <span id="tel-cam-mode">—</span>
