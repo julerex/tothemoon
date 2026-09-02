@@ -1,8 +1,9 @@
 /**
  * Gulf of America booster hard-splash site plate for Flight 13.
  *
- * Earth-fixed (lat/lon → mesh-local) so the beacon co-rotates. Spray uses the
- * shared terminal FX curves. Theater-grade — not a barge or CFD splash.
+ * Earth-fixed (lat/lon → mesh-local) so the beacon co-rotates. Steam is a
+ * brief local hard-splash puff (not the Indian Ocean ship-splash bloom).
+ * Theater-grade — not a barge or CFD splash.
  * V17: ocean glitter + warmer white steam on the Gulf plate.
  *
  * @see padRecoveryFx.ts — visibility / AGL helpers
@@ -17,12 +18,7 @@ import {
   GULF_SCHEDULE,
   type BoosterRecoveryPhase,
 } from "../physics/boosterRecovery";
-import {
-  gulfLandingAltKm,
-  gulfSiteVisible,
-  gulfSprayPhase,
-} from "./padRecoveryFx";
-import { deriveSplashSpray } from "./terminalFx";
+import { deriveGulfSpray } from "./padRecoveryFx";
 import {
   createEarthTerminalSite,
   type EarthTerminalSiteSpec,
@@ -85,17 +81,18 @@ export function createGulfLandFx(): GulfLandFx {
         site.setVisible(false);
         return;
       }
-      const age = missionT - stageT;
-      const show = gulfSiteVisible(opts.recoveryPhase, age);
-      site.setVisible(show);
-      if (!show) return;
-      site.pulseBeacon(craftPos);
-      const derived = deriveSplashSpray({
+      const derived = deriveGulfSpray({
         missionT,
         landT,
-        phase: gulfSprayPhase(opts.recoveryPhase),
-        altEarth: gulfLandingAltKm(age),
+        recoveryPhase: opts.recoveryPhase,
+        age: missionT - stageT,
       });
+      site.setVisible(derived.siteVisible);
+      if (!derived.siteVisible) {
+        site.setGlitter(0);
+        return;
+      }
+      site.pulseBeacon(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
     },

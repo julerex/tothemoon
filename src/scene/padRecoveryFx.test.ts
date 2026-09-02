@@ -3,13 +3,20 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CHOPSTICKS_SCHEDULE, GULF_SCHEDULE } from "../physics/boosterRecovery.ts";
+import {
+  boosterVisibleS,
+  CHOPSTICKS_SCHEDULE,
+  GULF_SCHEDULE,
+} from "../physics/boosterRecovery.ts";
 import {
   chopstickCloseAmount,
   deriveChopstickPose,
+  deriveGulfSpray,
   gulfLandingAltKm,
   gulfSiteVisible,
+  gulfSprayActive,
   gulfSprayPhase,
+  GULF_STEAM_HOLD_S,
 } from "./padRecoveryFx.ts";
 
 describe("chopstickCloseAmount", () => {
@@ -54,5 +61,68 @@ describe("gulf site gates", () => {
     assert.equal(gulfSprayPhase("landing"), "descent");
     assert.equal(gulfSprayPhase("caught"), "splashdown");
     assert.equal(gulfSprayPhase("coast"), "entry");
+  });
+
+  it("hides the plate after the booster recovery window", () => {
+    const vis = boosterVisibleS(GULF_SCHEDULE);
+    assert.equal(gulfSiteVisible("caught", vis), true);
+    assert.equal(gulfSiteVisible("done", vis + 1), false);
+    assert.equal(gulfSiteVisible("coast", vis + 60), false);
+    assert.equal(gulfSiteVisible("landing", vis + 1), false);
+  });
+});
+
+describe("gulf hard-splash steam", () => {
+  const landAge = GULF_SCHEDULE.landingEndS;
+  const landT = 141 + landAge;
+
+  function spray(
+    recoveryPhase: string,
+    age: number,
+  ): ReturnType<typeof deriveGulfSpray> {
+    return deriveGulfSpray({
+      missionT: landT + (age - landAge),
+      landT,
+      recoveryPhase,
+      age,
+    });
+  }
+
+  it("is on for the landing burn and a short post-splash hold", () => {
+    assert.equal(gulfSprayActive("coast", GULF_SCHEDULE.landingStartS - 10), false);
+    assert.equal(gulfSprayActive("landing", GULF_SCHEDULE.landingStartS), true);
+    assert.equal(gulfSprayActive("caught", landAge), true);
+    assert.equal(gulfSprayActive("caught", landAge + GULF_STEAM_HOLD_S), true);
+    assert.equal(gulfSprayActive("caught", landAge + GULF_STEAM_HOLD_S + 1), false);
+    assert.equal(gulfSprayActive("done", landAge + 90), false);
+  });
+
+  it("stays local instead of the ship-splash Earth-cam bloom", () => {
+    const atGate = spray("landing", GULF_SCHEDULE.landingStartS);
+    const atSplash = spray("caught", landAge);
+    const bloom = spray("caught", landAge + 5);
+    assert.equal(atGate.active, true);
+    assert.equal(atSplash.active, true);
+    assert.ok(atGate.outer.expand < 3, `gate outer ${atGate.outer.expand}`);
+    assert.ok(atSplash.outer.expand < 3, `splash outer ${atSplash.outer.expand}`);
+    assert.ok(bloom.outer.expand < 3, `bloom outer ${bloom.outer.expand}`);
+    assert.ok(bloom.inner.expand < 2, `bloom inner ${bloom.inner.expand}`);
+    assert.ok(bloom.sheet.expand <= 1.4);
+  });
+
+  it("does not keep growing a white disc after splash", () => {
+    const early = spray("caught", landAge);
+    const later = spray("caught", landAge + 12);
+    assert.ok(later.outer.expand < 3);
+    assert.ok(later.outer.expand <= early.outer.expand + 1.2);
+    const gone = spray("caught", landAge + 90);
+    assert.equal(gone.active, false);
+    assert.equal(gone.outer.visible, false);
+    assert.equal(gone.siteVisible, false);
+  });
+
+  it("is scrub-stable", () => {
+    const a = spray("caught", landAge + 3);
+    assert.deepEqual(a, spray("caught", landAge + 3));
   });
 });
