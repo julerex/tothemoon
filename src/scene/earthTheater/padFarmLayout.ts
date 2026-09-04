@@ -2,12 +2,17 @@
  * Shared orbital tank farm — between OLP-2 and OLP-1, south of SH 4.
  *
  * Pad-local km: +X west (inland), −X gulf/east, +Z north (SH 4), +Y up.
- * Live origin is the OLP-2 OLM. Layout is measured from a north-up ~640 m
- * aerial (OLP-2 on the west, OLP-1 east-south): N–S horizontal cryo banks,
- * not the 2022 NAIP Pad 1–era verticals. Live Mechazilla stays west of the
+ * Live origin is the OLP-2 OLM. Banks are packed along −X in this file;
+ * {@link surveyedFarmXz} yaws that axis onto the surveyed west→east GPS
+ * line so the farm is not due east–west. Live Mechazilla stays west of the
  * OLM (`TOWER_OX` > 0) so trench / webcast cameras keep their mounts.
  */
 import { PAD1_X_KM } from "./mechazillaDims";
+import {
+  farmAxisYawRad,
+  farmEastFromOlp2,
+  farmWestFromOlp2,
+} from "./starbaseSurvey";
 
 /** Long-axis of a horizontal shell. */
 export type CryoAxis = "ns" | "ew";
@@ -173,6 +178,45 @@ export function farmPlanBounds(): PlanBounds {
 }
 
 /**
+ * Mean of the un-yawed tank centres — pivot for {@link surveyedFarmXz}.
+ */
+export function farmLayoutCentroid(): { x: number; z: number } {
+  const pts = cryoTankPlacements();
+  const n = pts.length || 1;
+  return {
+    x: pts.reduce((s, p) => s + p.x, 0) / n,
+    z: pts.reduce((s, p) => s + p.z, 0) / n,
+  };
+}
+
+/** Midpoint of the surveyed west→east GPS segment (pad-local km). */
+export function farmSurveyMidpoint(): { x: number; z: number } {
+  return {
+    x: (farmWestFromOlp2.x + farmEastFromOlp2.x) * 0.5,
+    z: (farmWestFromOlp2.z + farmEastFromOlp2.z) * 0.5,
+  };
+}
+
+/**
+ * Map un-yawed farm-layout xz onto pad-local xz: rotate about the layout
+ * centroid so −X follows the surveyed GPS axis, then sit that centroid on
+ * the GPS midpoint.
+ */
+export function surveyedFarmXz(x: number, z: number): { x: number; z: number } {
+  const c = farmLayoutCentroid();
+  const mid = farmSurveyMidpoint();
+  const yaw = farmAxisYawRad();
+  const lx = x - c.x;
+  const lz = z - c.z;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  return {
+    x: lx * cos + lz * sin + mid.x,
+    z: -lx * sin + lz * cos + mid.z,
+  };
+}
+
+/**
  * Vent stacks at the SW / SE / NW / NE corners of the occupied farm.
  * World Y is a typical tank diameter (horizontal shells sit on the pad).
  */
@@ -190,5 +234,8 @@ export function tankFarmVentAnchors(): Array<readonly [number, number, number]> 
     [east, y, south],
     [west, y, north],
     [east, y, north],
-  ];
+  ].map(([x, yy, z]) => {
+    const p = surveyedFarmXz(x, z);
+    return [p.x, yy, p.z] as const;
+  });
 }

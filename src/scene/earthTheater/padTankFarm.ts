@@ -1,9 +1,10 @@
 /**
- * Orbital tank farm — N–S horizontal cryo banks between OLP-2 and OLP-1.
+ * Orbital tank farm — horizontal cryo banks between OLP-2 and OLP-1.
  *
- * Look target: north-up ~640 m aerial (OLP-2 west, farm between the pads,
- * offload east of OLP-1). Per-bank concrete slabs and a dark north pipe rack;
- * the 2022 USDA NAIP farm is outdated. Live Mechazilla stays west of the OLM.
+ * Layout is packed along pad −X; the group yaws onto the surveyed west→east
+ * GPS axis so the farm is not due east–west. Per-bank concrete slabs and a
+ * dark north pipe rack; the 2022 USDA NAIP farm is outdated. Live Mechazilla
+ * stays west of the OLM.
  */
 import * as THREE from "three";
 import type { PadSurroundMats } from "./padSurroundMats";
@@ -24,8 +25,11 @@ import {
   bankFootprint,
   cryoTankPlacements,
   farmBankSlabs,
+  farmLayoutCentroid,
   farmPlanBounds,
+  farmSurveyMidpoint,
 } from "./padFarmLayout";
+import { farmAxisYawRad } from "./starbaseSurvey";
 
 const SADDLE = 0.0012;
 const unitBody = new THREE.CylinderGeometry(0.5, 0.5, 1, 14);
@@ -196,8 +200,24 @@ function addFarmPumps(farm: THREE.Group, mats: PadSurroundMats): void {
 }
 
 /**
+ * Sit the axis-aligned farm layout on the surveyed west→east GPS axis.
+ * Children stay in layout km; the group yaw + translation is pad-local.
+ */
+function applyFarmSurveyPose(farm: THREE.Group): void {
+  const c = farmLayoutCentroid();
+  const mid = farmSurveyMidpoint();
+  const inner = new THREE.Group();
+  inner.name = "pad-tank-farm-layout";
+  while (farm.children.length > 0) inner.add(farm.children[0]!);
+  inner.position.set(-c.x, 0, -c.z);
+  farm.add(inner);
+  farm.position.set(mid.x, 0, mid.z);
+  farm.rotation.y = farmAxisYawRad();
+}
+
+/**
  * Pad-local tank farm between the pads (`pad-tank-farm` shadow cast root).
- * Group origin is the OLM so tank coordinates match `tankFarmVentAnchors`.
+ * Group origin is the layout centroid, seated on the surveyed GPS midpoint.
  */
 export function buildTankFarm(mats: PadSurroundMats): THREE.Group {
   const farm = new THREE.Group();
@@ -208,5 +228,6 @@ export function buildTankFarm(mats: PadSurroundMats): THREE.Group {
   addPipeRacks(farm, mats);
   addBlastWall(farm, mats);
   addFarmPumps(farm, mats);
+  applyFarmSurveyPose(farm);
   return farm;
 }

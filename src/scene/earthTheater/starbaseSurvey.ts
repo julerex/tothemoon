@@ -85,6 +85,32 @@ export const olp1TowerFromOlp2 = geodeticDeltaToPadLocal(
   OLP1_TOWER_LON_DEG,
 );
 
+/** West end of the orbital cryo farm (surveyed, WGS84). */
+export const FARM_WEST_LAT_DEG = 25.997730429522502;
+export const FARM_WEST_LON_DEG = -97.15783717086451;
+/** East end of the orbital cryo farm (surveyed, WGS84). */
+export const FARM_EAST_LAT_DEG = 25.996905982972397;
+export const FARM_EAST_LON_DEG = -97.15370950155669;
+
+export const farmWestFromOlp2 = geodeticDeltaToPadLocal(
+  FARM_WEST_LAT_DEG,
+  FARM_WEST_LON_DEG,
+);
+export const farmEastFromOlp2 = geodeticDeltaToPadLocal(
+  FARM_EAST_LAT_DEG,
+  FARM_EAST_LON_DEG,
+);
+
+/**
+ * Yaw about pad-local +Y that takes −X (due east) onto the surveyed farm
+ * axis west → east. Negative = eastbound farm runs south of due east.
+ */
+export function farmAxisYawRad(): number {
+  const dx = farmEastFromOlp2.x - farmWestFromOlp2.x;
+  const dz = farmEastFromOlp2.z - farmWestFromOlp2.z;
+  return Math.atan2(dz, -dx);
+}
+
 /** Pad 2 apron vertices `[x west, z north]` (km), same order as the survey. */
 export function pad2ApronXz(): Array<readonly [number, number]> {
   return PAD2_APRON_CORNERS_DEG.map(([lat, lon]) => {

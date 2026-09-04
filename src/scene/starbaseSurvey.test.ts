@@ -5,12 +5,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PAD1_X_KM, PAD1_Z_KM } from "./earthTheater/mechazillaDims.ts";
 import {
+  FARM_EAST_LAT_DEG,
+  FARM_EAST_LON_DEG,
+  FARM_WEST_LAT_DEG,
+  FARM_WEST_LON_DEG,
   OLP1_LAT_DEG,
   OLP1_LON_DEG,
   OLP1_TOWER_LAT_DEG,
   OLP1_TOWER_LON_DEG,
   OLP2_LAT_DEG,
   OLP2_LON_DEG,
+  farmAxisYawRad,
+  farmEastFromOlp2,
+  farmWestFromOlp2,
   geodeticDeltaToPadLocal,
   olp1FromOlp2,
   olp1TowerFromOlp2,
@@ -52,6 +59,22 @@ describe("starbaseSurvey", () => {
     const dz = tower.z - pad.z;
     assert.ok(dx > 0.03 && dx < 0.035, `tower ${dx} km west of mount`);
     assert.ok(dz < 0 && dz > -0.008, "tower slightly south of the mount");
+  });
+
+  it("yaws the cryo farm so west→east follows the surveyed GPS line", () => {
+    const west = geodeticDeltaToPadLocal(FARM_WEST_LAT_DEG, FARM_WEST_LON_DEG);
+    const east = geodeticDeltaToPadLocal(FARM_EAST_LAT_DEG, FARM_EAST_LON_DEG);
+    assert.equal(farmWestFromOlp2.x, west.x);
+    assert.equal(farmEastFromOlp2.x, east.x);
+    const dx = east.x - west.x;
+    const dz = east.z - west.z;
+    const len = Math.hypot(dx, dz);
+    assert.ok(len > 0.4 && len < 0.45, `farm axis ${len} km`);
+    assert.ok(dx < -0.4, "east end is further −X");
+    assert.ok(dz < 0, "east end is south of the west end");
+    const yaw = farmAxisYawRad();
+    assert.ok(yaw < 0 && yaw > -0.3, `yaw ${yaw} rad (eastbound runs south of due east)`);
+    assert.ok(Math.abs(yaw - Math.atan2(dz, -dx)) < 1e-12);
   });
 
   it("keeps the OLM and OLP-1 inside the surveyed site apron", () => {

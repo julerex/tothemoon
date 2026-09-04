@@ -22,9 +22,17 @@ import {
   SH4_Z_KM,
   cryoTankPlacements,
   farmBankSlabs,
+  farmLayoutCentroid,
   farmPlanBounds,
+  farmSurveyMidpoint,
+  surveyedFarmXz,
   tankFarmVentAnchors,
 } from "./earthTheater/padFarmLayout.ts";
+import {
+  farmAxisYawRad,
+  farmEastFromOlp2,
+  farmWestFromOlp2,
+} from "./earthTheater/starbaseSurvey.ts";
 import { buildTankFarm } from "./earthTheater/padTankFarm.ts";
 import { makePadSurroundMats } from "./earthTheater/padSurroundMats.ts";
 
@@ -115,7 +123,24 @@ describe("padFarmLayout vs pads / road", () => {
     const anchors = tankFarmVentAnchors();
     assert.equal(anchors.length, 4);
     assert.ok(anchors.every((a) => a[0] < 0));
-    assert.ok(anchors.every((a) => a[2] > 0 && a[2] < SH4_Z_KM));
+    assert.ok(anchors.every((a) => a[2] > -0.02 && a[2] < SH4_Z_KM));
+  });
+
+  it("aligns the farm packing axis with the surveyed west→east GPS line", () => {
+    const p0 = surveyedFarmXz(-0.2, 0.05);
+    const p1 = surveyedFarmXz(-0.3, 0.05);
+    const fx = p1.x - p0.x;
+    const fz = p1.z - p0.z;
+    const gx = farmEastFromOlp2.x - farmWestFromOlp2.x;
+    const gz = farmEastFromOlp2.z - farmWestFromOlp2.z;
+    const fLen = Math.hypot(fx, fz);
+    const gLen = Math.hypot(gx, gz);
+    const dot = (fx * gx + fz * gz) / (fLen * gLen);
+    assert.ok(dot > 0.999, `farm axis vs GPS dot ${dot}`);
+    const mid = farmSurveyMidpoint();
+    const c = surveyedFarmXz(farmLayoutCentroid().x, farmLayoutCentroid().z);
+    assert.ok(Math.abs(c.x - mid.x) < 1e-9);
+    assert.ok(Math.abs(c.z - mid.z) < 1e-9);
   });
 });
 
@@ -123,7 +148,11 @@ describe("padTankFarm between pads", () => {
   it("names the farm, berm, blast wall, and pipe rack", () => {
     const farm = buildTankFarm(makePadSurroundMats());
     assert.equal(farm.name, "pad-tank-farm");
-    assert.equal(farm.position.x, 0);
+    const mid = farmSurveyMidpoint();
+    assert.ok(Math.abs(farm.position.x - mid.x) < 1e-9);
+    assert.ok(Math.abs(farm.position.z - mid.z) < 1e-9);
+    assert.ok(Math.abs(farm.rotation.y - farmAxisYawRad()) < 1e-9);
+    assert.ok(farm.getObjectByName("pad-tank-farm-layout"));
     assert.ok(farm.getObjectByName("pad-tank-farm-berm"));
     assert.ok(farm.getObjectByName("pad-blast-wall"));
     assert.ok(farm.getObjectByName("pad-pipe-rack"));
