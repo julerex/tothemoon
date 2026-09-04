@@ -145,8 +145,10 @@ function applyCompass(
   dom: HudDom,
   headingDeg: number | null,
   label: string,
+  transform: string,
 ): void {
   if (dom.compassDegEl) dom.compassDegEl.textContent = label;
+  if (dom.compassSvgEl) dom.compassSvgEl.style.transform = transform;
   if (!dom.compassNeedleEl) return;
   const deg = headingDeg != null && Number.isFinite(headingDeg) ? headingDeg : 0;
   dom.compassNeedleEl.setAttribute("transform", `rotate(${deg} 50 50)`);
@@ -159,7 +161,12 @@ function applyMainStripRates(dom: HudDom, m: MainTelemetryLabels): void {
   if (dom.camAltRowEl) dom.camAltRowEl.hidden = !m.cameraAltitudeVisible;
   if (dom.camPosEl) dom.camPosEl.textContent = m.cameraPosition;
   if (dom.camDirEl) dom.camDirEl.textContent = m.cameraDirection;
-  applyCompass(dom, m.cameraHeadingDeg, m.cameraHeadingLabel);
+  applyCompass(
+    dom,
+    m.cameraHeadingDeg,
+    m.cameraHeadingLabel,
+    m.cameraCompassTransform,
+  );
   dom.spdEl.textContent = m.speed;
   dom.boosterEl.textContent = m.fuelBooster;
   dom.shipEl.textContent = m.fuelShip;

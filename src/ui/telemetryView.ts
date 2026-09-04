@@ -98,6 +98,8 @@ export type Telemetry = {
   cameraAltEarth?: number | null;
   /** Look azimuth (deg, 0 = north); null when looking too close to vertical. */
   cameraHeadingDeg?: number | null;
+  /** CSS `matrix3d` tilting the compass rose onto the local ENU disc. */
+  cameraCompassTransform?: string | null;
   /** Detailed metrics (M overlay) */
   altEarth: number;
   altMoon: number;
@@ -136,6 +138,7 @@ export type MainTelemetryLabels = Readonly<{
   cameraDirection: string;
   cameraHeadingDeg: number | null;
   cameraHeadingLabel: string;
+  cameraCompassTransform: string;
   speed: string;
   fuelBooster: string;
   fuelShip: string;

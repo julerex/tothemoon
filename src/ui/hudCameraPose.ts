@@ -1,5 +1,6 @@
 /**
- * Camera-rail pose readout: look-at target, Earth altitude inside GEO, raw eye.
+ * Camera-rail pose readout: look-at target, Earth altitude inside GEO, raw eye,
+ * heading, and the 3D compass disc (local ENU as the camera sees it).
  *
  * Pure helpers. Scene unit = km. Altitude is WGS84 radial height and is
  * omitted when the camera is farther from Earth than geostationary orbit.
@@ -9,6 +10,11 @@ import type { Vec3Json } from "../camera/worldPose";
 import { earthNorthPole } from "../physics/earthFrame";
 import { GEO_RADIUS_KM } from "../physics/constants";
 import { radialHeightAboveEllipsoid } from "../physics/wgs84";
+import {
+  cameraCompassBasis,
+  compassCssMatrix3d,
+  earthEnuAt,
+} from "./hudCameraCompass";
 import { formatFocusDistance } from "./hudFormat";
 
 export type CameraPoseVec = Readonly<Vec3Json>;
@@ -22,6 +28,8 @@ export type CameraHudTelemetry = {
   cameraAltEarth: number | null;
   /** Look azimuth (deg, 0 = north, 90 = east), or null if undefined. */
   cameraHeadingDeg: number | null;
+  /** CSS `matrix3d` that tilts the rose onto the local ENU disc. */
+  cameraCompassTransform: string;
 };
 
 /** Formatted camera-rail rows. */
@@ -33,6 +41,7 @@ export type CameraReadoutLabels = {
   cameraDirection: string;
   cameraHeadingDeg: number | null;
   cameraHeadingLabel: string;
+  cameraCompassTransform: string;
 };
 
 const DASH = "—";
@@ -62,34 +71,16 @@ export function cameraHeadingDeg(
   cam: CameraPoseVec | null | undefined,
   earth: CameraPoseVec | null | undefined,
 ): number | null {
-  if (!isVec(look) || !isVec(cam) || !isVec(earth)) return null;
-  const ux = cam.x - earth.x;
-  const uy = cam.y - earth.y;
-  const uz = cam.z - earth.z;
-  const ul = Math.hypot(ux, uy, uz);
-  if (!(ul > 1e-6)) return null;
-  const upx = ux / ul;
-  const upy = uy / ul;
-  const upz = uz / ul;
-  const pole = earthNorthPole();
-  let ex = pole.y * upz - pole.z * upy;
-  let ey = pole.z * upx - pole.x * upz;
-  let ez = pole.x * upy - pole.y * upx;
-  const el = Math.hypot(ex, ey, ez);
-  if (!(el > 1e-8)) return null;
-  ex /= el;
-  ey /= el;
-  ez /= el;
-  const nx = upy * ez - upz * ey;
-  const ny = upz * ex - upx * ez;
-  const nz = upx * ey - upy * ex;
-  const dup = look.x * upx + look.y * upy + look.z * upz;
-  const hx = look.x - dup * upx;
-  const hy = look.y - dup * upy;
-  const hz = look.z - dup * upz;
+  if (!isVec(look)) return null;
+  const enu = earthEnuAt(cam, earth);
+  if (!enu) return null;
+  const dup = look.x * enu.up.x + look.y * enu.up.y + look.z * enu.up.z;
+  const hx = look.x - dup * enu.up.x;
+  const hy = look.y - dup * enu.up.y;
+  const hz = look.z - dup * enu.up.z;
   if (!(Math.hypot(hx, hy, hz) > 1e-6)) return null;
-  const east = hx * ex + hy * ey + hz * ez;
-  const north = hx * nx + hy * ny + hz * nz;
+  const east = hx * enu.east.x + hy * enu.east.y + hz * enu.east.z;
+  const north = hx * enu.north.x + hy * enu.north.y + hz * enu.north.z;
   let deg = (Math.atan2(east, north) * 180) / Math.PI;
   if (deg < 0) deg += 360;
   return deg;
@@ -108,6 +99,7 @@ export function cameraHudTelemetry(
     position: CameraPoseVec;
     target: CameraPoseVec;
     look: CameraPoseVec;
+    up?: CameraPoseVec;
   } | null | undefined,
   earth: CameraPoseVec | null | undefined,
 ): CameraHudTelemetry | null {
@@ -118,6 +110,9 @@ export function cameraHudTelemetry(
     cameraLook: copyVec(pose.look),
     cameraAltEarth: cameraAltEarthKm(pose.position, earth),
     cameraHeadingDeg: cameraHeadingDeg(pose.look, pose.position, earth),
+    cameraCompassTransform: compassCssMatrix3d(
+      cameraCompassBasis(pose.look, pose.position, earth, pose.up),
+    ),
   };
 }
 
@@ -128,6 +123,7 @@ export function cameraReadoutLabels(tel: {
   cameraLook?: CameraPoseVec | null;
   cameraAltEarth?: number | null;
   cameraHeadingDeg?: number | null;
+  cameraCompassTransform?: string | null;
 }): CameraReadoutLabels {
   const alt = tel.cameraAltEarth;
   const visible = alt != null && Number.isFinite(alt);
@@ -140,6 +136,7 @@ export function cameraReadoutLabels(tel: {
     cameraDirection: formatLookVec3(tel.cameraLook),
     cameraHeadingDeg: heading,
     cameraHeadingLabel: formatHeadingDeg(heading),
+    cameraCompassTransform: tel.cameraCompassTransform || compassCssMatrix3d(null),
   };
 }
 

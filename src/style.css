@@ -1240,12 +1240,17 @@ body.menus-active .news-ticker-track {
   gap: 0.18rem;
   margin: 0.1rem 0 0.15rem;
   pointer-events: none;
+  overflow: visible;
+  perspective: 12rem;
+  perspective-origin: 50% 50%;
 }
 
 .cam-compass-svg {
   width: 5.4rem;
   height: 5.4rem;
   display: block;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
 }
 
 .cam-compass-ring {

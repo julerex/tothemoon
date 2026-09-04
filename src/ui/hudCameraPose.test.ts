@@ -78,6 +78,7 @@ describe("cameraHudTelemetry / cameraReadoutLabels", () => {
     assert.deepEqual(tel!.cameraTarget, pose.target);
     assert.notEqual(tel!.cameraPosition, pose.position);
     assert.ok(tel!.cameraAltEarth != null);
+    assert.match(tel!.cameraCompassTransform, /^matrix3d\(/);
 
     const labels = cameraReadoutLabels(tel!);
     assert.equal(labels.cameraAltitudeVisible, true);
@@ -96,6 +97,7 @@ describe("cameraHudTelemetry / cameraReadoutLabels", () => {
     assert.equal(empty.cameraAltitude, "—");
     assert.equal(empty.cameraHeadingDeg, null);
     assert.equal(empty.cameraHeadingLabel, "—");
+    assert.match(empty.cameraCompassTransform, /^matrix3d\(/);
   });
 });
 

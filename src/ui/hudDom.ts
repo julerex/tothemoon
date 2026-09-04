@@ -49,6 +49,7 @@ export type HudTelStrip = {
   camPosEl: HTMLElement | null;
   camDirEl: HTMLElement | null;
   compassNeedleEl: SVGElement | null;
+  compassSvgEl: HTMLElement | null;
   compassDegEl: HTMLElement | null;
   spdEl: HTMLElement;
   boosterEl: HTMLElement;
@@ -216,6 +217,7 @@ function collectTelStripB(): Omit<
     camAltEl: q("#tel-cam-alt"), camPosEl: q("#tel-cam-pos"),
     camDirEl: q("#tel-cam-dir"),
     compassNeedleEl: q<SVGElement>("#cam-compass-needle"),
+    compassSvgEl: q("#cam-compass-svg"),
     compassDegEl: q("#cam-compass-deg"),
     spdEl: el("#tel-speed"),
     boosterEl: el("#tel-booster"), shipEl: el("#tel-ship"), thrustEl: el("#tel-thrust"),

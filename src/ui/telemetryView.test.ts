@@ -105,6 +105,7 @@ describe("buildTelemetryView", () => {
     assert.equal(v.main.cameraDirection, "—");
     assert.equal(v.main.cameraHeadingDeg, null);
     assert.equal(v.main.cameraHeadingLabel, "—");
+    assert.match(v.main.cameraCompassTransform, /^matrix3d\(/);
   });
 
   it("fills camera target, GEO-gated altitude, and raw pose", () => {
@@ -115,6 +116,7 @@ describe("buildTelemetryView", () => {
         cameraLook: { x: -1, y: 0, z: 0 },
         cameraAltEarth: 0.19,
         cameraHeadingDeg: 90,
+        cameraCompassTransform: "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)",
       }),
       { skyLine: () => "sky-test" },
     );
@@ -126,6 +128,7 @@ describe("buildTelemetryView", () => {
     assert.match(v.main.cameraDirection, /x −1\.00000/);
     assert.equal(v.main.cameraHeadingDeg, 90);
     assert.equal(v.main.cameraHeadingLabel, "090°");
+    assert.match(v.main.cameraCompassTransform, /^matrix3d\(/);
   });
 
   it("formats Flight 13 main speed as km/h when flagged", () => {
