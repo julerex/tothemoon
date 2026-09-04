@@ -3,8 +3,21 @@ import { describe, it } from "node:test";
 import { earthNorthPole, starbasePadState } from "../physics/earthFrame.ts";
 import { v3 } from "../physics/vec3.ts";
 import { panUpAxisForMode } from "./panUpAxis.ts";
+import { ECLIPTIC_NORTH_AXIS } from "./yawAxis.ts";
 
 describe("panUpAxisForMode", () => {
+  it("sun, earth, and moon pan WASD in the ecliptic (up is ecliptic north)", () => {
+    for (const mode of ["sun", "earth", "moon"] as const) {
+      const out = v3(1, 1, 1);
+      const axis = panUpAxisForMode(mode, 0, out);
+      assert.ok(axis, mode);
+      assert.equal(axis.x, ECLIPTIC_NORTH_AXIS.x, mode);
+      assert.equal(axis.y, ECLIPTIC_NORTH_AXIS.y, mode);
+      assert.equal(axis.z, ECLIPTIC_NORTH_AXIS.z, mode);
+      assert.equal(axis, out, mode);
+    }
+  });
+
   it("starbase, aerial, Ground Camera One, and tower climb along pad local up, not Earth's pole", () => {
     const t = 3600;
     const out = v3();
@@ -27,10 +40,8 @@ describe("panUpAxisForMode", () => {
   });
 
   it("other modes have no dedicated vertical pan axis", () => {
-    assert.equal(panUpAxisForMode("moon", 0, v3()), null);
     assert.equal(panUpAxisForMode("chase", 0, v3()), null);
     assert.equal(panUpAxisForMode("booster", 0, v3()), null);
-    assert.equal(panUpAxisForMode("earth", 0, v3()), null);
     assert.equal(panUpAxisForMode("free", 0, v3()), null);
     assert.equal(panUpAxisForMode("trench", 0, v3()), null);
   });

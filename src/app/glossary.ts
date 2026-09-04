@@ -115,7 +115,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Free camera",
     category: "views",
     definition:
-      "Sun, Earth, Moon, Launch Tower, Booster, and Starship. Pan, orbit, and zoom are allowed. Choosing one turns Auto-cam off.",
+      "Sun, Earth, Moon, Launch Tower, Booster, and Starship. Pan, orbit, and zoom are allowed. On Sun / Earth / Moon, WASD slides in the ecliptic plane. Choosing one turns Auto-cam off.",
   },
   {
     id: "ground1",

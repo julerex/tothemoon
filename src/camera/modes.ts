@@ -964,7 +964,8 @@ export class CameraDirector {
   /**
    * WASD pan in the view plane plus T/B along local up. Keeps the current
    * focus so the camera still co-moves with Earth / craft / Moon / pad; the
-   * pan is a sticky offset. At pad focuses, T/B is Earth-perpendicular and
+   * pan is a sticky offset. At Sun / Earth / Moon, WASD stays in the ecliptic
+   * and T/B is ecliptic-north. At pad focuses, T/B is Earth-perpendicular and
    * WASD stays parallel to the ground.
    */
   setPanKey(key: PanKey, down: boolean): CameraMode {
@@ -1514,9 +1515,10 @@ export class CameraDirector {
 
   /**
    * Slide camera + target: W/S along look projected ⟂ local up; A pans
-   * screen-right, D pans screen-left; T/B along local up. On pad focuses
-   * (Starbase, aerial, tower) local up is the Earth surface normal so WASD
-   * stays parallel to the ground and T/B is perpendicular.
+   * screen-right, D pans screen-left; T/B along local up. On Sun / Earth /
+   * Moon local up is ecliptic north so WASD stays in Earth's orbital plane.
+   * On pad focuses (Starbase, aerial, tower) local up is the Earth surface
+   * normal so WASD stays parallel to the ground and T/B is perpendicular.
    */
   private applyPan(dt: number): void {
     if (isFixedCamera(this.focus)) return;
@@ -1580,7 +1582,7 @@ export class CameraDirector {
     if (this.tmp.lengthSq() < 1e-12) this.tmp.set(0, 1, 0);
   }
 
-  /** Pad surface-normal at Starbase / aerial; camera.up in other focuses. */
+  /** Ecliptic north at Sun / Earth / Moon; pad up at Starbase / aerial; else camera.up. */
   private buildPanUp(): void {
     if (!panUpAxisForMode(this.focus, this.simTime, this.panUp, this.epoch)) {
       this.panUp.copy(this.camera.up);
