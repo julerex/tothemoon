@@ -111,6 +111,24 @@ export function farmAxisYawRad(): number {
   return Math.atan2(dz, -dx);
 }
 
+/** T−5 Launchpad Drone ground pin (surveyed, WGS84). */
+export const PAD_AERIAL_LAT_DEG = 25.995483842780164;
+export const PAD_AERIAL_LON_DEG = -97.15775229415546;
+
+export const padAerialFromOlp2 = geodeticDeltaToPadLocal(
+  PAD_AERIAL_LAT_DEG,
+  PAD_AERIAL_LON_DEG,
+);
+
+/**
+ * ENU azimuth (deg, east toward north) of a pad-local xz point from the OLM.
+ */
+export function padLocalAzimuthDeg(p: { x: number; z: number }): number {
+  const east = -p.x;
+  const north = p.z;
+  return ((Math.atan2(north, east) * 180) / Math.PI + 360) % 360;
+}
+
 /** Pad 2 apron vertices `[x west, z north]` (km), same order as the survey. */
 export function pad2ApronXz(): Array<readonly [number, number]> {
   return PAD2_APRON_CORNERS_DEG.map(([lat, lon]) => {

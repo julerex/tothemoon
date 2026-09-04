@@ -15,10 +15,14 @@ import {
   OLP1_TOWER_LON_DEG,
   OLP2_LAT_DEG,
   OLP2_LON_DEG,
+  PAD_AERIAL_LAT_DEG,
+  PAD_AERIAL_LON_DEG,
   farmAxisYawRad,
   farmEastFromOlp2,
   farmWestFromOlp2,
   geodeticDeltaToPadLocal,
+  padAerialFromOlp2,
+  padLocalAzimuthDeg,
   olp1FromOlp2,
   olp1TowerFromOlp2,
   pad2ApronContains,
@@ -59,6 +63,18 @@ describe("starbaseSurvey", () => {
     const dz = tower.z - pad.z;
     assert.ok(dx > 0.03 && dx < 0.035, `tower ${dx} km west of mount`);
     assert.ok(dz < 0 && dz > -0.008, "tower slightly south of the mount");
+  });
+
+  it("puts the T−5 pad drone pin SSE of the OLM, ~146 m out", () => {
+    const p = geodeticDeltaToPadLocal(PAD_AERIAL_LAT_DEG, PAD_AERIAL_LON_DEG);
+    assert.equal(padAerialFromOlp2.x, p.x);
+    assert.equal(padAerialFromOlp2.z, p.z);
+    const horiz = Math.hypot(p.x, p.z);
+    assert.ok(horiz > 0.14 && horiz < 0.16, `horiz ${horiz} km`);
+    assert.ok(p.x < 0, "east of the OLM (−X)");
+    assert.ok(p.z < 0, "south of the OLM");
+    const az = padLocalAzimuthDeg(p);
+    assert.ok(az > 280 && az < 286, `az ${az}`);
   });
 
   it("yaws the cryo farm so west→east follows the surveyed GPS line", () => {

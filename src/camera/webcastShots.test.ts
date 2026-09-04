@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { enuOffsetKm } from "./enuPose.ts";
+import { padAerialFromOlp2 } from "../scene/earthTheater/starbaseSurvey.ts";
 import {
   FLIGHT13_WEBCAST_SHOTS,
   GROUND1_AZ_DEG,
@@ -7,6 +9,10 @@ import {
   GROUND1_FOV,
   GROUND1_FRAME_SCALE,
   GROUND1_T0,
+  PAD_AERIAL_AZ_DEG,
+  PAD_AERIAL_EL_DEG,
+  PAD_AERIAL_FOV,
+  PAD_AERIAL_FRAME_SCALE,
   SPLASH_DRONE_T0,
   splashDroneAzimuthDeg,
   webcastShotAt,
@@ -30,9 +36,23 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(open.padTrack, undefined);
     assert.ok((open.elevationDeg ?? 0) > 15);
     assert.ok((open.fov ?? 0) > 50);
-    assert.ok((open.frameScale ?? 1) < 0.7, "close T−5 pad drone, not a gulf hover");
+    assert.equal(open.azimuthDeg, PAD_AERIAL_AZ_DEG);
+    assert.equal(open.frameScale, PAD_AERIAL_FRAME_SCALE);
+    const half = ((PAD_AERIAL_FOV * Math.PI) / 180) * 0.25;
+    const dist = (0.12 / Math.tan(half)) * PAD_AERIAL_FRAME_SCALE;
+    const off = enuOffsetKm(
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 1, z: 0 },
+      { x: 0, y: 0, z: 1 },
+      PAD_AERIAL_AZ_DEG,
+      PAD_AERIAL_EL_DEG,
+      dist,
+    );
+    const miss = Math.hypot(-off.x - padAerialFromOlp2.x, off.y - padAerialFromOlp2.z);
+    assert.ok(miss < 0.002, `ground track miss ${miss * 1000} m`);
+    assert.ok((open.frameScale ?? 1) < 0.5, "close T−5 pad drone, not a gulf hover");
     assert.ok(
-      (open.azimuthDeg ?? 0) > 260 && (open.azimuthDeg ?? 0) < 300,
+      (open.azimuthDeg ?? 0) > 280 && (open.azimuthDeg ?? 0) < 286,
       "SSE of the OLM, looking NNW",
     );
     assert.equal(webcastShotAt(-180).key, "pad-wide");

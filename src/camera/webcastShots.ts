@@ -9,6 +9,10 @@
  * Earth-ENU bearings (see `enuPose.ts`). Onboard shots use named mounts.
  */
 
+import {
+  padAerialFromOlp2,
+  padLocalAzimuthDeg,
+} from "../scene/earthTheater/starbaseSurvey";
 import type { CameraMode } from "./modes";
 
 /** Onboard mount picked on a gridfin / hull / fin cut. */
@@ -55,17 +59,33 @@ export const THEATER_DEFAULT_FOV = 50;
 
 /**
  * Pad flying-drone hover matching `tminus-000500-pad-hold-wide.jpg`.
- * South-southeast of the OLM, looking NNW at the stack (~220 m, ~190 m AGL)
- * so the vehicle fills the frame the way the T−5 webcast does — not a
- * distant gulf hover. Azimuth is east-toward-north ENU.
+ * Ground track is the surveyed pin SSE of the OLM (looking NNW at the stack).
+ * Azimuth is east-toward-north ENU.
  */
-export const PAD_AERIAL_AZ_DEG = 282;
+export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg(padAerialFromOlp2);
 /** Elevation above the local horizon (deg). */
 export const PAD_AERIAL_EL_DEG = 20;
-/** Framed pad radius multiplier — stack fills the frame at ~220 m. */
-export const PAD_AERIAL_FRAME_SCALE = 0.5;
 /** Handheld drone lens (vertical FOV). */
 export const PAD_AERIAL_FOV = 62;
+/**
+ * Must match `CameraDirector.frameDistanceFor` pad radius/fill (0.12 km, 0.5)
+ * so {@link PAD_AERIAL_FRAME_SCALE} seats the ground track on the survey pin.
+ */
+const PAD_AERIAL_FRAME_RADIUS_KM = 0.12;
+const PAD_AERIAL_FRAME_FILL = 0.5;
+
+/** Slant range so the nadir sits on {@link padAerialFromOlp2}. */
+function padAerialFrameScale(): number {
+  const horiz = Math.hypot(padAerialFromOlp2.x, padAerialFromOlp2.z);
+  const slant = horiz / Math.cos((PAD_AERIAL_EL_DEG * Math.PI) / 180);
+  const half =
+    ((PAD_AERIAL_FOV * Math.PI) / 180) * PAD_AERIAL_FRAME_FILL * 0.5;
+  const framed = PAD_AERIAL_FRAME_RADIUS_KM / Math.tan(half);
+  return slant / framed;
+}
+
+/** Framed pad radius multiplier — ground track on the surveyed T−5 pin. */
+export const PAD_AERIAL_FRAME_SCALE = padAerialFrameScale();
 /** Look-at height above the OLM (km) so the stack, not the apron, is centered. */
 export const PAD_AERIAL_LOOK_UP_KM = 0.058;
 
