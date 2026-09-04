@@ -30,7 +30,11 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(open.padTrack, undefined);
     assert.ok((open.elevationDeg ?? 0) > 15);
     assert.ok((open.fov ?? 0) > 50);
-    assert.ok((open.frameScale ?? 1) < 2.5);
+    assert.ok((open.frameScale ?? 1) < 0.7, "close T−5 pad drone, not a gulf hover");
+    assert.ok(
+      (open.azimuthDeg ?? 0) > 260 && (open.azimuthDeg ?? 0) < 300,
+      "SSE of the OLM, looking NNW",
+    );
     assert.equal(webcastShotAt(-180).key, "pad-wide");
     assert.equal(webcastShotAt(-180).mode, "aerial");
     const ground = webcastShotAt(GROUND1_T0);
