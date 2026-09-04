@@ -167,6 +167,20 @@ function formatFocusDistanceNear(v: number): string {
   return `${(v * 1e6).toFixed(0)} mm`;
 }
 
+/**
+ * Earth-relative camera altitude on the rail. Coarser than focus range so
+ * sub-frame eye noise does not flash a new string every tick.
+ */
+export function formatCameraAltitude(km: number): string {
+  const v = Math.max(0, km);
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} Mkm`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)} Mm`;
+  if (v >= 100) return `${Math.round(v)} km`;
+  if (v >= 1) return `${(Math.round(v * 10) / 10).toFixed(1)} km`;
+  if (v >= 0.01) return `${Math.round(v * 100) * 10} m`;
+  return `${Math.round(v * 1000)} m`;
+}
+
 /** Main telemetry speed. */
 export function formatSpeed(kmPerS: number): string {
   const v = Math.max(0, kmPerS);

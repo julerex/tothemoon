@@ -148,6 +148,8 @@ export function sceneAndHud(
   applyAutoCam(ctx, frame, b);
   updateVectors(ctx, frame, b);
   const show = runLandingBeat(ctx, frame, u);
-  pushHud(ctx, physicsT, prelaunch, frame, d, b, show);
+  ctx.flushHud = () => {
+    pushHud(ctx, physicsT, prelaunch, frame, d, b, show);
+  };
   if (u >= 1 && ctx.clock.playing && show) ctx.clock.pause();
 }

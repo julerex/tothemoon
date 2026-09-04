@@ -4,7 +4,8 @@
  * Both theaters ran byte-identical resize / tick / camera / rAF code and
  * differed only in the cinema pass (the lunar mission folds in Moon-relative
  * shadow altitude; Flight 13 folds in entry plasma). That difference is the one
- * hook this higher-order loop takes.
+ * hook this higher-order loop takes. HUD camera readouts flush after the
+ * director seats the eye so altitude is not one physics tick behind Earth.
  *
  * Scene unit = 1 km.
  */
@@ -42,6 +43,11 @@ export type MissionLoopCtx = {
   physicsDurationS: number;
   craftPos: THREE.Vector3;
   craftVel: THREE.Vector3;
+  /**
+   * Filled during applyState. The loop runs it **after** the camera director
+   * seats this frame so Earth-relative HUD (cam altitude) is not one tick stale.
+   */
+  flushHud?: () => void;
 };
 
 /** Mission-specific passes the shared loop calls each frame. */
@@ -82,12 +88,17 @@ function updateDirector(ctx: MissionLoopCtx, dt: number): void {
   syncUndergroundOverlay(ctx.camera.position, simT, ctx.epoch);
 }
 
+function seatCameraThenHud(ctx: MissionLoopCtx, dt: number): void {
+  updateDirector(ctx, dt);
+  ctx.flushHud?.();
+}
+
 function frame<C extends MissionLoopCtx>(ctx: C, hooks: MissionLoopHooks<C>): void {
   requestAnimationFrame(() => frame(ctx, hooks));
   resizeIfNeeded(ctx);
   const dt = Math.min(ctx.wall.getDelta(), MAX_STEP_S);
   tickSim(ctx, dt, hooks.applyState);
-  updateDirector(ctx, dt);
+  seatCameraThenHud(ctx, dt);
   hooks.render(ctx);
 }
 
@@ -101,6 +112,10 @@ export function startMissionLoop<C extends MissionLoopCtx>(
   // the craft, and Auto-cam will cut to the shot for that time.
   if (ctx.clock.t < 1e-9) {
     ctx.director.snapPadOpening(transportUToPhysicsT(0, ctx.physicsDurationS));
+  } else {
+    const simT = transportUToPhysicsT(ctx.clock.t, ctx.physicsDurationS);
+    ctx.director.update(0, simT, ctx.craftPos, ctx.craftVel);
   }
+  ctx.flushHud?.();
   frame(ctx, hooks);
 }

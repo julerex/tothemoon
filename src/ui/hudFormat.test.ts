@@ -13,6 +13,7 @@ import {
   formatCompactDuration,
   formatDistance,
   formatDistancePrecise,
+  formatCameraAltitude,
   formatFocusDistance,
   formatFuel,
   formatFuelDetailed,
@@ -112,6 +113,16 @@ describe("distance / speed / thrust", () => {
   it("formatFocusDistance reaches AU", () => {
     assert.equal(formatFocusDistance(0.5), "500 m");
     assert.match(formatFocusDistance(149_597_870.7), /1\.000 AU/);
+  });
+
+  it("formatCameraAltitude holds a stable step under sub-frame noise", () => {
+    assert.equal(formatCameraAltitude(0.19), "190 m");
+    assert.equal(formatCameraAltitude(0.186), "190 m");
+    assert.equal(formatCameraAltitude(0.194), "190 m");
+    assert.equal(formatCameraAltitude(5.23), "5.2 km");
+    assert.equal(formatCameraAltitude(5.26), "5.3 km");
+    assert.equal(formatCameraAltitude(250.4), "250 km");
+    assert.equal(formatCameraAltitude(0.004), "4 m");
   });
 
   it("formatSpeed dual ranges", () => {

@@ -101,6 +101,7 @@ export type F13Ctx = {
   disableAutoCam: () => void;
   hud: ReturnType<typeof bindHud>;
   wall: THREE.Clock;
+  flushHud?: () => void;
 };
 
 /** Build full Flight 13 theater context (HUD wired, ready for first apply). */

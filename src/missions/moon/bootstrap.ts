@@ -86,6 +86,7 @@ export type MoonCtx = {
   notifyAutoCamera: (mode: CameraMode) => void;
   hud: ReturnType<typeof bindHud>;
   wall: THREE.Clock;
+  flushHud?: () => void;
 };
 
 /** Build full lunar theater context. */

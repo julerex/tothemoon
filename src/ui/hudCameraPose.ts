@@ -15,7 +15,7 @@ import {
   compassCssMatrix3d,
   earthEnuAt,
 } from "./hudCameraCompass";
-import { formatFocusDistance } from "./hudFormat";
+import { formatCameraAltitude } from "./hudFormat";
 
 export type CameraPoseVec = Readonly<Vec3Json>;
 
@@ -49,6 +49,9 @@ const DASH = "—";
 /**
  * Camera height above the WGS84 ellipsoid (km), or `null` when the eye is
  * farther from Earth's center than {@link GEO_RADIUS_KM}.
+ *
+ * Sample after the camera director has co-moved the eye with Earth this
+ * frame; a stale pose vs a new Earth center jitters by ~v_earth·dt.
  */
 export function cameraAltEarthKm(
   cam: CameraPoseVec | null | undefined,
@@ -130,7 +133,7 @@ export function cameraReadoutLabels(tel: {
   const heading = tel.cameraHeadingDeg ?? null;
   return {
     cameraTarget: formatSceneVec3(tel.cameraTarget),
-    cameraAltitude: visible ? formatFocusDistance(Math.max(0, alt)) : DASH,
+    cameraAltitude: visible ? formatCameraAltitude(alt) : DASH,
     cameraAltitudeVisible: visible,
     cameraPosition: formatSceneVec3(tel.cameraPosition),
     cameraDirection: formatLookVec3(tel.cameraLook),
