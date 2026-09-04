@@ -1,11 +1,17 @@
 /**
  * EffectComposer bloom / onboard post / render.
+ *
+ * WebGLRenderer `antialias` does not apply once the theater draws through
+ * EffectComposer (the default composer targets are single-sample). MSAA on
+ * those targets restores geometry-edge coverage; SMAA (before OutputPass)
+ * catches leftover stair-steps after bloom / onboard resampling.
  */
 
 import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { createOnboardPostPass, onboardPostEnabled } from "./onboardPost";
@@ -16,6 +22,12 @@ import {
   starDomeOpacity,
 } from "./cinemaExposure";
 
+/** Cap for renderer + composer pixel ratio (retina without 3× fill). */
+export const THEATER_MAX_PIXEL_RATIO = 2;
+
+/** MSAA sample count for cinema composer buffers (geometry edges). */
+export const CINEMA_MSAA_SAMPLES = 4;
+
 export type CinemaBundle = {
   composer: EffectComposer;
   bloom: UnrealBloomPass;
@@ -24,11 +36,53 @@ export type CinemaBundle = {
   onboardPost: ShaderPass;
 };
 
+type MsaaTargets = {
+  renderTarget1: { samples: number };
+  renderTarget2: { samples: number };
+};
+
 /**
- * Build EffectComposer with mild Unreal bloom, optional onboard post (V18),
- * and OutputPass (tone map / color). Onboard pass sits before OutputPass and
- * starts disabled — {@link renderCinema} gates it by camera focus.
+ * Device pixel ratio used for the canvas drawing buffer and composer.
+ * Non-finite / non-positive values fall back to 1.
  */
+export function theaterPixelRatio(devicePixelRatio: number): number {
+  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0
+    ? devicePixelRatio
+    : 1;
+  return Math.min(dpr, THEATER_MAX_PIXEL_RATIO);
+}
+
+/**
+ * Clamp MSAA samples to what the GL context actually supports.
+ * `maxSamples <= 0` (no MSAA) returns 0.
+ */
+export function cinemaMsaaSamples(maxSamples: number): number {
+  if (!Number.isFinite(maxSamples) || maxSamples <= 0) return 0;
+  return Math.min(CINEMA_MSAA_SAMPLES, Math.floor(maxSamples));
+}
+
+/**
+ * True when `canvas.width/height` already match CSS size × pixel ratio
+ * (same `Math.floor` as `WebGLRenderer.setDrawingBufferSize`).
+ */
+export function drawingBufferMatches(
+  canvas: { width: number; height: number },
+  cssWidth: number,
+  cssHeight: number,
+  pixelRatio: number,
+): boolean {
+  return (
+    canvas.width === Math.floor(cssWidth * pixelRatio) &&
+    canvas.height === Math.floor(cssHeight * pixelRatio)
+  );
+}
+
+/** Write MSAA sample counts onto both composer ping-pong targets. */
+export function applyCinemaMsaa(composer: MsaaTargets, samples: number): void {
+  composer.renderTarget1.samples = samples;
+  composer.renderTarget2.samples = samples;
+}
+
 function makeBloomPass(size: THREE.Vector2): UnrealBloomPass {
   return new UnrealBloomPass(
     new THREE.Vector2(Math.max(1, size.x), Math.max(1, size.y)),
@@ -36,6 +90,12 @@ function makeBloomPass(size: THREE.Vector2): UnrealBloomPass {
   );
 }
 
+/**
+ * Build EffectComposer with mild Unreal bloom, optional onboard post (V18),
+ * SMAA, and OutputPass (tone map / color). Onboard pass sits before SMAA /
+ * OutputPass and starts disabled — {@link renderCinema} gates it by camera
+ * focus.
+ */
 export function createCinemaComposer(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
@@ -44,12 +104,14 @@ export function createCinemaComposer(
   const size = new THREE.Vector2();
   renderer.getSize(size);
   const composer = new EffectComposer(renderer);
+  applyCinemaMsaa(composer, cinemaMsaaSamples(renderer.capabilities.maxSamples));
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
   const bloom = makeBloomPass(size);
   composer.addPass(bloom);
   const onboardPost = createOnboardPostPass();
   composer.addPass(onboardPost);
+  composer.addPass(new SMAAPass());
   composer.addPass(new OutputPass());
   return { composer, bloom, renderPass, onboardPost };
 }

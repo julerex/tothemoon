@@ -6,12 +6,16 @@ import { describe, it } from "node:test";
 import * as THREE from "three";
 import {
   altitudeFade,
+  applyCinemaMsaa,
   atmosphereBrownout,
   cameraAltitudeEarthKm,
   cameraAltitudeMoonKm,
   cinemaBloomStrength,
   cinemaBloomThreshold,
   cinemaExposure,
+  cinemaMsaaSamples,
+  CINEMA_MSAA_SAMPLES,
+  drawingBufferMatches,
   EXPOSURE_LEO,
   EXPOSURE_PAD,
   EXPOSURE_SPACE,
@@ -21,6 +25,8 @@ import {
   shadowsActive,
   SHADOW_FADE_ALT_KM,
   starDomeOpacity,
+  theaterPixelRatio,
+  THEATER_MAX_PIXEL_RATIO,
 } from "./cinema.ts";
 import { R_EARTH, R_MOON } from "../physics/constants.ts";
 
@@ -208,5 +214,46 @@ describe("markPadShadowMeshes", () => {
     assert.equal(disc.castShadow, false);
     assert.equal(shaft.castShadow, true);
     assert.equal(shaft.receiveShadow, true);
+  });
+});
+
+describe("theaterPixelRatio", () => {
+  it("caps at THEATER_MAX_PIXEL_RATIO and falls back to 1", () => {
+    assert.equal(theaterPixelRatio(1), 1);
+    assert.equal(theaterPixelRatio(2), THEATER_MAX_PIXEL_RATIO);
+    assert.ok(theaterPixelRatio(3) <= THEATER_MAX_PIXEL_RATIO);
+    assert.equal(theaterPixelRatio(0), 1);
+    assert.equal(theaterPixelRatio(Number.NaN), 1);
+  });
+});
+
+describe("cinemaMsaaSamples", () => {
+  it("clamps to CINEMA_MSAA_SAMPLES and treats no-MSAA as 0", () => {
+    assert.equal(cinemaMsaaSamples(8), CINEMA_MSAA_SAMPLES);
+    assert.equal(cinemaMsaaSamples(2), 2);
+    assert.equal(cinemaMsaaSamples(0), 0);
+    assert.equal(cinemaMsaaSamples(-1), 0);
+    assert.equal(cinemaMsaaSamples(Number.NaN), 0);
+  });
+});
+
+describe("drawingBufferMatches", () => {
+  it("compares the drawing buffer to CSS size × pixel ratio", () => {
+    const canvas = { width: 3840, height: 2160 };
+    assert.equal(drawingBufferMatches(canvas, 1920, 1080, 2), true);
+    assert.equal(drawingBufferMatches(canvas, 1920, 1080, 1), false);
+    assert.equal(drawingBufferMatches({ width: 1920, height: 1080 }, 1920, 1080, 1), true);
+  });
+});
+
+describe("applyCinemaMsaa", () => {
+  it("writes the sample count onto both composer targets", () => {
+    const composer = {
+      renderTarget1: { samples: 0 },
+      renderTarget2: { samples: 0 },
+    };
+    applyCinemaMsaa(composer, 4);
+    assert.equal(composer.renderTarget1.samples, 4);
+    assert.equal(composer.renderTarget2.samples, 4);
   });
 });

@@ -16,7 +16,7 @@ import {createStagingFx,findStageEvent} from "../../scene/stagingFx";
 import {createLandingFx} from "../../scene/landingFx";
 import {createStarbasePad} from "../../scene/earthTheater";
 import {createGroundSky} from "../../scene/groundSky";
-import {createCinemaComposer,enableSunShadows,markPadShadowMeshes,markShadowMeshes} from "../../scene/cinema";
+import {createCinemaComposer,enableSunShadows,markPadShadowMeshes,markShadowMeshes,theaterPixelRatio} from "../../scene/cinema";
 import {createVectorArrows} from "../../scene/vectorArrows";
 import {createBodies} from "../../scene/bodies";
 import {CameraDirector} from "../../camera/modes";
@@ -58,7 +58,7 @@ export function logBoot(cache: Trajectory): void {
 }
 
 export function styleRenderer(renderer: THREE.WebGLRenderer): void {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(theaterPixelRatio(window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;

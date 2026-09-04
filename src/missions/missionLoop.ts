@@ -11,7 +11,7 @@
  */
 
 import type * as THREE from "three";
-import { resizeCinema } from "../scene/cinema";
+import { drawingBufferMatches, resizeCinema, theaterPixelRatio } from "../scene/cinema";
 import { spinBodies } from "../scene/bodies";
 import { updateFatLineResolutions } from "../scene/fatLines";
 import { pulsePadBeacon } from "../scene/earthTheater";
@@ -64,12 +64,14 @@ const MAX_STEP_S = 0.05;
 function resizeIfNeeded(ctx: MissionLoopCtx): void {
   const w = ctx.canvas.clientWidth;
   const h = ctx.canvas.clientHeight;
-  if (ctx.canvas.width === w && ctx.canvas.height === h) return;
+  const pr = theaterPixelRatio(window.devicePixelRatio || 1);
+  if (drawingBufferMatches(ctx.canvas, w, h, pr)) return;
+  ctx.renderer.setPixelRatio(pr);
   ctx.renderer.setSize(w, h, false);
   ctx.camera.aspect = w / Math.max(h, 1);
   ctx.camera.updateProjectionMatrix();
   updateFatLineResolutions(ctx.scene, w, h);
-  resizeCinema(ctx.cinema, w, h, Math.min(window.devicePixelRatio || 1, 2));
+  resizeCinema(ctx.cinema, w, h, pr);
 }
 
 function tickSim<C extends MissionLoopCtx>(
