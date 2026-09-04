@@ -8,9 +8,11 @@ import {
   applyCameraGridPressed,
   applyPressed,
 } from "./hudApply";
+import { flashCameraViewName } from "./hudCameraFlash";
 import {
   CAM_DOUBLE_TAP_MS,
   CAM_LOCK_NOTE_MS,
+  CAMERA_LABELS,
   cycleCameraMode,
   FIXED_CAM_LOCK_NOTE,
 } from "./hudCameraLabels";
@@ -31,8 +33,15 @@ export function showCamLockNote(rt: HudRuntime): void {
 }
 
 export function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
+  const switched = mode !== rt.flags.lastCamMode;
   rt.flags.lastCamMode = mode;
   applyCameraGridPressed(rt.dom.camGridEl, mode);
+  if (!switched) return;
+  flashCameraViewName(
+    rt.dom.camModeEl,
+    rt.dom.camIdentEl,
+    CAMERA_LABELS[mode].title,
+  );
 }
 
 export function noteCameraMode(rt: HudRuntime, mode: CameraMode): void {
@@ -51,7 +60,7 @@ export function frameCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }
 
-/** Auto-cam cut: update the rail highlight; no popup. */
+/** Auto-cam cut: update the rail highlight and flash the camera name. */
 export function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }

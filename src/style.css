@@ -1125,6 +1125,116 @@ body.menus-active .news-ticker-track {
   text-transform: uppercase;
 }
 
+#tel-cam-mode {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.05em 0.22em;
+  margin-inline: -0.22em;
+  border-radius: var(--radius);
+}
+
+#tel-cam-mode.cam-name-flash {
+  animation: cam-rail-name-flash 1.5s ease-out;
+}
+
+@keyframes cam-rail-name-flash {
+  0%,
+  16% {
+    color: #000;
+    background: #fff;
+  }
+  8%,
+  24% {
+    color: #fff;
+    background: transparent;
+  }
+  100% {
+    color: var(--text);
+    background: transparent;
+  }
+}
+
+.cam-ident {
+  position: absolute;
+  right: calc(var(--rail-width) + 1.1rem);
+  bottom: calc(var(--bottom-chrome) + 1.15rem);
+  z-index: 6;
+  max-width: min(28rem, calc(100% - 2 * var(--rail-width) - 2.2rem));
+  margin: 0;
+  padding: 0.22rem 0.55rem;
+  pointer-events: none;
+  font-family: var(--font);
+  font-size: clamp(1.15rem, 2.4vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+  text-align: right;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.85);
+  border-radius: var(--radius);
+  opacity: 0;
+  transform-origin: right bottom;
+}
+
+.cam-ident.cam-name-flash {
+  animation: cam-ident-flash 1.9s ease-out both;
+}
+
+@keyframes cam-ident-flash {
+  0% {
+    opacity: 1;
+    color: #000;
+    background: #fff;
+    text-shadow: none;
+    transform: scale(1.06);
+  }
+  10% {
+    color: #fff;
+    background: transparent;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.85);
+    transform: scale(1);
+  }
+  58% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    color: #fff;
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tel-cam-mode.cam-name-flash {
+    animation: cam-rail-name-flash-reduced 1.2s ease-out;
+  }
+
+  .cam-ident.cam-name-flash {
+    animation: cam-ident-flash-reduced 1.6s ease-out both;
+  }
+
+  @keyframes cam-rail-name-flash-reduced {
+    0% {
+      background: var(--accent-dim);
+    }
+    100% {
+      background: transparent;
+    }
+  }
+
+  @keyframes cam-ident-flash-reduced {
+    0%,
+    55% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
 .camera-rail > .cam-compass {
   align-items: center;
   gap: 0.18rem;
@@ -2049,6 +2159,14 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   .telemetry > div > span:not(.label),
   .camera-rail > div > span:not(.label) {
     font-size: 0.72rem;
+  }
+
+  .cam-ident {
+    right: calc(var(--rail-width) + 0.65rem);
+    bottom: calc(var(--bottom-chrome) + 0.7rem);
+    font-size: clamp(0.95rem, 3.4vw, 1.35rem);
+    letter-spacing: 0.1em;
+    max-width: min(18rem, calc(100% - 2 * var(--rail-width) - 1.2rem));
   }
 
   .cam-compass-svg {

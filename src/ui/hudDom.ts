@@ -61,6 +61,7 @@ export type HudTelStrip = {
   cameraRailEl: HTMLElement | null;
   camGridEl: HTMLElement | null;
   camLockNoteEl: HTMLElement | null;
+  camIdentEl: HTMLElement | null;
 };
 
 export type HudCompleteCard = {
@@ -223,6 +224,7 @@ function collectTelStripB(): Omit<
     cameraRailEl: q("#camera-rail"),
     camGridEl: q("#cam-grids"),
     camLockNoteEl: q("#cam-lock-note"),
+    camIdentEl: q("#cam-ident"),
   };
 }
 
