@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { TOWER_H, TOWER_OX } from "../scene/earthTheater/mechazillaDims.ts";
+import { TOWER_H, TOWER_OX, TOWER_OZ } from "../scene/earthTheater/mechazillaDims.ts";
 import {
   TOWER1_CAM_FOV,
   TOWER1_CAM_LOCAL,
@@ -15,8 +15,9 @@ import {
 
 describe("tower peak cameras", () => {
   it("puts Tower Two on the OLP-2 peak, looking down at the stack", () => {
-    assert.ok(TOWER2_CAM_LOCAL.x > 0, "west of the OLM, on the launch tower");
-    assert.ok(TOWER2_CAM_LOCAL.x < TOWER_OX, "vehicle-facing edge");
+    assert.ok(TOWER2_CAM_LOCAL.z > 0, "north of the OLM, on the launch tower");
+    assert.ok(TOWER2_CAM_LOCAL.z < TOWER_OZ, "vehicle-facing edge toward the stack");
+    assert.ok(Math.abs(TOWER2_CAM_LOCAL.x - TOWER_OX) < 0.01, "on the tower meridian");
     assert.ok(Math.abs(TOWER2_CAM_LOCAL.y - TOWER_H) < 0.01);
     assert.ok(TOWER2_CAM_LOOK_LOCAL.y < TOWER2_CAM_LOCAL.y, "looks down");
     assert.ok(TOWER2_CAM_LOOK_LOCAL.y > 0.04, "mid-stack, not the apron");

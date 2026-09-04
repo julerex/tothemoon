@@ -17,6 +17,10 @@ import { STARBASE_PLATE_LAT_DEG, STARBASE_PLATE_LON_DEG } from "../starbasePlate
 export const OLP2_LAT_DEG = STARBASE_LAT_DEG;
 export const OLP2_LON_DEG = STARBASE_LON_DEG;
 
+/** OLP-2 Mechazilla base (north of the OLM, slightly west). */
+export const OLP2_TOWER_LAT_DEG = 25.997063571204897;
+export const OLP2_TOWER_LON_DEG = -97.15810850952607;
+
 /** OLP-1 / Pad A empty-mount centre (OLM pulled at Flight 13). */
 export const OLP1_LAT_DEG = 25.996153431591285;
 export const OLP1_LON_DEG = -97.15445483846192;
@@ -74,6 +78,12 @@ export function geodeticDeltaToPadLocal(
 export const starbasePlatePinFromOlp2 = geodeticDeltaToPadLocal(
   STARBASE_PLATE_LAT_DEG,
   STARBASE_PLATE_LON_DEG,
+);
+
+/** OLP-2 Mechazilla base in pad-local km from the OLP-2 OLM. */
+export const olp2TowerFromOlp2 = geodeticDeltaToPadLocal(
+  OLP2_TOWER_LAT_DEG,
+  OLP2_TOWER_LON_DEG,
 );
 
 /** OLP-1 empty-mount centre in pad-local km from the OLP-2 origin. */

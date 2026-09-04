@@ -9,7 +9,7 @@
  * Earth-ENU bearings (see `enuPose.ts`). Onboard shots use named mounts.
  */
 
-import { TOWER_H, TOWER_OX } from "../scene/earthTheater/mechazillaDims";
+import { TOWER_H, TOWER_OX, TOWER_OZ } from "../scene/earthTheater/mechazillaDims";
 import {
   padAerialFromOlp2,
   padLocalAzimuthDeg,
@@ -61,6 +61,8 @@ export const THEATER_DEFAULT_FOV = 50;
 /* T−5 pad drone: south of the OLM, looking NNW at Mechazilla mid-truss. */
 /** Look-at west of the OLM (km) — live tower center. */
 export const PAD_AERIAL_LOOK_WEST_KM = TOWER_OX;
+/** Look-at north of the OLM (km) — live tower center. */
+export const PAD_AERIAL_LOOK_NORTH_KM = TOWER_OZ;
 /** Look-at height above the OLM (km) — mid-truss, not the apron. */
 export const PAD_AERIAL_LOOK_UP_KM = TOWER_H * 0.5;
 
@@ -68,7 +70,7 @@ export const PAD_AERIAL_LOOK_UP_KM = TOWER_H * 0.5;
 function padAerialFromLookAt(): { x: number; z: number } {
   return {
     x: padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM,
-    z: padAerialFromOlp2.z,
+    z: padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM,
   };
 }
 

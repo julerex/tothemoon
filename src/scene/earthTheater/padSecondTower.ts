@@ -102,7 +102,7 @@ export function createPad1Tower(): THREE.Group {
   const g = new THREE.Group();
   g.name = "mechazilla-pad1";
   g.position.set(PAD1_X_KM, 0, PAD1_Z_KM);
-  const tower = createMechazillaTower({ includeOlm: false });
+  const tower = createMechazillaTower({ includeOlm: false, frame: "local" });
   tower.position.set(PAD1_TOWER_DX_KM, 0, PAD1_TOWER_DZ_KM);
   prefixPadNames(tower, "pad1-");
   g.add(tower);

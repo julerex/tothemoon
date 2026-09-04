@@ -13,7 +13,7 @@
 import {
   TOWER_FACE,
   TOWER_H,
-  TOWER_OX,
+  towerLocalToPad,
 } from "../scene/earthTheater/mechazillaDims";
 import { olp1TowerFromOlp2 } from "../scene/earthTheater/starbaseSurvey";
 
@@ -21,10 +21,11 @@ import { olp1TowerFromOlp2 } from "../scene/earthTheater/starbaseSurvey";
 const PEAK_CAM_Y = TOWER_H + 0.004;
 
 /** Tower Two Cam — OLP-2 peak, vehicle-facing (−X toward the OLM). */
+const TOWER2_PEAK = towerLocalToPad(-TOWER_FACE * 0.58, 0.0025);
 export const TOWER2_CAM_LOCAL = {
-  x: TOWER_OX - TOWER_FACE * 0.58,
+  x: TOWER2_PEAK.x,
   y: PEAK_CAM_Y,
-  z: 0.0025,
+  z: TOWER2_PEAK.z,
 } as const;
 
 /** Look at the ship / interstage so the chopsticks sit in the near field. */

@@ -18,7 +18,7 @@ import {
   makeGroundBloomSprite, makeHeatHazeTexture, makeScorchTexture, makeSteamTexture,
 } from "./padTextures";
 import { createPadSurroundings } from "./padSurroundings";
-import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX } from "./mechazillaTower";
+import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX, TOWER_OZ } from "./mechazillaTower";
 import { createPad1Tower } from "./padSecondTower";
 import { addStarbaseSatellitePlate } from "./padSatellitePlate";
 import { createPadVentClouds } from "./padVentClouds";
@@ -312,7 +312,7 @@ function addPadBeacon(pad: THREE.Group): void {
     new THREE.SphereGeometry(0.003, 10, 8),
     new THREE.MeshBasicMaterial({ color: 0xff5533, transparent: true, opacity: 0.95 }),
   );
-  beacon.position.set(TOWER_OX, TOWER_BEACON_Y, 0);
+  beacon.position.set(TOWER_OX, TOWER_BEACON_Y, TOWER_OZ);
   beacon.name = "pad-beacon";
   pad.add(beacon);
 }

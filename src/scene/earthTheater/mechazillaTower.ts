@@ -3,11 +3,12 @@ import * as THREE from "three";
 import { addChopstickCarriage } from "./mechazillaChopsticks";
 export {
   CHOPSTICK_LEN_M, OLT_HEIGHT_M, OLT_TRUSS_M, TOWER_BEACON_Y, TOWER_H, TOWER_OX,
+  TOWER_OZ, TOWER_YAW_RAD,
   CHOPSTICK_REST_M, CHOPSTICK_CATCH_M, CHOPSTICK_CATCH_DROP_KM,
   PAD1_X_KM, PAD1_Z_KM, PAD1_TOWER_DX_KM, PAD1_TOWER_DZ_KM,
 } from "./mechazillaDims";
 import {
-  BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0,
+  BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0, TOWER_OZ, TOWER_YAW_RAD,
 } from "./mechazillaDims";
 import { makeTowerMats, type TowerMats } from "./mechazillaMats";
 import { addMechazillaBase } from "./mechazillaBase";
@@ -17,6 +18,11 @@ import { addOlm } from "./padOlm";
 export type MechazillaBuildOpts = {
   /** False for OLP-1 at Flight 13 (mount pulled for V3 rebuild). Default true. */
   includeOlm?: boolean;
+  /**
+   * `olp2` (default) seats and yaws the truss on the surveyed Pad 2 pin.
+   * `local` keeps the truss at the group origin facing −X (Pad 1 shifts it).
+   */
+  frame?: "olp2" | "local";
 };
 
 export function updateMechazillaRecovery(
@@ -117,9 +123,20 @@ export function createMechazillaTower(opts: MechazillaBuildOpts = {}): THREE.Gro
   const g = new THREE.Group();
   g.name = "mechazilla";
   const mats = makeTowerMats();
-  addMechazillaTruss(g, mats);
-  addMechazillaBase(g, mats);
-  addTowerArms(g, mats);
+  const parts = new THREE.Group();
+  addMechazillaTruss(parts, mats);
+  addMechazillaBase(parts, mats);
+  addTowerArms(parts, mats);
+  // Authored with the truss centre at x = TOWER_OX, z = 0; recenter to origin.
+  parts.position.set(-TOWER_OX, 0, 0);
+  const tower = new THREE.Group();
+  tower.name = "pad-tower";
+  tower.add(parts);
+  if (opts.frame !== "local") {
+    tower.position.set(TOWER_OX, 0, TOWER_OZ);
+    tower.rotation.y = TOWER_YAW_RAD;
+  }
+  g.add(tower);
   if (opts.includeOlm !== false) addOlm(g, mats);
   return g;
 }

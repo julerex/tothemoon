@@ -15,6 +15,8 @@ import {
   OLP1_TOWER_LON_DEG,
   OLP2_LAT_DEG,
   OLP2_LON_DEG,
+  OLP2_TOWER_LAT_DEG,
+  OLP2_TOWER_LON_DEG,
   PAD_AERIAL_LAT_DEG,
   PAD_AERIAL_LON_DEG,
   farmAxisYawRad,
@@ -25,6 +27,7 @@ import {
   padLocalAzimuthDeg,
   olp1FromOlp2,
   olp1TowerFromOlp2,
+  olp2TowerFromOlp2,
   pad2ApronContains,
   pad2ApronXz,
   starbasePlatePinFromOlp2,
@@ -53,6 +56,15 @@ describe("starbaseSurvey", () => {
     assert.ok(dist > 0.36 && dist < 0.38, `pad spacing ${dist} km`);
     assert.ok(p.x < -0.35 && p.x > -0.38, "east is −X");
     assert.ok(p.z < -0.06 && p.z > -0.08, "OLP-1 is south of OLP-2");
+  });
+
+  it("puts the OLP-2 Mechazilla base ~32 m north of the OLM, slightly west", () => {
+    const p = geodeticDeltaToPadLocal(OLP2_TOWER_LAT_DEG, OLP2_TOWER_LON_DEG);
+    assert.equal(olp2TowerFromOlp2.x, p.x);
+    assert.equal(olp2TowerFromOlp2.z, p.z);
+    assert.ok(p.z > 0.03 && p.z < 0.035, `north ${p.z * 1000} m`);
+    assert.ok(p.x > 0 && p.x < 0.005, `west ${p.x * 1000} m, not a 20 m due-west gap`);
+    assert.ok(p.z > p.x * 8, "more north than west");
   });
 
   it("keeps the OLP-1 tower base ~32 m west of the empty mount", () => {

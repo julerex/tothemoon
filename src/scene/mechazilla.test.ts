@@ -17,6 +17,8 @@ import {
   PAD1_TOWER_DZ_KM,
   TOWER_BEACON_Y,
   TOWER_H,
+  TOWER_OX,
+  TOWER_OZ,
   createMechazillaTower,
 } from "./earthTheater/mechazillaTower.ts";
 import { makeTowerMats } from "./earthTheater/mechazillaMats.ts";
@@ -135,5 +137,16 @@ describe("OLP-1 second tower (V26)", () => {
     assert.ok(live.getObjectByName("pad-olm"));
     assert.ok(live.getObjectByName("pad-chopstick-L"));
     assert.ok(live.getObjectByName("pad-tower-base"));
+  });
+
+  it("seats the live truss north of the OLM, not 20 m due west", () => {
+    const live = createMechazillaTower();
+    live.updateMatrixWorld(true);
+    const base = live.getObjectByName("pad-tower-base") as THREE.Mesh;
+    const p = new THREE.Vector3();
+    base.getWorldPosition(p);
+    assert.ok(Math.abs(p.x - TOWER_OX) < 0.002, `west ${p.x * 1000} m`);
+    assert.ok(Math.abs(p.z - TOWER_OZ) < 0.002, `north ${p.z * 1000} m`);
+    assert.ok(p.z > 0.03 && p.x < 0.005);
   });
 });

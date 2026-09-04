@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
-import { PAD1_X_KM, TOWER_OX } from "./earthTheater/mechazillaDims.ts";
+import { PAD1_X_KM, TOWER_OX, TOWER_OZ } from "./earthTheater/mechazillaDims.ts";
 import {
   BLAST_WALL_Z_KM,
   CRYO_BANKS,
@@ -94,7 +94,7 @@ describe("padFarmLayout vs pads / road", () => {
   it("puts N–S banks between the pads and south of SH 4", () => {
     const pts = cryoTankPlacements();
     assert.equal(pts.length, CRYO_TANK_COUNT);
-    assert.ok(TOWER_OX > 0, "live tower stays west of the OLM");
+    assert.ok(TOWER_OX > 0 && TOWER_OZ > TOWER_OX, "live tower is north-west of the OLM");
     for (const p of pts) {
       assert.ok(p.x < 0, `tank at x=${p.x} should be east of the OLP-2 OLM`);
       assert.ok(p.z > 0, "farm sits north of the OLP-2 pad line");

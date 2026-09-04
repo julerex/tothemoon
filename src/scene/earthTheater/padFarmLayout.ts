@@ -4,8 +4,8 @@
  * Pad-local km: +X west (inland), −X gulf/east, +Z north (SH 4), +Y up.
  * Live origin is the OLP-2 OLM. Banks are packed along −X in this file;
  * {@link surveyedFarmXz} yaws that axis onto the surveyed west→east GPS
- * line so the farm is not due east–west. Live Mechazilla stays west of the
- * OLM (`TOWER_OX` > 0) so trench / webcast cameras keep their mounts.
+ * line so the farm is not due east–west. Live Mechazilla sits north-west of
+ * the OLM so trench / webcast cameras keep their mounts.
  */
 import { PAD1_X_KM } from "./mechazillaDims";
 import {

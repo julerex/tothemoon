@@ -2,7 +2,7 @@
  * Mechazilla / OLT published dimensions (meters) and pad-km scales.
  * Scene unit = 1 km. Shared by the tower truss and chopsticks builders.
  */
-import { olp1FromOlp2, olp1TowerFromOlp2 } from "./starbaseSurvey";
+import { olp1FromOlp2, olp1TowerFromOlp2, olp2TowerFromOlp2 } from "./starbaseSurvey";
 
 /** Official OLT height (m), ground to lightning rod (FAA / Guinness). */
 export const OLT_HEIGHT_M = 146;
@@ -12,8 +12,6 @@ export const OLT_TRUSS_M = 132;
 export const CHOPSTICK_LEN_M = 36;
 /** Square truss face (m). */
 export const TOWER_FACE_M = 12;
-/** Pad-origin to tower center (m); +X is toward the tower. */
-export const TOWER_OX_M = 20;
 /**
  * Launch-park chopsticks carriage height (m).
  * Webcast T−2 stills park the arms at the ship nose / rail top, not the
@@ -35,8 +33,27 @@ const M = 0.001;
 export const TOWER_H = OLT_TRUSS_M * M;
 export const TOWER_FACE = TOWER_FACE_M * M;
 export const TOWER_COL = 0.002;
-export const TOWER_OX = TOWER_OX_M * M;
+/**
+ * OLP-2 tower centre in pad-local km (+X west, +Z north). Surveyed ~1.6 m
+ * west and ~32 m north of the OLM — not the old 20 m due-west gap.
+ * Mesh authors still place the truss at `x = TOWER_OX`, `z = 0`; the
+ * tower builder recenters and yaws onto this pin.
+ */
+export const TOWER_OX = olp2TowerFromOlp2.x;
+export const TOWER_OZ = olp2TowerFromOlp2.z;
+/** Yaw that takes tower-local −X (vehicle face) onto the OLM. */
+export const TOWER_YAW_RAD = Math.atan2(-TOWER_OZ, TOWER_OX);
 export const TOWER_OY0 = 0.0;
+
+/** Pad-local xz of a point in tower-local metres (origin at the truss centre). */
+export function towerLocalToPad(localX: number, localZ: number): { x: number; z: number } {
+  const c = Math.cos(TOWER_YAW_RAD);
+  const s = Math.sin(TOWER_YAW_RAD);
+  return {
+    x: TOWER_OX + localX * c + localZ * s,
+    z: TOWER_OZ - localX * s + localZ * c,
+  };
+}
 export const TOWER_BEACON_Y = OLT_HEIGHT_M * M;
 export const CHOPSTICK_LEN = CHOPSTICK_LEN_M * M;
 export const CHOPSTICK_REST_Y = CHOPSTICK_REST_M * M;
@@ -58,8 +75,8 @@ export const CHOPSTICK_CATCH_DROP_KM = (CHOPSTICK_CATCH_M - CHOPSTICK_REST_M) * 
 export const PAD1_X_KM = olp1FromOlp2.x;
 export const PAD1_Z_KM = olp1FromOlp2.z;
 /**
- * Pad-1-local shift so the shared tower builder (meshes at {@link TOWER_OX})
- * lands on the surveyed OLP-1 tower base instead of Pad 2’s 20 m gap.
+ * Pad-1-local shift so a locally-framed tower (centre at the group origin,
+ * vehicle face −X) lands on the surveyed OLP-1 tower base.
  */
-export const PAD1_TOWER_DX_KM = olp1TowerFromOlp2.x - olp1FromOlp2.x - TOWER_OX;
+export const PAD1_TOWER_DX_KM = olp1TowerFromOlp2.x - olp1FromOlp2.x;
 export const PAD1_TOWER_DZ_KM = olp1TowerFromOlp2.z - olp1FromOlp2.z;

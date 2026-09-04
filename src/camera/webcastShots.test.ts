@@ -13,6 +13,7 @@ import {
   PAD_AERIAL_EL_DEG,
   PAD_AERIAL_FOV,
   PAD_AERIAL_FRAME_SCALE,
+  PAD_AERIAL_LOOK_NORTH_KM,
   PAD_AERIAL_LOOK_WEST_KM,
   SPLASH_DRONE_T0,
   splashDroneAzimuthDeg,
@@ -50,12 +51,13 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
       dist,
     );
     const wantX = padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM;
-    const miss = Math.hypot(-off.x - wantX, off.y - padAerialFromOlp2.z);
+    const wantZ = padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM;
+    const miss = Math.hypot(-off.x - wantX, off.y - wantZ);
     assert.ok(miss < 0.002, `ground track miss ${miss * 1000} m`);
     assert.ok((open.frameScale ?? 1) < 0.5, "close T−5 pad drone, not a gulf hover");
     assert.ok(
-      (open.azimuthDeg ?? 0) > 274 && (open.azimuthDeg ?? 0) < 278,
-      "south of Mechazilla, looking NNW",
+      (open.azimuthDeg ?? 0) > 268 && (open.azimuthDeg ?? 0) < 272,
+      "south of Mechazilla, looking north",
     );
     assert.equal(webcastShotAt(-180).key, "pad-wide");
     assert.equal(webcastShotAt(-180).mode, "aerial");

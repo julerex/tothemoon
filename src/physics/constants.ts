@@ -162,8 +162,8 @@ export const LOW_EARTH_ORBIT_RADIUS = R_EARTH + LOW_EARTH_ORBIT_ALTITUDE;
  * Sentinel-2 / NAIP JPEGs stay on the older rounded pin — see
  * `STARBASE_PLATE_LAT_DEG` in `starbasePlate.ts`.
  */
-export const STARBASE_LAT_DEG = 25.99677211965216;
-export const STARBASE_LON_DEG = -97.15807620321927;
+export const STARBASE_LAT_DEG = 25.996771110084588;
+export const STARBASE_LON_DEG = -97.15809301503772;
 export const STARBASE_LAT = (STARBASE_LAT_DEG * Math.PI) / 180;
 export const STARBASE_LON = (STARBASE_LON_DEG * Math.PI) / 180;
 
