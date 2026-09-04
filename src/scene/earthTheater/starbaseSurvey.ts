@@ -111,9 +111,14 @@ export function farmAxisYawRad(): number {
   return Math.atan2(dz, -dx);
 }
 
-/** T−5 Launchpad Drone ground pin (surveyed, WGS84). */
-export const PAD_AERIAL_LAT_DEG = 25.995483842780164;
-export const PAD_AERIAL_LON_DEG = -97.15775229415546;
+/**
+ * T−5 Launchpad Drone nadir (WGS84).
+ *
+ * Due south of the OLM, ~164 m out — the hover that looks NNW at Mechazilla
+ * mid-truss (Launch Tower analog: heading ~354°, ~170 m ellipsoid height).
+ */
+export const PAD_AERIAL_LAT_DEG = 25.995292033602475;
+export const PAD_AERIAL_LON_DEG = -97.1580958112989;
 
 export const padAerialFromOlp2 = geodeticDeltaToPadLocal(
   PAD_AERIAL_LAT_DEG,

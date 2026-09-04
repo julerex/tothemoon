@@ -65,16 +65,16 @@ describe("starbaseSurvey", () => {
     assert.ok(dz < 0 && dz > -0.008, "tower slightly south of the mount");
   });
 
-  it("puts the T−5 pad drone pin SSE of the OLM, ~146 m out", () => {
+  it("puts the T−5 pad drone pin south of the OLM, ~164 m out", () => {
     const p = geodeticDeltaToPadLocal(PAD_AERIAL_LAT_DEG, PAD_AERIAL_LON_DEG);
     assert.equal(padAerialFromOlp2.x, p.x);
     assert.equal(padAerialFromOlp2.z, p.z);
     const horiz = Math.hypot(p.x, p.z);
-    assert.ok(horiz > 0.14 && horiz < 0.16, `horiz ${horiz} km`);
-    assert.ok(p.x < 0, "east of the OLM (−X)");
+    assert.ok(horiz > 0.16 && horiz < 0.17, `horiz ${horiz} km`);
+    assert.ok(Math.abs(p.x) < 0.005, "nearly on the OLM meridian");
     assert.ok(p.z < 0, "south of the OLM");
     const az = padLocalAzimuthDeg(p);
-    assert.ok(az > 280 && az < 286, `az ${az}`);
+    assert.ok(az > 268 && az < 272, `az ${az} (due south of the OLM)`);
   });
 
   it("yaws the cryo farm so west→east follows the surveyed GPS line", () => {

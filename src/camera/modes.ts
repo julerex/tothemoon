@@ -38,6 +38,7 @@ import {
   PAD_AERIAL_FOV,
   PAD_AERIAL_FRAME_SCALE,
   PAD_AERIAL_LOOK_UP_KM,
+  PAD_AERIAL_LOOK_WEST_KM,
   SPLASH_DRONE_ELEV_DEG,
   SPLASH_DRONE_FOV,
   SPLASH_DRONE_FRAME_SCALE,
@@ -1065,6 +1066,10 @@ export class CameraDirector {
       const lift =
         this.focus === "ground1" ? GROUND1_LOOK_UP_KM : PAD_AERIAL_LOOK_UP_KM;
       outTarget.addScaledVector(this.padUp, lift);
+      if (this.focus === "aerial") {
+        this.padEast.set(pad.east.x, pad.east.y, pad.east.z).normalize();
+        outTarget.addScaledVector(this.padEast, -PAD_AERIAL_LOOK_WEST_KM);
+      }
     }
   }
 

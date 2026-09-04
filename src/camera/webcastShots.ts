@@ -9,6 +9,7 @@
  * Earth-ENU bearings (see `enuPose.ts`). Onboard shots use named mounts.
  */
 
+import { TOWER_H, TOWER_OX } from "../scene/earthTheater/mechazillaDims";
 import {
   padAerialFromOlp2,
   padLocalAzimuthDeg,
@@ -57,26 +58,36 @@ export const WEBCAST_ONBOARD_FOV = 80;
 /** Default theater PerspectiveCamera FOV. */
 export const THEATER_DEFAULT_FOV = 50;
 
-/**
- * Pad flying-drone hover matching `tminus-000500-pad-hold-wide.jpg`.
- * Ground track is the surveyed pin SSE of the OLM (looking NNW at the stack).
- * Azimuth is east-toward-north ENU.
- */
-export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg(padAerialFromOlp2);
-/** Elevation above the local horizon (deg). */
-export const PAD_AERIAL_EL_DEG = 20;
+/* T−5 pad drone: south of the OLM, looking NNW at Mechazilla mid-truss. */
+/** Look-at west of the OLM (km) — live tower center. */
+export const PAD_AERIAL_LOOK_WEST_KM = TOWER_OX;
+/** Look-at height above the OLM (km) — mid-truss, not the apron. */
+export const PAD_AERIAL_LOOK_UP_KM = TOWER_H * 0.5;
+
+/** Camera nadir relative to the look-at, pad-local `[west, north]` km. */
+function padAerialFromLookAt(): { x: number; z: number } {
+  return {
+    x: padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM,
+    z: padAerialFromOlp2.z,
+  };
+}
+
+export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg(padAerialFromLookAt());
+/** Elevation of the eye above the look-at horizon (deg). */
+export const PAD_AERIAL_EL_DEG = 18.5;
 /** Handheld drone lens (vertical FOV). */
 export const PAD_AERIAL_FOV = 62;
 /**
  * Must match `CameraDirector.frameDistanceFor` pad radius/fill (0.12 km, 0.5)
- * so {@link PAD_AERIAL_FRAME_SCALE} seats the ground track on the survey pin.
+ * so {@link PAD_AERIAL_FRAME_SCALE} seats the ground track on the T−5 pin.
  */
 const PAD_AERIAL_FRAME_RADIUS_KM = 0.12;
 const PAD_AERIAL_FRAME_FILL = 0.5;
 
 /** Slant range so the nadir sits on {@link padAerialFromOlp2}. */
 function padAerialFrameScale(): number {
-  const horiz = Math.hypot(padAerialFromOlp2.x, padAerialFromOlp2.z);
+  const p = padAerialFromLookAt();
+  const horiz = Math.hypot(p.x, p.z);
   const slant = horiz / Math.cos((PAD_AERIAL_EL_DEG * Math.PI) / 180);
   const half =
     ((PAD_AERIAL_FOV * Math.PI) / 180) * PAD_AERIAL_FRAME_FILL * 0.5;
@@ -84,10 +95,8 @@ function padAerialFrameScale(): number {
   return slant / framed;
 }
 
-/** Framed pad radius multiplier — ground track on the surveyed T−5 pin. */
+/** Framed pad radius multiplier — ground track on the T−5 pin. */
 export const PAD_AERIAL_FRAME_SCALE = padAerialFrameScale();
-/** Look-at height above the OLM (km) so the stack, not the apron, is centered. */
-export const PAD_AERIAL_LOOK_UP_KM = 0.058;
 
 /**
  * Ground Camera One — `tminus-000200-full-stack.jpg`.
@@ -149,7 +158,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     mode: "aerial",
     frame: true,
     frameScale: PAD_AERIAL_FRAME_SCALE,
-    // SSE of the OLM, looking NNW: close T−5 pad drone, stack in frame.
+    // South of the OLM, looking NNW at Mechazilla mid-truss.
     azimuthDeg: PAD_AERIAL_AZ_DEG,
     elevationDeg: PAD_AERIAL_EL_DEG,
     fov: PAD_AERIAL_FOV,
