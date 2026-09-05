@@ -126,6 +126,12 @@ export function cryoTankPlacements(): CryoPlacement[] {
 
 export const CRYO_TANK_COUNT = CRYO_BANKS.reduce((n, b) => n + b.count, 0);
 
+/** Centre of a packed bank (layout km, before farm yaw). */
+export function cryoBankCentroid(b: CryoBankSpec): { x: number; z: number } {
+  const lastX = b.x0 - (b.count - 1) * b.pitch;
+  return { x: (b.x0 + lastX) * 0.5, z: b.z0 };
+}
+
 /** Axis-aligned envelope of one packed bank (pad-local km). */
 export type PlanBounds = {
   xWest: number;

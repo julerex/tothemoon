@@ -347,7 +347,6 @@ const CRAFT_LABEL_OPTS = { targetPx: 16, aspect: 256 / 64, minH: 0.015 } as cons
 /** Rides the booster mesh so the detached free-flyer clone keeps the plate. */
 function addBoosterNameLabel(booster: THREE.Group): void {
   const label = createNameLabel("SUPER HEAVY", "#e8b86d", CRAFT_LABEL_OPTS);
-  label.name = "label-super-heavy";
   label.position.set(0, 0, BOOST_H * 0.92);
   booster.add(label);
 }

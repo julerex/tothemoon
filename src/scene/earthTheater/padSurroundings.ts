@@ -112,6 +112,7 @@ function addPadFences(g: THREE.Group, mats: PadSurroundMats): void {
 }
 
 function addPadApronDecals(g: THREE.Group): void {
+  if (typeof document === "undefined") return;
   addPadScorch(g);
   addPadWaterStains(g);
   addPadRunoffTrails(g);
@@ -196,6 +197,7 @@ function addWarehouseShell(warehouse: THREE.Group, mats: PadSurroundMats): void 
 
 function addEastYard(g: THREE.Group, mats: PadSurroundMats): void {
   const eastYard = new THREE.Group();
+  eastYard.name = "pad-east-yard";
   eastYard.position.set(0.30, 0, 0.02);
   for (let i = 0; i < 8; i++) {
     const unit = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.006, 0.008), i % 2 === 0 ? mats.steelDark : mats.steel);
@@ -212,22 +214,30 @@ function addPadHopperAndCrane(g: THREE.Group, mats: PadSurroundMats): void {
 }
 
 function addStarhopperSite(g: THREE.Group, mats: PadSurroundMats): void {
+  const site = new THREE.Group();
+  site.name = "pad-starhopper";
+  site.position.set(0.04, 0, SH4_Z_KM + 0.055);
   const hopperPad = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.038, 0.002, 24), mats.concreteDark);
-  hopperPad.position.set(0.04, -0.0035, SH4_Z_KM + 0.055);
-  g.add(hopperPad);
+  hopperPad.position.y = -0.0035;
+  site.add(hopperPad);
   const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.012, 10), mats.steel);
-  hopper.position.set(0.04, 0.005, SH4_Z_KM + 0.055);
-  g.add(hopper);
+  hopper.position.y = 0.005;
+  site.add(hopper);
+  g.add(site);
 }
 
 function addCrane(g: THREE.Group, mats: PadSurroundMats): void {
+  const crane = new THREE.Group();
+  crane.name = "pad-crane";
+  crane.position.set(-0.312, 0, 0.018);
   const craneBase = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.004, 0.008), mats.steelDark);
-  craneBase.position.set(-0.312, 0.002, 0.018);
-  g.add(craneBase);
+  craneBase.position.y = 0.002;
+  crane.add(craneBase);
   const craneBoom = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.0012, 0.0012), mats.steel);
-  craneBoom.position.set(-0.292, 0.012, 0.018);
+  craneBoom.position.set(0.02, 0.012, 0);
   craneBoom.rotation.z = -0.35;
-  g.add(craneBoom);
+  crane.add(craneBoom);
+  g.add(crane);
 }
 
 function addTrailers(g: THREE.Group): void {

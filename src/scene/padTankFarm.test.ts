@@ -20,6 +20,7 @@ import {
   PAD2_WEST_A_LEN_KM,
   PAD2_WEST_B_LEN_KM,
   SH4_Z_KM,
+  cryoBankCentroid,
   cryoTankPlacements,
   farmBankSlabs,
   farmLayoutCentroid,
@@ -144,6 +145,16 @@ describe("padFarmLayout vs pads / road", () => {
   });
 });
 
+describe("cryoBankCentroid", () => {
+  it("sits halfway along a packed N–S bank", () => {
+    const main = CRYO_BANKS.find((b) => b.id === "main")!;
+    const c = cryoBankCentroid(main);
+    const lastX = main.x0 - (main.count - 1) * main.pitch;
+    assert.equal(c.x, (main.x0 + lastX) * 0.5);
+    assert.equal(c.z, main.z0);
+  });
+});
+
 describe("padTankFarm between pads", () => {
   it("names the farm, berm, blast wall, and pipe rack", () => {
     const farm = buildTankFarm(makePadSurroundMats());
@@ -162,6 +173,7 @@ describe("padTankFarm between pads", () => {
     const mainSlab = farm.getObjectByName("pad-cryo-slab-main") as THREE.Mesh | undefined;
     assert.ok(mainSlab?.isMesh);
     assert.ok(mainSlab!.geometry instanceof THREE.BoxGeometry);
+    assert.ok(farm.getObjectByName("pad-vertical-tanks"));
     const cryo = farm.getObjectByName("pad-cryo-tank-0");
     assert.ok(cryo);
     const first = cryoTankPlacements()[0]!;

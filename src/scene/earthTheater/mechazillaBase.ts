@@ -31,6 +31,7 @@ function addRearHouse(g: THREE.Group, mats: TowerMats, half: number): void {
     new THREE.BoxGeometry(TOWER_COL * 6.5, HOUSE_H, TOWER_FACE * 1.15),
     mats.steel,
   );
+  house.name = "pad-gse-house";
   house.position.set(
     TOWER_OX + half + TOWER_COL * 3.2,
     TOWER_OY0 + BASE_H + HOUSE_H * 0.45,

@@ -137,6 +137,7 @@ describe("OLP-1 second tower (V26)", () => {
     assert.ok(live.getObjectByName("pad-olm"));
     assert.ok(live.getObjectByName("pad-chopstick-L"));
     assert.ok(live.getObjectByName("pad-tower-base"));
+    assert.ok(live.getObjectByName("pad-gse-house"));
   });
 
   it("seats the live truss north of the OLM, not 20 m due west", () => {

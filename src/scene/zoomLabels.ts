@@ -98,7 +98,8 @@ function finishNameLabelMap(canvas: HTMLCanvasElement): THREE.CanvasTexture {
   return map;
 }
 
-function paintNameLabelCanvas(text: string, color: string): THREE.CanvasTexture {
+function paintNameLabelCanvas(text: string, color: string): THREE.CanvasTexture | null {
+  if (typeof document === "undefined") return null;
   const canvas = makeLabelCanvas();
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, 256, 64);
@@ -108,10 +109,19 @@ function paintNameLabelCanvas(text: string, color: string): THREE.CanvasTexture 
   return finishNameLabelMap(canvas);
 }
 
-function makeNameSpriteMat(map: THREE.CanvasTexture): THREE.SpriteMaterial {
+function makeNameSpriteMat(map: THREE.CanvasTexture | null): THREE.SpriteMaterial {
   return new THREE.SpriteMaterial({
-    map, transparent: true, depthWrite: false, sizeAttenuation: true,
+    ...(map ? { map } : {}),
+    transparent: true,
+    depthWrite: false,
+    sizeAttenuation: true,
   });
+}
+
+/** Sprite name for a name plate (`"OLP-1"` → `"label-olp-1"`). */
+export function zoomLabelName(text: string): string {
+  const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `label-${slug}`;
 }
 
 /**
@@ -123,7 +133,7 @@ export function createNameLabel(
   spec: ZoomLabelSpec = { targetPx: 18, aspect: 256 / 64, minH: 0.3 },
 ): THREE.Sprite {
   const spr = new THREE.Sprite(makeNameSpriteMat(paintNameLabelCanvas(text, color)));
-  spr.name = `label-${text.toLowerCase()}`;
+  spr.name = zoomLabelName(text);
   markZoomLabel(spr, spec);
   spr.scale.set(spec.aspect * spec.minH * 4, spec.minH * 4, 1);
   return spr;

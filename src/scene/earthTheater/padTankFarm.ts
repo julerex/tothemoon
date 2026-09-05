@@ -84,12 +84,15 @@ function addCryoBanks(farm: THREE.Group, mats: PadSurroundMats): void {
 }
 
 function addVerticalTanks(farm: THREE.Group, mats: PadSurroundMats): void {
+  const cluster = new THREE.Group();
+  cluster.name = "pad-vertical-tanks";
   for (const [x, z] of VERTICAL_TANK_XZ) {
     const mesh = new THREE.Mesh(unitVert, mats.tankWhite);
     mesh.scale.set(VERTICAL_TANK_D_KM, VERTICAL_TANK_H_KM, VERTICAL_TANK_D_KM);
     mesh.position.set(x, VERTICAL_TANK_H_KM * 0.5, z);
-    farm.add(mesh);
+    cluster.add(mesh);
   }
+  farm.add(cluster);
 }
 
 function addEwPipe(parent: THREE.Group, mat: THREE.Material, x: number, y: number, z: number, len: number): void {

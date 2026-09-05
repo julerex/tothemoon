@@ -22,6 +22,7 @@ import { createMechazillaTower, TOWER_BEACON_Y, TOWER_OX, TOWER_OZ } from "./mec
 import { createPad1Tower } from "./padSecondTower";
 import { addStarbaseSatellitePlate } from "./padSatellitePlate";
 import { createPadVentClouds } from "./padVentClouds";
+import { addLaunchSiteLabels } from "./padLabels";
 import { OLM_LAMP_R, OLM_LAMP_Y } from "./padOlm";
 
 export { placePadOnEarth } from "./padPlaceOnEarth";
@@ -380,4 +381,5 @@ export function populateStarbasePad(pad: THREE.Group): void {
   pad.add(createPadLights());
   addPadBeacon(pad);
   addPadGroundBloom(pad);
+  addLaunchSiteLabels(pad);
 }
