@@ -11,6 +11,7 @@ import {
   STARBASE_PAD_PLATE_HALF_KM,
   STARBASE_PLATE_FADE,
   STARBASE_PLATE_HALF_KM,
+  STARBASE_PLATE_INNER_KM,
   STARBASE_PLATE_LAT,
   STARBASE_PLATE_LON,
   STARBASE_PLATE_STEP_KM,
@@ -24,6 +25,7 @@ import {
   starbasePlateYawRad,
 } from "./starbasePlate.ts";
 import { geodeticToMeshLocal } from "../physics/earthFrame.ts";
+import { pad2ApronContains } from "./earthTheater/starbaseSurvey.ts";
 
 describe("starbasePlateUv", () => {
   it("maps the pad origin to the photo center", () => {
@@ -96,6 +98,21 @@ describe("drapePlatePoint", () => {
     const p = drapePlatePoint(STARBASE_PLATE_HALF_KM, STARBASE_PLATE_HALF_KM, R_EARTH);
     const dist = Math.hypot(p.x, p.y + R_EARTH, p.z);
     assert.ok(Math.abs(dist - R_EARTH) < 1e-6, `dist=${dist}`);
+  });
+});
+
+describe("STARBASE_PLATE_INNER_KM", () => {
+  it("hides the photo OLM under the 3D mount without punching past the apron", () => {
+    assert.ok(STARBASE_PLATE_INNER_KM >= 0.02, "hole must cover the circular OLM lip");
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const x = Math.cos(a) * STARBASE_PLATE_INNER_KM;
+      const z = Math.sin(a) * STARBASE_PLATE_INNER_KM;
+      assert.ok(
+        pad2ApronContains(x, z),
+        `hole rim ${x.toFixed(4)},${z.toFixed(4)} is outside the surveyed apron`,
+      );
+    }
   });
 });
 
