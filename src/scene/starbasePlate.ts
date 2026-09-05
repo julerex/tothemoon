@@ -24,13 +24,6 @@ export const STARBASE_PLATE_LAT = (STARBASE_PLATE_LAT_DEG * Math.PI) / 180;
 export const STARBASE_PLATE_LON = (STARBASE_PLATE_LON_DEG * Math.PI) / 180;
 
 /**
- * Inner hole so the photo’s real OLM is not drawn under Mechazilla (km).
- * Must stay inside the surveyed site apron (~45 m at the closest edge) or
- * Blue Marble shows through as a circular coastal disc around OLP-2.
- */
-export const STARBASE_PLATE_INNER_KM = 0.026;
-
-/**
  * Half-extent of the square plate (km). ±this in east and north; the JPEG
  * covers the full square (Gulf, South Bay, Brownsville, South Padre Island).
  */

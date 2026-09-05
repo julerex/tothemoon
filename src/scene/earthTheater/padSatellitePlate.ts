@@ -6,7 +6,7 @@ import {
   STARBASE_CENTER_PLATE_FADE,
   STARBASE_LAND_PLATES,
   STARBASE_PAD_PLATE_HALF_KM, STARBASE_PAD_PLATE_Y_KM,
-  STARBASE_PLATE_HALF_KM, STARBASE_PLATE_INNER_KM, STARBASE_PLATE_SEGS,
+  STARBASE_PLATE_HALF_KM, STARBASE_PLATE_SEGS,
   STARBASE_PLATE_Y_KM, drapePlatePoint, starbasePlatePadLocalOffset,
   starbasePlateUv,
 } from "../starbasePlate";
@@ -72,44 +72,24 @@ function makeStarbasePlateGeometry(
 }
 
 /**
- * Discard the OLM hole. JPEG UVs are centered on the committed WMS pin;
- * the hole is at the OLP-2 origin in that map (east, north) km.
- * NAIP also drops near-black Gulf nodata so Sentinel-2 water shows through.
+ * Drop near-black Gulf nodata on NAIP so Sentinel-2 water shows through.
+ * The concrete apron covers the photo OLM — do not punch a hole at the mount.
  */
-function punchPlateOlmHole(
-  mat: THREE.MeshStandardMaterial,
-  halfKm: number,
-  dropNodata: boolean,
-): void {
-  const half = halfKm.toFixed(4);
-  const inner2 = (STARBASE_PLATE_INNER_KM * STARBASE_PLATE_INNER_KM).toFixed(6);
-  const pin = starbasePlatePinFromOlp2;
-  const olmE = pin.x.toFixed(8);
-  const olmN = (-pin.z).toFixed(8);
-  const nodata = dropNodata
-    ? "if (max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) < 0.05) discard;"
-    : "";
-  mat.customProgramCacheKey = () =>
-    `starbase-plate-olm-hole-${half}-${dropNodata ? "n" : "s"}-${olmE}-${olmN}`;
+function dropPlateNodata(mat: THREE.MeshStandardMaterial): void {
+  mat.customProgramCacheKey = () => "starbase-plate-nodata";
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
       `#include <map_fragment>
-       vec2 plateKm = (vMapUv - 0.5) * (2.0 * ${half});
-       vec2 olmKm = vec2(${olmE}, ${olmN});
-       vec2 olmDelta = plateKm - olmKm;
-       if (dot(olmDelta, olmDelta) < ${inner2}) discard;
-       ${nodata}
+       if (max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) < 0.05) discard;
       `,
     );
   };
 }
 
 function makeStarbasePlateMaterial(opts: {
-  halfKm: number;
   fade: PlateEdgeFade;
   dropNodata?: boolean;
-  punchOlm?: boolean;
 }): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -120,9 +100,7 @@ function makeStarbasePlateMaterial(opts: {
     alphaMap: makePlateAlphaTexture(opts.fade),
     ...GROUND_OFFSET,
   });
-  if (opts.punchOlm !== false) {
-    punchPlateOlmHole(mat, opts.halfKm, opts.dropNodata === true);
-  }
+  if (opts.dropNodata) dropPlateNodata(mat);
   return mat;
 }
 
@@ -162,16 +140,14 @@ function addPlate(
   opts: {
     name: string; halfKm: number; yKm: number; file: string;
     kind: "surrounds" | "naip"; fade: PlateEdgeFade;
-    dropNodata?: boolean; punchOlm?: boolean; ox?: number; oz?: number;
+    dropNodata?: boolean; ox?: number; oz?: number;
   },
 ): void {
   const plate = new THREE.Mesh(
     makeStarbasePlateGeometry(opts.halfKm, opts.ox ?? 0, opts.oz ?? 0),
     makeStarbasePlateMaterial({
-      halfKm: opts.halfKm,
       fade: opts.fade,
       dropNodata: opts.dropNodata,
-      punchOlm: opts.punchOlm,
     }),
   );
   plate.name = opts.name;
@@ -193,7 +169,6 @@ function addLandNeighborPlates(pad: THREE.Group): void {
       file: land.file,
       kind: "surrounds",
       fade: land.fade,
-      punchOlm: false,
       ox: off.x,
       oz: off.z,
     });
