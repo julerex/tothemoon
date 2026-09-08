@@ -4,6 +4,7 @@
  * Mild barrel (fisheye-ish) distortion only. Grain / dirt overlays were too
  * hazy on hull-style mounts (gridfin). Theater-grade; scrub-safe.
  * Hull keeps the wide FOV from V13 but does **not** get this pass.
+ * Sample UVs are fitted so the barrel never ClampToEdge-smears the frame.
  *
  * @see docs/VISUAL_REALISM.md — V18
  */
@@ -36,6 +37,33 @@ export function onboardPostEnabled(focus: string | undefined): boolean {
  */
 export function onboardBarrelStrength(): number {
   return ONBOARD_BARREL_STRENGTH;
+}
+
+/**
+ * Screen UV → source UV for the onboard barrel pass.
+ *
+ * Positive `barrel` bows the mid-edges (webcast hull-cam). The result is
+ * then scaled so the square's corners stay on the source edge — without that
+ * fit, sample UV exceeds 0…1 and ClampToEdge smears the last row along the
+ * top/sides (fixed cams 5 / 7 / 8 / 9).
+ *
+ * @param u - Screen U in 0…1
+ * @param v - Screen V in 0…1
+ * @param barrel - {@link ONBOARD_BARREL_STRENGTH} band
+ * @returns `[su, sv]` in 0…1
+ */
+export function onboardBarrelSampleUv(
+  u: number,
+  v: number,
+  barrel: number,
+): [number, number] {
+  const x = u * 2 - 1;
+  const y = v * 2 - 1;
+  const r2 = x * x + y * y;
+  const k = 1 + barrel * r2;
+  const fit = 1 + barrel * 2;
+  const s = fit > 1e-9 ? k / fit : 1;
+  return [x * s * 0.5 + 0.5, y * s * 0.5 + 0.5];
 }
 
 function paintDirtOverlay(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -112,11 +140,12 @@ export const OnboardCamShader = {
     void main() {
       vec2 uv = vUv * 2.0 - 1.0;
       float r2 = dot(uv, uv);
-      // Mild barrel: pull mid-frame out slightly (webcast hull-cam feel).
-      uv *= 1.0 + barrel * r2;
+      // Mild barrel, then fit so corners stay on the source edge.
+      // Must match onboardBarrelSampleUv — unfitted k ClampToEdge-smears.
+      float k = 1.0 + barrel * r2;
+      float fit = 1.0 + barrel * 2.0;
+      uv *= k / max(fit, 1e-6);
       vec2 sampleUv = uv * 0.5 + 0.5;
-      // Edge clamp — avoid wrap artifacts outside the distorted disc.
-      sampleUv = clamp(sampleUv, 0.0, 1.0);
 
       vec4 base = texture2D(tDiffuse, sampleUv);
       float n = hash21(vUv * 1024.0);
