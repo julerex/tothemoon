@@ -16,9 +16,11 @@ import {
   PAD_AERIAL_LOOK_NORTH_KM,
   PAD_AERIAL_LOOK_WEST_KM,
   SPLASH_DRONE_T0,
+  TOWER1_T0,
   splashDroneAzimuthDeg,
   webcastShotAt,
 } from "./webcastShots.ts";
+import { TOWER1_CAM_FOV } from "./towerCam.ts";
 
 describe("FLIGHT13_WEBCAST_SHOTS", () => {
   it("is sorted by t0 with unique keys", () => {
@@ -59,8 +61,14 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
       (open.azimuthDeg ?? 0) > 268 && (open.azimuthDeg ?? 0) < 272,
       "south of Mechazilla, looking north",
     );
-    assert.equal(webcastShotAt(-180).key, "pad-wide");
-    assert.equal(webcastShotAt(-180).mode, "aerial");
+    assert.equal(webcastShotAt(-280).key, "pad-wide");
+    assert.equal(webcastShotAt(-280).mode, "aerial");
+    const tower1 = webcastShotAt(TOWER1_T0);
+    assert.equal(tower1.key, "tower-one");
+    assert.equal(tower1.mode, "tower1cam");
+    assert.equal(tower1.fov, TOWER1_CAM_FOV);
+    assert.equal(webcastShotAt(-180).key, "tower-one");
+    assert.equal(webcastShotAt(-180).mode, "tower1cam");
     const ground = webcastShotAt(GROUND1_T0);
     assert.equal(ground.key, "ground-cam-1");
     assert.equal(ground.mode, "ground1");

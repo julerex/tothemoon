@@ -14,7 +14,8 @@ import {
   padAerialFromOlp2,
   padLocalAzimuthDeg,
 } from "../scene/earthTheater/starbaseSurvey";
-import type { CameraMode } from "./modes";
+import type { CameraMode } from "./cameraMode";
+import { TOWER1_CAM_FOV } from "./towerCam";
 
 /** Onboard mount picked on a gridfin / hull / fin cut. */
 export type WebcastMount =
@@ -114,6 +115,8 @@ export const GROUND1_FOV = 36;
 export const GROUND1_FRAME_SCALE = 0.34;
 /** Look-at height above the OLM (km) so the camera frames the stack, not dirt. */
 export const GROUND1_LOOK_UP_KM = 0.085;
+/** Mission time (s) of the T−4:00 Tower One Cam cut. */
+export const TOWER1_T0 = -240;
 /** Mission time (s) of the T−2:00 Ground Camera One cut. */
 export const GROUND1_T0 = -120;
 
@@ -147,7 +150,8 @@ export function splashDroneAzimuthDeg(t: number): number {
  * Times follow `assets/flight13-webcast/README.md` HUD clocks. Consecutive
  * stills that keep the same left-pane mount are collapsed into one hold.
  *
- * Pad: wide aerial → Ground Camera One (T−2 full stack) through liftoff.
+ * Pad: wide aerial → Tower One Cam (T−4) → Ground Camera One (T−2) through
+ * liftoff.
  * Ascent through Super Heavy splash: booster hull / engine-bay (left of split).
  * After SH landing: ship hull-cam (payload / coast / landing) and flap-cam
  * on the entry split. Splash: brief aerial chase, then sea-level drone orbit
@@ -164,6 +168,14 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     azimuthDeg: PAD_AERIAL_AZ_DEG,
     elevationDeg: PAD_AERIAL_EL_DEG,
     fov: PAD_AERIAL_FOV,
+  },
+  {
+    // T−4:00 — OLP-1 peak looking at the OLP-2 stack (`tminus-000400-pad-hold-wide.jpg`).
+    key: "tower-one",
+    t0: TOWER1_T0,
+    mode: "tower1cam",
+    frame: true,
+    fov: TOWER1_CAM_FOV,
   },
   {
     key: "ground-cam-1",

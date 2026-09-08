@@ -82,7 +82,7 @@ On the menu, `ready` is `false` and mutators return `{ error: "theater not start
 
 Camera modes: `sun` `moon` `earth` `booster` `tower` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `engines` `enginesDown` `free`.
 
-`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−5:00 through T−8.
+`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−5:00 until T−4:00, then cuts to Tower One Cam (`tower1cam`) until Ground Camera One at T−2:00.
 
 `setCamera("booster")` looks at Super Heavy from outside (detached after stage-out). `setCamera("tower")` looks at Mechazilla; WASD pans parallel to the Earth. `setCamera("chase")` is Starship (HUD 🚢).
 

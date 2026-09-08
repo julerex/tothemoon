@@ -137,7 +137,7 @@ describe("nextAutoCamCut", () => {
       false,
       { phase: null, staged: false, shotKey: null },
       "flight13",
-      -180,
+      -280,
     );
     assert.ok(first.suggestion);
     assert.equal(first.suggestion!.mode, "aerial");
@@ -149,15 +149,27 @@ describe("nextAutoCamCut", () => {
       false,
       { phase: "launch", staged: false, shotKey: first.shotKey },
       "flight13",
-      -150,
+      -270,
     );
     assert.equal(same.suggestion, null);
+
+    const tower1 = nextAutoCamCut(
+      true,
+      "launch",
+      false,
+      { phase: "launch", staged: false, shotKey: first.shotKey },
+      "flight13",
+      -240,
+    );
+    assert.ok(tower1.suggestion);
+    assert.equal(tower1.suggestion!.mode, "tower1cam");
+    assert.equal(tower1.shotKey, "tower-one");
 
     const ground = nextAutoCamCut(
       true,
       "launch",
       false,
-      { phase: "launch", staged: false, shotKey: first.shotKey },
+      { phase: "launch", staged: false, shotKey: tower1.shotKey },
       "flight13",
       -120,
     );
@@ -232,7 +244,7 @@ describe("nextAutoCamCut", () => {
 
 describe("Flight 13 webcast Auto-cam", () => {
   it("only uses livestream analog cameras, never booster or tower rail looks", () => {
-    for (const t of [-300, -120, -8, 0, 22, 130, 256, 400, 2800, 3920]) {
+    for (const t of [-300, -240, -120, -8, 0, 22, 130, 256, 400, 2800, 3920]) {
       const s = autoCamFromWebcastShot(webcastShotAt(t));
       assert.notEqual(s.mode, "booster", `t=${t}`);
       assert.notEqual(s.mode, "tower", `t=${t}`);
