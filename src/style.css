@@ -17,7 +17,7 @@
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   /* Side-rail width; title clears both */
-  --rail-width: 14.25rem;
+  --rail-width: 18rem;
   /* Ticker + event info + scrubber + footer (rails and overlays sit on this) */
   --bottom-chrome: 6.55rem;
 }
@@ -2132,7 +2132,7 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
 @media (max-width: 640px) {
   :root {
-    --rail-width: 11.25rem;
+    --rail-width: 14rem;
     --bottom-chrome: 7.85rem;
   }
 
