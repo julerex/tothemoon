@@ -178,8 +178,9 @@ Public profile (not this theater’s Flight 13 gulf path):
    flap control, landing flip, splash or future tower catch.
 
 Flight 13 **did not** catch the booster: boostback succeeded on 33, landing
-burn was a **partial relight**, then a **hard splash** in the Gulf. The ship
-did splash intact in the Indian Ocean.
+burn was a **partial relight** (NSF: 10 of 13 inner Raptors, then 8, then 5),
+then a **hard splash** in the Gulf. The ship did splash intact in the Indian
+Ocean, tipped onto the heat shield, and was later towed to Christmas Island.
 
 ---
 
@@ -276,7 +277,7 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 | Flight 13 vehicles | B20 + S40, V3 / Block 3 | Same labels; 123 m mesh |
 | Flight 13 pad | OLP-2 | Origin of `starbase-pad` |
 | OLP-1 at F13 | Tower up, OLM gone | Second tower ~363 m east / ~69 m south, no hex OLM |
-| Booster recovery F13 | Hard splash, Gulf of America | Same; ~25.55°N 96.15°W theater, not a surveyed buoy |
+| Booster recovery F13 | Hard splash, Gulf of America; 10 of 13 inner Raptors relit, then 8, then 5 (NSF) | Same path; visual throttle 10→8→5; ~25.55°N 96.15°W theater, not a surveyed buoy |
 | Chopstick length | Pad 2 shorter than original Pad 1 | 36 m both towers |
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |
 | Raptor bells | ~1.3 m SL / ~2.4 m vac exit | `dimensions.ts` |

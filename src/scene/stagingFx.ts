@@ -14,9 +14,11 @@ import * as THREE from "three";
 import {
   sampleBoosterRecovery,
   buildBoosterKeyframes,
+  recoverySchedule,
   type RecoveryProfile,
   type StageState,
 } from "../physics/boosterRecovery";
+import { applyDetachedBoosterBells, uniquifyBellMaterials } from "./stagingBells";
 import type { EphemerisEpoch } from "../physics/ephemerisEpoch";
 import { DEFAULT_EPHEMERIS } from "../physics/ephemerisEpoch";
 import {
@@ -55,6 +57,7 @@ function initDetachedBooster(proto: THREE.Object3D, meshScale: number): THREE.Gr
   booster.visible = false;
   booster.scale.setScalar(meshScale);
   booster.userData.baseScale = meshScale;
+  uniquifyBellMaterials(booster);
   return booster;
 }
 
@@ -299,6 +302,13 @@ export function createStagingFx(
     const baseScale = booster.userData.baseScale as number;
     booster.scale.setScalar(baseScale * boosterFadeScale(sample.fade));
     updatePlume(missionT, sample.burning, sample.throttle, sample.phase);
+    applyDetachedBoosterBells(booster, {
+      burning: sample.burning,
+      phase: sample.phase,
+      age,
+      profile: recoveryProfile,
+      sched: recoverySchedule(recoveryProfile),
+    });
     const visual = deriveStagingVisual(age, recoveryProfile);
     applyStageFlash(visual.flash, craftPos);
     applyBoostbackFlash(visual.boostbackFlash);

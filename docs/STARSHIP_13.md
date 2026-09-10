@@ -239,7 +239,7 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 
 Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon): baked RK4 pack `src/data/flight13-trajectory.json`, pad/craft/staging FX, cameras, HUD scrubber. Phases: launch → ascent → coast → entry → descent → splashdown (float hold). Rebuild with `npm run precompute:flight13`.
 
-**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight demo** (~10 s; public table ~12 s); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive near 19°S 107°E (no longitude teleport). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Not ops ephemerides.
+**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight demo** (~10 s; public table ~12 s); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive near 19°S 107°E (no longitude teleport). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Public recovery later towed intact Ship 40 ~500 miles / 24 days to Christmas Island — the theater does not follow that tow. Not ops ephemerides.
 
 **Epoch / lighting:** mission t = 0 is the flown liftoff **2026-07-24 22:51 UTC** (5:51 p.m. CDT). Analytic Earth/Sun (not the July 2027 Horizons table); `sunPhase0` is the USNO solar longitude at that UTC — no theater sun-phase offset. Splash at T+1:05:21 is **2026-07-24 23:56 UTC**, a southern-winter morning at the Indian Ocean site (sun a few degrees up). Starbase is in afternoon sun. Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
 
@@ -247,7 +247,7 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean site beacon + spray (not lunar dust), Super Heavy Gulf recovery. Photorealism track **V13–V26 shipped** (hull/engine look through V22; **V23** pad T−5 aerial massing — tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks; **V23.5** soft cryo vent puffs; **V24** hex OLM vs T− stills; **V25** axial launch exhaust stream + denser Mechazilla lattice; **V26** OLP-1 second tower). Highlight clips remain a look-reference; no numbered visual slice is queued ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
 
-**Booster recovery:** force-model **Gulf of America** hard splash (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 and a **partial** landing burn ~T+6:24–6:53 from ~3.5 km AGL (webcast HUD 3.5 km at T+6:25, 0.1 km at T+6:40; subset of engines, as flown). The booster falls into the water near ~25.55°N 96.15°W (theater, not a surveyed buoy) — no chopsticks seat. Chopsticks RTLS on the same force model is the default for the lunar mission.
+**Booster recovery:** force-model **Gulf of America** hard splash (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 (public table; recap says the 33-engine burn ended early) and a **partial** landing burn ~T+6:24–6:53 from ~3.5 km AGL (webcast HUD 3.5 km at T+6:25, 0.1 km at T+6:40; official table start is T+6:27, approximate). NSF / Wikipedia: **10 of 13** inner Raptors relit, then **8**, then **5**, then a hard splash (SpaceX recap: “a subset”). The booster falls into the water near ~25.55°N 96.15°W (theater, not a surveyed buoy) — no chopsticks seat. Chopsticks RTLS on the same force model is the default for the lunar mission.
 
 **Webcast HUD match:** ship and booster altitude / ground-relative speed are pinned to the overlay on [`assets/flight13-webcast/`](../assets/flight13-webcast/) stills (`src/physics/flight13Webcast.ts`). The theater HUD uses the same Earth-fixed km/h speed as the stream (pad hold ≈ 0), not heliocentric |v|.
 
@@ -259,7 +259,7 @@ Theater whole-Earth cross-section plane is a **best-fit great circle** through:
 |------|-------------------------------|
 | Starbase | 25.9968°N, 97.1581°W (OLP-2 OLM) |
 | Gauteng (Johannesburg) | 26.20°S, 28.05°E |
-| Indian Ocean splashdown | 19°S, 107°E (NW of Western Australia; Flight 11 McDowell analog, not a surveyed Flight 13 buoy) |
+| Indian Ocean splashdown | 19°S, 107°E (NW of Western Australia; Flight 11 McDowell analog, not a surveyed Flight 13 buoy). Ship 40 stayed intact, tipped onto the heat shield, and after ~24 days was towed ~500 miles to Christmas Island (~10.4°S 105.6°E) — that harbor is not the splash fix. |
 | Australia (label) | 25.27°S, 133.78°E |
 
 Open from Flight 13 briefing (**Earth great circle**) or the theater **Earth GC** button / **Tab** cycle.

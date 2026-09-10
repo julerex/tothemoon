@@ -115,7 +115,7 @@ function pushStagingTrio(add: EventAdder, t: number): void {
     "landing-burn",
     t + GULF_SCHEDULE.landingStartS,
     "Landing burn",
-    "Super Heavy landing burn · ~5 km AGL",
+    "Super Heavy landing burn · public mark",
   );
   add(
     "booster-catch",

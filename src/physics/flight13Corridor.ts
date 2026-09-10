@@ -32,8 +32,10 @@ import {
  *
  * Flight 13 has no surveyed buoy in the public recap. This is the published
  * Flight 11 McDowell fix (19°S 107°E) for the same Starbase → Indian Ocean
- * family; Spaceflight Now placed Flight 13 “northwest of Australia”, and
- * recovery steamed toward Dampier, WA. Not a GPS tag of Ship 40.
+ * family; Spaceflight Now placed Flight 13 “northwest of Australia”. Ship 40
+ * later drifted and was towed ~500 miles / 24 days to Christmas Island
+ * (~10.4°S 105.6°E) — that harbor is not the splash fix. Not a GPS tag of
+ * Ship 40.
  */
 export const FLIGHT13_SPLASH_LAT_DEG = -19;
 export const FLIGHT13_SPLASH_LON_DEG = 107;

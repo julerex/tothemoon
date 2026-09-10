@@ -85,10 +85,11 @@ export function boostbackFlashPose(age: number): BoostbackFlashPose {
 export function landingFlashPose(age: number, profile: RecoveryProfile): FlashPose {
   const strength = landingContactFlashStrength(age, recoverySchedule(profile));
   if (strength < CUE_MIN) return HIDDEN_FLASH;
+  const hard = profile === "gulf";
   return Object.freeze({
     visible: true,
-    scale: 0.07 + strength * 0.7,
-    opacity: 0.8 * strength,
+    scale: (hard ? 0.16 : 0.07) + strength * (hard ? 1.45 : 0.7),
+    opacity: (hard ? 0.95 : 0.8) * strength,
   });
 }
 

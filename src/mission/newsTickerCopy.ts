@@ -117,7 +117,7 @@ const COPY_BY_ID: Record<string, CopySpec> = {
     wire: "BOOSTER",
     line: (ft) =>
       ft
-        ? "Landing burn — a subset of Super Heavy engines relight from ~5 km above the Gulf."
+        ? "Landing burn — 10 of 13 inner Raptors relight from ~3.5 km above the Gulf."
         : "Landing burn — Super Heavy is hoverslamming toward the chopsticks at ~5 km AGL.",
   },
   "booster-catch": {

@@ -275,7 +275,7 @@ describe("gulf recovery profile", () => {
     const mid = sampleBoosterRecovery(stage, midAge, kfs, "gulf");
     assert.equal(mid.phase, "landing");
     assert.ok(mid.burning);
-    assert.ok(mid.throttle > 0.05 && mid.throttle < 0.4, `gulf throttle ${mid.throttle}`);
+    assert.ok(mid.throttle > 0.6 && mid.throttle < 0.85, `gulf throttle ${mid.throttle}`);
     const b = bodyPositions(stage.t + midAge);
     const upx = mid.pos.x - b.earth.x;
     const upy = mid.pos.y - b.earth.y;
@@ -290,6 +290,18 @@ describe("gulf recovery profile", () => {
     const hit = sampleBoosterRecovery(stage, GULF_SCHEDULE.landingStartS + 6, kfs, "gulf");
     const hitAlt = earthAlt(stage.t + GULF_SCHEDULE.landingStartS + 6, hit.pos);
     assert.ok(hitAlt < 0.2, `should already be in the water, alt=${hitAlt}`);
+  });
+
+  it("steps gulf landing-burn throttle 10 → 8 → 5 of 13", () => {
+    const stage = syntheticStage(141);
+    const kfs = buildBoosterKeyframes(stage, "gulf");
+    const ten = sampleBoosterRecovery(stage, GULF_SCHEDULE.landingStartS + 2, kfs, "gulf");
+    const eight = sampleBoosterRecovery(stage, GULF_SCHEDULE.landingStartS + 5, kfs, "gulf");
+    const five = sampleBoosterRecovery(stage, GULF_SCHEDULE.landingStartS + 10, kfs, "gulf");
+    assert.ok(ten.throttle > 0.6 && ten.throttle < 0.85, `10-engine ${ten.throttle}`);
+    assert.ok(eight.throttle < ten.throttle, `8-engine ${eight.throttle} vs 10-engine ${ten.throttle}`);
+    assert.ok(five.throttle < eight.throttle, `5-engine ${five.throttle} vs 8-engine ${eight.throttle}`);
+    assert.ok(five.throttle > 0.15 && five.throttle < 0.45, `5-engine ${five.throttle}`);
   });
 
   it("stays above the surface for the gulf visible window", () => {

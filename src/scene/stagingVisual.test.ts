@@ -88,6 +88,15 @@ describe("deriveStagingVisual", () => {
     }
   });
 
+  it("makes the gulf hard-splash flash larger than a chopsticks catch", () => {
+    const gulf = deriveStagingVisual(recoverySchedule("gulf").landingEndS, "gulf").landingFlash;
+    const catchFlash = deriveStagingVisual(
+      recoverySchedule("chopsticks").landingEndS,
+      "chopsticks",
+    ).landingFlash;
+    assert.ok(gulf.scale > catchFlash.scale, `gulf ${gulf.scale} vs catch ${catchFlash.scale}`);
+  });
+
   it("fades the locator out well before the recovery ends", () => {
     assert.ok(deriveStagingVisual(1, "chopsticks").locatorOpacity > 0);
     assert.equal(deriveStagingVisual(600, "chopsticks").locatorOpacity, 0);

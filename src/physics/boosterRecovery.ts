@@ -17,7 +17,9 @@
  *
  * Times relative to stage epoch follow Flight 5–7 / Flight 13 cadence.
  * Landing burn lights at the public mark (~T+6:27 Flight 13, ~T+6:30 Flight 5)
- * from ~3.5 km AGL (Flight 13 webcast Super Heavy 3.5 km at T+6:25).
+ * from ~3.5 km AGL (Flight 13 webcast Super Heavy 3.5 km at T+6:25). Gulf
+ * visual throttle is the flown 10→8→5 of 13; theater start is T+6:24 so the
+ * gate matches that HUD (official table is approximate).
  *
  * Samples are Earth-relative (heliocentric body motion is added back at
  * sample time). Scene unit = km. Pure + scrub-deterministic from (stage, age).
@@ -64,6 +66,7 @@ import {
   type V3,
   v3,
 } from "./vec3";
+import { gulfLandingThrottlePeak } from "./boosterLandingEngines";
 
 /** Separation kick magnitude (km/s) aft along −velocity (Earth-relative). */
 const SEP_DV = 0.035;
@@ -133,8 +136,8 @@ export const GULF_SCHEDULE: RecoverySchedule = {
   profile: "gulf",
   flipS: 6,
   boostbackStartS: 4, // T+2:25 if stage ≈ T+2:21
-  boostbackEndS: 42, // T+3:03
-  landingStartS: 243, // T+6:24 — engines lighting as HUD hits ~3.5 km
+  boostbackEndS: 42, // T+3:03 public table (recap: ended early)
+  landingStartS: 243, // T+6:24 — webcast 3.5 km HUD; official table ~T+6:27
   landingEndS: 272, // T+6:53
   holdS: 45,
   fadeS: 22,
@@ -563,7 +566,7 @@ function steerLanding(
   sub(_vRel, state.vel, _siteV);
   landingAim(state);
   if (sched.hardSplash) {
-    // ~5 of 13 planned landing engines — not enough to hoverslam.
+    // Partial relight (10→8→5 of 13 visually) is still too weak to hoverslam.
     const lim = limitBoosterAccel(propKg, 0.015);
     writeThrustAlong(_tmp2, lim.a);
     return lim.forceN;
@@ -757,8 +760,8 @@ function landingThrottle(age: number, sched: RecoverySchedule): number {
   const up = smoothstep(0, 1.5, u);
   const mid = 1 - 0.35 * smoothstep(dur * 0.45, dur * 0.85, u);
   const down = 1 - smoothstep(dur - 1.2, dur, u);
-  // Flight 13 gulf: subset of the 13-engine landing burn.
-  const peak = sched.hardSplash ? 0.28 : 0.72;
+  // Flight 13 gulf: 10 → 8 → 5 of the inner 13 (NSF / Wikipedia).
+  const peak = sched.hardSplash ? gulfLandingThrottlePeak(age, sched) : 0.72;
   return peak * up * mid * down;
 }
 

@@ -45,7 +45,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Boostback burn",
     category: "vehicle",
     definition:
-      "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Super Heavy recovery is integrated on the Earth force model. Chopsticks seats on the tower; Flight 13 gulf is a hard splash after a partial landing-burn relight.",
+      "Booster engines re-light after stage separation to reverse downrange velocity toward the landing zone (chopsticks or offshore). Super Heavy recovery is integrated on the Earth force model. Chopsticks seats on the tower; Flight 13 gulf is a hard splash after a 10→8→5 landing-burn relight.",
   },
   {
     id: "booster-cam",
