@@ -26,8 +26,20 @@ export const GRID_FIN_AZIMUTHS = [
   (3 * Math.PI) / 2,
 ] as const;
 
+/**
+ * V3 integrated hot-stage truss height (m). Block 1/2 jettisonable ring was
+ * ~1.8 m; the Block 3 N1-style A-frame truss reads a bit taller.
+ */
+export const HOT_STAGE_H_M = 2.6;
+
+/** A-frame bays around the 9 m barrel (SpaceX V3 integrated-hot-stage render). */
+export const HOT_STAGE_BAYS = 18;
+
 /** Mesh units per real meter (before CRAFT_MESH_SCALE). */
 export const U = 1 / 40;
+
+/** V3 hot-stage truss height in mesh units. */
+export const HOT_STAGE_H = HOT_STAGE_H_M * U;
 
 /** Super Heavy Raptor ring radii in mesh units (3 inner / 10 mid / 20 outer). */
 export const BOOST_RING_INNER = 0.95 * U;

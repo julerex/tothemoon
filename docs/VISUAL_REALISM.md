@@ -32,7 +32,7 @@ explicitly requested. Flight 13 highlight clips in
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
 | **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), **V27** 2-bay box-section lattice + dusk work lights + 3D chopsticks (catch rail / walkway) + wrap-around ship QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + five landward 80 km neighbors + nested USDA NAIP pad plate (farm on NAIP is outdated) |
-| **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
+| **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), V3 triangular hot-stage A-frame truss, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
 | **Overlays** | Trails (phase-reactive), orbit grids, Kepler corridor, cislunar beat whiskers, locators |
@@ -883,6 +883,7 @@ heavy T at the nose and a wrap-around QD; catch still yaws the same arms.
 | 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
 | 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
 | 2026-09-12 | V27 shipped: 2-bay box-section Mechazilla, dusk work lights, 3D chopsticks + wrap-around ship QD |
+| 2026-09-12 | Super Heavy join: V3 triangular A-frame hot-stage truss (replaces solid vent cylinder) |
 | 2026-08-30 | Site concrete apron: 15-vertex survey spanning OLP-2 through the farm to OLP-1 (replaces the 3-corner Pad 2 triangle). |
 | 2026-08-30 | Pad group yaws with the satellite plates so +Z is geographic north (GSE was ~173° off — south-facing). |
 | 2026-08-31 | Pad origin is the OLP-2 OLM (survey / physics pin); satellite plates stay on the committed JPEG pin (~209 m east). Dropped the 10° / 50 m whole-group nudge that had moved the plates with the GSE. |

@@ -6,6 +6,7 @@ import {
   BOOST_RING_MID,
   BOOST_RING_OUTER,
   GRID_FIN_AZIMUTHS,
+  HOT_STAGE_H,
   R,
   SL_BELL_H,
   SL_BELL_R,
@@ -24,13 +25,16 @@ import {
   zCylinder,
 } from "./meshShared";
 import { makeGridFin } from "./gridFin";
+import { addHotStageRing } from "./hotStageRing";
 import { makeBell } from "./raptorBell";
 
 function addBoostBody(booster: THREE.Group, mats: CraftMats): void {
+  const zBot = BOOST_H * 0.06;
+  const zTop = BOOST_H - HOT_STAGE_H - 0.004;
   booster.add(zCylinder(
-    new THREE.CylinderGeometry(R, R, BOOST_H * 0.88, 48),
+    new THREE.CylinderGeometry(R, R, zTop - zBot, 48),
     mats.steelBooster,
-    BOOST_H * 0.5,
+    (zTop + zBot) * 0.5,
   ));
 }
 
@@ -62,26 +66,6 @@ function addBoostWeldRings(booster: THREE.Group, mats: CraftMats): void {
       (i / Math.max(1, BOOSTER_WELD_RING_COUNT - 1)) * BOOST_H * 0.8;
     booster.add(makeBarrelRing(R * 1.009, 0.006, z, mats.weldMat));
     booster.add(makeBarrelRing(R * 1.006, 0.0028, z - 0.009, mats.steelDark));
-  }
-}
-
-/** Hot-staging interstage ring. */
-function addInterstage(booster: THREE.Group, mats: CraftMats): void {
-  booster.add(zCylinder(
-    new THREE.CylinderGeometry(R * 1.02, R * 1.02, 0.08, 28),
-    mats.steelDark,
-    BOOST_H - 0.02,
-  ));
-}
-
-/** Interstage vent boxes. */
-function addInterstageVents(booster: THREE.Group, mats: CraftMats): void {
-  for (let i = 0; i < 12; i++) {
-    const ang = (i / 12) * Math.PI * 2;
-    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.022, 0.035), mats.accent);
-    vent.position.set(Math.cos(ang) * R * 1.04, Math.sin(ang) * R * 1.04, BOOST_H - 0.02);
-    vent.rotation.z = ang;
-    booster.add(vent);
   }
 }
 
@@ -255,8 +239,11 @@ function addBoostUpper(booster: THREE.Group, mats: CraftMats): void {
   addBoostWeldRings(booster, mats);
   addBoostFrost(booster);
   addBoosterHullMark(booster);
-  addInterstage(booster, mats);
-  addInterstageVents(booster, mats);
+  addHotStageRing(booster, {
+    strut: mats.steelBright,
+    ring: mats.steelDark,
+    dome: mats.steelDark,
+  });
 }
 
 /** Flight 13 B20 stencil on the stainless leeward (booster-hull-cam). */

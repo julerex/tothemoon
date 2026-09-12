@@ -100,6 +100,14 @@ engines; the ship “pushes off.” Musk (2023) claimed ~10% more LEO payload.
 On Block 1/2 the vented ring was **jettisoned after boostback** (from B11).
 Block 3 **integrates** that section into the methane tank — not jettisoned.
 
+The Block 3 join is an open **triangular A-frame truss** (N1-style), not a
+perforated cylinder: stainless tubes in repeating V-bays around the 9 m
+barrel, a top interface ring, and the methane forward dome as the heat
+shield. SpaceX’s 2025 “integrated hot-stage for full and rapid reuse”
+render is the look target. B19/B20 later added bead-rolled covers over
+milled triangle voids (NSF, Apr 2026); this theater keeps the open lattice
+so the join reads at pad / chase distance.
+
 ---
 
 ## Starship (upper stage / ship)

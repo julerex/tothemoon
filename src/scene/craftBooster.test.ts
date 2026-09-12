@@ -3,15 +3,22 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as THREE from "three";
 import {
+  BOOST_H,
   BOOST_RING_INNER,
   BOOST_RING_MID,
   BOOST_RING_OUTER,
   GRID_FIN_AZIMUTHS,
   GRID_FIN_LATTICE_N,
+  HOT_STAGE_BAYS,
+  HOT_STAGE_H,
+  HOT_STAGE_H_M,
   R,
   SL_BELL_R,
+  U,
 } from "./craft/dimensions.ts";
+import { addHotStageRing, hotStageAFrame } from "./craft/hotStageRing.ts";
 import { BOOSTER_STEEL } from "./craft/materials.ts";
 import { BOOSTER_HULL_MARK } from "./craftHullMaps.ts";
 
@@ -63,3 +70,72 @@ describe("Super Heavy Raptor rings", () => {
     assert.ok(BOOST_RING_INNER > SL_BELL_R * 0.6);
   });
 });
+
+describe("V3 hot-stage truss", () => {
+  it("is a ~2 m open interstage, not a jettisonable Block 1/2 vent band", () => {
+    assert.ok(HOT_STAGE_H_M >= 1.8 && HOT_STAGE_H_M <= 3.2);
+    assert.ok(Math.abs(HOT_STAGE_H - HOT_STAGE_H_M * U) < 1e-12);
+    assert.ok(HOT_STAGE_BAYS >= 16 && HOT_STAGE_BAYS <= 24);
+    assert.equal(HOT_STAGE_BAYS % 2, 0);
+  });
+
+  it("places each A-frame as a downward triangle on the 9 m barrel", () => {
+    const bay = hotStageAFrame(0);
+    assert.ok(bay.bot.z < bay.topL.z);
+    assert.ok(Math.abs(bay.topL.z - bay.topR.z) < 1e-12);
+    assert.ok(Math.abs(bay.topL.z - BOOST_H) < 1e-9);
+    assert.ok(Math.abs(bay.topL.z - bay.bot.z - HOT_STAGE_H) < 1e-9);
+    const area = triangleArea(bay.topL, bay.topR, bay.bot);
+    assert.ok(area > HOT_STAGE_H * R * 0.05, `degenerate A-frame area ${area}`);
+    const r = (p: { x: number; y: number }) => Math.hypot(p.x, p.y);
+    assert.ok(Math.abs(r(bay.topL) - r(bay.bot)) < 0.01);
+  });
+
+  it("walks A-frames around the full barrel with gaps between them", () => {
+    const first = hotStageAFrame(0);
+    const next = hotStageAFrame(1);
+    const wrap = hotStageAFrame(HOT_STAGE_BAYS);
+    assert.ok(Math.hypot(first.bot.x - next.bot.x, first.bot.y - next.bot.y) > 0.02);
+    assert.ok(Math.hypot(first.bot.x - wrap.bot.x, first.bot.y - wrap.bot.y) < 1e-9);
+    const chord = Math.hypot(first.topL.x - first.topR.x, first.topL.y - first.topR.y);
+    const gap = Math.hypot(first.topR.x - next.topL.x, first.topR.y - next.topL.y);
+    assert.ok(gap > chord * 0.15, "A-frames should not form a closed zigzag");
+  });
+
+  it("builds a named see-through lattice instead of a solid vent cylinder", () => {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial();
+    addHotStageRing(g, { strut: mat, ring: mat, dome: mat });
+    const ring = g.getObjectByName("hot-stage-ring");
+    assert.ok(ring, "hot-stage-ring missing");
+    const struts = ring!.getObjectByName("hot-stage-struts") as THREE.InstancedMesh | undefined;
+    assert.ok(struts?.isInstancedMesh);
+    assert.equal(struts!.count, HOT_STAGE_BAYS * 2);
+    assert.ok(ring!.getObjectByName("hot-stage-top-ring"));
+    assert.ok(ring!.getObjectByName("hot-stage-dome"));
+    const solid = ring!.children.some((c) => {
+      if (!(c instanceof THREE.Mesh) || c instanceof THREE.InstancedMesh) return false;
+      if (!(c.geometry instanceof THREE.CylinderGeometry)) return false;
+      const p = c.geometry.parameters;
+      return !p.openEnded && p.radiusTop >= R * 0.8 && p.height >= HOT_STAGE_H * 0.8;
+    });
+    assert.equal(solid, false, "interstage should not be a closed barrel cylinder");
+  });
+});
+
+function triangleArea(
+  a: { x: number; y: number; z: number },
+  b: { x: number; y: number; z: number },
+  c: { x: number; y: number; z: number },
+): number {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const abz = b.z - a.z;
+  const acx = c.x - a.x;
+  const acy = c.y - a.y;
+  const acz = c.z - a.z;
+  return (
+    0.5 *
+    Math.hypot(aby * acz - abz * acy, abz * acx - abx * acz, abx * acy - aby * acx)
+  );
+}
