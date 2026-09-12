@@ -50,12 +50,42 @@ export type MissionLoopCtx = {
   flushHud?: () => void;
 };
 
+/**
+ * Cold-start camera after the first `applyState`.
+ * `"pad-opening"` snaps the inland Starbase tableau (lunar).
+ * `"auto-cam"` leaves Auto-cam's first cut (Flight 13 Launchpad Drone).
+ */
+export type ColdStartCamera = "pad-opening" | "auto-cam";
+
+/** Director action `startMissionLoop` takes at boot or after a `?t=` seek. */
+export type ColdStartCameraAction = "snap-pad-opening" | "update" | "none";
+
+/** Director action after the first applyState at this transport u. */
+export function coldStartCameraAction(
+  transportU: number,
+  policy: ColdStartCamera,
+): ColdStartCameraAction {
+  if (transportU >= 1e-9) return "update";
+  switch (policy) {
+    case "auto-cam":
+      return "none";
+    case "pad-opening":
+      return "snap-pad-opening";
+    default: {
+      const _exhaustive: never = policy;
+      return _exhaustive;
+    }
+  }
+}
+
 /** Mission-specific passes the shared loop calls each frame. */
 export type MissionLoopHooks<C extends MissionLoopCtx> = Readonly<{
   /** Push mission state onto the scene graph at transport progress `u`. */
   applyState: (ctx: C, u: number) => void;
   /** Ground sky, sun shadow focus, and the cinema composer pass. */
   render: (ctx: C) => void;
+  /** Camera at transport u ≈ 0. See {@link ColdStartCamera}. */
+  coldStart: ColdStartCamera;
 }>;
 
 /** Longest simulated step (s); larger wall gaps are clamped so scrubs stay sane. */
@@ -110,13 +140,22 @@ export function startMissionLoop<C extends MissionLoopCtx>(
   hooks: MissionLoopHooks<C>,
 ): void {
   hooks.applyState(ctx, ctx.clock.t);
-  // Pad opening snap is only for a cold start; a `?t=` seek already placed
-  // the craft, and Auto-cam will cut to the shot for that time.
-  if (ctx.clock.t < 1e-9) {
-    ctx.director.snapPadOpening(transportUToPhysicsT(0, ctx.physicsDurationS));
-  } else {
-    const simT = transportUToPhysicsT(ctx.clock.t, ctx.physicsDurationS);
-    ctx.director.update(0, simT, ctx.craftPos, ctx.craftVel);
+  const action = coldStartCameraAction(ctx.clock.t, hooks.coldStart);
+  switch (action) {
+    case "snap-pad-opening":
+      ctx.director.snapPadOpening(transportUToPhysicsT(0, ctx.physicsDurationS));
+      break;
+    case "update": {
+      const simT = transportUToPhysicsT(ctx.clock.t, ctx.physicsDurationS);
+      ctx.director.update(0, simT, ctx.craftPos, ctx.craftVel);
+      break;
+    }
+    case "none":
+      break;
+    default: {
+      const _exhaustive: never = action;
+      void _exhaustive;
+    }
   }
   ctx.flushHud?.();
   frame(ctx, hooks);

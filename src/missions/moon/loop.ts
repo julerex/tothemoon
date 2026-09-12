@@ -40,7 +40,11 @@ function renderFrame(ctx: MoonCtx): void {
   });
 }
 
-/** Snap pad opening, apply u=0, start rAF loop. */
+/** Snap the inland Starbase tableau, apply u=0, start rAF loop. */
 export function startToTheMoonLoop(ctx: MoonCtx): void {
-  startMissionLoop(ctx, { applyState: applyMissionState, render: renderFrame });
+  startMissionLoop(ctx, {
+    applyState: applyMissionState,
+    render: renderFrame,
+    coldStart: "pad-opening",
+  });
 }

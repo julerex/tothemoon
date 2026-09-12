@@ -44,7 +44,11 @@ function renderFrame(ctx: F13Ctx): void {
   });
 }
 
-/** Snap pad opening camera, apply u=0, start rAF loop. */
+/** Apply u=0. Auto-cam seats Launchpad Drone (Fixed 1). Start the rAF loop. */
 export function startFlight13Loop(ctx: F13Ctx): void {
-  startMissionLoop(ctx, { applyState: applyMissionState, render: renderFrame });
+  startMissionLoop(ctx, {
+    applyState: applyMissionState,
+    render: renderFrame,
+    coldStart: "auto-cam",
+  });
 }
