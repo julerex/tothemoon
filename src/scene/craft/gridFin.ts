@@ -1,25 +1,43 @@
 /**
  * Super Heavy V3 grid fin (theater-grade).
  *
- * Flight 13 hull stills (T+5:14) show a long lattice paddle, a bright
- * actuator housing at the root, and catch-pin hardware integrated with
- * the fin — not a bare box. Lattice density is {@link GRID_FIN_LATTICE_N}.
+ * SpaceX 2025 factory stills show a deep diamond (chevron) lattice, not a
+ * square waffle, with catch-pin hardware at the root. On the pad the lattice
+ * plane is perpendicular to the booster axis (horizontal shelf).
  *
- * @see docs/VISUAL_REALISM.md — V4 / V22
+ * @see docs/STARSHIP.md — Grid fins and catch (V3)
  */
 
 import * as THREE from "three";
-import { GRID_FIN_LATTICE_N } from "./dimensions";
+import {
+  GRID_FIN_LATTICE_ANGLE,
+  GRID_FIN_LATTICE_N,
+  GRID_FIN_LAUNCH_TILT,
+  U,
+} from "./dimensions";
 
 export type GridFinMats = {
   frame: THREE.Material;
   lattice: THREE.Material;
-  plate: THREE.Material;
   pivot: THREE.Material;
   housing: THREE.Material;
 };
 
-/** Super Heavy grid fin with dark outer frame + denser lattice (V4 / V22). */
+/**
+ * Seat a fin on the booster at launch attitude: radial azimuth `ang`,
+ * lattice plane horizontal (⊥ booster +Z).
+ */
+export function setGridFinLaunchPose(
+  fin: THREE.Group,
+  ang: number,
+  attachR: number,
+  finZ: number,
+): void {
+  fin.position.set(Math.cos(ang) * attachR, Math.sin(ang) * attachR, finZ);
+  fin.rotation.set(GRID_FIN_LAUNCH_TILT, 0, ang);
+}
+
+/** Super Heavy grid fin with dark outer frame + diamond lattice. */
 export function makeGridFin(
   finH: number,
   finW: number,
@@ -28,25 +46,11 @@ export function makeGridFin(
 ): THREE.Group {
   const fin = new THREE.Group();
   fin.name = "grid-fin";
-  addGridFinPlate(fin, finH, finW, finT, mats.plate);
   addGridFinFrame(fin, finH, finW, finT, mats.frame);
   addGridFinLattice(fin, finH, finW, finT, mats.lattice);
   addGridFinPivot(fin, finH, mats.pivot);
-  addGridFinActuator(fin, finH, finW, finT, mats);
+  addGridFinActuator(fin, finH, finW, mats);
   return fin;
-}
-
-function addGridFinPlate(
-  fin: THREE.Group,
-  finH: number,
-  finW: number,
-  finT: number,
-  mat: THREE.Material,
-): void {
-  fin.add(new THREE.Mesh(
-    new THREE.BoxGeometry(finH * 0.96, finT * 0.55, finW * 0.96),
-    mat,
-  ));
 }
 
 function addFrameBarsZ(
@@ -86,8 +90,8 @@ function addGridFinFrame(
   finT: number,
   mat: THREE.Material,
 ): void {
-  const frameT = finT * 1.55;
-  const frameBar = finT * 1.35;
+  const frameT = Math.min(finT * 0.42, 0.38 * U);
+  const frameBar = 0.28 * U;
   addFrameBarsZ(fin, finH, finW, frameT, frameBar, mat);
   addFrameBarsX(fin, finH, finW, frameT, frameBar, mat);
 }
@@ -100,26 +104,35 @@ function addGridFinLattice(
   mat: THREE.Material,
 ): void {
   const nLat = GRID_FIN_LATTICE_N;
-  for (let i = 0; i < nLat; i++) {
-    const t = (i + 0.5) / nLat - 0.5;
-    addLatticeCross(fin, finH, finW, finT, mat, t);
+  const barDeep = finT * 0.92;
+  const barThick = finT * 0.42;
+  for (const sign of [1, -1] as const) {
+    const angle = sign * GRID_FIN_LATTICE_ANGLE;
+    for (let i = 0; i < nLat; i++) {
+      const t = (i + 0.5) / nLat - 0.5;
+      addDiamondBar(fin, finH, finW, barDeep, barThick, mat, angle, t);
+    }
   }
 }
 
-function addLatticeCross(
+function addDiamondBar(
   fin: THREE.Group,
   finH: number,
   finW: number,
-  finT: number,
+  barDeep: number,
+  barThick: number,
   mat: THREE.Material,
+  angle: number,
   t: number,
 ): void {
-  const zBar = new THREE.Mesh(new THREE.BoxGeometry(finH * 0.9, finT * 0.95, finT * 0.72), mat);
-  zBar.position.z = t * finW * 0.88;
-  fin.add(zBar);
-  const xBar = new THREE.Mesh(new THREE.BoxGeometry(finT * 0.72, finT * 0.95, finW * 0.9), mat);
-  xBar.position.x = t * finH * 0.88;
-  fin.add(xBar);
+  const off = t * (finH + finW) * 0.38;
+  const len = Math.max(finH * 0.22, Math.hypot(finH, finW) * 0.62 - Math.abs(off) * 1.15);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(len, barDeep, barThick), mat);
+  bar.name = "grid-fin-lattice";
+  bar.rotation.y = angle;
+  bar.position.x = off * Math.cos(angle + Math.PI / 2);
+  bar.position.z = off * Math.sin(angle + Math.PI / 2);
+  fin.add(bar);
 }
 
 function addGridFinPivot(fin: THREE.Group, finH: number, mat: THREE.Material): void {
@@ -137,11 +150,10 @@ function addGridFinActuator(
   fin: THREE.Group,
   finH: number,
   finW: number,
-  finT: number,
   mats: GridFinMats,
 ): void {
   const ram = new THREE.Mesh(
-    new THREE.CylinderGeometry(finT * 0.55, finT * 0.62, finH * 0.28, 8),
+    new THREE.CylinderGeometry(0.18 * U, 0.20 * U, finH * 0.28, 8),
     mats.pivot,
   );
   ram.name = "grid-fin-ram";
@@ -149,17 +161,17 @@ function addGridFinActuator(
   ram.position.x = -finH * 0.38;
   fin.add(ram);
   const housing = new THREE.Mesh(
-    new THREE.BoxGeometry(finH * 0.16, finT * 2.1, finW * 0.22),
+    new THREE.BoxGeometry(finH * 0.16, 0.55 * U, finW * 0.22),
     mats.housing,
   );
   housing.name = "grid-fin-housing";
   housing.position.set(-finH * 0.42, 0, 0);
   fin.add(housing);
   const pin = new THREE.Mesh(
-    new THREE.CylinderGeometry(finT * 0.7, finT * 0.7, finW * 0.28, 8),
+    new THREE.CylinderGeometry(0.22 * U, 0.22 * U, finW * 0.28, 8),
     mats.housing,
   );
   pin.name = "grid-fin-pin";
-  pin.position.set(-finH * 0.36, finT * 1.15, 0);
+  pin.position.set(-finH * 0.36, 0.35 * U, 0);
   fin.add(pin);
 }

@@ -13,7 +13,7 @@ export const SHIP_WELD_RING_FRACTIONS = [
 /** Booster barrel weld ring count (V4). */
 export const BOOSTER_WELD_RING_COUNT = 9;
 
-/** Grid-fin lattice lines per axis (V4 denser sky silhouette; V22 denser still). */
+/** Grid-fin lattice lines per diagonal (V4 denser sky silhouette; V22 denser still). */
 export const GRID_FIN_LATTICE_N = 8;
 
 /**
@@ -25,6 +25,19 @@ export const GRID_FIN_AZIMUTHS = [
   Math.PI,
   (3 * Math.PI) / 2,
 ] as const;
+
+/**
+ * V3 grid-fin face (m). SpaceX 2025 factory stills + V3 booster render:
+ * diamond cells, ~4 m class (not the V22 8.2 m × 4.4 m waffle paddle).
+ */
+export const GRID_FIN_SPAN_M = 4.0;
+export const GRID_FIN_WIDTH_M = 3.6;
+/** Cell depth / chord (m) — V3 is a deep 3D lattice, not a sheet. */
+export const GRID_FIN_CHORD_M = 0.9;
+/** Lattice bars at 45° so cells read as diamonds, not a square waffle. */
+export const GRID_FIN_LATTICE_ANGLE = Math.PI / 4;
+/** Lattice plane ⊥ booster +Z — horizontal shelf on the pad. */
+export const GRID_FIN_LAUNCH_TILT = Math.PI / 2;
 
 /**
  * V3 integrated hot-stage truss height (m). Block 1/2 jettisonable ring was

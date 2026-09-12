@@ -10,7 +10,12 @@ import {
   BOOST_RING_MID,
   BOOST_RING_OUTER,
   GRID_FIN_AZIMUTHS,
+  GRID_FIN_CHORD_M,
+  GRID_FIN_LATTICE_ANGLE,
   GRID_FIN_LATTICE_N,
+  GRID_FIN_LAUNCH_TILT,
+  GRID_FIN_SPAN_M,
+  GRID_FIN_WIDTH_M,
   HOT_STAGE_BAYS,
   HOT_STAGE_H,
   HOT_STAGE_H_M,
@@ -19,6 +24,7 @@ import {
   U,
 } from "./craft/dimensions.ts";
 import { addHotStageRing, hotStageAFrame } from "./craft/hotStageRing.ts";
+import { makeGridFin, setGridFinLaunchPose } from "./craft/gridFin.ts";
 import { BOOSTER_STEEL } from "./craft/materials.ts";
 import { BOOSTER_HULL_MARK } from "./craftHullMaps.ts";
 
@@ -44,7 +50,54 @@ describe("V3 grid fins", () => {
   it("keeps a denser lattice than the pre-V4 4-bar set", () => {
     assert.ok(GRID_FIN_LATTICE_N >= 6);
   });
+
+  it("uses a 45° diamond lattice rather than an axis-aligned waffle", () => {
+    assert.equal(GRID_FIN_LATTICE_ANGLE, Math.PI / 4);
+    const fin = makeGridFin(1, 1, 0.1, dummyGridFinMats());
+    const bars = latticeBars(fin);
+    assert.ok(bars.length >= GRID_FIN_LATTICE_N * 2);
+    for (const bar of bars) {
+      assert.ok(
+        diamondAngle(bar.rotation.y),
+        `lattice bar rotation.y=${bar.rotation.y} is not ±45°`,
+      );
+    }
+  });
+
+  it("is smaller than the V22 8.2 m × 4.4 m paddle", () => {
+    assert.ok(GRID_FIN_SPAN_M < 5.5, `span ${GRID_FIN_SPAN_M} m`);
+    assert.ok(GRID_FIN_WIDTH_M < 4.2, `width ${GRID_FIN_WIDTH_M} m`);
+    assert.ok(GRID_FIN_CHORD_M > 0.5 && GRID_FIN_CHORD_M < 1.4);
+  });
+
+  it("lies horizontal at launch (lattice plane ⊥ booster axis)", () => {
+    assert.equal(GRID_FIN_LAUNCH_TILT, Math.PI / 2);
+    const fin = new THREE.Group();
+    setGridFinLaunchPose(fin, Math.PI / 2, R + 0.1, BOOST_H - 0.48);
+    assert.ok(Math.abs(fin.rotation.x - Math.PI / 2) < 1e-9);
+    assert.ok(Math.abs(fin.rotation.y) < 1e-9);
+    assert.ok(Math.abs(fin.rotation.z - Math.PI / 2) < 1e-9);
+  });
 });
+
+function dummyGridFinMats() {
+  const m = new THREE.MeshBasicMaterial();
+  return { frame: m, lattice: m, pivot: m, housing: m };
+}
+
+function latticeBars(fin: THREE.Group): THREE.Object3D[] {
+  const bars: THREE.Object3D[] = [];
+  fin.traverse((o) => {
+    if (o.name === "grid-fin-lattice") bars.push(o);
+  });
+  return bars;
+}
+
+function diamondAngle(rad: number): boolean {
+  const a = ((rad % Math.PI) + Math.PI) % Math.PI;
+  const d = Math.min(Math.abs(a - Math.PI / 4), Math.abs(a - (3 * Math.PI) / 4));
+  return d < 1e-6;
+}
 
 describe("B20 hull identity", () => {
   it("stencils Flight 13 Booster 20 on the stainless leeward", () => {

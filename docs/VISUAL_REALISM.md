@@ -637,7 +637,8 @@ booster. Flight 13 Super Heavy is **V3** (Booster 20, 33 Raptor 3):
 - Fluted regenerative-cooling bells + dark powerhead + sooted interior
   (shared canvas maps; sea-level ring radii packed inside the 9 m barrel)
 - Stainless oil-canned thrust puck, soot band, gimbal rams in the bay
-- Grid fins 90° / 90° / 180° (not equal 120°), denser lattice, ram + catch pin
+- Grid fins 90° / 90° / 180° (not equal 120°), **diamond** lattice (not a
+  square waffle), ~4 m face, **horizontal at launch**, ram + catch pin
 - **B20** leeward stencil (pair to S40)
 
 **Done when:** gridfin / engines-cam at T+4:32–5:50 shows fluted bells and a
@@ -869,6 +870,7 @@ heavy T at the nose and a wrap-around QD; catch still yaws the same arms.
 | 2026-08-18 | Backlog closed: V0–V21 shipped; no next visual slice queued (highlight clips remain look-reference) |
 | 2026-08-18 | V20 shipped: LRO WAC Moon albedo JPEG (NASA SVS CGI Moon Kit) with procedural fallback |
 | 2026-08-19 | V22 shipped: Raptor 3 fluted bells/powerheads, stainless bay + rams, V3 90/90/180 grid fins, B20 |
+| 2026-09-12 | V3 grid fins: diamond lattice (not waffle), ~4 m face, horizontal at launch |
 | 2026-08-21 | V23 shipped: pad T−5 aerial massing (tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks/QD) |
 | 2026-08-21 | V23.5: soft cryo vent sprite puffs (replace faceted icosahedron lobes) |
 | 2026-08-24 | V24 shipped: hex truncated-pyramid OLM (inner catwalk, painted bowl) vs T− stills |

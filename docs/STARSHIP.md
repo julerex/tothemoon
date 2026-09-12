@@ -86,11 +86,19 @@ batteries / COPVs / fire-suppression bottles.
 |---|-------------|---------------------------|
 | Count | 4 at ~90° | **3** at **90° / 90° / 180°** |
 | Size | ~3 t each, stainless | ~1.5× larger, lower on the barrel |
+| Lattice | Square-ish waffle, then 6×6 | **Diamond / chevron cells** (SpaceX 2025 factory stills) |
 | Catch | Separate hardpoints between fins | **Catch pins integrated with the fins** |
 | Fold | Do not retract on ascent | Same (saves hinge mass) |
 
 The unpaired fin’s lattice is slightly canted to offset the missing opposite.
 SpaceX’s stated reason for the new azimuths: less heating at hot-stage.
+
+This theater’s V3 fins are a **~4.0 m × 3.6 m** face, **~0.9 m** cell depth, diamond
+bars at 45°, seated **horizontal at launch** (lattice plane perpendicular to the
+booster axis). They stay deployed; they do not fold like Falcon 9. Sources:
+[SpaceX, 13 Aug 2025](https://x.com/SpaceX/status/1955715300256616451) (factory
+still of the deep diamond lattice); SpaceX V3 booster render (fins read as
+compact hexagonal shelves from the side, diamond face along the axis).
 
 ### Hot-staging
 

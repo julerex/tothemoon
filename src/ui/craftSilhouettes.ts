@@ -29,7 +29,7 @@ export const STACK_LAUNCH = {
   shipBaseY: -3.6,
   crownY: -3.1,
   gridFinY: -1.15,
-  gridFinTipX: 9.2,
+  gridFinTipX: 7.4,
   boostTopY: -3.0,
   chineTopY: 9.5,
   boostBotY: 22.5,
@@ -267,12 +267,8 @@ function strokeGridFins(
   ctx.beginPath();
   ctx.moveTo(-w, y);
   ctx.lineTo(-tipX, y);
-  ctx.moveTo(-w, y + 1.15);
-  ctx.lineTo(-tipX + 0.4, y + 1.15);
   ctx.moveTo(w, y);
   ctx.lineTo(tipX, y);
-  ctx.moveTo(w, y + 1.15);
-  ctx.lineTo(tipX - 0.4, y + 1.15);
   ctx.stroke();
 }
 

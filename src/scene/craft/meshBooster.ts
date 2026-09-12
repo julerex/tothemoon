@@ -6,6 +6,9 @@ import {
   BOOST_RING_MID,
   BOOST_RING_OUTER,
   GRID_FIN_AZIMUTHS,
+  GRID_FIN_CHORD_M,
+  GRID_FIN_SPAN_M,
+  GRID_FIN_WIDTH_M,
   HOT_STAGE_H,
   R,
   SL_BELL_H,
@@ -24,7 +27,7 @@ import {
   makeBarrelRing,
   zCylinder,
 } from "./meshShared";
-import { makeGridFin } from "./gridFin";
+import { makeGridFin, setGridFinLaunchPose } from "./gridFin";
 import { addHotStageRing } from "./hotStageRing";
 import { makeBell } from "./raptorBell";
 
@@ -72,27 +75,30 @@ function addBoostWeldRings(booster: THREE.Group, mats: CraftMats): void {
 type GridFinDims = { finH: number; finW: number; finT: number; finZ: number };
 
 function gridFinDims(): GridFinDims {
-  // V3 fins are ~50% larger than Block 1/2 and sit lower on the interstage.
-  return { finH: 8.2 * U, finW: 4.4 * U, finT: 0.32 * U, finZ: BOOST_H - 0.48 };
+  return {
+    finH: GRID_FIN_SPAN_M * U,
+    finW: GRID_FIN_WIDTH_M * U,
+    finT: GRID_FIN_CHORD_M * U,
+    finZ: BOOST_H - 0.48,
+  };
 }
 
 /** Place three grid fins; return cam host angle/radius. */
 function addGridFins(booster: THREE.Group, mats: CraftMats): {
-  ang: number; r: number; finZ: number; finW: number;
+  ang: number; r: number; finZ: number; finT: number;
 } {
   const d = gridFinDims();
   const first = placeGridFin(booster, mats, 0, d);
   for (let i = 1; i < GRID_FIN_AZIMUTHS.length; i++) {
     placeGridFin(booster, mats, i, d);
   }
-  return { ang: first.ang, r: first.r, finZ: d.finZ, finW: d.finW };
+  return { ang: first.ang, r: first.r, finZ: d.finZ, finT: d.finT };
 }
 
 function gridFinMats(mats: CraftMats) {
   return {
     frame: mats.finFrame,
     lattice: mats.finLattice,
-    plate: mats.steelMatte,
     pivot: mats.steelDark,
     housing: mats.steelBright,
   };
@@ -116,9 +122,7 @@ function poseGridFin(
   d: GridFinDims,
 ): { ang: number; r: number } {
   const attachR = R + d.finH * 0.42;
-  fin.position.set(Math.cos(ang) * attachR, Math.sin(ang) * attachR, d.finZ);
-  fin.rotation.z = ang;
-  fin.rotation.y = 0.05;
+  setGridFinLaunchPose(fin, ang, attachR, d.finZ);
   booster.add(fin);
   return { ang, r: attachR + d.finH * 0.12 };
 }
@@ -129,13 +133,13 @@ function addGridFinCam(
   ang: number,
   r: number,
   finZ: number,
-  finW: number,
+  finT: number,
 ): void {
   addNamedCam(
     booster,
     "grid-fin-cam",
     "grid-fin-cam-look",
-    [Math.cos(ang) * r, Math.sin(ang) * r, finZ + finW * 0.12],
+    [Math.cos(ang) * r, Math.sin(ang) * r, finZ + finT * 0.35],
     [Math.cos(ang) * R * 0.25, Math.sin(ang) * R * 0.25, 0.04],
   );
 }
@@ -319,7 +323,7 @@ function makeFrostTexture(): THREE.CanvasTexture {
 
 function addBoostLower(booster: THREE.Group, mats: CraftMats): void {
   const cam = addGridFins(booster, mats);
-  addGridFinCam(booster, cam.ang, cam.r, cam.finZ, cam.finW);
+  addGridFinCam(booster, cam.ang, cam.r, cam.finZ, cam.finT);
   addBoosterHullCam(booster);
   addEnginesCam(booster);
   addEnginesDownCam(booster);
