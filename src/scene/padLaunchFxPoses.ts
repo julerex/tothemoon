@@ -378,6 +378,14 @@ export function floodFixtureEmissive(floodBase: number): number {
 }
 
 /**
+ * Mechazilla lattice work-light emissive (sunset still: warm bulbs in the cage).
+ * Daytime stays readable; dusk/night rides {@link floodBase}.
+ */
+export function worklightEmissive(floodBase: number): number {
+  return 0.35 + floodBase * 1.8;
+}
+
+/**
  * OLM ring work-lamp color hex.
  * Bright cool white at night ops; dimmer day ops; dark gray when pad ops off.
  */

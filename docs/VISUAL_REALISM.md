@@ -16,10 +16,11 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-08-25):** V0–V26 are **shipped** (including **V26** OLP-1 second
-tower + Mach-diamond stream cells). No next visual slice is queued. Further
-photorealism is **out of scope** unless explicitly requested. Flight 13
-highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
+**Status (2026-09-12):** V0–V27 are **shipped** (including **V27** denser
+Mechazilla cage + 3D chopsticks / ship-QD wrap vs a sunset OLIT still). No
+next visual slice is queued. Further photorealism is **out of scope** unless
+explicitly requested. Flight 13 highlight clips in
+[STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 
 ---
 
@@ -30,7 +31,7 @@ highlight clips in [STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
 | **Bodies** | NASA Blue Marble albedo (procedural fallback) + atmo limb + LRO WAC Moon (procedural fallback); true radii |
 | **Sky** | NASA SVS star map, ecliptic-aligned dome |
 | **Lighting** | Ephemeris directional sun (`sunLight.ts`); Flight 13 daytime pad fill; ground-sky shell for low altitude |
-| **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), lattice chopsticks/QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + five landward 80 km neighbors + nested USDA NAIP pad plate (farm on NAIP is outdated) |
+| **Pad** | Surveyed 15-vertex site apron (OLP-2 through farm to OLP-1) + circular OLM lip, hex truncated-pyramid OLM (V24), N–S matte white tank farm on per-bank slabs + dark north pipe rack, denser open Mechazilla (V25), **OLP-1** compact yard + crawler crane ~363 m east / ~69 m south with stripped mount (V26), **V27** 2-bay box-section lattice + dusk work lights + 3D chopsticks (catch rail / walkway) + wrap-around ship QD, trench, deluge/vent steam; Sentinel-2 surrounds plate + five landward 80 km neighbors + nested USDA NAIP pad plate (farm on NAIP is outdated) |
 | **Craft** | Near-true Super Heavy + Ship, tiles, Raptors, multi-layer plumes plus axial exhaust stream (V25), hot-stage, condensation |
 | **FX** | Staging fallaway/flash, boostback flash, entry plasma, multi-layer lunar dust, ocean splash, Gulf catch plate |
 | **Cameras** | Trench, pad, chase (look-ahead/bank/finale bias), fin/gridfin, Auto-cam profiles (lunar + Flight 13) |
@@ -83,6 +84,10 @@ X-braces, peak house/railings, open elevator cage, thicker T-chopsticks).
 
 **Shipped (V26):** OLP-1 second tower ~363 m east / ~69 m south (empty mount,
 Flight 13 is OLP-2); tower-base GSE house; Mach-diamond discs on the launch stream.
+
+**Shipped (V27):** Mechazilla vs sunset OLIT still — box-section 2-bay cage,
+warm work lights (floodBase), 3D chopstick truss with catch rail + walkway,
+lattice ship QD with wrap-around clamp. Published dims / node names unchanged.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
@@ -232,7 +237,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 ## Suggested sequencing (concrete)
 
-Shipped order (historical; all **done**). No next visual slice is queued.
+Shipped order (historical; all **done**, V0–V27). No next visual slice is queued.
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
@@ -267,6 +272,7 @@ Shipped order (historical; all **done**). No next visual slice is queued.
 25. ~~**V24** — hex truncated-pyramid OLM~~ **done**
 26. ~~**V25** — axial launch exhaust stream + denser Mechazilla lattice~~ **done**
 27. ~~**V26** — OLP-1 second tower + Mach-diamond stream cells~~ **done**
+28. ~~**V27** — denser Mechazilla + 3D chopsticks / ship-QD wrap~~ **done**
 
 ---
 
@@ -782,6 +788,40 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 
 ---
 
+## V27 — Mechazilla vs sunset OLIT still — **done 2026-09-12**
+
+Look target: SpaceX-style dusk still of the stacked vehicle beside OLIT
+(dense lattice, warm work lights, T-chopsticks at the ship nose, lattice
+ship-QD wrap at mid-stack). Theater-grade geometry, not CAD.
+
+### V27.1 Two-bay box cage
+
+Corner / mid-face **box-section** legs (not round tubes). 24 girder rings,
+open deck frames, X-braces as one `InstancedMesh` (`pad-tower-braces`) in
+two bays per face. Peak house keeps two work lights.
+
+### V27.2 Work lights
+
+Emissive warm bulbs on the vehicle face, chopsticks, and QD. Intensity from
+`worklightEmissive(floodBase)` so dusk/night matches the still and daytime
+fixtures still read. Shared `TowerMats.lamp` on `userData.worklightMat`.
+
+### V27.3 Chopsticks + ship QD
+
+3D four-chord arm truss, inner ~20 m catch rail, top walkway, tip hardware.
+Ship QD is a lattice boom with a U-clamp (`pad-qd-clamp`) and walkway.
+Rest/catch heights and node names (`pad-chopstick-L/R`, `pad-qd-arm`,
+`pad-chopstick-carriage`) unchanged for recovery kinematics.
+
+**Done when:** T− hold tower-cam / aerial reads as a lit 2-bay lattice with a
+heavy T at the nose and a wrap-around QD; catch still yaws the same arms.
+
+**Files:** `mechazillaTruss.ts`, `mechazillaChopsticks.ts`, `mechazillaQd.ts`,
+`mechazillaWorklights.ts`, `mechazillaMats.ts`, `mechazillaPeak.ts`,
+`mechazillaTower.ts`, `padLaunchFxPoses.ts`, `padLaunchFxApply.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
@@ -842,6 +882,7 @@ OLP-2; Pad 1 has no vehicle / no hex OLM; recovery still finds `pad-chopstick-L`
 | 2026-08-30 | Far-east offload pair: two 8 m × 30 m N–S shells (was three 4.5 m × 32 m guesses). |
 | 2026-08-30 | Pad 2 west banks: five 39 m thin shells, then six 26 m shells just east of them. |
 | 2026-08-30 | Four west offload shells: 5.5 m × 48 m (length was a 45 m guess). |
+| 2026-09-12 | V27 shipped: 2-bay box-section Mechazilla, dusk work lights, 3D chopsticks + wrap-around ship QD |
 | 2026-08-30 | Site concrete apron: 15-vertex survey spanning OLP-2 through the farm to OLP-1 (replaces the 3-corner Pad 2 triangle). |
 | 2026-08-30 | Pad group yaws with the satellite plates so +Z is geographic north (GSE was ~173° off — south-facing). |
 | 2026-08-31 | Pad origin is the OLP-2 OLM (survey / physics pin); satellite plates stay on the committed JPEG pin (~209 m east). Dropped the 10° / 50 m whole-group nudge that had moved the plates with the GSE. |

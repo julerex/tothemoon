@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { TOWER_BEACON_Y, TOWER_FACE, TOWER_H, TOWER_OX, TOWER_OY0 } from "./mechazillaDims";
 import type { TowerMats } from "./mechazillaMats";
+import { addWorklight } from "./mechazillaWorklights";
 
 const PEAK_H = 0.011;
 const HOUSE_H = 0.007;
@@ -90,4 +91,7 @@ export function addMechazillaPeak(g: THREE.Group, mats: TowerMats): void {
   addPeakRailPosts(g, mats);
   addPeakSheave(g, mats, half);
   addLightningRod(g, mats);
+  const y = TOWER_OY0 + TOWER_H + PEAK_H + HOUSE_H * 0.55;
+  addWorklight(g, mats, TOWER_OX - half * 0.4, y, -half * 0.35);
+  addWorklight(g, mats, TOWER_OX - half * 0.4, y, half * 0.35);
 }

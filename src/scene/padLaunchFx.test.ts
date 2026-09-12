@@ -17,6 +17,7 @@ import {
   flameVisual,
   FLAME_DIVERTER_T,
   floodFixtureEmissive,
+  worklightEmissive,
   floodSpotDistance,
   floodSpotIntensity,
   GROUND_SHEETS,
@@ -410,6 +411,12 @@ describe("mesh / light scalars", () => {
     assert.equal(rgb[0], 1);
     assert.ok(rgb[1]! > 0.55);
     assert.ok(floodFixtureEmissive(1) > floodFixtureEmissive(0));
+  });
+
+  it("tower work lights follow floodBase (dusk-bright, daytime still readable)", () => {
+    assert.ok(worklightEmissive(1) > worklightEmissive(0));
+    assert.ok(worklightEmissive(0) > 0.2);
+    assert.ok(worklightEmissive(1) > 1.2);
   });
 
   it("warms steam toward engine-lit orange-pink", () => {

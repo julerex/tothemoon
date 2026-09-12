@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V26 shipped incl. V26 OLP-1 second tower; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V27 shipped incl. V27 denser Mechazilla / chopsticks; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 Starship / Starbase hardware (public vs theater): **[STARSHIP.md](./STARSHIP.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
@@ -285,4 +285,5 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-18 | Plan freshness: locked P0–P2 / V0–V21 closed; remaining is P3.15, P4, physics reassess |
 | 2026-08-25 | Visual V25: axial launch exhaust stream + denser Mechazilla lattice |
 | 2026-08-25 | Visual V26: OLP-1 second tower (empty mount) + Mach-diamond stream cells |
+| 2026-09-12 | Visual V27: 2-bay box-section Mechazilla, dusk work lights, 3D chopsticks + wrap-around ship QD |
 | 2026-08-25 | STARSHIP.md: public Super Heavy / ship / Raptor / Starbase pad+production reference |

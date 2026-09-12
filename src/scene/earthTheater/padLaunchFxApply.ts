@@ -6,7 +6,8 @@ import {
   olmLampColorHex, padBeaconOpacity, padFillColorHex, padFillDistance,
   padFillIntensity, plumeLightDistance, plumeLightIntensity, plumeLightRgb,
   sheetSpritePose, steamSpritePose, steamTintRgb, steamWarmth, tongueVisual,
-  ventCloudOpacity, ventCloudPose, VENT_CLOUD_VISIBLE_EPS, type LaunchPadFxState,
+  ventCloudOpacity, ventCloudPose, VENT_CLOUD_VISIBLE_EPS, worklightEmissive,
+  type LaunchPadFxState,
 } from "../padLaunchFx";
 
 function applySpritePose(
@@ -287,8 +288,17 @@ function updatePadLightingFx(
   updatePadFillLight(pad, padOps, day, night, strength);
   updatePadPlumeLight(pad, strength, flicker);
   updatePadFixtures(pad, floodBase);
+  updateTowerWorklights(pad, floodBase);
   updatePadOlmLamps(pad, padOps, night);
   updatePadBloom(pad, strength, flicker);
+}
+
+function updateTowerWorklights(pad: THREE.Object3D, floodBase: number): void {
+  const intensity = worklightEmissive(floodBase);
+  pad.traverse((obj) => {
+    const mat = obj.userData.worklightMat as THREE.MeshStandardMaterial | undefined;
+    if (mat) mat.emissiveIntensity = intensity;
+  });
 }
 
 /**

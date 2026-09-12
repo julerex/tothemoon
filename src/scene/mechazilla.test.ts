@@ -19,7 +19,9 @@ import {
   TOWER_H,
   TOWER_OX,
   TOWER_OZ,
+  CHOPSTICK_CATCH_DROP_KM,
   createMechazillaTower,
+  updateMechazillaRecovery,
 } from "./earthTheater/mechazillaTower.ts";
 import { makeTowerMats } from "./earthTheater/mechazillaMats.ts";
 import { addMechazillaTruss } from "./earthTheater/mechazillaTruss.ts";
@@ -55,13 +57,13 @@ describe("Mechazilla vs stacked Starship", () => {
     assert.ok(CHOPSTICK_CATCH_M < 75 && CHOPSTICK_CATCH_M > 65);
   });
 
-  it("builds tubular corner columns for the open truss (V23.2)", () => {
+  it("builds box-section corner columns (V27 vs sunset still)", () => {
     const g = new THREE.Group();
     g.name = "mechazilla";
     addMechazillaTruss(g, makeTowerMats());
     const col = g.getObjectByName("pad-tower-column") as THREE.Mesh | undefined;
     assert.ok(col?.isMesh);
-    assert.ok(col!.geometry instanceof THREE.CylinderGeometry);
+    assert.ok(col!.geometry instanceof THREE.BoxGeometry);
   });
 
   it("builds an open elevator cage and a named peak deck (V25)", () => {
@@ -81,6 +83,58 @@ describe("Mechazilla chopsticks / QD names (V23.4)", () => {
     assert.ok(g.getObjectByName("pad-chopstick-carriage"));
     assert.ok(g.getObjectByName("pad-chopstick-L"));
     assert.ok(g.getObjectByName("pad-chopstick-R"));
+  });
+});
+
+describe("Mechazilla visual density (V27)", () => {
+  it("exposes a work-light group on the live tower", () => {
+    const g = createMechazillaTower();
+    const lights = g.getObjectByName("pad-tower-worklights");
+    assert.ok(lights);
+    assert.ok(lights!.children.length >= 8);
+  });
+
+  it("places two-bay X-braces as a named instanced lattice", () => {
+    const g = new THREE.Group();
+    addMechazillaTruss(g, makeTowerMats());
+    const braces = g.getObjectByName("pad-tower-braces") as THREE.InstancedMesh | undefined;
+    assert.ok(braces?.isInstancedMesh);
+    assert.ok((braces!.count ?? 0) >= 300);
+  });
+
+  it("gives each chopstick a catch rail and walkway", () => {
+    const g = new THREE.Group();
+    addChopstickCarriage(g, makeTowerMats());
+    for (const name of ["pad-chopstick-L", "pad-chopstick-R"]) {
+      const arm = g.getObjectByName(name);
+      assert.ok(arm, name);
+      assert.ok(arm!.getObjectByName("pad-chopstick-catch-rail"), `${name} catch rail`);
+      assert.ok(arm!.getObjectByName("pad-chopstick-walkway"), `${name} walkway`);
+    }
+  });
+
+  it("builds a lattice ship QD with a wrap-around clamp", () => {
+    const g = createMechazillaTower();
+    const qd = g.getObjectByName("pad-qd-arm");
+    assert.ok(qd);
+    assert.ok(qd!.getObjectByName("pad-qd-clamp"));
+    assert.ok(qd!.getObjectByName("pad-qd-walkway"));
+  });
+
+  it("drops the carriage and yaws the arms on catch", () => {
+    const g = createMechazillaTower();
+    const carriage = g.getObjectByName("pad-chopstick-carriage")!;
+    const restY = carriage.position.y;
+    const left = g.getObjectByName("pad-chopstick-L")!;
+    const restYaw = left.rotation.y;
+    updateMechazillaRecovery(g, {
+      close: 1,
+      yawInRad: 0.4,
+      pitchRad: 0.02,
+      carriageDy: CHOPSTICK_CATCH_DROP_KM,
+    });
+    assert.equal(carriage.position.y, restY + CHOPSTICK_CATCH_DROP_KM);
+    assert.ok(Math.abs(left.rotation.y) < Math.abs(restYaw));
   });
 });
 

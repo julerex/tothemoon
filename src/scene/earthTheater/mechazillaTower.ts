@@ -1,6 +1,7 @@
 /** Mechazilla tower, OLM, chopsticks; recovery pose updates. */
 import * as THREE from "three";
 import { addChopstickCarriage } from "./mechazillaChopsticks";
+import { addQdArm } from "./mechazillaQd";
 export {
   CHOPSTICK_LEN_M, OLT_HEIGHT_M, OLT_TRUSS_M, TOWER_BEACON_Y, TOWER_H, TOWER_OX,
   TOWER_OZ, TOWER_YAW_RAD,
@@ -8,7 +9,7 @@ export {
   PAD1_X_KM, PAD1_Z_KM, PAD1_TOWER_DX_KM, PAD1_TOWER_DZ_KM,
 } from "./mechazillaDims";
 import {
-  BOOST_QD_Y, SHIP_QD_Y, TOWER_FACE, TOWER_OX, TOWER_OY0, TOWER_OZ, TOWER_YAW_RAD,
+  BOOST_QD_Y, SHIP_QD_Y, TOWER_OX, TOWER_OZ, TOWER_YAW_RAD,
 } from "./mechazillaDims";
 import { makeTowerMats, type TowerMats } from "./mechazillaMats";
 import { addMechazillaBase } from "./mechazillaBase";
@@ -50,69 +51,6 @@ function applyChopstickArm(
   arm.rotation.z = restZ + pose.pitchRad;
 }
 
-function addQdArm(g: THREE.Group, mats: TowerMats, y: number, name: string, boomLen: number): void {
-  const half = TOWER_FACE * 0.5;
-  const qd = new THREE.Group();
-  qd.name = name;
-  addQdBoom(qd, mats, boomLen);
-  addQdHoseBundle(qd, mats, boomLen);
-  addQdHead(qd, mats, boomLen);
-  qd.position.set(TOWER_OX - half, TOWER_OY0 + y, name === "pad-qd-arm" ? 0.004 : -0.003);
-  qd.rotation.z = 0.08;
-  g.add(qd);
-}
-
-function addQdBellows(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
-  for (let i = 0; i < 4; i++) {
-    const bellow = new THREE.Mesh(new THREE.CylinderGeometry(0.0014, 0.0016, 0.0018, 8), mats.steelDark);
-    bellow.rotation.z = Math.PI / 2;
-    bellow.position.set(-boomLen * 0.82 - i * 0.0016, -0.001, 0);
-    qd.add(bellow);
-  }
-}
-
-function addQdBoom(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
-  const qdBoom = new THREE.Mesh(new THREE.BoxGeometry(boomLen, 0.0028, 0.0028), mats.steelBright);
-  qdBoom.position.set(-boomLen * 0.5, 0, 0);
-  qd.add(qdBoom);
-  const qdTruss = new THREE.Mesh(new THREE.BoxGeometry(boomLen * 0.82, 0.0012, 0.0012), mats.accent);
-  qdTruss.position.set(-boomLen * 0.45, -0.0024, 0);
-  qd.add(qdTruss);
-  addQdBellows(qd, mats, boomLen);
-}
-
-/** Hose bundle + interface plate at the vehicle face (V23.4). */
-function addQdHoseBundle(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
-  const hoseGeo = new THREE.CylinderGeometry(0.00035, 0.0004, boomLen * 0.55, 6);
-  for (let i = 0; i < 5; i++) {
-    const hose = new THREE.Mesh(hoseGeo, i % 2 === 0 ? mats.steelDark : mats.accent);
-    hose.rotation.z = Math.PI / 2;
-    const oy = ((i % 3) - 1) * 0.0011;
-    const oz = (Math.floor(i / 3) - 0.5) * 0.0014;
-    hose.position.set(-boomLen * 0.55, oy - 0.0028, oz);
-    qd.add(hose);
-  }
-}
-
-function addQdHead(qd: THREE.Group, mats: TowerMats, boomLen: number): void {
-  const qdHead = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.006, 0.006), mats.steelDark);
-  qdHead.position.set(-boomLen, 0, 0);
-  qd.add(qdHead);
-  const qdFace = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0012, 0.0044, 0.0044),
-    new THREE.MeshStandardMaterial({ color: 0x2a2e34, metalness: 0.5, roughness: 0.55 }),
-  );
-  qdFace.position.set(-boomLen - 0.003, 0, 0);
-  qd.add(qdFace);
-  // Interface plate toward the vehicle.
-  const plate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0008, 0.0055, 0.0055),
-    mats.steelBright,
-  );
-  plate.position.set(-boomLen - 0.0042, 0, 0);
-  qd.add(plate);
-}
-
 function addTowerArms(g: THREE.Group, mats: TowerMats): void {
   addChopstickCarriage(g, mats);
   addQdArm(g, mats, SHIP_QD_Y, "pad-qd-arm", 0.022);
@@ -123,6 +61,7 @@ export function createMechazillaTower(opts: MechazillaBuildOpts = {}): THREE.Gro
   const g = new THREE.Group();
   g.name = "mechazilla";
   const mats = makeTowerMats();
+  g.userData.worklightMat = mats.lamp;
   const parts = new THREE.Group();
   addMechazillaTruss(parts, mats);
   addMechazillaBase(parts, mats);

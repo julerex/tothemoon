@@ -239,6 +239,7 @@ Integration **and** catch tower. Roles:
 - **Ship QD** arm ~mid-ship; **booster QD** is on the mount
 - Catch returning Super Heavy (and, later, ships) on the same arms
 - Elevator / carriage on the vehicle face; peak sheave + lightning rod
+- Square lattice (2-bay faces), work lights, ship-QD wrap; see V27 in [VISUAL_REALISM.md](./VISUAL_REALISM.md)
 
 Chopsticks ride a **carriage** on vertical rails. Launch-park in Flight 13
 stills is at the **ship nose / rail top**, not the grid-fin band. Catch drops
@@ -279,6 +280,8 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 | OLP-1 at F13 | Tower up, OLM gone | Second tower ~363 m east / ~69 m south, no hex OLM |
 | Booster recovery F13 | Hard splash, Gulf of America; 10 of 13 inner Raptors relit, then 8, then 5 (NSF) | Same path; visual throttle 10→8→5; ~25.55°N 96.15°W theater, not a surveyed buoy |
 | Chopstick length | Pad 2 shorter than original Pad 1 | 36 m both towers |
+| OLIT cage | Box-section 2-bay lattice, work lights | Same silhouette; theater-grade, not CAD |
+| Chopstick catch rail | ~20 m inner rail (public catch hardware) | Named `pad-chopstick-catch-rail` on each arm |
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |
 | Raptor bells | ~1.3 m SL / ~2.4 m vac exit | `dimensions.ts` |
 

@@ -6,6 +6,8 @@ export type TowerMats = {
   steelDark: THREE.MeshStandardMaterial;
   steelBright: THREE.MeshStandardMaterial;
   accent: THREE.MeshStandardMaterial;
+  /** Warm work-light bulbs; emissiveIntensity is driven by pad floodBase. */
+  lamp: THREE.MeshStandardMaterial;
 };
 
 export function makeTowerMats(): TowerMats {
@@ -14,5 +16,12 @@ export function makeTowerMats(): TowerMats {
     steelDark: new THREE.MeshStandardMaterial({ color: 0x2a2e34, metalness: 0.6, roughness: 0.58 }),
     steelBright: new THREE.MeshStandardMaterial({ color: 0x6a7078, metalness: 0.72, roughness: 0.44 }),
     accent: new THREE.MeshStandardMaterial({ color: 0x1e2228, metalness: 0.48, roughness: 0.62 }),
+    lamp: new THREE.MeshStandardMaterial({
+      color: 0xf0e0c0,
+      emissive: 0xffe2b0,
+      emissiveIntensity: 0.8,
+      metalness: 0.12,
+      roughness: 0.4,
+    }),
   };
 }
