@@ -17,7 +17,20 @@ textures; `*.bin` / `textures/` stay gitignored.
 npm run measure-sketchfab
 ```
 
-Prints world-space Raptor ring radii and grid-fin pose versus the procedural
-constants in `src/scene/craft/dimensions.ts`. Flight 13 webcast stills in
+Prints Raptor ring radii and grid-fin pose in the **Superheavy local frame**
+versus `src/scene/craft/dimensions.ts`. Flight 13 webcast stills in
 `assets/flight13-webcast/` remain the flown-hardware check (outer bells sit on
 the skirt wall; fins sit just under the hot-stage).
+
+Agent traps (also in `AGENTS.md`):
+
+- The Sketchfab root translates `Superheavy v3_36` by **(0, 50, 20)**. World-space
+  `hypot(x, z)` is ~20 m for every ring. Always invert that node’s world matrix
+  (`measureSketchfabBooster`); do not measure in file world space.
+- Do not copy outer radius **4.24 m** onto the theater — the 1.3 m bells would
+  hang outside the 9 m barrel. Theater outer is **3.85 m** (lip on the skirt;
+  `BOOST_RING_OUTER + SL_BELL_R < R * 1.02`). T+5:50 stills win over the download.
+- `GRID_FIN_FROM_TOP_M` is meters (`gridFinZ()`). Subtracting `0.48` from
+  `BOOST_H` is 19 m of mesh units, not “a bit below the hot-stage.”
+- Keep fin chord ~0.9 m (factory diamond lattice). This file’s 0.33 m chord is a
+  sheet. Keep `GRID_FIN_AZIMUTHS[0] === π/2` (gridfin-cam).
