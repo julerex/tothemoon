@@ -5,9 +5,11 @@ under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/)
 Author: https://sketchfab.com/Ijsz23
 Canonical: https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45
 
-Booster-only render mesh (3.8M triangles). **Not** the runtime theater craft.
-Author notes it is not optimized for real-time use. Do not import `scene.bin`
-into the live scene.
+Booster-only render mesh (3.8M triangles). **Not** imported whole.
+Author notes it is not optimized for real-time use. Do not load `scene.bin`.
+Runtime Super Heavy engines use one extracted inner Raptor, simplified to
+~13k triangles and cloned 33 times (`public/models/raptor-sl.glb`). Rebuild:
+`npm run raptor-sl` (needs the Sketchfab zip). Ship vacuum bells stay procedural.
 
 Committed here: `scene.gltf` (node names, 4×4 matrices, accessor min/max) and
 `license.txt`. Drop the full Sketchfab zip next to this file if you need

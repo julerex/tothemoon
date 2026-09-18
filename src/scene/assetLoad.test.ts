@@ -23,7 +23,7 @@ describe("assetLoadFraction", () => {
 describe("assetLoadStatus", () => {
   it("names in-flight JPEG loads", () => {
     assert.equal(assetLoadStatus(0, 0), "Loading mission…");
-    assert.equal(assetLoadStatus(1, 4), "Loading textures… 1 of 4");
+    assert.equal(assetLoadStatus(1, 4), "Loading assets… 1 of 4");
     assert.equal(assetLoadStatus(4, 4), "Ready");
   });
 });
