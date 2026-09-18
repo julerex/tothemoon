@@ -11,11 +11,13 @@ import {
   BOOST_RING_OUTER,
   GRID_FIN_AZIMUTHS,
   GRID_FIN_CHORD_M,
+  GRID_FIN_FROM_TOP_M,
   GRID_FIN_LATTICE_ANGLE,
   GRID_FIN_LATTICE_N,
   GRID_FIN_LAUNCH_TILT,
   GRID_FIN_SPAN_M,
   GRID_FIN_WIDTH_M,
+  gridFinZ,
   HOT_STAGE_BAYS,
   HOT_STAGE_H,
   HOT_STAGE_H_M,
@@ -70,10 +72,21 @@ describe("V3 grid fins", () => {
     assert.ok(GRID_FIN_CHORD_M > 0.5 && GRID_FIN_CHORD_M < 1.4);
   });
 
+  it("uses a Sketchfab-class V3 shelf, not the 4.0 × 3.6 m paddle", () => {
+    assert.ok(GRID_FIN_SPAN_M >= 3.0 && GRID_FIN_SPAN_M <= 3.4, `span ${GRID_FIN_SPAN_M}`);
+    assert.ok(GRID_FIN_WIDTH_M >= 2.4 && GRID_FIN_WIDTH_M <= 2.8, `width ${GRID_FIN_WIDTH_M}`);
+  });
+
+  it("sits just under the hot-stage, not 19 m down the barrel", () => {
+    assert.ok(GRID_FIN_FROM_TOP_M > HOT_STAGE_H_M + 2);
+    assert.ok(GRID_FIN_FROM_TOP_M < 8, `fromTop ${GRID_FIN_FROM_TOP_M}`);
+    assert.ok(Math.abs(gridFinZ() - (BOOST_H - GRID_FIN_FROM_TOP_M * U)) < 1e-12);
+  });
+
   it("lies horizontal at launch (lattice plane ⊥ booster axis)", () => {
     assert.equal(GRID_FIN_LAUNCH_TILT, Math.PI / 2);
     const fin = new THREE.Group();
-    setGridFinLaunchPose(fin, Math.PI / 2, R + 0.1, BOOST_H - 0.48);
+    setGridFinLaunchPose(fin, Math.PI / 2, R + 0.1, gridFinZ());
     assert.ok(Math.abs(fin.rotation.x - Math.PI / 2) < 1e-9);
     assert.ok(Math.abs(fin.rotation.y) < 1e-9);
     assert.ok(Math.abs(fin.rotation.z - Math.PI / 2) < 1e-9);
@@ -121,6 +134,16 @@ describe("Super Heavy Raptor rings", () => {
     assert.ok(BOOST_RING_MID < BOOST_RING_OUTER);
     assert.ok(BOOST_RING_OUTER + SL_BELL_R < R * 1.02);
     assert.ok(BOOST_RING_INNER > SL_BELL_R * 0.6);
+  });
+
+  it("seats the outer 20 at the skirt wall (Flight 13 T+5:50)", () => {
+    const lipM = (BOOST_RING_OUTER + SL_BELL_R) / U;
+    assert.ok(lipM >= 4.4, `outer lip ${lipM} m`);
+    assert.ok(lipM <= 4.59, `outer lip ${lipM} m`);
+  });
+
+  it("spreads the mid ring off the inner three", () => {
+    assert.ok(BOOST_RING_MID / U >= 2.35, `mid ${BOOST_RING_MID / U} m`);
   });
 });
 

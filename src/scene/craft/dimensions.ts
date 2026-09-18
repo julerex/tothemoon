@@ -27,17 +27,25 @@ export const GRID_FIN_AZIMUTHS = [
 ] as const;
 
 /**
- * V3 grid-fin face (m). SpaceX 2025 factory stills + V3 booster render:
- * diamond cells, ~4 m class (not the V22 8.2 m × 4.4 m waffle paddle).
+ * V3 grid-fin face (m). Sketchfab Super Heavy V3 look-reference (~3.16 × 2.59
+ * local AABB) + Flight 13 pad stills; not the V22 8.2 m × 4.4 m waffle paddle.
+ * Chord stays a deep lattice (factory stills), not the Sketchfab sheet.
  */
-export const GRID_FIN_SPAN_M = 4.0;
-export const GRID_FIN_WIDTH_M = 3.6;
+export const GRID_FIN_SPAN_M = 3.2;
+export const GRID_FIN_WIDTH_M = 2.6;
 /** Cell depth / chord (m) — V3 is a deep 3D lattice, not a sheet. */
 export const GRID_FIN_CHORD_M = 0.9;
 /** Lattice bars at 45° so cells read as diamonds, not a square waffle. */
 export const GRID_FIN_LATTICE_ANGLE = Math.PI / 4;
 /** Lattice plane ⊥ booster +Z — horizontal shelf on the pad. */
 export const GRID_FIN_LAUNCH_TILT = Math.PI / 2;
+/**
+ * Fin center below the booster top (m). Sketchfab Y-up fromTop ≈ 6.57 m;
+ * sits on the methane tank just under the ~2.6 m hot-stage truss.
+ */
+export const GRID_FIN_FROM_TOP_M = 6.5;
+/** Attach radius as a fraction of span so the inner frame sits on the 9 m skin. */
+export const GRID_FIN_ATTACH_SPAN_FRAC = 0.5;
 
 /**
  * V3 integrated hot-stage truss height (m). Block 1/2 jettisonable ring was
@@ -54,10 +62,14 @@ export const U = 1 / 40;
 /** V3 hot-stage truss height in mesh units. */
 export const HOT_STAGE_H = HOT_STAGE_H_M * U;
 
-/** Super Heavy Raptor ring radii in mesh units (3 inner / 10 mid / 20 outer). */
+/**
+ * Super Heavy Raptor ring radii in mesh units (3 inner / 10 mid / 20 outer).
+ * Outer lip sits on the 9 m skirt (Flight 13 T+5:50); mid matches the
+ * Sketchfab 3/10/20 layout scaled to that rim, not the raw 4.24 m download.
+ */
 export const BOOST_RING_INNER = 0.95 * U;
-export const BOOST_RING_MID = 2.25 * U;
-export const BOOST_RING_OUTER = 3.55 * U;
+export const BOOST_RING_MID = 2.45 * U;
+export const BOOST_RING_OUTER = 3.85 * U;
 
 /** Vehicle diameter (m) → radius in mesh units. */
 const DIA_M = 9;
@@ -67,6 +79,11 @@ const SHIP_H_M = 52;
 const BOOST_H_M = 71;
 export const SHIP_H = SHIP_H_M * U; // 1.3
 export const BOOST_H = BOOST_H_M * U; // 1.775
+
+/** Grid-fin mesh +Z (booster origin at the engine bells). */
+export function gridFinZ(): number {
+  return BOOST_H - GRID_FIN_FROM_TOP_M * U;
+}
 
 /** Tangent-ogive length (m) from tip to the 9 m barrel. */
 export const SHIP_OGIVE_H_M = 17;

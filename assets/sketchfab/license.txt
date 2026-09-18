@@ -1,0 +1,11 @@
+Model Information:
+* title:	SpaceX Starship Superheavy V3
+* source:	https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45
+* author:	Ijsz23 (https://sketchfab.com/Ijsz23)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "SpaceX Starship Superheavy V3" (https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45) by Ijsz23 (https://sketchfab.com/Ijsz23) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

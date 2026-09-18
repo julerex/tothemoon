@@ -5,6 +5,7 @@ import {
   BOOST_RING_INNER,
   BOOST_RING_MID,
   BOOST_RING_OUTER,
+  GRID_FIN_ATTACH_SPAN_FRAC,
   GRID_FIN_AZIMUTHS,
   GRID_FIN_CHORD_M,
   GRID_FIN_SPAN_M,
@@ -14,6 +15,7 @@ import {
   SL_BELL_H,
   SL_BELL_R,
   U,
+  gridFinZ,
 } from "./dimensions";
 import type { CraftMats } from "./materials";
 import { FROST_PATCHES } from "../craftFrost";
@@ -79,7 +81,7 @@ function gridFinDims(): GridFinDims {
     finH: GRID_FIN_SPAN_M * U,
     finW: GRID_FIN_WIDTH_M * U,
     finT: GRID_FIN_CHORD_M * U,
-    finZ: BOOST_H - 0.48,
+    finZ: gridFinZ(),
   };
 }
 
@@ -121,7 +123,7 @@ function poseGridFin(
   ang: number,
   d: GridFinDims,
 ): { ang: number; r: number } {
-  const attachR = R + d.finH * 0.42;
+  const attachR = R + d.finH * GRID_FIN_ATTACH_SPAN_FRAC;
   setGridFinLaunchPose(fin, ang, attachR, d.finZ);
   booster.add(fin);
   return { ang, r: attachR + d.finH * 0.12 };

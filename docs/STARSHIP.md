@@ -10,7 +10,7 @@ Related:
 - [NEXT.md](./NEXT.md) — product roadmap
 - Mesh numbers in `src/scene/craft/dimensions.ts` and `src/scene/earthTheater/mechazillaDims.ts`
 - [`assets/public-domain/`](../assets/public-domain/) — NASA/FAA stills (pad plan, engine bay, HLS, Flight 6 ISS plume); look reference only
-- Sketchfab: ["SpaceX Starship Superheavy V3"](https://skfb.ly/pyZBo) by Ijsz23 (CC BY 4.0) — Super Heavy V3 look-reference only (not the runtime craft mesh)
+- Sketchfab: ["SpaceX Starship Superheavy V3"](https://skfb.ly/pyZBo) by Ijsz23 (CC BY 4.0) — Super Heavy V3 look-reference only (not the runtime craft mesh). Committed JSON: [`assets/sketchfab/`](../assets/sketchfab/). `npm run measure-sketchfab`
 
 **Honesty:** figures below are from public sources (Wikipedia, NSF, FAA notices,
 SpaceX vehicle page / updates) as of **2026-08**. Where the theater uses a
@@ -94,9 +94,10 @@ batteries / COPVs / fire-suppression bottles.
 The unpaired fin’s lattice is slightly canted to offset the missing opposite.
 SpaceX’s stated reason for the new azimuths: less heating at hot-stage.
 
-This theater’s V3 fins are a **~4.0 m × 3.6 m** face, **~0.9 m** cell depth, diamond
+This theater’s V3 fins are a **~3.2 m × 2.6 m** face, **~0.9 m** cell depth, diamond
 bars at 45°, seated **horizontal at launch** (lattice plane perpendicular to the
-booster axis). They stay deployed; they do not fold like Falcon 9. Sources:
+booster axis) about **6.5 m** below the booster top (just under the hot-stage).
+They stay deployed; they do not fold like Falcon 9. Sources:
 [SpaceX, 13 Aug 2025](https://x.com/SpaceX/status/1955715300256616451) (factory
 still of the deep diamond lattice); SpaceX V3 booster render (fins read as
 compact hexagonal shelves from the side, diamond face along the axis).
@@ -301,6 +302,8 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 | Chopstick catch rail | ~20 m inner rail (public catch hardware) | Named `pad-chopstick-catch-rail` on each arm |
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |
 | Raptor bells | ~1.3 m SL / ~2.4 m vac exit | `dimensions.ts` |
+| Super Heavy engine rings | 3 + 10 inner/mid on the puck; outer 20 on the skirt | Inner 0.95 m / mid 2.45 m / outer 3.85 m (lip on the 9 m wall). Sketchfab download is 0.90 / 2.51 / 4.24 m — outer is clamped so bells stay inside the barrel. |
+| V3 grid fins | 3 at 90/90/180, ~1.5× Block 1, lower than the old interstage set | 3.2 × 2.6 × 0.9 m, 6.5 m below the stack top (`GRID_FIN_FROM_TOP_M`) |
 
 ---
 

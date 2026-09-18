@@ -31,3 +31,10 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+
+# Sketchfab Super Heavy V3 look-reference (CC BY). Keep scene.gltf + license;
+# do not commit the 300 MB render mesh.
+assets/sketchfab/*.bin
+assets/sketchfab/*.zip
+assets/sketchfab/*.usdz
+assets/sketchfab/textures/

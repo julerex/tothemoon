@@ -13,6 +13,7 @@
     "starbase-surrounds": "tsx scripts/fetch-starbase-surrounds.ts",
     "starbase-land-plates": "tsx scripts/fetch-starbase-surrounds.ts --land",
     "starbase-naip": "tsx scripts/fetch-starbase-naip.ts",
+    "measure-sketchfab": "tsx scripts/measure-sketchfab-booster.ts",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts --max-warnings 0",
