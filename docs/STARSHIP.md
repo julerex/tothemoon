@@ -10,6 +10,7 @@ Related:
 - [NEXT.md](./NEXT.md) — product roadmap
 - Mesh numbers in `src/scene/craft/dimensions.ts` and `src/scene/earthTheater/mechazillaDims.ts`
 - [`assets/public-domain/`](../assets/public-domain/) — NASA/FAA stills (pad plan, engine bay, HLS, Flight 6 ISS plume); look reference only
+- Sketchfab: ["SpaceX Starship Superheavy V3"](https://skfb.ly/pyZBo) by Ijsz23 (CC BY 4.0) — Super Heavy V3 look-reference only (not the runtime craft mesh)
 
 **Honesty:** figures below are from public sources (Wikipedia, NSF, FAA notices,
 SpaceX vehicle page / updates) as of **2026-08**. Where the theater uses a
@@ -315,3 +316,10 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
   [Flight 13](https://www.spacex.com/launches/starship-flight-13)
 - FAA 2021 no-hazard notice: OLIT **146 m**
 - Ars Technica V3 wet dress (2026-05): ~124 m / 408 ft stack, 33× Raptor 3 static fire
+- Sketchfab 3D look-reference (not runtime; theater craft stays the procedural
+  123 m mesh). Author notes the download is render-only, not real-time.
+  "SpaceX Starship Superheavy V3" (https://skfb.ly/pyZBo) by Ijsz23 is licensed
+  under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+  Author: [Ijsz23](https://sketchfab.com/Ijsz23). Canonical:
+  [sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45](https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45).
+  Super Heavy V3 / 33 Raptor 3 (3+10+20) + three grid fins.
