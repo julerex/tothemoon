@@ -7,7 +7,9 @@ RAW="/tmp/raptor-sl-raw.glb"
 OUT="$ROOT/public/models/raptor-sl.glb"
 python3 "$ROOT/scripts/extract-sketchfab-raptor.py" "$ZIP" "$RAW"
 npx --yes @gltf-transform/cli weld "$RAW" /tmp/raptor-sl-weld.glb
-npx --yes @gltf-transform/cli simplify /tmp/raptor-sl-weld.glb /tmp/raptor-sl-simp.glb --ratio 0.018 --error 1
+# Keep most of the CAD tessellation. Unconstrained --error 1 made a faceted
+# 13k-tri bell; lock the nozzle rim and cap error so the revolution stays round.
+npx --yes @gltf-transform/cli simplify /tmp/raptor-sl-weld.glb /tmp/raptor-sl-simp.glb --ratio 0.55 --error 0.0002 --lock-border
 npx --yes @gltf-transform/cli resize /tmp/raptor-sl-simp.glb /tmp/raptor-sl-resz.glb --width 1024 --height 1024
 npx --yes @gltf-transform/cli jpeg /tmp/raptor-sl-resz.glb /tmp/raptor-sl-jpeg.glb --formats png --quality 78 --slots "{baseColorTexture,emissiveTexture,metallicRoughnessTexture}"
 npx --yes @gltf-transform/cli tangents /tmp/raptor-sl-jpeg.glb /tmp/raptor-sl-tan.glb

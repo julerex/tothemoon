@@ -4,6 +4,6 @@ under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/)
 Author: https://sketchfab.com/Ijsz23
 Canonical: https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c91924d743465aac22f29ad8ba2e45
 
-Theater copy: one inner Raptor, remapped to craft mesh units, simplified
-(~13k triangles, shared by all 33 Super Heavy engines). Not the full
-3.8M-triangle download. Rebuild: npm run raptor-sl
+Theater copy: one inner Raptor, remapped to craft mesh units, lightly
+simplified (~71k triangles, shared by all 33 Super Heavy engines). Not the
+full 3.8M-triangle download. Rebuild: npm run raptor-sl

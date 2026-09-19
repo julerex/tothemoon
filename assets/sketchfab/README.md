@@ -7,8 +7,8 @@ Canonical: https://sketchfab.com/3d-models/spacex-starship-superheavy-v3-12c9192
 
 Booster-only render mesh (3.8M triangles). **Not** imported whole.
 Author notes it is not optimized for real-time use. Do not load `scene.bin`.
-Runtime Super Heavy engines use one extracted inner Raptor, simplified to
-~13k triangles and cloned 33 times (`public/models/raptor-sl.glb`). Rebuild:
+Runtime Super Heavy engines use one extracted inner Raptor, lightly simplified
+to ~71k triangles and cloned 33 times (`public/models/raptor-sl.glb`). Rebuild:
 `npm run raptor-sl` (needs the Sketchfab zip). Ship vacuum bells stay procedural.
 
 Committed here: `scene.gltf` (node names, 4×4 matrices, accessor min/max) and
