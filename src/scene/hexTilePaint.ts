@@ -32,7 +32,7 @@ export type HexMapCanvases = {
 
 /**
  * Paint the four TPS maps. Grout is darker / rougher / recessed; experiment
- * hexes are white; missing hexes are a sunken underlayer.
+ * hexes are white imaging targets on an otherwise continuous heat shield.
  */
 export function paintHexTileMaps(maps: HexMapCanvases): void {
   const w = maps.color.width;
@@ -92,9 +92,8 @@ function paintOneHex(
   const { cx, cy } = hexCellCenter(col, row, radius);
   if (cx < -radius || cy < -radius || cx > w + radius || cy > h + radius) return;
   const kind = hexTileKind(col, row);
-  const inset = kind === "missing" ? radius * 0.72 : radius * 0.92;
-  fillHexKind(ctxs, cx, cy, inset, col, row, kind);
-  strokeHexGrout(ctxs, cx, cy, radius, kind);
+  fillHexKind(ctxs, cx, cy, radius * 0.92, col, row, kind);
+  strokeHexGrout(ctxs, cx, cy, radius);
 }
 
 function fillHexKind(
@@ -114,18 +113,12 @@ function fillHexKind(
   ctxs.rough.fillStyle = roughFillForKind(kind, col, row);
   ctxs.rough.fill();
   hexPath(ctxs.bump, cx, cy, radius);
-  ctxs.bump.fillStyle = kind === "missing" ? "#141414" : "#c8c8c8";
+  ctxs.bump.fillStyle = "#c8c8c8";
   ctxs.bump.fill();
-  if (kind === "missing") {
-    hexPath(ctxs.emissive, cx, cy, radius * 1.05);
-    ctxs.emissive.fillStyle = "#3a2214";
-    ctxs.emissive.fill();
-  }
 }
 
 function roughFillForKind(kind: HexTileKind, col: number, row: number): string {
   if (kind === "experiment") return "#8a8a8a";
-  if (kind === "missing") return "#f0f0f0";
   const g = 150 + Math.round(latticeHash(col, row, 3) * 40);
   return `rgb(${g},${g},${g})`;
 }
@@ -135,11 +128,9 @@ function strokeHexGrout(
   cx: number,
   cy: number,
   radius: number,
-  kind: HexTileKind,
 ): void {
-  const grout = kind === "missing" ? "rgba(70,52,36,0.95)" : "rgba(36,32,30,0.92)";
   hexPath(ctxs.color, cx, cy, radius);
-  ctxs.color.strokeStyle = grout;
+  ctxs.color.strokeStyle = "rgba(36,32,30,0.92)";
   ctxs.color.lineWidth = Math.max(1.1, radius * 0.12);
   ctxs.color.stroke();
   hexPath(ctxs.emissive, cx, cy, radius);

@@ -33,18 +33,6 @@ export const EXPERIMENT_HEXES: readonly (readonly [number, number])[] = [
   [7, 56],
 ];
 
-/**
- * Missing-tile holes (dark underlayer, not gray boxes).
- * Aft-biased so landing-approach / splash stills read the gaps.
- */
-export const MISSING_HEXES: readonly (readonly [number, number])[] = [
-  [5, 22],
-  [12, 33],
-  [4, 44],
-  [9, 52],
-  [7, 61],
-];
-
 /** Small "00" stencil on the tiled belly (coast / SECO stills). */
 export const TILE_SIDE_MARK = {
   text: "00",
@@ -86,7 +74,7 @@ export const BOOSTER_HULL_MARK = {
 /** One hex-tile patch on the stainless face of each aft elevon. */
 export const AFT_FLAP_STEEL_TILE_PATCHES = 2;
 
-export type HexTileKind = "tile" | "experiment" | "missing";
+export type HexTileKind = "tile" | "experiment";
 
 export type Rgb = { r: number; g: number; b: number };
 
@@ -115,16 +103,13 @@ function hexKey(col: number, row: number): string {
 }
 
 const EXPERIMENT_SET = new Set(EXPERIMENT_HEXES.map(([c, r]) => hexKey(c, r)));
-const MISSING_SET = new Set(MISSING_HEXES.map(([c, r]) => hexKey(c, r)));
 
 /**
- * Kind of one hex cell. Experiment wins over missing if a key were duplicated.
+ * Kind of one hex cell. White experiment tiles stand in for Flight 13 imaging
+ * targets; the rest of the field is a continuous heat shield (no missing holes).
  */
 export function hexTileKind(col: number, row: number): HexTileKind {
-  const key = hexKey(col, row);
-  if (EXPERIMENT_SET.has(key)) return "experiment";
-  if (MISSING_SET.has(key)) return "missing";
-  return "tile";
+  return EXPERIMENT_SET.has(hexKey(col, row)) ? "experiment" : "tile";
 }
 
 /**
@@ -181,12 +166,10 @@ export function hexEdgeFactor(col: number, cols = HEX_TILE_COLS): number {
 
 /**
  * Per-tile albedo (0–255). Experiment tiles are high-contrast white;
- * missing tiles are a dark underlayer; edge columns run warmer (char).
+ * edge columns run warmer (char).
  */
 export function hexTileAlbedo(col: number, row: number): Rgb {
-  const kind = hexTileKind(col, row);
-  if (kind === "experiment") return { r: 232, g: 234, b: 238 };
-  if (kind === "missing") return { r: 14, g: 12, b: 12 };
+  if (hexTileKind(col, row) === "experiment") return { r: 232, g: 234, b: 238 };
   return hexBodyAlbedo(col, row);
 }
 

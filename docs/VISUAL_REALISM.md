@@ -55,7 +55,7 @@ explicitly requested. Flight 13 highlight clips in
 
 **Shipped (V14):** pink-magenta atmosphere / landing plumes, Super Heavy cryo frost + ice shed, denser ground-hugging pad steam with engine-warm core.
 
-**Shipped (V13):** hexagonal TPS (grout + experiment / missing tiles), **S40** stencil, stainless oil-canning + heat tint, residual grout glow, wide onboard fin/gridfin FOV.
+**Shipped (V13):** hexagonal TPS (grout + white experiment tiles; no missing-tile holes), **S40** stencil, stainless oil-canning + heat tint, residual grout glow, wide onboard fin/gridfin FOV.
 
 **Shipped (V15):** magenta/violet entry plasma (belly + flap leading edges), violet tile fill; residual grout into descent stays warm.
 
@@ -394,7 +394,7 @@ later FX sit on a hull that already reads as S40.
 | T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | **V19** gated LEO clouds + glitter (Earth-cam stays cloudless); Gulf plate glitter is V17 | V17 / V19 |
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
-| T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, missing/white tiles, pink landing plume | **V13** heat-tint / hex / missing+white tiles; **V14** pink landing plume | V13 / V14 / V15 |
+| T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, white experiment tiles, pink landing plume | **V13** heat-tint / hex / white experiment tiles; **V14** pink landing plume | V13 / V14 / V15 |
 | T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | **V17** steam + glitter; **V21** swell/texture + ~2 km cumulus | V17 / V21 |
 
 ### Working agreements (photorealism)
@@ -432,10 +432,10 @@ TPS is a clear **hex grid** (coast `S40`, transonic flap, post-splash close-up).
 - Fin / gridfin mounts use a wider onboard FOV (`onboardFov.ts`) so the hull +
   Earth limb match the webcast crop.
 
-### V13.3 Experiment / missing tiles — **done**
+### V13.3 Experiment tiles — **done**
 
 - High-contrast white hexes on the windward belly + a `00` stencil.
-- Missing-tile holes (dark underlayer, not gray boxes).
+- Continuous heat shield: no missing-tile holes (dark underlayer removed).
 - Small tile patches on the stainless side of aft flaps.
 - Residual **grout glow** into descent (`tileGroutGlow`) so T+1:04:55 keeps
   warm tile-gap light without extra sprites.

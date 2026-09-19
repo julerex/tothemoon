@@ -8,7 +8,6 @@ import {
   EXPERIMENT_HEXES,
   HEX_TILE_COLS,
   HEX_TILE_ROWS,
-  MISSING_HEXES,
   SHIP_HULL_MARK,
   TILE_SIDE_MARK,
   clamp01,
@@ -49,24 +48,25 @@ describe("hex tile lattice", () => {
     assert.ok(b.cy > a.cy);
   });
 
-  it("marks experiment tiles white and missing tiles near-black", () => {
+  it("marks experiment tiles white and does not punch missing-tile holes", () => {
     assert.ok(EXPERIMENT_HEXES.length >= 4);
-    assert.ok(MISSING_HEXES.length >= 4);
     for (const [c, r] of EXPERIMENT_HEXES) {
       assert.equal(hexTileKind(c, r), "experiment");
       const rgb = hexTileAlbedo(c, r);
       assert.ok(rgb.r > 200 && rgb.g > 200 && rgb.b > 200);
     }
-    for (const [c, r] of MISSING_HEXES) {
-      assert.equal(hexTileKind(c, r), "missing");
-      const rgb = hexTileAlbedo(c, r);
-      assert.ok(rgb.r < 30 && rgb.g < 30 && rgb.b < 30);
+    for (let c = 0; c < HEX_TILE_COLS; c++) {
+      for (let r = 0; r < HEX_TILE_ROWS; r++) {
+        if (hexTileKind(c, r) === "experiment") continue;
+        assert.equal(hexTileKind(c, r), "tile");
+        const rgb = hexTileAlbedo(c, r);
+        assert.ok(rgb.r >= 22 && rgb.g >= 20, `dark hole at ${c},${r}`);
+      }
     }
-    assert.equal(hexTileKind(3, 3), "tile");
   });
 
-  it("keeps experiment / missing cells inside the field", () => {
-    for (const [c, r] of [...EXPERIMENT_HEXES, ...MISSING_HEXES]) {
+  it("keeps experiment cells inside the field", () => {
+    for (const [c, r] of EXPERIMENT_HEXES) {
       assert.ok(c >= 0 && c < HEX_TILE_COLS);
       assert.ok(r >= 0 && r < HEX_TILE_ROWS);
     }
