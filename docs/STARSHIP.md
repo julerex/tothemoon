@@ -94,13 +94,15 @@ batteries / COPVs / fire-suppression bottles.
 The unpaired fin’s lattice is slightly canted to offset the missing opposite.
 SpaceX’s stated reason for the new azimuths: less heating at hot-stage.
 
-This theater’s V3 fins are a **~3.2 m × 2.6 m** face, **~0.9 m** cell depth, diamond
-bars at 45°, seated **horizontal at launch** (lattice plane perpendicular to the
-booster axis) about **6.5 m** below the booster top (just under the hot-stage).
-They stay deployed; they do not fold like Falcon 9. Sources:
+This theater’s V3 fins are a **~3.2 m × 2.6 m** hexagonal paddle (Sketchfab Y+
+occupancy: tip ~69% of max width, root neck ~26%, full face in the middle),
+**~0.9 m** cell depth, thin diamond bars at 45°, seated **horizontal at launch**
+(lattice plane perpendicular to the booster axis) about **6.5 m** below the
+booster top (just under the hot-stage). They stay deployed; they do not fold
+like Falcon 9. Sources:
 [SpaceX, 13 Aug 2025](https://x.com/SpaceX/status/1955715300256616451) (factory
-still of the deep diamond lattice); SpaceX V3 booster render (fins read as
-compact hexagonal shelves from the side, diamond face along the axis).
+still of the deep diamond lattice); Ijsz23 Sketchfab Super Heavy V3 look-reference
+(planform occupancy, not the 0.33 m sheet chord).
 
 ### Hot-staging
 
@@ -303,7 +305,7 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |
 | Raptor bells | ~1.3 m SL / ~2.4 m vac exit | Procedural `makeBell` (48-meridian lathe + fluting maps + unshrouded Raptor 3 powerhead). Sketchfab is look-reference only. |
 | Super Heavy engine rings | 3 + 10 inner/mid on the puck; outer 20 on the skirt | Inner 0.95 m / mid 2.45 m / outer 3.85 m (lip on the 9 m wall). Sketchfab download is 0.90 / 2.51 / 4.24 m — outer is clamped so bells stay inside the barrel. |
-| V3 grid fins | 3 at 90/90/180, ~1.5× Block 1, lower than the old interstage set | 3.2 × 2.6 × 0.9 m, 6.5 m below the stack top (`GRID_FIN_FROM_TOP_M`) |
+| V3 grid fins | 3 at 90/90/180, ~1.5× Block 1, hexagonal paddle, lower than the old interstage set | 3.2 × 2.6 × 0.9 m hex paddle (tip 69% / root 26% of width), 6.5 m below the stack top (`GRID_FIN_FROM_TOP_M`) |
 
 ---
 

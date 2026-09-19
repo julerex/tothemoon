@@ -35,4 +35,5 @@ Agent traps (also in `AGENTS.md`):
 - `GRID_FIN_FROM_TOP_M` is meters (`gridFinZ()`). Subtracting `0.48` from
   `BOOST_H` is 19 m of mesh units, not “a bit below the hot-stage.”
 - Keep fin chord ~0.9 m (factory diamond lattice). This file’s 0.33 m chord is a
-  sheet. Keep `GRID_FIN_AZIMUTHS[0] === π/2` (gridfin-cam).
+  sheet. Copy the hexagonal occupancy (tip ~69% / root neck ~26% of max width),
+  not a rectangle. Keep `GRID_FIN_AZIMUTHS[0] === π/2` (gridfin-cam).

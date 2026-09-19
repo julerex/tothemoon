@@ -27,16 +27,45 @@ export const GRID_FIN_AZIMUTHS = [
 ] as const;
 
 /**
- * V3 grid-fin face (m). Sketchfab Super Heavy V3 look-reference (~3.16 × 2.59
- * local AABB) + Flight 13 pad stills; not the V22 8.2 m × 4.4 m waffle paddle.
+ * V3 grid-fin AABB (m). Sketchfab Super Heavy V3 Y+ mesh (~3.16 × 2.59 × 0.33
+ * local) + Flight 13 pad stills; not the V22 8.2 m × 4.4 m waffle paddle.
+ * Planform is a hexagonal paddle (Sketchfab occupancy), not a rectangle.
  * Chord stays a deep lattice (factory stills), not the Sketchfab sheet.
  */
 export const GRID_FIN_SPAN_M = 3.2;
 export const GRID_FIN_WIDTH_M = 2.6;
 /** Cell depth / chord (m) — V3 is a deep 3D lattice, not a sheet. */
 export const GRID_FIN_CHORD_M = 0.9;
+/**
+ * Sketchfab Y+ half-width / max-width vs span station u=0 root → 1 tip.
+ * Tip chamfer ~20% of span; root neck ~30%; mid is the full 2.59 m face.
+ */
+export const GRID_FIN_TIP_WIDTH_FRAC = 0.69;
+export const GRID_FIN_ROOT_WIDTH_FRAC = 0.26;
+export const GRID_FIN_TIP_CHAMFER_U = 0.2;
+export const GRID_FIN_ROOT_TAPER_U = 0.3;
+/** Lattice wall thickness (m). Factory honeycomb sheets, not 0.42-chord bars. */
+export const GRID_FIN_LATTICE_WALL_M = 0.1;
 /** Lattice bars at 45° so cells read as diamonds, not a square waffle. */
 export const GRID_FIN_LATTICE_ANGLE = Math.PI / 4;
+
+/**
+ * Half-width as a fraction of max width. `u` = 0 at the root neck, 1 at the
+ * chamfered tip. Piecewise-linear fit to the Sketchfab Y+ XZ occupancy.
+ */
+export function gridFinHalfWidthFrac(u: number): number {
+  const x = Math.min(1, Math.max(0, u));
+  if (x < GRID_FIN_ROOT_TAPER_U) {
+    const t = x / GRID_FIN_ROOT_TAPER_U;
+    return GRID_FIN_ROOT_WIDTH_FRAC + (1 - GRID_FIN_ROOT_WIDTH_FRAC) * t;
+  }
+  if (x > 1 - GRID_FIN_TIP_CHAMFER_U) {
+    const t = (x - (1 - GRID_FIN_TIP_CHAMFER_U)) / GRID_FIN_TIP_CHAMFER_U;
+    return 1 + (GRID_FIN_TIP_WIDTH_FRAC - 1) * t;
+  }
+  return 1;
+}
+
 /** Lattice plane ⊥ booster +Z — horizontal shelf on the pad. */
 export const GRID_FIN_LAUNCH_TILT = Math.PI / 2;
 /**

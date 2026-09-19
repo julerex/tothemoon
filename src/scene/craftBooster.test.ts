@@ -17,6 +17,7 @@ import {
   GRID_FIN_LAUNCH_TILT,
   GRID_FIN_SPAN_M,
   GRID_FIN_WIDTH_M,
+  gridFinHalfWidthFrac,
   gridFinZ,
   HOT_STAGE_BAYS,
   HOT_STAGE_H,
@@ -77,6 +78,47 @@ describe("V3 grid fins", () => {
     assert.ok(GRID_FIN_WIDTH_M >= 2.4 && GRID_FIN_WIDTH_M <= 2.8, `width ${GRID_FIN_WIDTH_M}`);
   });
 
+  it("matches the Sketchfab Y+ width envelope (narrow root, full mid, chamfered tip)", () => {
+    assert.ok(gridFinHalfWidthFrac(0) < 0.32, `root ${gridFinHalfWidthFrac(0)}`);
+    assert.ok(gridFinHalfWidthFrac(0.5) > 0.98, `mid ${gridFinHalfWidthFrac(0.5)}`);
+    const tip = gridFinHalfWidthFrac(1);
+    assert.ok(tip > 0.6 && tip < 0.78, `tip ${tip}`);
+  });
+
+  it("uses a hexagonal paddle (narrow root, chamfered tip) not a rectangle", () => {
+    const finH = 1;
+    const finW = 1;
+    const fin = makeGridFin(finH, finW, 0.1, dummyGridFinMats());
+    const tipZ = maxAbsZ(fin, (x) => x > finH * 0.42);
+    const midZ = maxAbsZ(fin, (x) => Math.abs(x) < finH * 0.08);
+    const rootZ = maxAbsZ(fin, (x) => x < -finH * 0.42);
+    assert.ok(midZ > finW * 0.4, `mid width ${midZ} too narrow`);
+    assert.ok(
+      tipZ < midZ * 0.85,
+      `tip |z|=${tipZ.toFixed(3)} should be chamfered vs mid ${midZ.toFixed(3)}`,
+    );
+    assert.ok(
+      rootZ < tipZ * 0.85,
+      `root |z|=${rootZ.toFixed(3)} should be a neck vs tip ${tipZ.toFixed(3)}`,
+    );
+  });
+
+  it("uses thin honeycomb walls, not chunky 0.42-chord bars", () => {
+    const finT = 0.1;
+    const fin = makeGridFin(1, 1, finT, dummyGridFinMats());
+    const bars = latticeBars(fin);
+    assert.ok(bars.length > 0, "missing lattice bars");
+    for (const bar of bars) {
+      if (!(bar instanceof THREE.Mesh)) continue;
+      if (!(bar.geometry instanceof THREE.BoxGeometry)) continue;
+      const wall = bar.geometry.parameters.depth;
+      assert.ok(
+        wall < finT * 0.25,
+        `lattice wall ${wall} is too thick for chord ${finT}`,
+      );
+    }
+  });
+
   it("sits just under the hot-stage, not 19 m down the barrel", () => {
     assert.ok(GRID_FIN_FROM_TOP_M > HOT_STAGE_H_M + 2);
     assert.ok(GRID_FIN_FROM_TOP_M < 8, `fromTop ${GRID_FIN_FROM_TOP_M}`);
@@ -104,6 +146,37 @@ function latticeBars(fin: THREE.Group): THREE.Object3D[] {
     if (o.name === "grid-fin-lattice") bars.push(o);
   });
   return bars;
+}
+
+const SKIP_PLANFORM = new Set([
+  "grid-fin-ram",
+  "grid-fin-housing",
+  "grid-fin-pin",
+]);
+
+/** Max |z| of sampled box points whose local x passes `keep`. */
+function maxAbsZ(fin: THREE.Group, keep: (x: number) => boolean): number {
+  fin.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  let max = 0;
+  fin.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    if (SKIP_PLANFORM.has(o.name)) return;
+    if (!(o.geometry instanceof THREE.BoxGeometry)) return;
+    const p = o.geometry.parameters;
+    for (let i = 0; i <= 6; i++) {
+      const lx = (i / 6 - 0.5) * p.width;
+      for (const ly of [-0.5, 0.5]) {
+        for (const lz of [-0.5, 0.5]) {
+          v.set(lx, ly * p.height, lz * p.depth);
+          o.localToWorld(v);
+          if (!keep(v.x)) continue;
+          max = Math.max(max, Math.abs(v.z));
+        }
+      }
+    }
+  });
+  return max;
 }
 
 function diamondAngle(rad: number): boolean {
