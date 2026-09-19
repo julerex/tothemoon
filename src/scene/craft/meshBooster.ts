@@ -2,6 +2,9 @@ import * as THREE from "three";
 import {
   BOOSTER_WELD_RING_COUNT,
   BOOST_H,
+  BOOST_RING_INNER,
+  BOOST_RING_MID,
+  BOOST_RING_OUTER,
   GRID_FIN_ATTACH_SPAN_FRAC,
   GRID_FIN_AZIMUTHS,
   GRID_FIN_CHORD_M,
@@ -9,6 +12,8 @@ import {
   GRID_FIN_WIDTH_M,
   HOT_STAGE_H,
   R,
+  SL_BELL_H,
+  SL_BELL_R,
   U,
   gridFinZ,
 } from "./dimensions";
@@ -26,7 +31,7 @@ import {
 } from "./meshShared";
 import { makeGridFin, setGridFinLaunchPose } from "./gridFin";
 import { addHotStageRing } from "./hotStageRing";
-import { addBoosterRaptorField, raptorSlPrototype } from "./raptorGltf";
+import { makeBell } from "./raptorBell";
 
 function addBoostBody(booster: THREE.Group, mats: CraftMats): void {
   const zBot = BOOST_H * 0.06;
@@ -181,9 +186,35 @@ function addBoostSkirtAndRaceway(booster: THREE.Group, mats: CraftMats): void {
   booster.add(raceway);
 }
 
+/** One ring of booster Raptors. */
+function addBoostBellRing(
+  g: THREE.Group,
+  n: number,
+  r: number,
+  br: number,
+  h: number,
+  bellZ: number,
+): void {
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + (n === 3 ? 0 : 0.08);
+    g.add(makeBell(br * 0.55, br, h, Math.cos(ang) * r, Math.sin(ang) * r, bellZ));
+  }
+}
+
+function addBoostBellField(booster: THREE.Group, bellZ: number): void {
+  const boostBells = new THREE.Group();
+  boostBells.name = "booster-engines";
+  const br = SL_BELL_R;
+  const h = SL_BELL_H;
+  addBoostBellRing(boostBells, 3, BOOST_RING_INNER, br * 0.95, h, bellZ);
+  addBoostBellRing(boostBells, 10, BOOST_RING_MID, br, h * 0.98, bellZ);
+  addBoostBellRing(boostBells, 20, BOOST_RING_OUTER, br, h * 0.96, bellZ);
+  booster.add(boostBells);
+}
+
 function addBoostEngines(booster: THREE.Group): void {
   const bellZ = -0.02;
-  addBoosterRaptorField(booster, raptorSlPrototype(), bellZ);
+  addBoostBellField(booster, bellZ);
   const boostPlume = makePlumeGroup("plume-booster", "booster");
   boostPlume.position.z = bellZ;
   booster.add(boostPlume);

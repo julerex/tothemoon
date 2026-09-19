@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  RAPTOR_BELL_RADIAL_SEGMENTS,
   RAPTOR_FLUTE_COUNT,
   raptorBellBump,
   raptorBellRgb,
@@ -14,6 +15,11 @@ import {
 describe("raptor fluting", () => {
   it("uses enough cooling-channel ridges to read at engines-cam range", () => {
     assert.ok(RAPTOR_FLUTE_COUNT >= 20 && RAPTOR_FLUTE_COUNT <= 32);
+  });
+
+  it("lathes the bell with enough meridians that engines-cam is not faceted", () => {
+    assert.ok(RAPTOR_BELL_RADIAL_SEGMENTS >= 48);
+    assert.ok(RAPTOR_BELL_RADIAL_SEGMENTS <= 64);
   });
 
   it("is periodic in U and peaked on the ridges", () => {

@@ -1,10 +1,9 @@
 /**
- * Shared JPEG / GLB loads for the theater (Earth, Moon, stars, Starbase, Raptor).
+ * Shared JPEG texture loads for the theater (Earth, Moon, stars, Starbase).
  * Bootstrap kicks these off; the loading overlay waits on {@link waitForAssets}.
  */
 
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 type ProgressFn = (loaded: number, total: number) => void;
 
@@ -71,7 +70,7 @@ export function assetLoadFraction(done: number, all: number): number {
 export function assetLoadStatus(done: number, all: number): string {
   if (all <= 0) return "Loading mission…";
   if (done >= all) return "Ready";
-  return `Loading assets… ${done} of ${all}`;
+  return `Loading textures… ${done} of ${all}`;
 }
 
 /**
@@ -90,33 +89,6 @@ export function loadTextureAsset(url: string): Promise<THREE.Texture | null> {
         loaded += 1;
         notify();
         resolve(tex);
-      },
-      undefined,
-      () => {
-        loaded += 1;
-        notify();
-        resolve(null);
-      },
-    );
-  });
-}
-
-/**
- * Fetch a GLB/GLTF. Failure resolves `null` so callers keep a procedural
- * fallback; the batch still counts the item as finished.
- *
- * @param url - Absolute or base-relative model URL
- */
-export function loadGltfScene(url: string): Promise<THREE.Group | null> {
-  total += 1;
-  notify();
-  return new Promise((resolve) => {
-    new GLTFLoader().load(
-      url,
-      (gltf) => {
-        loaded += 1;
-        notify();
-        resolve(gltf.scene);
       },
       undefined,
       () => {

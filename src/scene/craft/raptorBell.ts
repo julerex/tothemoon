@@ -14,6 +14,9 @@ import * as THREE from "three";
 /** Longitudinal regenerative-cooling ridges around the bell. */
 export const RAPTOR_FLUTE_COUNT = 24;
 
+/** Meridians on the lathed bell (engines-cam; 16 read as a cone). */
+export const RAPTOR_BELL_RADIAL_SEGMENTS = 48;
+
 const FLUTE_MAP_W = 256;
 const FLUTE_MAP_H = 128;
 
@@ -183,15 +186,16 @@ function addBellBody(
   h: number,
   mats: RaptorMats,
 ): void {
+  const segs = RAPTOR_BELL_RADIAL_SEGMENTS;
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(rTop, rBot, h, 16, 3, true),
+    new THREE.CylinderGeometry(rTop, rBot, h, segs, 3, true),
     mats.body,
   );
   body.name = "raptor-bell";
   body.rotation.x = Math.PI / 2;
   g.add(body);
   const inner = new THREE.Mesh(
-    new THREE.CylinderGeometry(rTop * 0.92, rBot * 0.92, h * 0.94, 12, 1, true),
+    new THREE.CylinderGeometry(rTop * 0.92, rBot * 0.92, h * 0.94, segs, 1, true),
     mats.inner,
   );
   inner.name = "raptor-inner";
@@ -201,7 +205,7 @@ function addBellBody(
 
 function addBellRim(g: THREE.Group, rBot: number, h: number, mat: THREE.Material): void {
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(rBot * 0.94, rBot * 0.07, 6, 16),
+    new THREE.TorusGeometry(rBot * 0.94, rBot * 0.07, 8, RAPTOR_BELL_RADIAL_SEGMENTS),
     mat,
   );
   rim.name = "raptor-rim";
@@ -217,14 +221,14 @@ function addPowerhead(
 ): void {
   const headH = h * 0.36;
   const head = new THREE.Mesh(
-    new THREE.CylinderGeometry(rTop * 1.12, rTop * 1.32, headH, 10),
+    new THREE.CylinderGeometry(rTop * 1.12, rTop * 1.32, headH, 24),
     mat,
   );
   head.name = "raptor-head";
   head.rotation.x = Math.PI / 2;
   head.position.z = h * 0.42;
   g.add(head);
-  const plug = new THREE.Mesh(new THREE.CircleGeometry(rTop * 0.82, 10), mat);
+  const plug = new THREE.Mesh(new THREE.CircleGeometry(rTop * 0.82, 24), mat);
   plug.name = "raptor-throat";
   plug.rotation.x = Math.PI;
   plug.position.z = h * 0.22;

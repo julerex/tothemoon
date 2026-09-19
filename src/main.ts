@@ -26,7 +26,6 @@ import {
   onAssetProgress,
   waitForAssets,
 } from "./scene/assetLoad";
-import { loadRaptorSlPrototype } from "./scene/craft/raptorGltf";
 
 /** Once a full theater is running we avoid double-start without reload. */
 let theaterStarted = false;
@@ -112,7 +111,6 @@ async function launchMissionTheater(
   let unveil: TheaterUnveiler | undefined;
   try {
     setShellView("theater");
-    await loadRaptorSlPrototype();
     const startMission = await loadTheater();
     setTheaterLoadingProgress("Building scene…", 0);
     unveil = startMission(opts);
