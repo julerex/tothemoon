@@ -301,7 +301,7 @@ Vehicles roll on SPMTs: build site ↔ Massey’s (LN₂ proofs) ↔ pad (static
 | OLIT cage | Box-section 2-bay lattice, work lights | Same silhouette; theater-grade, not CAD |
 | Chopstick catch rail | ~20 m inner rail (public catch hardware) | Named `pad-chopstick-catch-rail` on each arm |
 | Pad 2 yaw (south-facing) | NSF | Live pad still uses tower-west-of-OLM (Pad A-like) so cameras/trench stay put |
-| Raptor bells | ~1.3 m SL / ~2.4 m vac exit | Procedural `makeBell` (48-meridian lathe + fluting maps). Sketchfab is look-reference only. |
+| Raptor bells | ~1.3 m SL / ~2.4 m vac exit | Procedural `makeBell` (48-meridian lathe + fluting maps + unshrouded Raptor 3 powerhead). Sketchfab is look-reference only. |
 | Super Heavy engine rings | 3 + 10 inner/mid on the puck; outer 20 on the skirt | Inner 0.95 m / mid 2.45 m / outer 3.85 m (lip on the 9 m wall). Sketchfab download is 0.90 / 2.51 / 4.24 m — outer is clamped so bells stay inside the barrel. |
 | V3 grid fins | 3 at 90/90/180, ~1.5× Block 1, lower than the old interstage set | 3.2 × 2.6 × 0.9 m, 6.5 m below the stack top (`GRID_FIN_FROM_TOP_M`) |
 

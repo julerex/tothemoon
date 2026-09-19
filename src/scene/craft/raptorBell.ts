@@ -2,14 +2,15 @@
  * Raptor 3 bell mesh (theater-grade).
  *
  * Flight 13 engines-cam stills (T+4:32, T+5:50) show longitudinal cooling-
- * channel fluting, a dark powerhead can, and a sooted interior — not a
- * smooth open cylinder. Shared maps so 33 booster bells stay cheap.
+ * channel fluting, an unshrouded Raptor 3 powerhead, and a sooted interior.
+ * Shared maps so 33 booster bells stay cheap.
  *
  * @see docs/VISUAL_REALISM.md — V22
  * @see assets/flight13-webcast/ — T+4:32–5:50 stills
  */
 
 import * as THREE from "three";
+import { addPowerhead } from "./raptorPowerhead";
 
 /** Longitudinal regenerative-cooling ridges around the bell. */
 export const RAPTOR_FLUTE_COUNT = 24;
@@ -121,6 +122,8 @@ type RaptorMats = {
   rim: THREE.MeshStandardMaterial;
   inner: THREE.MeshStandardMaterial;
   head: THREE.MeshStandardMaterial;
+  pump: THREE.MeshStandardMaterial;
+  pipe: THREE.MeshStandardMaterial;
 };
 
 let cachedMats: RaptorMats | null = null;
@@ -175,6 +178,16 @@ function raptorMats(): RaptorMats {
       metalness: 0.48,
       roughness: 0.52,
     }),
+    pump: new THREE.MeshStandardMaterial({
+      color: 0x2a3036,
+      metalness: 0.62,
+      roughness: 0.4,
+    }),
+    pipe: new THREE.MeshStandardMaterial({
+      color: 0x1a1c20,
+      metalness: 0.55,
+      roughness: 0.48,
+    }),
   };
   return cachedMats;
 }
@@ -213,30 +226,8 @@ function addBellRim(g: THREE.Group, rBot: number, h: number, mat: THREE.Material
   g.add(rim);
 }
 
-function addPowerhead(
-  g: THREE.Group,
-  rTop: number,
-  h: number,
-  mat: THREE.Material,
-): void {
-  const headH = h * 0.36;
-  const head = new THREE.Mesh(
-    new THREE.CylinderGeometry(rTop * 1.12, rTop * 1.32, headH, 24),
-    mat,
-  );
-  head.name = "raptor-head";
-  head.rotation.x = Math.PI / 2;
-  head.position.z = h * 0.42;
-  g.add(head);
-  const plug = new THREE.Mesh(new THREE.CircleGeometry(rTop * 0.82, 24), mat);
-  plug.name = "raptor-throat";
-  plug.rotation.x = Math.PI;
-  plug.position.z = h * 0.22;
-  g.add(plug);
-}
-
 /**
- * One Raptor 3: fluted bell, sooted interior, powerhead can, exit rim.
+ * One Raptor 3: fluted bell, sooted interior, unshrouded powerhead, exit rim.
  * Shared materials (fluting maps) so a 33-engine cluster stays cheap.
  */
 export function makeBell(
@@ -252,7 +243,11 @@ export function makeBell(
   const mats = raptorMats();
   addBellBody(g, rTop, rBot, h, mats);
   addBellRim(g, rBot, h, mats.rim);
-  addPowerhead(g, rTop, h, mats.head);
+  addPowerhead(g, rTop, h, {
+    head: mats.head,
+    pump: mats.pump,
+    pipe: mats.pipe,
+  });
   g.position.set(x, y, z);
   return g;
 }
