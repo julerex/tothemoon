@@ -36,10 +36,10 @@ export const STARBASE_PLATE_HALF_KM = 40;
 export const STARBASE_PAD_PLATE_HALF_KM = 4;
 
 /** Pad-local Y of the plate, slightly below hardstand slabs (km). */
-export const STARBASE_PLATE_Y_KM = -0.008;
+export const STARBASE_PLATE_Y_KM = -0.0028;
 
 /** Pad-local Y of the NAIP plate, a hair above the wide Sentinel-2 plate. */
-export const STARBASE_PAD_PLATE_Y_KM = -0.007;
+export const STARBASE_PAD_PLATE_Y_KM = -0.0024;
 
 /** Grid density for draping the square onto the sphere. */
 export const STARBASE_PLATE_SEGS = 48;
