@@ -51,9 +51,16 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tplus-000227-enginebay.jpg` | T+00:02:27 | Engine bay Raptor IDs, approaching STAGE SEP | Engine bay | Gridfin |
 | `tplus-000235-postsep-hull-s40.jpg` | T+00:02:35 | Post-sep engine bay (Raptor IDs) just after STAGE SEP | Engine bay | Gridfin |
 | `tplus-000237-postsep-hull-s40.jpg` | T+00:02:37 | Post-sep S40 hull, Earth limb + booster trail | Ship hull-cam | Fin |
+| `tplus-000240-postsep-hull-vent.jpg` | T+00:02:40 | Post-sep S40 hull, side vent plume, Earth limb | Ship hull-cam | Fin |
+| `tplus-000250-postsep-hull-s40.jpg` | T+00:02:50 | Post-sep S40 hull, sun glare, ship engines lit | Ship hull-cam | Fin |
 | `tplus-000253-postsep-ice.jpg` | T+00:02:53 | Ice crystals / vent sparkle, S40 | Ship hull-cam | Fin |
+| `tplus-000300-split-postsep.jpg` | T+00:03:00 | Split: engines over Earth + S40 hull | Split engine / hull | Gridfin + fin |
 | `tplus-000310-split-postsep.jpg` | T+00:03:10 | Booster looking at ship engines + S40 hull | Split booster / ship | Gridfin + fin |
 | `tplus-000353-split-booster-engines.jpg` | T+00:03:53 | Booster aft engines over Earth + S40 | Split engine / hull | Gridfin |
+| `tplus-000400-split-engines-hull.jpg` | T+00:04:00 | Split: booster engines + S40 hull over ocean | Split engine / hull | Gridfin + fin |
+| `tplus-000410-booster-hull-earth.jpg` | T+00:04:10 | Booster hull hardware over deep ocean / clouds | Booster onboard | Gridfin |
+| `tplus-000420-booster-hull-earth.jpg` | T+00:04:20 | Booster hull over ocean, Earth limb, ice fleck | Booster onboard | Gridfin |
+| `tplus-000425-split-engines-gridfin.jpg` | T+00:04:25 | Split: hot engine bay + gridfins over coast | Split engines / gridfin | Gridfin |
 | `tplus-000428-split-enginebay-hull.jpg` | T+00:04:28 | Raptor bells (IDs) + reflective hull / Earth | Split engine bay / hull | Gridfin |
 | `tplus-000453-booster-hull-earth.jpg` | T+00:04:53 | Booster engines + ship hull over ocean/clouds | Split booster / ship | Gridfin + fin |
 | `tplus-000511-booster-gridfin-earth.jpg` | T+00:05:11 | Grid-fin hardware, coast + exhaust trail | Booster onboard | Gridfin |
