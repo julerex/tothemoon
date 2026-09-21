@@ -190,7 +190,7 @@ function addGridFinPivot(fin: THREE.Group, finH: number, mat: THREE.Material): v
   fin.add(pivot);
 }
 
-/** Hydraulic ram, bright root housing, and catch pin (T+5:14 still). */
+/** Hydraulic ram, bright root housing, and catch pin (T+5:11 still). */
 function addGridFinActuator(
   fin: THREE.Group,
   finH: number,

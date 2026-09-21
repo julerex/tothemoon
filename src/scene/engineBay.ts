@@ -9,7 +9,7 @@
  * Scene unit = 1 km. Mesh units match craft.ts (1 unit ≈ 40 m before scale).
  *
  * @see docs/VISUAL_REALISM.md — V18 / V22
- * @see assets/flight13-webcast/ — T+2:21, T+4:32–5:50 stills
+ * @see assets/flight13-webcast/ — T+2:21, T+4:28–5:50 stills
  */
 
 import * as THREE from "three";

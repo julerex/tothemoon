@@ -1,12 +1,12 @@
 /**
  * Raptor 3 bell mesh (theater-grade).
  *
- * Flight 13 engines-cam stills (T+4:32, T+5:50) show longitudinal cooling-
+ * Flight 13 engines-cam stills (T+4:28, T+5:50) show longitudinal cooling-
  * channel fluting, an unshrouded Raptor 3 powerhead, and a sooted interior.
  * Shared maps so 33 booster bells stay cheap.
  *
  * @see docs/VISUAL_REALISM.md — V22
- * @see assets/flight13-webcast/ — T+4:32–5:50 stills
+ * @see assets/flight13-webcast/ — T+4:28–5:50 stills
  */
 
 import * as THREE from "three";

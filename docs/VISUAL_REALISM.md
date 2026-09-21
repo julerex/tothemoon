@@ -390,8 +390,8 @@ later FX sit on a hull that already reads as S40.
 | T−42 pad wide, T−2 ignition, T+0 liftoff | Opaque ground-hugging cryo/deluge steam, engine orange in the cloud, chopsticks open | V3 multi-tier steam sprites — thinner, less self-shadowed | V14 |
 | T+16 tracking + engines-down, T+56 max-Q hull | **Pink-magenta** atmospheric plume, ice/frost shed, Boca Chica under haze | `BOOSTER_ATMO` rim is orange `[1, 0.45, 0.18]`; condensation cloud only | V14 |
 | T+2:38–8:21 hull / SECO / coast (`S40`) | Hexagonal TPS, oil-canning stainless, **S40** stencil, Earth limb | **V13** hex TPS + S40 + oil-canning; Earth limb is V2 / V19 | V13 |
-| T+2:21 hot-stage split, T+4:32–5:50 engine bay | Raptor bells + MLI foil, stencil IDs, fisheye, lens dirt/flare | Exterior bells only; no bay interior or onboard post | V18 |
-| T+5:14 gridfin-Earth, T+6:26–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | **V19** gated LEO clouds + glitter (Earth-cam stays cloudless); Gulf plate glitter is V17 | V17 / V19 |
+| T+2:21 hot-stage split, T+4:28–5:50 engine bay | Raptor bells + MLI foil, stencil IDs, fisheye, lens dirt/flare | Exterior bells only; no bay interior or onboard post | V18 |
+| T+5:11 gridfin-Earth, T+6:25–6:40 SH over ocean | Craft shadow on clouds, ocean **sun-glint** glitter path | **V19** gated LEO clouds + glitter (Earth-cam stays cloudless); Gulf plate glitter is V17 | V17 / V19 |
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
 | T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, white experiment tiles, pink landing plume | **V13** heat-tint / hex / white experiment tiles; **V14** pink landing plume | V13 / V14 / V15 |
@@ -641,7 +641,7 @@ booster. Flight 13 Super Heavy is **V3** (Booster 20, 33 Raptor 3):
   square waffle), ~4 m face, **horizontal at launch**, ram + catch pin
 - **B20** leeward stencil (pair to S40)
 
-**Done when:** gridfin / engines-cam at T+4:32–5:50 shows fluted bells and a
+**Done when:** gridfin / engines-cam at T+4:28–5:50 shows fluted bells and a
 bright bay instead of smooth cones; pad / booster-hull-cam reads three V3 fins
 and B20. No bake.
 
@@ -724,7 +724,7 @@ legs.
 ## V25 — Launch exhaust stream + Mechazilla lattice — **done 2026-08-25**
 
 Look targets: `tplus-000016-ascent-tracking.jpg` (collimated pink shaft),
-`tplus-000000-liftoff-pad.jpg` (hot punch in steam), `tminus-000500-pad-hold-wide.jpg`
+`tminus-000000-liftoff-pad.jpg` (hot punch in steam), `tminus-000500-pad-hold-wide.jpg`
 and `tminus-000200-full-stack.jpg` (open tower + T chopsticks).
 
 ### V25.1 Axial exhaust stream
