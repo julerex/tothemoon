@@ -34,6 +34,10 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
 | `tplus-000017-ascent-plume.jpg` | T+00:00:17 | Ascent plume over coast / Gulf from above | Aerial / tracking | Chase |
 | `tplus-000029-ascent-hull-plumes.jpg` | T+00:00:29 | S40 hull + tiles, pink plumes over Boca Chica coast | Onboard hull / down | Chase / fin |
+| `tplus-000035-ascent-hull-plumes.jpg` | T+00:00:35 | S40 hull + tiles, orange plume over coast | Onboard hull / down | Chase / fin |
+| `tplus-000040-ascent-hull-plumes.jpg` | T+00:00:40 | S40 hull + tiles, plume shadow on beach / lagoons | Onboard hull / down | Chase / fin |
+| `tplus-000045-ascent-hull-plumes.jpg` | T+00:00:45 | S40 hull + tiles, pink-orange plume over Gulf coast | Onboard hull / down | Chase / fin |
+| `tplus-000050-ascent-hull-plumes.jpg` | T+00:00:50 | S40 hull + tiles, plume over beach approaching Max Q | Onboard hull / down | Chase / fin |
 | `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Chase / fin |
 | `tplus-000214-prestage-split.jpg` | T+00:02:14 | Pre hot-stage, engine bay + S40 hull | Split engine / hull | Gridfin + fin |
 | `tplus-000221-hotstage-split.jpg` | T+00:02:21 | Hot-staging, engine glow + S40 over Earth | Split engine / hull | Gridfin + fin |
