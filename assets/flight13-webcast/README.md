@@ -33,6 +33,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tplus-000008-liftoff-aerial.jpg` | T+00:00:08 | Top-down pad, stack clearing steam, orange engine glow | Aerial pad / coastline | Launchpad Drone |
 | `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
 | `tplus-000017-ascent-plume.jpg` | T+00:00:17 | Ascent plume over coast / Gulf from above | Aerial / tracking | Chase |
+| `tplus-000029-ascent-hull-plumes.jpg` | T+00:00:29 | S40 hull + tiles, pink plumes over Boca Chica coast | Onboard hull / down | Chase / fin |
 | `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Chase / fin |
 | `tplus-000214-prestage-split.jpg` | T+00:02:14 | Pre hot-stage, engine bay + S40 hull | Split engine / hull | Gridfin + fin |
 | `tplus-000221-hotstage-split.jpg` | T+00:02:21 | Hot-staging, engine glow + S40 over Earth | Split engine / hull | Gridfin + fin |
