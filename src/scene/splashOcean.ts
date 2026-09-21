@@ -16,6 +16,7 @@
 
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
+import { SPLASH_WATERLINE_ALT_KM } from "../physics/flight13Attitude";
 import { FLIGHT13_SPLASH_LAT } from "../physics/flight13Corridor";
 import { geocentricRadiusAt } from "../physics/wgs84";
 import { drapePlatePoint } from "./starbasePlate";
@@ -225,10 +226,12 @@ export function createSplashOcean(): SplashOcean {
   const outerMat = makeOceanMaterial(map, ripple, 0);
   const chopMat = makeOceanMaterial(map, ripple, 1);
   const outer = makeOceanMesh(
-    SPLASH_OCEAN_MESH, SPLASH_OCEAN_RADIUS_KM, OUTER_SEGS, outerMat, 0.001,
+    SPLASH_OCEAN_MESH, SPLASH_OCEAN_RADIUS_KM, OUTER_SEGS, outerMat,
+    SPLASH_WATERLINE_ALT_KM - 0.0004,
   );
   const chop = makeOceanMesh(
-    SPLASH_OCEAN_CHOP_MESH, SPLASH_OCEAN_CHOP_RADIUS_KM, CHOP_SEGS, chopMat, 0.0014,
+    SPLASH_OCEAN_CHOP_MESH, SPLASH_OCEAN_CHOP_RADIUS_KM, CHOP_SEGS, chopMat,
+    SPLASH_WATERLINE_ALT_KM,
   );
   group.add(outer, chop);
   group.visible = false;

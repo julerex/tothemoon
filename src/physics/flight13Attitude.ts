@@ -42,8 +42,11 @@ function landingAttitude(t: number): ShipAttitudeMode | null {
 /** Starship barrel radius (km). Engine origin sits this far from the belly. */
 export const SHIP_BARREL_RADIUS_KM = 4.5 / 1000;
 
-/** Visual waterline above the shared 50 m surface shell (km). */
-export const SPLASH_WATERLINE_ALT_KM = 0.001;
+/**
+ * Visual waterline above the shared 50 m surface shell (km).
+ * Matches the inner splash-ocean chop plate (`splashOcean.ts`).
+ */
+export const SPLASH_WATERLINE_ALT_KM = 0.0014;
 
 /** Seconds after splash to finish the tip-over onto the belly. */
 export const SPLASH_LIE_S = 2.5;
@@ -59,15 +62,41 @@ export function splashLieBlend(t: number): number {
 }
 
 /**
- * Geocentric radius (km) of the engine origin while floating on the WGS84
- * splash site. Upright: engines at the waterline. Lying: belly slightly in the water.
+ * Extra radial height (km) of the engine origin above the local waterline.
+ * Upright: 0 (engines on the water). Lying: a fraction of the barrel radius
+ * so the belly rests in the water instead of the centerline.
+ */
+export function splashFloatLiftKm(t: number): number {
+  return SHIP_BARREL_RADIUS_KM * 0.28 * splashLieBlend(t);
+}
+
+/**
+ * Geocentric radius (km) of the engine origin on the local sea.
+ *
+ * `surfaceRadiusKm` is the ellipsoid + {@link EARTH_SURFACE_ALT_KM} along the
+ * craft's own ray. Do not substitute the published-buoy radius — a 1° latitude
+ * miss is hundreds of meters, and the hull then hangs above the water.
+ *
+ * @param waveKm - Splash-plate swell + chop at the hull (km), same sign as the sea mesh
+ */
+export function splashSeatRadiusAlong(
+  surfaceRadiusKm: number,
+  t: number,
+  waveKm = 0,
+): number {
+  return surfaceRadiusKm + SPLASH_WATERLINE_ALT_KM + waveKm + splashFloatLiftKm(t);
+}
+
+/**
+ * Geocentric radius (km) at the published splash latitude.
+ * The flown splash is not this buoy; seat the hull with {@link splashSeatRadiusAlong}.
  */
 export function splashFloatRadiusKm(t: number): number {
   const water = geocentricRadiusAt(
     FLIGHT13_SPLASH_LAT,
     EARTH_SURFACE_ALT_KM + SPLASH_WATERLINE_ALT_KM,
   );
-  return water + SHIP_BARREL_RADIUS_KM * 0.28 * splashLieBlend(t);
+  return water + splashFloatLiftKm(t);
 }
 
 /**

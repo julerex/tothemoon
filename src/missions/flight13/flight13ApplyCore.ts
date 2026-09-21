@@ -3,14 +3,15 @@
 import { bodyPositions } from "../../physics/bodies";
 import { EARTH_SURFACE_ALT_KM, STARBASE_ALT } from "../../physics/constants";
 import { earthNorthPole, starbasePadState } from "../../physics/earthFrame";
-import { splashFloatRadiusKm } from "../../physics/flight13Attitude";
+import { splashSeatRadiusAlong } from "../../physics/flight13Attitude";
+import { oceanChopHeightKm, oceanSwellHeightKm } from "../../scene/terminalFx";
 import { sampleAtProgress } from "../../physics/trajectoryCache";
 import type { PhaseId } from "../../physics/missionTypes";
 import {
   physicsTToSampleU,
   transportUToPhysicsT,
 } from "../../mission/prelaunch";
-import { clampAboveEllipsoid } from "../../physics/wgs84";
+import { clampAboveEllipsoid, earthSurfaceRadiusAlong } from "../../physics/wgs84";
 import { setCraftEarthRadius } from "../../mission/frameDerive";
 import type { F13Ctx } from "./bootstrap";
 
@@ -67,10 +68,18 @@ export function clampCraft(
   const lifted = clampAboveEllipsoid(ctx.craftPos, b.earth, _north, EARTH_SURFACE_ALT_KM);
   ctx.craftPos.set(lifted.x, lifted.y, lifted.z);
   if (phase === "splashdown") {
+    const t = Math.max(0, physicsT);
+    const rel = {
+      x: ctx.craftPos.x - b.earth.x,
+      y: ctx.craftPos.y - b.earth.y,
+      z: ctx.craftPos.z - b.earth.z,
+    };
+    const wave = oceanSwellHeightKm(0, 0, t) + oceanChopHeightKm(0, 0, t);
+    const surface = earthSurfaceRadiusAlong(rel, _north, EARTH_SURFACE_ALT_KM);
     const seated = setCraftEarthRadius(
       ctx.craftPos,
       b.earth,
-      splashFloatRadiusKm(Math.max(0, physicsT)),
+      splashSeatRadiusAlong(surface, t, wave),
     );
     ctx.craftPos.set(seated.x, seated.y, seated.z);
   }

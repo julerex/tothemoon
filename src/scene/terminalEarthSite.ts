@@ -1,7 +1,10 @@
 /** Earth-fixed terminal site factory. */
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
-import { geodeticToEllipsoidMeshLocal } from "../physics/wgs84";
+import {
+  ellipsoidRadiusAtGeocentricLat,
+  geodeticToEllipsoidMeshLocal,
+} from "../physics/wgs84";
 import {
   createSiteBeacon,
   createSiteDisc,
@@ -19,6 +22,22 @@ import { createSplashOcean, createWeatherClouds } from "./splashWeather";
 import { beaconPulseOpacity } from "./terminalFx";
 
 const MESH_UP = new THREE.Vector3(0, 1, 0);
+const _seaLocal = new THREE.Vector3();
+const _seaDir = new THREE.Vector3();
+
+/**
+ * Park `obj` on the shared surface shell along a mesh-local ray.
+ * Local +Y stays radial so ocean-plate offsets stay vertical.
+ */
+function placeOnRadial(obj: THREE.Object3D, meshLocal: THREE.Vector3): void {
+  const r = meshLocal.length();
+  if (!(r > 1e-6)) return;
+  const sinLat = Math.max(-1, Math.min(1, meshLocal.y / r));
+  const radius = ellipsoidRadiusAtGeocentricLat(Math.asin(sinLat)) + EARTH_SURFACE_ALT_KM;
+  obj.position.copy(meshLocal).multiplyScalar(radius / r);
+  _seaDir.copy(obj.position).normalize();
+  obj.quaternion.setFromUnitVectors(MESH_UP, _seaDir);
+}
 
 /**
  * Position and orient a site group at a geodetic point on the Earth mesh, with
@@ -76,6 +95,11 @@ export type EarthTerminalSite = Readonly<{
   setOceanPlate: (opacity: number, missionT?: number) => void;
   /** Set weather-deck opacity [0, 1] (no-op when clouds were not requested). */
   setWeatherClouds: (opacity: number) => void;
+  /**
+   * Put the sunlit sea (and weather deck) on the craft's surface ray.
+   * The beacon stays on the published fix; the flown splash is not that buoy.
+   */
+  seatSea: (craftWorld: THREE.Vector3) => void;
 }>;
 
 function paintGlitterCanvas(): THREE.CanvasTexture {
@@ -140,8 +164,14 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
   const glitter = spec.oceanGlitter ? createOceanGlitterSprites() : null;
   const ocean = spec.sunlitOcean ? createSplashOcean() : null;
   const clouds = spec.weatherClouds ? createWeatherClouds() : null;
-  if (ocean) site.add(ocean.group);
-  if (clouds) site.add(clouds.group);
+  const sea = ocean || clouds ? new THREE.Group() : null;
+  if (sea) {
+    sea.name = `${spec.name}-sea`;
+    if (ocean) sea.add(ocean.group);
+    if (clouds) sea.add(clouds.group);
+    placeSiteOnEarth(sea, spec.lat, spec.lon);
+    group.add(sea);
+  }
   site.add(
     createSiteRing(spec.ring),
     beacon,
@@ -184,6 +214,15 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
     setWeatherClouds(opacity) {
       if (!clouds) return;
       clouds.setOpacity(opacity);
+    },
+    seatSea(craftWorld) {
+      if (!sea) return;
+      const parent = group.parent;
+      if (!parent) return;
+      parent.updateWorldMatrix(true, false);
+      _seaLocal.copy(craftWorld);
+      parent.worldToLocal(_seaLocal);
+      placeOnRadial(sea, _seaLocal);
     },
   });
 }

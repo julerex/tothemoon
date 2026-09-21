@@ -93,6 +93,7 @@ export function createSplashFx(): SplashFx {
         return;
       }
       site.pulseBeacon(craftPos);
+      site.seatSea(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
       site.setOceanPlate(derived.ocean, missionT);

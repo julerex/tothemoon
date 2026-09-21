@@ -15,8 +15,10 @@ import {
   plasmaBankOffset,
   shipAttitudeMode,
   splashFloatBob,
+  splashFloatLiftKm,
   splashFloatRadiusKm,
   splashLieBlend,
+  splashSeatRadiusAlong,
   SHIP_BARREL_RADIUS_KM,
   SPLASH_WATERLINE_ALT_KM,
 } from "./flight13Attitude.ts";
@@ -90,6 +92,19 @@ describe("splashLieBlend / splashFloatRadiusKm", () => {
     assert.ok(Math.abs(up - water) < 1e-9);
     assert.ok(down > up);
     assert.ok(down - up < SHIP_BARREL_RADIUS_KM * 0.4);
+  });
+
+  it("seats on the local surface radius, not the published-buoy radius", () => {
+    const lat = (-20.04 * Math.PI) / 180;
+    const local = geocentricRadiusAt(lat, EARTH_SURFACE_ALT_KM);
+    const t = F13_ATT.SPLASH + 4;
+    const seat = splashSeatRadiusAlong(local, t, 0);
+    assert.ok(Math.abs(seat - local - SPLASH_WATERLINE_ALT_KM - splashFloatLiftKm(t)) < 1e-9);
+    assert.ok(seat - local < SHIP_BARREL_RADIUS_KM);
+    assert.ok(
+      Math.abs(splashFloatRadiusKm(t) - seat) > 0.15,
+      "a 1° latitude miss must not be applied as a world radius",
+    );
   });
 });
 
