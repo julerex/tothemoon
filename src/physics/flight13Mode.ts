@@ -3,16 +3,15 @@ import { ATM_H_MAX_KM, HOT_STAGE_S, MU_EARTH, R_EARTH } from "./constants";
 import { getBodies } from "./integrator";
 import type { PhaseId } from "./missionTypes";
 import { fuelShipFrac, stageBooster } from "./propellant";
-import { dot, len, normalize, set, sub } from "./vec3";
+import { dot, len, set, sub } from "./vec3";
 import {
   F13,
   SECO_ALT_MIN_KM,
   SECO_VCIRC_FRAC,
   SECO_VRAD_MAX,
   SHIP_PROP_RESERVE,
-  splashSurfaceInertial,
 } from "./flight13Timeline";
-import { _horiz, _relP, _relV, _tmp2, _tmp3 } from "./flight13Scratch";
+import { _horiz, _relP, _relV } from "./flight13Scratch";
 import type { F13Loop } from "./flight13Types";
 
 function hotStageDone(loop: F13Loop): boolean {
@@ -49,7 +48,6 @@ export function advanceFlight13Mode(loop: F13Loop, alt: number): void {
   if (loop.mode === "upper") maybeSeco(loop, alt);
   advanceRelightWindow(loop);
   maybeStartLand(loop, alt);
-  if (loop.state.t >= F13.SPLASH + 5) loop.mode = "idle";
 }
 
 type SecoGeom = { vRad: number; vHoriz: number; vCirc: number };
@@ -91,22 +89,17 @@ function maybeSeco(loop: F13Loop, alt: number): void {
   if (secoShouldCut(loop, alt, secoGeom(loop))) loop.mode = "idle";
 }
 
-function landStartRangeKm(loop: F13Loop): { vRel: number; rangeKm: number } {
-  const t = loop.state.t;
-  const bL = getBodies(t, loop.epoch);
+function landStartSpeed(loop: F13Loop): number {
+  const bL = getBodies(loop.state.t, loop.epoch);
   sub(_relV, loop.state.vel, bL.earthVel);
-  const splash = splashSurfaceInertial(t, _tmp2, loop.epoch);
-  sub(_relP, loop.state.pos, bL.earth);
-  normalize(_tmp3, _relP);
-  const ang = Math.acos(Math.min(1, Math.max(-1, dot(_tmp3, splash))));
-  return { vRel: len(_relV), rangeKm: ang * R_EARTH };
+  return len(_relV);
 }
 
-function shouldStartLand(t: number, alt: number, vRel: number, rangeKm: number): boolean {
-  if (rangeKm > 280) return false;
-  // Webcast landing burn is ~1.2 km at T+1:05:02 — do not light at 12 km.
-  if (t >= F13.LAND_BURN && alt < 3.2) return true;
-  if (alt < 2.2 && vRel < 0.28 && t >= F13.LAND_BURN - 40) return true;
+function shouldStartLand(t: number, alt: number, vRel: number): boolean {
+  // Light in the last kilometre. A higher gate spends the burn in a slow
+  // powered descent and misses the webcast altitude knots.
+  if (t >= F13.LAND_BURN && alt < 0.9) return true;
+  if (alt < 0.9 && vRel < 0.28 && t >= F13.LAND_BURN - 40) return true;
   return false;
 }
 
@@ -115,8 +108,7 @@ function maybeStartLand(loop: F13Loop, alt: number): void {
   const t = loop.state.t;
   if (loop.mode === "land" || loop.mode === "relight") return;
   if (t < F13.ENTRY - 90) return;
-  const g = landStartRangeKm(loop);
-  if (shouldStartLand(t, alt, g.vRel, g.rangeKm)) loop.mode = "land";
+  if (shouldStartLand(t, alt, landStartSpeed(loop))) loop.mode = "land";
 }
 
 /** HUD phase id from time / mode / altitude. */

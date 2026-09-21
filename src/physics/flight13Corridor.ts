@@ -1,9 +1,11 @@
 /**
  * Flight 13 launch corridor (mesh-local great-circle plane).
  *
- * Same Starbase → Gauteng → Indian Ocean section as the Earth GC view.
- * Used for ascent steering so the short geodetic path to splash (west across
- * the Pacific) is not mistaken for the operational eastward corridor.
+ * The plane is the unique great circle through Starbase and Gauteng, oriented
+ * eastward. There is no splash aim point: the ship meets the water where this
+ * corridor and the force model put it. Used for ascent steering so the short
+ * geodetic path west across the Pacific is not mistaken for the operational
+ * eastward corridor.
  */
 
 import { STARBASE_LAT, STARBASE_LON } from "./constants";
@@ -27,21 +29,6 @@ import {
   v3,
 } from "./vec3";
 
-/**
- * Indian Ocean splash, northwest of Western Australia.
- *
- * Flight 13 has no surveyed buoy in the public recap. This is the published
- * Flight 11 McDowell fix (19°S 107°E) for the same Starbase → Indian Ocean
- * family; Spaceflight Now placed Flight 13 “northwest of Australia”. Ship 40
- * later drifted and was towed ~500 miles / 24 days to Christmas Island
- * (~10.4°S 105.6°E) — that harbor is not the splash fix. Not a GPS tag of
- * Ship 40.
- */
-export const FLIGHT13_SPLASH_LAT_DEG = -19;
-export const FLIGHT13_SPLASH_LON_DEG = 107;
-export const FLIGHT13_SPLASH_LAT = (FLIGHT13_SPLASH_LAT_DEG * Math.PI) / 180;
-export const FLIGHT13_SPLASH_LON = (FLIGHT13_SPLASH_LON_DEG * Math.PI) / 180;
-
 /** Johannesburg / Gauteng province (rad) — corridor waypoint. */
 export const GAUTENG_LAT = (-26.2041 * Math.PI) / 180;
 export const GAUTENG_LON = (28.0473 * Math.PI) / 180;
@@ -50,12 +37,10 @@ export const GAUTENG_LON = (28.0473 * Math.PI) / 180;
 export type Flight13CorridorPlane = {
   /** Starbase radial projected into the plane. */
   u: V3;
-  /** 90° along GC toward splashdown (eastward corridor). */
+  /** 90° along GC, eastward through Gauteng. */
   v: V3;
   /** Plane normal. */
   n: V3;
-  /** Central angle Starbase → splashdown along the corridor (rad). */
-  splashAngleRad: number;
 };
 
 const _tmp = v3();
@@ -77,18 +62,6 @@ function flipV3(v: V3): V3 {
   return v3(-v.x, -v.y, -v.z);
 }
 
-function bestFitNormal(s: V3, g: V3, splash: V3): V3 {
-  cross(_tmp, s, g);
-  cross(_tmp2, g, splash);
-  cross(_tmp3, splash, s);
-  const nRaw = v3(
-    _tmp.x + _tmp2.x + _tmp3.x,
-    _tmp.y + _tmp2.y + _tmp3.y,
-    _tmp.z + _tmp2.z + _tmp3.z,
-  );
-  return normalize(v3(), nRaw);
-}
-
 function projectStarbaseU(s: V3, n: V3): V3 {
   const sn = dot(s, n);
   const uRaw = v3(s.x - n.x * sn, s.y - n.y * sn, s.z - n.z * sn);
@@ -102,12 +75,9 @@ function reorthonormalizeUV(u: V3, v: V3): { u: V3; v: V3; n: V3 } {
   return { u, v: normalize(v3(), _tmp3), n };
 }
 
-function planeBasisFromSites(
-  s: V3,
-  g: V3,
-  splash: V3,
-): { u: V3; v: V3; n: V3 } {
-  const n = bestFitNormal(s, g, splash);
+function planeBasisFromSites(s: V3, g: V3): { u: V3; v: V3; n: V3 } {
+  cross(_tmp, s, g);
+  const n = normalize(v3(), _tmp);
   const u = projectStarbaseU(s, n);
   cross(_tmp, n, u);
   return { u, v: normalize(v3(), _tmp), n };
@@ -128,28 +98,15 @@ function orientPlaneTowardGauteng(
   return { u, v, n };
 }
 
-function unwrapSplashAngle(splash: V3, u: V3, v: V3, g: V3): number {
-  const gAng = Math.atan2(dot(g, v), dot(g, u));
-  let splashAngleRad = Math.atan2(dot(splash, v), dot(splash, u));
-  while (splashAngleRad < gAng) splashAngleRad += 2 * Math.PI;
-  if (splashAngleRad - gAng > Math.PI && splashAngleRad - 2 * Math.PI > 0) {
-    const alt = splashAngleRad - 2 * Math.PI;
-    if (alt >= gAng * 0.5) splashAngleRad = alt;
-  }
-  return splashAngleRad;
-}
-
 function computeGreatCirclePlane(): Flight13CorridorPlane {
   const s = siteUnit(STARBASE_LAT, STARBASE_LON, v3());
   const g = siteUnit(GAUTENG_LAT, GAUTENG_LON, v3());
-  const splash = siteUnit(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, v3());
-  let { u, v, n } = planeBasisFromSites(s, g, splash);
+  let { u, v, n } = planeBasisFromSites(s, g);
   ({ u, v, n } = orientPlaneTowardGauteng(u, v, n, g));
   return {
     u: Object.freeze(u),
     v: Object.freeze(v),
     n: Object.freeze(n),
-    splashAngleRad: unwrapSplashAngle(splash, u, v, g),
   };
 }
 
@@ -160,8 +117,8 @@ function computeGreatCirclePlane(): Flight13CorridorPlane {
 const GREAT_CIRCLE_PLANE: Flight13CorridorPlane = Object.freeze(computeGreatCirclePlane());
 
 /**
- * Best-fit great-circle plane through Starbase, Gauteng, and splashdown
- * (mesh-local, Earth-fixed). Oriented Starbase → Gauteng → landing.
+ * Great-circle plane through Starbase and Gauteng (mesh-local, Earth-fixed).
+ * Oriented Starbase → Gauteng, eastward.
  */
 export function flight13GreatCirclePlane(): Flight13CorridorPlane {
   return GREAT_CIRCLE_PLANE;

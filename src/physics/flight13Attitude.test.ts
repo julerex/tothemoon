@@ -16,14 +16,12 @@ import {
   shipAttitudeMode,
   splashFloatBob,
   splashFloatLiftKm,
-  splashFloatRadiusKm,
   splashLieBlend,
   splashSeatRadiusAlong,
   SHIP_BARREL_RADIUS_KM,
   SPLASH_WATERLINE_ALT_KM,
 } from "./flight13Attitude.ts";
 import { EARTH_SURFACE_ALT_KM } from "./constants.ts";
-import { FLIGHT13_SPLASH_LAT } from "./flight13Corridor.ts";
 import { geocentricRadiusAt } from "./wgs84.ts";
 
 describe("shipAttitudeMode", () => {
@@ -74,7 +72,7 @@ describe("splashFloatBob", () => {
   });
 });
 
-describe("splashLieBlend / splashFloatRadiusKm", () => {
+describe("splashLieBlend / splashSeatRadiusAlong", () => {
   it("is upright at splash and fully down after the tip-over", () => {
     assert.equal(splashLieBlend(F13_ATT.SPLASH), 0);
     assert.equal(splashLieBlend(F13_ATT.SPLASH + 3), 1);
@@ -83,28 +81,22 @@ describe("splashLieBlend / splashFloatRadiusKm", () => {
   });
 
   it("seats engines at the waterline, then lifts the origin as the hull lies down", () => {
-    const up = splashFloatRadiusKm(F13_ATT.SPLASH);
-    const down = splashFloatRadiusKm(F13_ATT.SPLASH + 4);
-    const water = geocentricRadiusAt(
-      FLIGHT13_SPLASH_LAT,
-      EARTH_SURFACE_ALT_KM + SPLASH_WATERLINE_ALT_KM,
-    );
-    assert.ok(Math.abs(up - water) < 1e-9);
+    const surface = 6371;
+    const up = splashSeatRadiusAlong(surface, F13_ATT.SPLASH, 0);
+    const down = splashSeatRadiusAlong(surface, F13_ATT.SPLASH + 4, 0);
+    assert.ok(Math.abs(up - surface - SPLASH_WATERLINE_ALT_KM) < 1e-9);
     assert.ok(down > up);
     assert.ok(down - up < SHIP_BARREL_RADIUS_KM * 0.4);
   });
 
-  it("seats on the local surface radius, not the published-buoy radius", () => {
-    const lat = (-20.04 * Math.PI) / 180;
-    const local = geocentricRadiusAt(lat, EARTH_SURFACE_ALT_KM);
+  it("uses the caller’s surface radius, so a latitude miss cannot lift the hull", () => {
+    const a = geocentricRadiusAt((-20 * Math.PI) / 180, EARTH_SURFACE_ALT_KM);
+    const b = geocentricRadiusAt((-21 * Math.PI) / 180, EARTH_SURFACE_ALT_KM);
+    assert.ok(Math.abs(a - b) > 0.15, "1° of latitude is hundreds of meters of radius");
     const t = F13_ATT.SPLASH + 4;
-    const seat = splashSeatRadiusAlong(local, t, 0);
-    assert.ok(Math.abs(seat - local - SPLASH_WATERLINE_ALT_KM - splashFloatLiftKm(t)) < 1e-9);
-    assert.ok(seat - local < SHIP_BARREL_RADIUS_KM);
-    assert.ok(
-      Math.abs(splashFloatRadiusKm(t) - seat) > 0.15,
-      "a 1° latitude miss must not be applied as a world radius",
-    );
+    const seat = splashSeatRadiusAlong(a, t, 0);
+    assert.ok(Math.abs(seat - a - SPLASH_WATERLINE_ALT_KM - splashFloatLiftKm(t)) < 1e-9);
+    assert.ok(seat - a < SHIP_BARREL_RADIUS_KM);
   });
 });
 

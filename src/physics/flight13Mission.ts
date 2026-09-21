@@ -8,13 +8,12 @@
  * no Moon/Sun) — used to cross-check that third-body terms stay small on a
  * ~1 h suborbital arc.
  *
- * Ascent follows the Earth-fixed Starbase → Gauteng → splash corridor
- * with a modest out-of-plane pull toward the inertial plane through the
- * pad at liftoff and the splash site at {@link F13.SPLASH}. Flying the
- * rotating GC alone and then coasting inertial left the ship ~5° north of
- * the site; the landing burn then hooked ~120° south. A full intercept
+ * Ascent follows the Earth-fixed Starbase → Gauteng great circle, with a
+ * modest out-of-plane pull onto that same plane in inertial axes at liftoff.
+ * There is no splash aim point. Flying the rotating GC alone and then
+ * coasting inertial left the ship north of the corridor; a full intercept
  * insert overshoots east onto Australia, so the blend keeps the original
- * loft and only slides latitude into the Indian Ocean.
+ * loft and only slides the ground track onto the corridor.
  *
  * Profile (theater-grade, not ops — but intentionally more ballistic):
  * - Gravity-turn ascent + hot-stage in the intercept plane
@@ -26,16 +25,12 @@
  *   Indian Ocean without a longitude teleport.
  * - Entry: piecewise US76-ish density, altitude-varying CdA / L/D (theater
  *   bounded) and a light bank back onto the intercept plane — no powered cruise
- * - Landing burn brakes near the splash fix; splash is a sub-km floor at the
- *   flown lat/lon (no published-fix seat, no clock-forced splash)
+ * - Landing burn is retrograde plus an up-hold. It does not steer at a ground
+ *   point. Splash is a sub-km floor at the flown lat/lon (no clock-forced splash)
  * - After splash the ship stays Earth-fixed on the ocean through {@link F13.END}
  *   (T+1:10) so the theater can hold a sea-level drone shot
- *
- * Splash coordinates are the published Flight 11 Indian Ocean fix
- * (19°S 107°E, northwest of Western Australia) — not a surveyed Flight 13 buoy.
  */
 
-export { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "./flight13Corridor";
-export { F13, splashSurfaceInertial, firstSplashdownT } from "./flight13Timeline";
+export { F13, firstSplashdownT } from "./flight13Timeline";
 export type { Flight13MissionOptions } from "./flight13Types";
 export { runFlight13Mission } from "./flight13Run";

@@ -12,10 +12,10 @@ import {
   projectSiteToPlane,
   siteUnit,
   suborbitalArcPoints,
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
   GAUTENG_LAT,
   GAUTENG_LON,
+  AUSTRALIA_LAT,
+  AUSTRALIA_LON,
 } from "./earthGreatCircle.ts";
 import { STARBASE_LAT, STARBASE_LON } from "../physics/constants.ts";
 import { len } from "../physics/vec3.ts";
@@ -34,11 +34,11 @@ describe("flight13GreatCirclePlane", () => {
     assert.ok(Math.abs(vn) < 1e-9, `v·n ${vn}`);
   });
 
-  it("places splashdown at a large positive corridor angle", () => {
+  it("runs eastward from Starbase through Gauteng", () => {
     const p = flight13GreatCirclePlane();
-    // Texas → west of Australia is well over a quarter-turn (may unwrap past π)
-    assert.ok(p.splashAngleRad > Math.PI / 2, `angle ${p.splashAngleRad}`);
-    assert.ok(p.splashAngleRad < Math.PI * 1.2, `angle ${p.splashAngleRad}`);
+    const g = projectSiteToPlane(GAUTENG_LAT, GAUTENG_LON, p);
+    assert.ok(g.angleRad > 0.3 && g.angleRad < Math.PI, `ang ${g.angleRad}`);
+    assert.ok(g.offPlaneKm < 1, `Gauteng off-plane ${g.offPlaneKm} km`);
   });
 });
 
@@ -47,40 +47,33 @@ describe("projectSiteToPlane", () => {
     const plane = flight13GreatCirclePlane();
     const pr = projectSiteToPlane(STARBASE_LAT, STARBASE_LON, plane);
     assert.ok(Math.abs(pr.angleRad) < 1e-6, `angle ${pr.angleRad}`);
-    // Three-site best-fit: residual is hundreds of km, not zero
-    assert.ok(pr.offPlaneKm < 800, `off ${pr.offPlaneKm}`);
+    assert.ok(pr.offPlaneKm < 1, `off ${pr.offPlaneKm}`);
     assert.ok(Math.abs(Math.hypot(pr.surface.x, pr.surface.y) - R_EARTH) < 1e-6);
   });
 
-  it("puts splashdown on the corridor at plane.splashAngleRad", () => {
+  it("places Australia past Gauteng on the eastward corridor", () => {
     const plane = flight13GreatCirclePlane();
-    const pr = projectSiteToPlane(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, plane);
-    assert.ok(pr.offPlaneKm < 800, `off ${pr.offPlaneKm}`);
-    assert.ok(Math.abs(pr.angleRad - plane.splashAngleRad) < 1e-6);
-  });
-
-  it("projects Gauteng between Starbase and splash on the corridor", () => {
-    const plane = flight13GreatCirclePlane();
-    const pr = projectSiteToPlane(GAUTENG_LAT, GAUTENG_LON, plane);
-    assert.ok(pr.offPlaneKm < 800, `Gauteng off-plane ${pr.offPlaneKm} km`);
-    assert.ok(pr.angleRad > 0.3 && pr.angleRad < plane.splashAngleRad, `ang ${pr.angleRad}`);
+    const g = projectSiteToPlane(GAUTENG_LAT, GAUTENG_LON, plane);
+    const a = projectSiteToPlane(AUSTRALIA_LAT, AUSTRALIA_LON, plane);
+    assert.ok(a.angleRad > g.angleRad, `Australia ${a.angleRad} vs Gauteng ${g.angleRad}`);
+    assert.ok(a.angleRad < Math.PI * 1.6, `Australia angle ${a.angleRad}`);
   });
 });
 
 describe("buildFlight13EarthGcModel", () => {
-  it("includes Starbase, Gauteng, Landing, Australia labels", () => {
+  it("includes Starbase, Gauteng, Indian Ocean, and Australia labels", () => {
     const m = buildFlight13EarthGcModel();
     const ids = new Set(m.labels.map((l) => l.id));
     assert.ok(ids.has("starbase"));
     assert.ok(ids.has("gauteng"));
-    assert.ok(ids.has("landing"));
+    assert.ok(ids.has("indian-ocean"));
     assert.ok(ids.has("australia"));
   });
 
-  it("orders sites Starbase → Gauteng → Landing → Australia along the GC", () => {
+  it("orders sites Starbase → Gauteng → Indian Ocean → Australia along the GC", () => {
     const m = buildFlight13EarthGcModel();
     const order = labelAngleOrder(m);
-    assert.deepEqual(order, ["starbase", "gauteng", "landing", "australia"]);
+    assert.deepEqual(order, ["starbase", "gauteng", "indian-ocean", "australia"]);
   });
 
   it("frames the full Earth with atmosphere margin", () => {
@@ -92,7 +85,7 @@ describe("buildFlight13EarthGcModel", () => {
 });
 
 describe("suborbitalArcPoints", () => {
-  it("starts at Starbase surface and ends near splash surface", () => {
+  it("starts at Starbase surface and ends at the Australia angle", () => {
     const m = buildFlight13EarthGcModel();
     const arc = suborbitalArcPoints(m, 48);
     assert.ok(arc.length >= 2);

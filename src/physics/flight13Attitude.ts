@@ -5,11 +5,8 @@
  * Mesh convention (see craft.ts): local +Z = nose, −Z = engines, +Y ≈ windward tiles.
  */
 
-import { EARTH_SURFACE_ALT_KM } from "./constants";
-import { FLIGHT13_SPLASH_LAT } from "./flight13Corridor";
 import { F13_ATT } from "./flight13Timeline";
 import type { PhaseId } from "./missionTypes";
-import { geocentricRadiusAt } from "./wgs84";
 
 export { F13_ATT } from "./flight13Timeline";
 
@@ -73,9 +70,9 @@ export function splashFloatLiftKm(t: number): number {
 /**
  * Geocentric radius (km) of the engine origin on the local sea.
  *
- * `surfaceRadiusKm` is the ellipsoid + {@link EARTH_SURFACE_ALT_KM} along the
- * craft's own ray. Do not substitute the published-buoy radius — a 1° latitude
- * miss is hundreds of meters, and the hull then hangs above the water.
+ * `surfaceRadiusKm` is the ellipsoid plus the 50 m surface shell along the
+ * craft's own ray. A radius taken at another latitude is hundreds of meters
+ * off here, and the hull then hangs above the water.
  *
  * @param waveKm - Splash-plate swell + chop at the hull (km), same sign as the sea mesh
  */
@@ -85,18 +82,6 @@ export function splashSeatRadiusAlong(
   waveKm = 0,
 ): number {
   return surfaceRadiusKm + SPLASH_WATERLINE_ALT_KM + waveKm + splashFloatLiftKm(t);
-}
-
-/**
- * Geocentric radius (km) at the published splash latitude.
- * The flown splash is not this buoy; seat the hull with {@link splashSeatRadiusAlong}.
- */
-export function splashFloatRadiusKm(t: number): number {
-  const water = geocentricRadiusAt(
-    FLIGHT13_SPLASH_LAT,
-    EARTH_SURFACE_ALT_KM + SPLASH_WATERLINE_ALT_KM,
-  );
-  return water + splashFloatLiftKm(t);
 }
 
 /**

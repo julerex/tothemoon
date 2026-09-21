@@ -1,12 +1,4 @@
-/** Flight 13 timeline anchors and splash surface helper. */
-import type { EphemerisEpoch } from "./ephemerisEpoch";
-import { geodeticToMeshLocal, meshLocalToInertial } from "./earthFrame";
-import { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "./flight13Corridor";
-import type { V3 } from "./vec3";
-import { normalize, v3 } from "./vec3";
-import { _splashLocal } from "./flight13Scratch";
-
-export { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "./flight13Corridor";
+/** Flight 13 timeline anchors. */
 
 /** Official approximate T+ anchors (s) from Flight 13 profile. */
 export const F13 = {
@@ -44,21 +36,6 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** Unit surface radial at splash site (inertial) at mission time t. */
-export function splashSurfaceInertial(
-  t: number,
-  out: V3 = v3(),
-  epoch?: EphemerisEpoch,
-): V3 {
-  geodeticToMeshLocal(
-    FLIGHT13_SPLASH_LAT,
-    FLIGHT13_SPLASH_LON,
-    1,
-    _splashLocal,
-  );
-  meshLocalToInertial(_splashLocal, t, out, epoch);
-  return normalize(out, out);
-}
 export function firstSplashdownT(
   samples: readonly { phase: string; t: number }[],
 ): number {

@@ -59,10 +59,14 @@ export type EarthTerminalSiteSpec = Readonly<{
   name: string;
   lat: number;
   lon: number;
-  ring: SiteRingSpec;
-  beacon: SiteBeaconSpec;
-  disc: SiteDiscSpec;
-  label: SiteLabelSpec;
+  /**
+   * Ring, beacon, disc, and label. Omit at splash: a 10 km beacon fills the
+   * recovery drone, and the ship itself is the surface marker.
+   */
+  ring?: SiteRingSpec;
+  beacon?: SiteBeaconSpec;
+  disc?: SiteDiscSpec;
+  label?: SiteLabelSpec;
   layers: TerminalLayersSpec;
   /** Cheap ocean sun-glint sprites (V17 splash / Gulf). */
   oceanGlitter?: boolean;
@@ -96,8 +100,8 @@ export type EarthTerminalSite = Readonly<{
   /** Set weather-deck opacity [0, 1] (no-op when clouds were not requested). */
   setWeatherClouds: (opacity: number) => void;
   /**
-   * Put the sunlit sea (and weather deck) on the craft's surface ray.
-   * The beacon stays on the published fix; the flown splash is not that buoy.
+   * Put the sunlit sea (and weather deck) on the craft's surface ray so the
+   * local water matches the hull's latitude.
    */
   seatSea: (craftWorld: THREE.Vector3) => void;
 }>;
@@ -158,11 +162,11 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
   const group = new THREE.Group();
   group.name = spec.name;
   const site = new THREE.Group();
-  const beacon = createSiteBeacon(spec.beacon);
-  const beaconMat = beacon.material as THREE.MeshBasicMaterial;
+  const beacon = spec.beacon ? createSiteBeacon(spec.beacon) : null;
+  const beaconMat = beacon ? (beacon.material as THREE.MeshBasicMaterial) : null;
   const layers = createTerminalLayers(spec.layers);
   const glitter = spec.oceanGlitter ? createOceanGlitterSprites() : null;
-  const ocean = spec.sunlitOcean ? createSplashOcean() : null;
+  const ocean = spec.sunlitOcean ? createSplashOcean(spec.lat) : null;
   const clouds = spec.weatherClouds ? createWeatherClouds() : null;
   const sea = ocean || clouds ? new THREE.Group() : null;
   if (sea) {
@@ -172,13 +176,11 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
     placeSiteOnEarth(sea, spec.lat, spec.lon);
     group.add(sea);
   }
-  site.add(
-    createSiteRing(spec.ring),
-    beacon,
-    createSiteDisc(spec.disc),
-    createSiteLabel(spec.label),
-    ...layers.objects,
-  );
+  if (spec.ring) site.add(createSiteRing(spec.ring));
+  if (beacon) site.add(beacon);
+  if (spec.disc) site.add(createSiteDisc(spec.disc));
+  if (spec.label) site.add(createSiteLabel(spec.label));
+  site.add(...layers.objects);
   if (glitter) site.add(glitter.group);
   placeSiteOnEarth(site, spec.lat, spec.lon);
   group.add(site);
@@ -192,6 +194,7 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
       site.visible = visible;
     },
     pulseBeacon(craftPos) {
+      if (!beaconMat || !spec.beacon) return;
       site.getWorldPosition(world);
       beaconMat.opacity = beaconPulseOpacity(
         performance.now(),

@@ -1,5 +1,5 @@
 /** Surface clamp, splash snap, float hold, and mission finalize. */
-import { EARTH_SURFACE_ALT_KM, R_EARTH } from "./constants";
+import { EARTH_SURFACE_ALT_KM } from "./constants";
 import {
   EARTH_SPIN_RATE,
   earthNorthPole,
@@ -13,11 +13,10 @@ import { downsampleTrajectory } from "./missionDownsample";
 import type { MissionResult, PhaseId } from "./missionTypes";
 import { burnForce, coastProp, createPropState } from "./propellant";
 import { deriveTrajectoryMeta } from "./trajectoryMeta";
-import { cross, dot, len, normalize, set, sub, type V3, v3, clone } from "./vec3";
-import { FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON } from "./flight13Corridor";
+import { cross, dot, len, set, sub, type V3, v3, clone } from "./vec3";
 import { makeFlight13Epoch } from "./flight13Epoch";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
-import { F13, FLOAT_DT_S, firstSplashdownT, splashSurfaceInertial } from "./flight13Timeline";
+import { F13, FLOAT_DT_S, firstSplashdownT } from "./flight13Timeline";
 import { _relP, _relV, _splashLocal, _tmp, _tmp2, _tmp3 } from "./flight13Scratch";
 import type { F13Loop, Flight13MissionOptions } from "./flight13Types";
 import { pushSample } from "./flight13Types";
@@ -96,27 +95,48 @@ function bookFlight13Prop(loop: F13Loop): void {
   if (loop.lastThrustN < 1e-3) coastProp(loop.prop, loop.state.t);
 }
 
-/** Snap to splash / under-craft surface and push terminal sample. */
-function splashRangeKm(loop: F13Loop, surf: V3): { L: number; curAlt: number; vRel: number; rangeKm: number } {
+/** Altitude and Earth-relative speed at the craft. */
+function splashState(loop: F13Loop): { curAlt: number; vRel: number } {
   const b = getBodies(loop.state.t, loop.epoch);
   sub(_relP, loop.state.pos, b.earth);
-  const L = len(_relP) || 1;
   sub(_relV, loop.state.vel, b.earthVel);
   earthNorthPole(_tmp);
-  const ang = Math.acos(Math.min(1, Math.max(-1, dot(normalize(_tmp3, _relP), surf))));
-  return { L, curAlt: radialHeightAboveEllipsoid(_relP, _tmp), vRel: len(_relV), rangeKm: ang * R_EARTH };
+  return { curAlt: radialHeightAboveEllipsoid(_relP, _tmp), vRel: len(_relV) };
 }
 
-function geodeticOf(loop: F13Loop): { lat: number; lon: number } {
-  const b = getBodies(loop.state.t, loop.epoch);
-  sub(_relP, loop.state.pos, b.earth);
-  inertialRelToMeshLocal(_relP, loop.state.t, _tmp, loop.epoch);
-  const r = len(_tmp) || 1;
-  const lat = Math.asin(Math.max(-1, Math.min(1, _tmp.y / r)));
-  let lon = Math.atan2(_tmp.z, -_tmp.x) - Math.PI;
+/**
+ * Geodetic latitude and longitude (rad) of an inertial position.
+ * Longitude is east-positive, wrapped to (−π, π].
+ */
+export function inertialGeodetic(
+  t: number,
+  pos: { x: number; y: number; z: number },
+  epoch: EphemerisEpoch,
+): { lat: number; lon: number } {
+  const b = getBodies(t, epoch);
+  const rel = v3(pos.x - b.earth.x, pos.y - b.earth.y, pos.z - b.earth.z);
+  const mesh = v3();
+  inertialRelToMeshLocal(rel, t, mesh, epoch);
+  const r = len(mesh) || 1;
+  const lat = Math.asin(Math.max(-1, Math.min(1, mesh.y / r)));
+  let lon = Math.atan2(mesh.z, -mesh.x) - Math.PI;
   while (lon > Math.PI) lon -= 2 * Math.PI;
   while (lon < -Math.PI) lon += 2 * Math.PI;
   return { lat, lon };
+}
+
+/** Geodetic of the first splashdown sample, or the last sample if none. */
+export function firstSplashGeodetic(
+  samples: readonly { t: number; phase: string; pos: { x: number; y: number; z: number } }[],
+  epoch: EphemerisEpoch,
+): { lat: number; lon: number } {
+  const s = samples.find((x) => x.phase === "splashdown") ?? samples[samples.length - 1];
+  if (!s) return { lat: 0, lon: 0 };
+  return inertialGeodetic(s.t, s.pos, epoch);
+}
+
+function geodeticOf(loop: F13Loop): { lat: number; lon: number } {
+  return inertialGeodetic(loop.state.t, loop.state.pos, loop.epoch);
 }
 
 function placeAtGeodetic(loop: F13Loop, lat: number, lon: number, altKm: number): void {
@@ -140,7 +160,7 @@ function placeFloating(loop: F13Loop): void {
   placeAtGeodetic(loop, loop.floatLat, loop.floatLon, 0);
 }
 
-function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>): boolean {
+function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashState>): boolean {
   if (loop.state.t < F13.LAND_BURN - 20) return false;
   // geo.vRel is ECI (includes ~0.4 km/s Earth rotation on the deck).
   return geo.curAlt < 0.22 && geo.vRel < 0.55;
@@ -148,8 +168,7 @@ function naturalSplashDone(loop: F13Loop, geo: ReturnType<typeof splashRangeKm>)
 
 function trySplashdown(loop: F13Loop): boolean {
   if (loop.splashed) return false;
-  const surf = splashSurfaceInertial(loop.state.t, _tmp, loop.epoch);
-  const geo = splashRangeKm(loop, surf);
+  const geo = splashState(loop);
   if (!naturalSplashDone(loop, geo)) return false;
   snapSplash(loop);
   loop.splashed = true;
@@ -231,7 +250,7 @@ function emptyF13Loop(epoch: EphemerisEpoch, gravity: GravityModel): F13Loop {
     state: padLiftoffState(epoch), samples: [], prop: createPropState(0), epoch,
     mode: "boost", hotStageT0: -1, lastThrustN: 0, lastBoostN: 0, lastShipN: 0,
     thrAcc: v3(), accelOpts: { gravity, epoch }, splashed: false, splashT: 0,
-    floatLat: FLIGHT13_SPLASH_LAT, floatLon: FLIGHT13_SPLASH_LON,
+    floatLat: 0, floatLon: 0,
     interceptN: makeInterceptNormal(epoch),
   };
 }

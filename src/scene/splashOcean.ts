@@ -17,7 +17,6 @@
 import * as THREE from "three";
 import { EARTH_SURFACE_ALT_KM } from "../physics/constants";
 import { SPLASH_WATERLINE_ALT_KM } from "../physics/flight13Attitude";
-import { FLIGHT13_SPLASH_LAT } from "../physics/flight13Corridor";
 import { geocentricRadiusAt } from "../physics/wgs84";
 import { drapePlatePoint } from "./starbasePlate";
 import {
@@ -176,7 +175,7 @@ function makeOceanMaterial(
   });
 }
 
-function drapeOceanGeometry(geo: THREE.BufferGeometry): void {
+function drapeOceanGeometry(geo: THREE.BufferGeometry, radiusKm: number): void {
   const pos = geo.getAttribute("position");
   if (!pos) return;
   const rest = new Float32Array(pos.count * 2);
@@ -185,7 +184,7 @@ function drapeOceanGeometry(geo: THREE.BufferGeometry): void {
     const z = pos.getZ(i);
     rest[i * 2] = x;
     rest[i * 2 + 1] = z;
-    const p = drapePlatePoint(x, z, geocentricRadiusAt(FLIGHT13_SPLASH_LAT, EARTH_SURFACE_ALT_KM));
+    const p = drapePlatePoint(x, z, radiusKm);
     pos.setXYZ(i, p.x, p.y, p.z);
   }
   geo.setAttribute("restXZ", new THREE.BufferAttribute(rest, 2));
@@ -199,10 +198,11 @@ function makeOceanMesh(
   segs: number,
   mat: THREE.ShaderMaterial,
   yKm: number,
+  drapeRadiusKm: number,
 ): THREE.Mesh {
   const geo = new THREE.PlaneGeometry(radiusKm * 2, radiusKm * 2, segs, segs);
   geo.rotateX(-Math.PI / 2);
-  drapeOceanGeometry(geo);
+  drapeOceanGeometry(geo, drapeRadiusKm);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = name;
   mesh.position.y = yKm;
@@ -218,20 +218,21 @@ function makeOceanMesh(
  * Sunlit splash sea: wide textured plate + inner chop mesh.
  * Starts hidden; {@link SplashOcean.setFrame} opens it near the surface.
  */
-export function createSplashOcean(): SplashOcean {
+export function createSplashOcean(latRad = 0): SplashOcean {
   const group = new THREE.Group();
   group.name = "splash-ocean";
+  const drapeRadiusKm = geocentricRadiusAt(latRad, EARTH_SURFACE_ALT_KM);
   const map = makeCanvasTex(512, paintSunlitOcean, false);
   const ripple = makeCanvasTex(128, paintRippleTile, true);
   const outerMat = makeOceanMaterial(map, ripple, 0);
   const chopMat = makeOceanMaterial(map, ripple, 1);
   const outer = makeOceanMesh(
     SPLASH_OCEAN_MESH, SPLASH_OCEAN_RADIUS_KM, OUTER_SEGS, outerMat,
-    SPLASH_WATERLINE_ALT_KM - 0.0004,
+    SPLASH_WATERLINE_ALT_KM - 0.0004, drapeRadiusKm,
   );
   const chop = makeOceanMesh(
     SPLASH_OCEAN_CHOP_MESH, SPLASH_OCEAN_CHOP_RADIUS_KM, CHOP_SEGS, chopMat,
-    SPLASH_WATERLINE_ALT_KM,
+    SPLASH_WATERLINE_ALT_KM, drapeRadiusKm,
   );
   group.add(outer, chop);
   group.visible = false;

@@ -7,6 +7,8 @@ import {loadFlight13Trajectory,computeFlight13Trajectory,type Trajectory} from "
 import {applyFlight13Epoch} from "../../physics/flight13Epoch";
 import {compareFlight13ToEarthOnly,formatForceCompareLine} from "../../physics/flight13ForceCompare";
 import {firstSplashdownT} from "../../physics/flight13Mission";
+import {firstSplashGeodetic} from "../../physics/flight13Splash";
+import {setSplashOceanDir} from "../../scene/earthAtmosphere";
 import {hasHorizonsEpoch,horizonsSource} from "../../physics/horizonsEpoch";
 import {EARTH_SPIN_RATE,earthNorthPole} from "../../physics/earthFrame";
 import {createMoonPathThroughSim,createMoonRelativeOrbit,createScene} from "../../scene/createScene";
@@ -192,7 +194,9 @@ export function mountSplashEntry(
   bodies: ReturnType<typeof createBodies>,
   craft: THREE.Group,
 ) {
-  const splashFx = createSplashFx();
+  const splashGeo = firstSplashGeodetic(cache.samples, cache.epoch);
+  setSplashOceanDir(splashGeo.lat, splashGeo.lon);
+  const splashFx = createSplashFx(splashGeo.lat, splashGeo.lon);
   splashFx.setSplashTime(firstSplashdownT(cache.samples));
   bodies.earth.add(splashFx.group);
   const gulfLandFx = createGulfLandFx();

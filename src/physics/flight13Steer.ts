@@ -1,14 +1,19 @@
 /** Corridor steering, intercept plane, and throttle tables. */
-import { BOOSTER_THRUST_N, EARTH_SURFACE_ALT_KM, MU_EARTH, R_EARTH, SHIP_THRUST_N } from "./constants";
-import { corridorAlongAt } from "./flight13Corridor";
-import { EARTH_SPIN_RATE, earthNorthPole, starbasePadState } from "./earthFrame";
+import { BOOSTER_THRUST_N, MU_EARTH, R_EARTH, SHIP_THRUST_N } from "./constants";
+import { corridorAlongAt, flight13GreatCirclePlane } from "./flight13Corridor";
+import {
+  EARTH_SPIN_RATE,
+  earthNorthPole,
+  meshLocalToInertial,
+  starbasePadState,
+} from "./earthFrame";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
-import { earthSurfaceRadiusAlong, radialHeightAboveEllipsoid } from "./wgs84";
+import { radialHeightAboveEllipsoid } from "./wgs84";
 import { getBodies } from "./integrator";
 import type { Tank } from "./propellant";
 import { cross, dot, len, normalize, set, sub, type V3, v3 } from "./vec3";
-import { F13, SECO_ALT_MIN_KM, SECO_VCIRC_FRAC, splashSurfaceInertial, smoothstep } from "./flight13Timeline";
-import { _along, _horiz, _relP, _relV, _tmp, _tmp2, _tmp3, _up } from "./flight13Scratch";
+import { F13, SECO_ALT_MIN_KM, SECO_VCIRC_FRAC, smoothstep } from "./flight13Timeline";
+import { _along, _horiz, _relP, _relV, _tmp, _tmp2, _up } from "./flight13Scratch";
 import type { BurnMode, SteerGeo } from "./flight13Types";
 
 /** Radial/horizontal geometry about Earth; fills `_up`, `_relV`, `_horiz`. */
@@ -28,18 +33,17 @@ function fillEarthRelGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): {
 }
 
 /**
- * Inertial plane through the pad at liftoff and the splash site at
- * {@link F13.SPLASH}. Oriented so the pad tangent matches the eastward
- * Earth-fixed corridor.
+ * Inertial copy of the Starbase–Gauteng corridor normal at liftoff.
+ * Oriented so the pad tangent matches the eastward Earth-fixed corridor.
  */
 export function makeInterceptNormal(epoch: EphemerisEpoch): V3 {
   const pad = starbasePadState(0, epoch);
   const b0 = getBodies(0, epoch);
+  const plane = flight13GreatCirclePlane();
+  meshLocalToInertial(plane.n, 0, _tmp2, epoch);
+  const n = normalize(v3(), _tmp2);
   sub(_relP, pad.pos, b0.earth);
   normalize(_relP, _relP);
-  splashSurfaceInertial(F13.SPLASH, _tmp2, epoch);
-  cross(_tmp3, _relP, _tmp2);
-  const n = normalize(v3(), _tmp3);
   cross(_along, n, _relP);
   corridorAlongAt(0, pad.pos, _tmp, epoch);
   if (dot(_along, _tmp) < 0) {
@@ -76,9 +80,9 @@ export function interceptAlongAt(
 
 /**
  * Corridor heading plus a pull onto the intercept plane. Full intercept
- * steering circularizes on a shallower plane and skips past 107°E; a
- * modest out-of-plane blend keeps the original loft and slides latitude
- * south toward the splash site.
+ * steering circularizes on a shallower plane and runs on into Australia; a
+ * modest out-of-plane blend keeps the original loft and holds the ground
+ * track on the Starbase–Gauteng great circle.
  */
 function blendAlongIntercept(
   t: number,
@@ -128,23 +132,6 @@ function fillSteerFrame(
   };
 }
 
-/** Vector from craft to surface point at radius `rSurf` along unit `surf`. */
-function aimToSurfPoint(pos: V3, earth: V3, surf: V3, rSurf: number, out: V3): number {
-  set(out, earth.x + surf.x * rSurf - pos.x, earth.y + surf.y * rSurf - pos.y, earth.z + surf.z * rSurf - pos.z);
-  const d = len(out);
-  if (d > 1e-6) normalize(out, out);
-  return d;
-}
-
-/** Landing burn aim direction (writes unit aim into `_tmp3`). */
-function fillSplashAim(t: number, pos: V3, epoch: EphemerisEpoch): number {
-  const splash = splashSurfaceInertial(t, _tmp2, epoch);
-  const bL = getBodies(t, epoch);
-  earthNorthPole(_tmp);
-  const rSurf = earthSurfaceRadiusAlong(splash, _tmp, EARTH_SURFACE_ALT_KM);
-  return aimToSurfPoint(pos, bL.earth, splash, rSurf, _tmp3);
-}
-
 function fillGroundRelVel(pos: V3, vel: V3, earth: V3, earthVel: V3): void {
   sub(_relP, pos, earth);
   earthNorthPole(_tmp);
@@ -158,17 +145,9 @@ function fillGroundRelVel(pos: V3, vel: V3, earth: V3, earthVel: V3): void {
   );
 }
 
-function steerLandBrake(out: V3, distSplash: number, alt: number): void {
+function steerLandBrake(out: V3, alt: number): void {
   const v = len(_relV);
   set(out, -_relV.x / v, -_relV.y / v, -_relV.z / v);
-  // Only nibble toward the site in the last tens of km. A 500 km
-  // landing-burn divert is the late hook on the Earth-fixed trail.
-  if (distSplash <= 40) {
-    const w = Math.min(0.4, (40 - distSplash) / 90);
-    out.x = out.x * (1 - w) + _tmp3.x * w;
-    out.y = out.y * (1 - w) + _tmp3.y * w;
-    out.z = out.z * (1 - w) + _tmp3.z * w;
-  }
   // Hold against g while killing the last hundreds of km/h — a pure
   // retrograde burn from 1 km falls through the landing HUD shots.
   if (alt < 2.4) {
@@ -185,13 +164,7 @@ function steerLand(
 ): void {
   const bL = getBodies(t, epoch);
   fillGroundRelVel(pos, vel, bL.earth, bL.earthVel);
-  const distSplash = fillSplashAim(t, pos, epoch);
-  if (len(_relV) > 0.08) { steerLandBrake(out, distSplash, alt); return; }
-  if (alt > 0.4) {
-    set(out, _up.x * 0.35 + _tmp3.x * 0.65, _up.y * 0.35 + _tmp3.y * 0.65, _up.z * 0.35 + _tmp3.z * 0.65);
-    normalize(out, out);
-    return;
-  }
+  if (len(_relV) > 0.08) { steerLandBrake(out, alt); return; }
   set(out, _up.x, _up.y, _up.z);
 }
 

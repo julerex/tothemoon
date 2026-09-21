@@ -239,7 +239,7 @@ Several upgrades and experiments related to Starship’s heatshield will also be
 
 Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon): baked RK4 pack `src/data/flight13-trajectory.json`, pad/craft/staging FX, cameras, HUD scrubber. Phases: launch → ascent → coast → entry → descent → splashdown (float hold). Rebuild with `npm run precompute:flight13`.
 
-**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Indian Ocean corridor; pure free coast (no altitude-hold glide); single-engine **relight demo** (~10 s; public table ~12 s); high-AoA belly drag/lift + bank toward splash; landing burn only after aero has bled speed; splash when dynamics arrive near 19°S 107°E (no longitude teleport). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Public recovery later towed intact Ship 40 ~500 miles / 24 days to Christmas Island — the theater does not follow that tow. Not ops ephemerides.
+**Ship path (theater-grade, ballistic-first):** near-circular upper-stage insert along the Starbase → Gauteng great circle; pure free coast (no altitude-hold glide); single-engine **relight demo** (~10 s; public table ~12 s); high-AoA belly drag/lift + bank onto that corridor; landing burn only after aero has bled speed, retrograde with an up-hold (no ground aim point); splash where the force model meets the Indian Ocean (no longitude teleport, no published buoy). After splash the ship stays **Earth-fixed on the ocean** through **T+1:10:00**, watched by a low sea-level **recovery drone** (webcast analog). Public recovery later towed intact Ship 40 ~500 miles / 24 days to Christmas Island — the theater does not follow that tow. Not ops ephemerides.
 
 **Epoch / lighting:** mission t = 0 is the flown liftoff **2026-07-24 22:51 UTC** (5:51 p.m. CDT). Analytic Earth/Sun (not the July 2027 Horizons table); `sunPhase0` is the USNO solar longitude at that UTC — no theater sun-phase offset. Splash at T+1:05:21 is **2026-07-24 23:56 UTC**, a southern-winter morning at the Indian Ocean site (sun a few degrees up). Starbase is in afternoon sun. Sun directional light is unit-scale aimed at Earth each frame (`applySunLight`).
 
@@ -259,7 +259,7 @@ Theater whole-Earth cross-section plane is a **best-fit great circle** through:
 |------|-------------------------------|
 | Starbase | 25.9968°N, 97.1581°W (OLP-2 OLM) |
 | Gauteng (Johannesburg) | 26.20°S, 28.05°E |
-| Indian Ocean splashdown | 19°S, 107°E (NW of Western Australia; Flight 11 McDowell analog, not a surveyed Flight 13 buoy). Ship 40 stayed intact, tipped onto the heat shield, and after ~24 days was towed ~500 miles to Christmas Island (~10.4°S 105.6°E) — that harbor is not the splash fix. |
+| Indian Ocean splashdown | Where the Starbase → Gauteng corridor and the force model meet the sea, west of Australia, in morning daylight. Flight 13 has no surveyed buoy; do not aim at the Flight 11 19°S 107°E fix. Ship 40 stayed intact, tipped onto the heat shield, and after ~24 days was towed ~500 miles to Christmas Island (~10.4°S 105.6°E) — that harbor is not the splash. |
 | Australia (label) | 25.27°S, 133.78°E |
 
 Open from Flight 13 briefing (**Earth great circle**) or the theater **Earth GC** button / **Tab** cycle.

@@ -1,9 +1,9 @@
 /**
  * Whole-Earth great-circle cross-section (black & white, true scale).
  *
- * Flight 13 corridor: plane through Starbase and the Indian Ocean splashdown
- * zone; labels for Starbase, Gauteng, landing, and Australia projected onto
- * that great circle. Pure helpers are scrub-safe; canvas draw is live.
+ * Flight 13 corridor: the Starbase–Gauteng great circle, with labels for
+ * Starbase, Gauteng, the Indian Ocean, and Australia. Pure helpers are
+ * scrub-safe; canvas draw is live.
  */
 
 export type {
@@ -23,8 +23,6 @@ export {
   corridorAngleRad,
   fitEarthGcView,
   FLIGHT13_SITES,
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
   flight13GreatCirclePlane,
   GAUTENG_LAT,
   GAUTENG_LON,

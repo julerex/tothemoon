@@ -2,15 +2,11 @@
  * Golden bands for the baked Flight 13 trajectory pack — pins mission shape so
  * physics refactors (wave 6 module split) cannot silently drift.
  *
- * Covers: phase order, duration band, splash geodesy, sample count bands.
+ * Covers: phase order, duration band, splash time, sample count bands.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import packed from "../data/flight13-trajectory.json";
-import {
-  FLIGHT13_SPLASH_LAT_DEG,
-  FLIGHT13_SPLASH_LON_DEG,
-} from "./flight13Corridor.ts";
 import { F13 } from "./flight13Mission.ts";
 import type { PhaseId } from "./missionTypes.ts";
 
@@ -29,11 +25,6 @@ const GOLDEN = {
   /** First splash sample (natural dynamics, not clock-forced). */
   splashT: 3921,
   splashTTol: 45,
-  /** Splash site geodesy (published Flight 11 IO fix). */
-  splashLatDeg: FLIGHT13_SPLASH_LAT_DEG,
-  splashLonDeg: FLIGHT13_SPLASH_LON_DEG,
-  splashLatTolDeg: 8,
-  splashLonTolDeg: 12,
   /** Post-splash float hold through T+1:10. */
   floatHoldMinS: 200,
 } as const;

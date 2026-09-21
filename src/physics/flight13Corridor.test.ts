@@ -11,6 +11,9 @@ import {
 import {
   corridorAlongAt,
   flight13GreatCirclePlane,
+  GAUTENG_LAT,
+  GAUTENG_LON,
+  siteUnit,
 } from "./flight13Corridor.ts";
 import { makeFlight13Epoch } from "./flight13Epoch.ts";
 import { getBodies } from "./integrator.ts";
@@ -22,7 +25,10 @@ describe("flight13GreatCirclePlane", () => {
     assert.ok(Math.abs(len(p.u) - 1) < 1e-9);
     assert.ok(Math.abs(len(p.v) - 1) < 1e-9);
     assert.ok(Math.abs(len(p.n) - 1) < 1e-9);
-    assert.ok(p.splashAngleRad > Math.PI / 2);
+    const g = siteUnit(GAUTENG_LAT, GAUTENG_LON);
+    assert.ok(Math.abs(dot(g, p.n)) < 1e-9, "Gauteng must lie on the plane");
+    const ang = Math.atan2(dot(g, p.v), dot(g, p.u));
+    assert.ok(ang > 0.3 && ang < Math.PI, `Gauteng angle ${ang}`);
   });
 });
 

@@ -187,15 +187,15 @@ function fillGcLeftReadout(
   ctx: CanvasRenderingContext2D,
   model: EarthGcModel,
 ): void {
-  const splashDeg = (model.plane.splashAngleRad * 180) / Math.PI;
-  const arcKm = model.plane.splashAngleRad * model.rEarth;
+  const endDeg = (model.arcEndRad * 180) / Math.PI;
+  const arcKm = model.arcEndRad * model.rEarth;
   ctx.fillText("Flight 13 · Earth great-circle section", 12, 10);
-  ctx.fillText(splashLine(splashDeg, arcKm), 12, 26);
+  ctx.fillText(corridorLine(endDeg, arcKm), 12, 26);
   ctx.fillText(atmPeakLine(model), 12, 42);
 }
 
-function splashLine(splashDeg: number, arcKm: number): string {
-  return `Starbase → splash  ${splashDeg.toFixed(1)}°  ·  ${fmtArcKm(arcKm)} surface`;
+function corridorLine(endDeg: number, arcKm: number): string {
+  return `Starbase → Australia  ${endDeg.toFixed(1)}°  ·  ${fmtArcKm(arcKm)} surface`;
 }
 
 function atmPeakLine(model: EarthGcModel): string {

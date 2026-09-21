@@ -12,10 +12,6 @@ import * as THREE from "three";
 import { R_EARTH } from "../physics/constants";
 import { geodeticToMeshLocal } from "../physics/earthFrame";
 import { applyWgs84ToGeometry } from "./wgs84Mesh";
-import {
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
-} from "../physics/flight13Corridor";
 
 export type EarthAtmosphere = {
   group: THREE.Group;
@@ -75,9 +71,16 @@ export function splashOceanWeight(
   return t * t * (3 - 2 * t);
 }
 
-function splashDirMeshLocal(): THREE.Vector3 {
-  const p = geodeticToMeshLocal(FLIGHT13_SPLASH_LAT, FLIGHT13_SPLASH_LON, 1);
-  return new THREE.Vector3(p.x, p.y, p.z).normalize();
+/** Mesh-local unit radial the splash-ocean cap brightens around. */
+const splashDir = new THREE.Vector3(0, -1, 0);
+
+/**
+ * Point the globe's dawn ocean lift at the flown splash.
+ * The uniform holds this vector, so a later call updates the shader.
+ */
+export function setSplashOceanDir(lat: number, lon: number): void {
+  const p = geodeticToMeshLocal(lat, lon, 1);
+  splashDir.set(p.x, p.y, p.z).normalize();
 }
 
 /**
@@ -94,7 +97,7 @@ export function applySoftTerminator(material: THREE.MeshStandardMaterial): void 
 function injectEarthSurface(shader: THREE.WebGLProgramParametersWithUniforms): void {
   const cosOuter = splashOceanCapCos(SPLASH_OCEAN_CAP_KM);
   const cosInner = splashOceanCapCos(SPLASH_OCEAN_CAP_KM * 0.35);
-  shader.uniforms.uSplashDir = { value: splashDirMeshLocal() };
+  shader.uniforms.uSplashDir = { value: splashDir };
   shader.uniforms.uSplashCosOuter = { value: cosOuter };
   shader.uniforms.uSplashCosInner = { value: cosInner };
   shader.vertexShader = shader.vertexShader

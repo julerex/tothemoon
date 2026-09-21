@@ -3,10 +3,6 @@
 import type { bodyPositions } from "../../physics/bodies";
 import { EARTH_SURFACE_ALT_KM, R_EARTH, R_MOON } from "../../physics/constants";
 import { groundRelativeSpeedKmS, meshLocalToInertial } from "../../physics/earthFrame";
-import {
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
-} from "../../physics/flight13Mission";
 import type { sampleAtProgress } from "../../physics/trajectoryCache";
 import { geodeticToEllipsoidMeshLocal } from "../../physics/wgs84";
 import {
@@ -104,8 +100,8 @@ export function holdSplashDrone(ctx: F13Ctx, physicsT: number): void {
 
 export function splashWorldPoint(ctx: F13Ctx, simT: number): void {
   geodeticToEllipsoidMeshLocal(
-    FLIGHT13_SPLASH_LAT,
-    FLIGHT13_SPLASH_LON,
+    ctx.splashFx.lat,
+    ctx.splashFx.lon,
     EARTH_SURFACE_ALT_KM,
     ctx.splashMesh,
   );

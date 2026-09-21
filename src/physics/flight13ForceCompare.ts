@@ -4,7 +4,7 @@
  * Re-integrates the same theater profile with `{ gravity: "earth" }` (Earth μ +
  * J₂ + atmosphere/drag, no Moon / solar tide) and compares sample paths at
  * matched mission times. On a ~1 h suborbital arc third-body accelerations are
- * tiny, so large deviations (before the theater landing seat) flag a bug in
+ * tiny, so large deviations (before terminal descent) flag a bug in
  * the shared force model or integrator rather than expected physics.
  *
  * Pure + deterministic (no I/O beyond the mission logger).
@@ -24,10 +24,9 @@ const _d = v3();
 /** Summary of n-body vs Earth-only Flight 13 paths. */
 export type Flight13ForceCompare = {
   /**
-   * Peak |r_nbody − r_earth| over matched samples before the theater
-   * landing seat (km). Descent teleports the ship ~30° onto the sunlit
-   * splash fix; models can enter land a few seconds apart, so that
-   * window is not a force-model signal.
+   * Peak |r_nbody − r_earth| over matched samples before terminal descent
+   * (km). The two models can light the landing burn a few seconds apart, so
+   * that window is not a force-model signal.
    */
   maxPosDevKm: number;
   /** Peak |v_nbody − v_earth| (km/s). */

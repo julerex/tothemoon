@@ -11,8 +11,6 @@ import {
 } from "../physics/constants";
 import {
   flight13GreatCirclePlane,
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
   GAUTENG_LAT,
   GAUTENG_LON,
   siteUnit,
@@ -45,7 +43,7 @@ export type EarthGcSite = {
 export type EarthGcLabel = {
   id: string;
   label: string;
-  /** Angle from Starbase along the GC toward splashdown (rad, −π…π). */
+  /** Angle from Starbase along the GC, eastward (rad). */
   angleRad: number;
   /** Surface point in plane coords (on the Earth circle after projection). */
   surface: PlanePoint;
@@ -65,14 +63,14 @@ export type EarthGcModel = {
   rAtm: number;
   /** Simple suborbital silhouette peak altitude (km). */
   arcPeakAltKm: number;
+  /** Corridor angle where the schematic arc ends (Australia). */
+  arcEndRad: number;
   bounds: EarthGcBounds;
 };
 
 export type { ViewTransform };
 
 export {
-  FLIGHT13_SPLASH_LAT,
-  FLIGHT13_SPLASH_LON,
   GAUTENG_LAT,
   GAUTENG_LON,
   siteUnit,
@@ -95,12 +93,6 @@ export const FLIGHT13_SITES: readonly EarthGcSite[] = [
     label: "Gauteng",
     lat: GAUTENG_LAT,
     lon: GAUTENG_LON,
-  },
-  {
-    id: "landing",
-    label: "Landing",
-    lat: FLIGHT13_SPLASH_LAT,
-    lon: FLIGHT13_SPLASH_LON,
   },
   {
     id: "australia",
@@ -128,9 +120,8 @@ export function corridorAngleRad(
 ): number {
   const p = siteUnit(lat, lon, _tmp);
   let a = Math.atan2(dot(p, plane.v), dot(p, plane.u));
-  const hi = plane.splashAngleRad + Math.PI / 2;
   while (a < -0.25) a += 2 * Math.PI;
-  while (a > hi) a -= 2 * Math.PI;
+  if (a > Math.PI * 1.75) a -= 2 * Math.PI;
   return a;
 }
 
@@ -158,13 +149,37 @@ export function projectSiteToPlane(
 export function buildFlight13EarthGcModel(): EarthGcModel {
   const plane = flight13GreatCirclePlane();
   const rEarth = R_EARTH;
+  const labels = FLIGHT13_SITES.map((s) => siteToLabel(s, plane, rEarth));
+  const gauteng = labels.find((l) => l.id === "gauteng");
+  const australia = labels.find((l) => l.id === "australia");
+  const arcEndRad = australia?.angleRad ?? Math.PI;
+  if (gauteng && australia) {
+    const mid = (gauteng.angleRad + australia.angleRad) / 2;
+    labels.push(labelOnRay("indian-ocean", "Indian Ocean", mid, rEarth));
+  }
   return earthGcModelShell(
     plane,
-    FLIGHT13_SITES.map((s) => siteToLabel(s, plane, rEarth)),
+    labels,
     rEarth,
     R_EARTH + ATM_H_MAX_KM,
     200,
+    arcEndRad,
   );
+}
+
+function labelOnRay(
+  id: string,
+  label: string,
+  angleRad: number,
+  rEarth: number,
+): EarthGcLabel {
+  return {
+    id,
+    label,
+    angleRad,
+    surface: { x: rEarth * Math.cos(angleRad), y: rEarth * Math.sin(angleRad) },
+    offPlaneKm: 0,
+  };
 }
 
 function earthGcModelShell(
@@ -173,12 +188,13 @@ function earthGcModelShell(
   rEarth: number,
   rAtm: number,
   arcPeakAltKm: number,
+  arcEndRad: number,
 ): EarthGcModel {
   return {
     profileId: "flight-13",
     title: "Earth great circle",
     subtitle: GC_SUBTITLE,
-    plane, labels, rEarth, rAtm, arcPeakAltKm,
+    plane, labels, rEarth, rAtm, arcPeakAltKm, arcEndRad,
     bounds: earthGcBounds(rAtm, arcPeakAltKm),
   };
 }
@@ -227,7 +243,7 @@ export function suborbitalArcPoints(
   model: EarthGcModel,
   steps = 96,
 ): PlanePoint[] {
-  const a1 = model.plane.splashAngleRad;
+  const a1 = model.arcEndRad;
   const pts: PlanePoint[] = [];
   for (let i = 0; i <= steps; i++) {
     pts.push(suborbitalPoint(model, a1, i / steps));
