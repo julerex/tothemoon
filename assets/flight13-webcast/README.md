@@ -38,7 +38,12 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tplus-000040-ascent-hull-plumes.jpg` | T+00:00:40 | S40 hull + tiles, plume shadow on beach / lagoons | Onboard hull / down | Chase / fin |
 | `tplus-000045-ascent-hull-plumes.jpg` | T+00:00:45 | S40 hull + tiles, pink-orange plume over Gulf coast | Onboard hull / down | Chase / fin |
 | `tplus-000050-ascent-hull-plumes.jpg` | T+00:00:50 | S40 hull + tiles, plume over beach approaching Max Q | Onboard hull / down | Chase / fin |
+| `tplus-000055-ascent-hull-plumes.jpg` | T+00:00:55 | S40 hull + tiles, pink plumes over coast near Max Q | Onboard hull / down | Chase / fin |
 | `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Chase / fin |
+| `tplus-000058-maxq-engines-down.jpg` | T+00:00:58 | Max Q, engines-down pink plume over coast / Gulf | Onboard engines-down | Trench / engines |
+| `tplus-000115-ascent-hull-plumes.jpg` | T+00:01:15 | S40 hull + tiles, pink plume, past Max Q | Onboard hull / down | Chase / fin |
+| `tplus-000125-ascent-hull-plumes.jpg` | T+00:01:25 | S40 hull + tiles over coast, post–Max Q | Onboard hull / down | Chase / fin |
+| `tplus-000150-ascent-hull-s40.jpg` | T+00:01:50 | S40 hull + tiles, high coast view toward stage sep | Onboard hull / down | Chase / fin |
 | `tplus-000214-prestage-split.jpg` | T+00:02:14 | Pre hot-stage, engine bay + S40 hull | Split engine / hull | Gridfin + fin |
 | `tplus-000221-hotstage-split.jpg` | T+00:02:21 | Hot-staging, engine glow + S40 over Earth | Split engine / hull | Gridfin + fin |
 | `tplus-000235-postsep-hull-s40.jpg` | T+00:02:35 | Post-sep engine bay (Raptor IDs) just after STAGE SEP | Engine bay | Gridfin |
