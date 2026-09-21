@@ -29,6 +29,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
 | `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase / trench |
 | `tplus-000000-liftoff-pad.jpg` | T+00:00:00 | Liftoff, 33 engines lit, orange glow in steam | Pad tracking | Starbase |
+| `tplus-000003-ascent-hull-plume.jpg` | T+00:00:03 | Just after liftoff, booster hull down at pad steam + plume | Booster onboard hull | Gridfin / hull |
 | `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
 | `tplus-000016-ascent-engines-down.jpg` | T+00:00:16 | Looking down engines at pad smoke + Gulf | Onboard engines-down | Trench |
 | `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Chase / fin |
