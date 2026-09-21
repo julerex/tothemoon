@@ -26,6 +26,7 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 | `tminus-000130-engines-up.jpg` | T−00:01:30 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
 | `tminus-000100-pad-hold-wide.jpg` | T−00:01:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000042-pad-hold-wide.jpg` | T−00:00:42 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
 | `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase / trench |
 | `tplus-000000-liftoff-pad.jpg` | T+00:00:00 | Liftoff, 33 engines lit, orange glow in steam | Pad tracking | Starbase |
 | `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
