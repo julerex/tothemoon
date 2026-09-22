@@ -12,6 +12,7 @@ import {
   GRID_FIN_LATTICE_N,
   SHIP_WELD_RING_FRACTIONS,
 } from "./craft.ts";
+import { PAYLOAD_CAM_LOCAL, PAYLOAD_CAM_LOOK_LOCAL, R } from "./craft/dimensions.ts";
 
 describe("V4 craft material layout", () => {
   it("ships denser weld rings for fin-cam readability", () => {
@@ -50,8 +51,20 @@ describe("V4 craft material layout", () => {
       "booster-hull-cam", "booster-hull-cam-look",
       "engines-cam", "engines-cam-look",
       "engines-down-cam", "engines-down-cam-look",
+      "payload-cam", "payload-cam-look",
     ]) {
       assert.ok(names.has(n), n);
     }
+  });
+
+  it("seats the Pez-bay cam outside the leeward skin, looking nose-ward", () => {
+    // Bay pivot is ship-local (0, −0.118, 0.58); the cam sits aft and outboard.
+    assert.ok(PAYLOAD_CAM_LOCAL.y < -R, "outboard of the leeward skin");
+    assert.ok(PAYLOAD_CAM_LOCAL.z < 0.58, "aft of the bay");
+    assert.ok(PAYLOAD_CAM_LOOK_LOCAL.z > PAYLOAD_CAM_LOCAL.z, "looks nose-ward");
+    assert.ok(
+      PAYLOAD_CAM_LOOK_LOCAL.y < PAYLOAD_CAM_LOCAL.y,
+      "tilted outboard so the deploy fan fills the frame",
+    );
   });
 });

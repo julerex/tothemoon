@@ -80,9 +80,13 @@ nonce URL so the load is never a same-document hash change.
 On the menu, `ready` is `false` and mutators return `{ error: "theater not started" }`.
 `ready` also stays false while `#theater-loading` is up (Earth / Moon / star / pad JPEGs).
 
-Camera modes: `sun` `moon` `earth` `booster` `tower` `starbase` `aerial` `trench` `gridfin` `chase` `fin` `hull` `drone` `engines` `enginesDown` `free`.
+Camera modes: `sun` `moon` `earth` `booster` `tower` `starbase` `aerial` `ground1` `tower1cam` `tower2cam` `trench` `gridfin` `chase` `fin` `hull` `payload` `drone` `engines` `enginesDown` `free`.
 
-`setCamera("aerial")` is the Starbase pad flying-drone hover (T− hold wide / `pad-hold-wide`). Auto-cam uses it from T−5:00 until T−4:00, then cuts to Tower One Cam (`tower1cam`) until Ground Camera One at T−2:00.
+`setCamera("aerial")` is the Starbase Launchpad Drone. It is **not a hover**: the eye follows the pad-local flight path in `src/camera/padDrone.ts` (T− tableau → perch ~600 m above the pad for liftoff → back to the tableau), and it tracks the stack while the stack is near the pad, so the lens tilts up as the vehicle climbs past around T+16.
+
+`setCamera("payload")` is the Starship Pez-bay cam (Auto-cam holds it for the Starlink deploy, T+16:46 → T+27:39). `setCamera("tower2cam")` is the OLP-2 peak; Auto-cam pans it with the stack from T+3 to T+8 (webcast tower-down cut), a rail pick holds the fixed pad look-at.
+
+Flight 13 Auto-cam walks one cut per webcast camera: drone wide → Ground Camera One (T−2:00) → flame trench (T−1:46) → drone (T−1:15) → Ground Camera One (T−0:30) → pad tracker (T−0:05) → Tower Two Cam (T+3) → drone perch (T+8) → pad long lens (T+18) → ship hull (T+29) → engines-down (T+58) → ship hull (T+1:15) → engine bay (T+2:04) … see `src/camera/webcastShots.ts`.
 
 `setCamera("booster")` looks at Super Heavy from outside (detached after stage-out). `setCamera("tower")` looks at Mechazilla; WASD pans parallel to the Earth. `setCamera("chase")` is Starship (HUD 🚢).
 

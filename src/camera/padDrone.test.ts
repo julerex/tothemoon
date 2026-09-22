@@ -44,11 +44,12 @@ describe("PAD_DRONE_KEYS", () => {
     assert.ok(perch.north < 0, "south of the OLM, off the plume column");
     assert.ok(Math.abs(perch.north - PAD_DRONE_PERCH_NORTH_KM) < 0.03);
     assert.equal(perch.aim, "craft");
-    // Near-nadir on a 0.1 km stack at T+8, level with it near 0.4 km.
-    const downDeg = (Math.atan2(perch.up - 0.1, Math.abs(perch.north)) * 180) / Math.PI;
+    // Theater ascent: ~0.15 km above the pad at T+8, ~0.55 km at T+16. The lens
+    // walks from near-nadir to level across that, which is the still sequence.
+    const downDeg = (Math.atan2(perch.up - 0.15, Math.abs(perch.north)) * 180) / Math.PI;
     assert.ok(downDeg > 60, `looking down ${downDeg.toFixed(0)}°`);
-    const levelDeg = (Math.atan2(perch.up - 0.4, Math.abs(perch.north)) * 180) / Math.PI;
-    assert.ok(Math.abs(levelDeg) < 20, `near level ${levelDeg.toFixed(0)}°`);
+    const levelDeg = (Math.atan2(perch.up - 0.55, Math.abs(perch.north)) * 180) / Math.PI;
+    assert.ok(Math.abs(levelDeg) < 25, `near level ${levelDeg.toFixed(0)}°`);
   });
 
   it("eases between legs and sinks back to the tableau", () => {

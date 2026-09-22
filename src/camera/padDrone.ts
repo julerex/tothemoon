@@ -67,13 +67,15 @@ export const PAD_DRONE_HOVER: PadDroneKey = Object.freeze({
 });
 
 /**
- * Liftoff perch: ~90 m south of the OLM at ~420 m, so the lens is near-nadir
- * on the stack at T+8 and level with it at T+16 (`ALTITUDE 0.4 KM` on the
- * webcast HUD) — the tilt-up the aerial stills walk through.
+ * Liftoff perch: ~120 m south of the OLM at ~600 m. The lens is near-nadir on
+ * the stack at T+8 (`tplus-000008-liftoff-aerial.jpg`), still looking down at
+ * T+12, and level with it around T+16 where the stills tilt up past the
+ * coastline (`tplus-000016-ascent-plume-coast.jpg`). Height is set from the
+ * theater ascent profile, which climbs a little faster than the webcast HUD.
  */
-export const PAD_DRONE_PERCH_UP_KM = 0.42;
+export const PAD_DRONE_PERCH_UP_KM = 0.6;
 /** South offset of the perch (km) — off the plume column, stack in frame. */
-export const PAD_DRONE_PERCH_NORTH_KM = -0.09;
+export const PAD_DRONE_PERCH_NORTH_KM = -0.12;
 
 /**
  * Drone legs. Between T−45 and T+6 the broadcast is on Ground Camera One and

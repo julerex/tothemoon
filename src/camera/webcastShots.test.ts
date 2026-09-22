@@ -118,7 +118,7 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(webcastShotAt(255).mount, "boosterHull");
     assert.equal(webcastShotAt(270).mode, "engines");
     assert.equal(webcastShotAt(300).mount, "boosterHull");
-    assert.equal(webcastShotAt(315).mount, "gridfin");
+    assert.equal(webcastShotAt(315).mount, "boosterHull");
     assert.equal(webcastShotAt(340).mode, "engines");
     assert.equal(webcastShotAt(390).mount, "boosterHull");
     assert.equal(webcastShotAt(420).mode, "hull", "T+6:50 back on the ship");

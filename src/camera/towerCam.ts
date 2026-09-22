@@ -44,6 +44,12 @@ export const TOWER1_CAM_LOOK_LOCAL = { x: 0, y: 0.058, z: 0 } as const;
 /** Close look down the chopsticks from the launch tower. */
 export const TOWER2_CAM_FOV = 58;
 /**
+ * Wide lens for the panning tower-down cut. The stack clears the deck ~25 m
+ * out, so 58° is all hull; the T+3 → T+7 stills keep tower steel and the
+ * coastline around it.
+ */
+export const TOWER2_DOWN_FOV = 78;
+/**
  * Wide elevated lens matching the T−4 pad-hold still (stack + tower +
  * coastline). Same class as the pad flying drone.
  */
@@ -65,6 +71,38 @@ export function isTowerCamFocus(
  * is a speck, so the mount goes back to its fixed pad look-at.
  */
 export const TOWER_TRACK_MAX_KM = 6;
+
+/**
+ * Aim lift above the craft origin (km) while the stack is still below the
+ * deck: near the ship, so the lens holds the barrel the T+3 still shows
+ * instead of pointing down through the parked chopsticks.
+ */
+export const TOWER_TRACK_LOOK_UP_HIGH_KM = 0.09;
+/** Aim lift once the stack is level with the deck — just above the engines. */
+export const TOWER_TRACK_LOOK_UP_LOW_KM = 0.02;
+/** Craft-below-deck span (km) the lift blends across. */
+export const TOWER_TRACK_BLEND_KM = 0.06;
+
+/**
+ * Where up the stack a panning tower cam aims, as a lift above the craft
+ * origin (km).
+ *
+ * While the engines are below the deck the lift is high, which keeps the tilt
+ * nearly still in world space and lets the vehicle slide up through the frame
+ * — the T+3 → T+7 tower-down stills. Once the stack is level with the deck
+ * the lens follows the vehicle itself.
+ *
+ * @param craftAboveMountKm - Craft origin height relative to the mount (km)
+ */
+export function towerTrackLookUpKm(craftAboveMountKm: number): number {
+  const rel = Number.isFinite(craftAboveMountKm) ? craftAboveMountKm : 0;
+  const u = Math.min(1, Math.max(0, (rel + TOWER_TRACK_BLEND_KM) / TOWER_TRACK_BLEND_KM));
+  const lift = TOWER_TRACK_LOOK_UP_HIGH_KM +
+    (TOWER_TRACK_LOOK_UP_LOW_KM - TOWER_TRACK_LOOK_UP_HIGH_KM) * u;
+  // Never aim above the deck. Tilting into empty sky loses the horizon and the
+  // plume column; the stills keep both while the stack leaves the top of frame.
+  return Math.min(lift, -rel);
+}
 
 /**
  * True when a tower peak cam should pan with the climbing stack instead of

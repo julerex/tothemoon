@@ -185,14 +185,18 @@ export const FIN_CAM_LOOK_LOCAL = {
  */
 export const PAYLOAD_CAM_LOCAL = {
   x: 0,
-  y: -(R + 0.035),
-  z: 0.4,
+  y: -(R + 0.07),
+  z: 0.26,
 } as const;
 
-/** Out into the deploy fan: leeward, slightly nose-ward and off-axis. */
+/**
+ * Nose-ward along the leeward skin with a slight outboard tilt, so the hull
+ * and the open door sit low in frame and the sats cross the empty half.
+ * Screen-up for this mount is ship `−Y` (see `applyPayloadCam`).
+ */
 export const PAYLOAD_CAM_LOOK_LOCAL = {
-  x: 0.07,
-  y: -0.6,
+  x: 0.04,
+  y: -(R + 0.2),
   z: 0.7,
 } as const;
 

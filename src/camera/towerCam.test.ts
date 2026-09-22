@@ -8,9 +8,13 @@ import {
   TOWER2_CAM_FOV,
   TOWER2_CAM_LOCAL,
   TOWER2_CAM_LOOK_LOCAL,
+  TOWER_TRACK_LOOK_UP_HIGH_KM,
+  TOWER_TRACK_MAX_KM,
   isTowerCamFocus,
   towerCamLookName,
   towerCamMountName,
+  towerCamTracksCraft,
+  towerTrackLookUpKm,
 } from "./towerCam.ts";
 
 describe("tower peak cameras", () => {
@@ -44,5 +48,35 @@ describe("tower peak cameras", () => {
     assert.equal(isTowerCamFocus("tower"), false);
     assert.equal(towerCamMountName("tower1cam"), "tower1-cam");
     assert.equal(towerCamLookName("tower2cam"), "tower2-cam-look");
+  });
+});
+
+describe("panning tower cam", () => {
+  it("only pans while the stack is in range", () => {
+    assert.equal(towerCamTracksCraft(true, 0.05), true);
+    assert.equal(towerCamTracksCraft(true, TOWER_TRACK_MAX_KM + 0.5), false);
+    assert.equal(towerCamTracksCraft(false, 0.05), false);
+    assert.equal(towerCamTracksCraft(true, Number.NaN), false);
+  });
+
+  it("aims up the stack while the engines are below the deck", () => {
+    const low = towerTrackLookUpKm(-0.1);
+    assert.ok(low > 0.05, "near the ship, not through the chopsticks");
+    assert.ok(low < TOWER_TRACK_LOOK_UP_HIGH_KM + 1e-9);
+  });
+
+  it("never aims above the deck, so the horizon and plume stay in frame", () => {
+    for (const rel of [-0.06, -0.03, -0.01, 0, 0.05, 0.4]) {
+      const aimRel = rel + towerTrackLookUpKm(rel);
+      assert.ok(aimRel <= 1e-9, `rel ${rel} aims ${aimRel} above the deck`);
+    }
+  });
+
+  it("is monotone and finite-safe", () => {
+    const a = towerTrackLookUpKm(-0.12);
+    const b = towerTrackLookUpKm(-0.05);
+    const c = towerTrackLookUpKm(0.1);
+    assert.ok(a > b && b > c);
+    assert.equal(towerTrackLookUpKm(Number.NaN), towerTrackLookUpKm(0));
   });
 });

@@ -287,3 +287,4 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-08-25 | Visual V26: OLP-1 second tower (empty mount) + Mach-diamond stream cells |
 | 2026-09-12 | Visual V27: 2-bay box-section Mechazilla, dusk work lights, 3D chopsticks + wrap-around ship QD |
 | 2026-08-25 | STARSHIP.md: public Super Heavy / ship / Raptor / Starbase pad+production reference |
+| 2026-09-22 | Flight 13 Auto-cam matched still-by-still to the webcast cuts; Launchpad Drone flight path, panning tower-down cam, payload-bay mount |

@@ -15,7 +15,7 @@
  */
 
 import type { CameraMode } from "./cameraMode";
-import { TOWER2_CAM_FOV } from "./towerCam";
+import { TOWER2_DOWN_FOV } from "./towerCam";
 import {
   ASCENT_TRACK_AZ_DEG,
   ASCENT_TRACK_EL_DEG,
@@ -179,12 +179,14 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
     // T+0:03 → T+0:07 launch-tower peak panning down at the rising stack
     // (`tplus-000003-ascent-hull-from-tower-top.jpg`, `tplus-000007-ascent-tower-down.jpg`).
+    // Wider than the parked TOWER2_CAM_FOV: the stack passes ~25 m from the
+    // deck, and the stills keep the tower structure and horizon around it.
     key: "tower-two-down",
     t0: 3,
     mode: "tower2cam",
     frame: true,
     towerTrack: true,
-    fov: TOWER2_CAM_FOV,
+    fov: TOWER2_DOWN_FOV,
   },
   {
     // T+0:08 → T+0:17 Launchpad Drone perched above the pad, tilting up as the
@@ -300,12 +302,13 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   },
   {
     // T+5:11 grid-fin hardware over the coast
-    // (`tplus-000511-booster-gridfin-earth.jpg`).
+    // (`tplus-000511-booster-gridfin-earth.jpg`). The hull cam carries the fin
+    // band; the grid-fin mount itself sits on the lattice and reads as a wall.
     key: "booster-gridfin",
     t0: 311,
     mode: "gridfin",
     frame: true,
-    mount: "gridfin",
+    mount: "boosterHull",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {

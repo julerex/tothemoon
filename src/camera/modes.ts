@@ -24,6 +24,7 @@ import {
   towerCamLookName,
   towerCamMountName,
   towerCamTracksCraft,
+  towerTrackLookUpKm,
 } from "./towerCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
@@ -203,6 +204,8 @@ export class CameraDirector {
   private padDroneFlight = false;
   /** Tower peak cam pans with the stack instead of the pad look-at mount. */
   private towerTrack = false;
+  /** Per-shot lens from the active guided cut; null = use the mount default. */
+  private guidedFovDeg: number | null = null;
   /** Gridfin/hull mount override for webcast engine-bay / hull-down shots. */
   private mountVariant: WebcastMount | "default" = "default";
   private chaseSubject: "ship" | "booster" = "ship";
@@ -577,6 +580,7 @@ export class CameraDirector {
       this.droneEl = opts.elevationDeg;
     }
     if (opts?.frameScale != null) this.droneFrameScale = opts.frameScale;
+    this.guidedFovDeg = opts?.fov ?? null;
     this.setVerticalFov(this.guidedFov(mode, opts?.fov));
   }
 
@@ -630,6 +634,7 @@ export class CameraDirector {
     this.droneTrack = false;
     this.padDroneFlight = false;
     this.towerTrack = false;
+    this.guidedFovDeg = null;
     this.mountVariant = "default";
     this.chaseSubject = "ship";
     this.setVerticalFov(THEATER_DEFAULT_FOV);
@@ -729,9 +734,10 @@ export class CameraDirector {
     this.trackAnchorValid = false;
     this.syncControlsEnabled();
     this.applyClipPlanes();
-    // Manual rail mounts (variant still "default") get the wide onboard
-    // lens. Auto-cam already set a per-shot FOV in applyGuidedPose.
-    if (this.mountVariant === "default") {
+    // Manual rail mounts get the wide onboard lens. Auto-cam already set a
+    // per-shot FOV in applyGuidedPose — keep it (the panning tower-down cut is
+    // wider than the parked tower lens).
+    if (this.mountVariant === "default" && this.guidedFovDeg == null) {
       this.setVerticalFov(cameraFovForFocus(mode));
     }
     this.mountVariantFromMode(mode);
@@ -1294,7 +1300,7 @@ export class CameraDirector {
 
   /**
    * @param localUp host-local screen-up (default host `+Y`). The Pez-bay cam
-   *   looks leeward, so it takes the nose axis instead.
+   *   looks along the leeward skin, so it takes the outboard axis instead.
    */
   private seatMountCam(
     mount: THREE.Object3D,
@@ -1831,7 +1837,9 @@ export class CameraDirector {
     const dist = this.finPos.distanceTo(this.craftPos);
     if (!towerCamTracksCraft(this.towerTrack, dist)) return false;
     this.camera.position.copy(this.finPos);
-    this.desiredTarget.copy(this.craftPos);
+    this.tmp.copy(this.craftPos).sub(this.finPos);
+    const lift = towerTrackLookUpKm(this.tmp.dot(this.earthUp));
+    this.desiredTarget.copy(this.craftPos).addScaledVector(this.earthUp, lift);
     this.controls.target.copy(this.desiredTarget);
     this.aimFixedCamera();
     this.trackAnchor.copy(this.desiredTarget);
@@ -1848,14 +1856,18 @@ export class CameraDirector {
     this.seatMountCam(mount, look, this.craft);
   }
 
-  /** Pez-bay cam: leeward mid-barrel looking out at the Starlink stack. */
+  /**
+   * Pez-bay cam: leeward mid-barrel looking nose-ward past the open door.
+   * Screen-up is ship `−Y` (outboard), so the hull sits at the bottom of frame
+   * and the departing Starlink stack crosses the empty half.
+   */
   private applyPayloadCam(): void {
     if (!this.craft) return;
     const mount = this.craft.getObjectByName("payload-cam");
     const look = this.craft.getObjectByName("payload-cam-look");
     if (!mount || !look) return;
     this.craft.updateMatrixWorld(true);
-    this.seatMountCam(mount, look, this.craft, { x: 0, y: 0, z: 1 });
+    this.seatMountCam(mount, look, this.craft, { x: 0, y: -1, z: 0 });
   }
 
   private applyGridFinVariant(): void {

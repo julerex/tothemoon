@@ -13,110 +13,119 @@ Capture SOP: [docs/STARSHIP_13.md](../../docs/STARSHIP_13.md). Filenames use the
 
 Motion source for later landing/splash refinement (not captured into this folder yet): https://x.com/SpaceX/status/2082186658162626898 — see [Motion sources](#motion-sources-not-captured-yet).
 
-Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Ground Camera One** (T−2 full stack), **Tower One Cam** (OLP-1 peak), **Tower Two Cam** (OLP-2 peak), **Starbase**, **Flame trench**, **Booster / gridfin**, **Starship / chase**, **Ship fin**.
+Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCameraLabels.ts) / Flight 13 Auto-cam in [`src/camera/autoCam.ts`](../../src/camera/autoCam.ts): **Launchpad Drone** (pad flying drone), **Ground Camera One** (T−2 full stack), **Tower One Cam** (OLP-1 peak), **Tower Two Cam** (OLP-2 peak), **Starbase**, **Flame trench**, **Booster / gridfin**, **Engine bay / Engines down**, **Ship hull**, **Ship fin**, **Payload bay**, **Drone**.
+
+The cut table is [`src/camera/webcastShots.ts`](../../src/camera/webcastShots.ts): **one entry per camera the replay cut to**, at the mission second the still below caught the switch. Consecutive stills from the same camera are one hold. Two beats need more than a static mount, and both are keyed off these frames:
+
+- The **Launchpad Drone** flies a pad-local path ([`src/camera/padDrone.ts`](../../src/camera/padDrone.ts)): the T− tableau, then a perch above the pad that tilts up as the stack climbs past (`tplus-000008` → `tplus-000017`).
+- **Tower Two Cam** pans with the stack for the tower-down cut (`tplus-000003` → `tplus-000007`) instead of holding its pad look-at.
+
+Theater ascent is a physics bake and climbs a little faster than the webcast HUD, so the drone perch height and the tower tilt are set from the theater profile, not from the burned-in altitude.
 
 ## Catalog
+
+`(cut)` in the last column marks the still that fixes a cut time in `FLIGHT13_WEBCAST_SHOTS`; rows without it are the same camera still holding.
 
 | File | HUD clock | Event | Camera | Theater analog |
 | --- | --- | --- | --- | --- |
 | `tminus-000530-pad-hold-wide.jpg` | T−00:05:30 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000500-pad-hold-wide.jpg` | T−00:05:00 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000430-pad-hold-wide.jpg` | T−00:04:30 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
-| `tminus-000400-pad-hold-wide.jpg` | T−00:04:00 | Pad hold, Mechazilla + stack, cryo vent at interstage | Aerial wide pad / coastline | Launchpad Drone / Tower One Cam |
+| `tminus-000400-pad-hold-wide.jpg` | T−00:04:00 | Pad hold, Mechazilla + stack, cryo vent at interstage | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000348-pad-hold-wide.jpg` | T−00:03:48 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000335-pad-hold-wide.jpg` | T−00:03:35 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000320-pad-hold-wide.jpg` | T−00:03:20 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000310-pad-hold-wide.jpg` | T−00:03:10 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000300-pad-hold-wide.jpg` | T−00:03:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
-| `tminus-000200-full-stack.jpg` | T−00:02:00 | Full stack, chopsticks at interstage, booster cryo vent | Ground-level full stack | Ground Camera One |
+| `tminus-000200-full-stack.jpg` | T−00:02:00 | Full stack, chopsticks at interstage, booster cryo vent | Ground-level full stack | Ground Camera One (cut) |
 | `tminus-000148-pad-hold-wide.jpg` | T−00:01:48 | Pad hold, Mechazilla + stack, dense LOX vent | Aerial wide pad / coastline | Launchpad Drone |
-| `tminus-000146-engines-up.jpg` | T−00:01:46 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
-| `tminus-000130-engines-up.jpg` | T−00:01:30 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
-| `tminus-000115-pad-hold-wide.jpg` | T−00:01:15 | Pad hold, Mechazilla + stack, dense LOX vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000146-engines-up.jpg` | T−00:01:46 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Flame trench (cut) |
+| `tminus-000130-engines-up.jpg` | T−00:01:30 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Flame trench |
+| `tminus-000115-pad-hold-wide.jpg` | T−00:01:15 | Pad hold, Mechazilla + stack, dense LOX vent | Aerial wide pad / coastline | Launchpad Drone (cut) |
 | `tminus-000100-pad-hold-wide.jpg` | T−00:01:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000050-pad-hold-wide.jpg` | T−00:00:50 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000042-pad-hold-wide.jpg` | T−00:00:42 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
-| `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
+| `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One (cut) |
 | `tminus-000020-full-stack.jpg` | T−00:00:20 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
 | `tminus-000010-full-stack.jpg` | T−00:00:10 | Full stack, chopsticks open, approaching ignition | Ground-level full stack | Ground Camera One |
-| `tminus-000005-liftoff-pad.jpg` | T−00:00:05 | Ignition / engine start, steam at OLM | Pad tracking | Starbase / trench |
-| `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase / trench |
-| `tminus-000000-liftoff-pad.jpg` | T−00:00:00 | Liftoff mark, 33 engines lit, orange glow in steam (HUD still T−) | Pad tracking | Starbase |
-| `tplus-000002-liftoff-pad.jpg` | T+00:00:02 | Liftoff, stack clearing pad steam | Pad tracking / aerial | Starbase / Launchpad Drone |
-| `tplus-000003-ascent-hull-from-tower-top.jpg` | T+00:00:03 | Just after liftoff, booster hull down at pad steam + plume | Booster onboard hull | Gridfin / hull |
-| `tplus-000003-ascent-hull-steam.jpg` | T+00:00:03 | Hull-cam down, frost + pad steam, coast below | Booster onboard hull | Gridfin / hull |
-| `tplus-000005-ascent-hull-plume.jpg` | T+00:00:05 | Hull-cam down, gridfin + white plume over marsh | Booster onboard hull | Gridfin / hull |
-| `tplus-000006-ascent-hull-plume.jpg` | T+00:00:06 | Hull-cam / nadir, plume column over Boca Chica | Booster onboard hull | Gridfin / hull |
-| `tplus-000007-ascent-tower-down.jpg` | T+00:00:07 | Tower-down view of ascending stack in steam | Tower peak looking down | Tower One Cam |
-| `tplus-000008-liftoff-aerial.jpg` | T+00:00:08 | Top-down pad, stack clearing steam, orange engine glow | Aerial pad / coastline | Launchpad Drone |
-| `tplus-000009-liftoff-aerial.jpg` | T+00:00:09 | Top-down stack over fireball + pad steam | Aerial pad / coastline | Launchpad Drone |
-| `tplus-000010-liftoff-aerial.jpg` | T+00:00:10 | Top-down stack clearing pad, steam shadow | Aerial pad / coastline | Launchpad Drone |
-| `tplus-000011-liftoff-aerial.jpg` | T+00:00:11 | Top-down ascent, orange plume, tank farm | Aerial pad / coastline | Launchpad Drone |
-| `tplus-000012-liftoff-aerial.jpg` | T+00:00:12 | Top-down stack over Boca Chica wetlands | Aerial pad / coastline | Launchpad Drone |
-| `tplus-000013-ascent-tower-down.jpg` | T+00:00:13 | Tower-down hull + gridfins over coast / steam | Tower peak looking down | Tower One Cam |
-| `tplus-000014-ascent-tracking.jpg` | T+00:00:14 | Tracking ascent over beach / wetlands, pink plume | Ground / chase tracking | Chase |
-| `tplus-000015-ascent-tracking.jpg` | T+00:00:15 | Tracking ascent, ice shed, beach + Gulf | Ground / chase tracking | Chase |
-| `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
-| `tplus-000016-ascent-plume-coast.jpg` | T+00:00:16 | Plume column over wetlands + beach from above | Aerial / tracking | Chase |
-| `tplus-000017-ascent-plume.jpg` | T+00:00:17 | Ascent plume over coast / Gulf from above | Aerial / tracking | Chase |
-| `tplus-000017-ascent-plume-sky.jpg` | T+00:00:17 | Pink plume against hazy sky, coast below | Aerial / tracking | Chase |
-| `tplus-000022-ascent-tracking.jpg` | T+00:00:22 | Distant stack + plume against sky | Tracking / chase | Chase |
-| `tplus-000028-ascent-tracking.jpg` | T+00:00:28 | Distant stack climbing, orange-white plume | Tracking / chase | Chase |
-| `tplus-000029-ascent-hull-plumes.jpg` | T+00:00:29 | S40 hull + tiles, pink plumes over Boca Chica coast | Onboard hull / down | Chase / fin |
-| `tplus-000035-ascent-hull-plumes.jpg` | T+00:00:35 | S40 hull + tiles, orange plume over coast | Onboard hull / down | Chase / fin |
-| `tplus-000040-ascent-hull-plumes.jpg` | T+00:00:40 | S40 hull + tiles, plume shadow on beach / lagoons | Onboard hull / down | Chase / fin |
-| `tplus-000045-ascent-hull-plumes.jpg` | T+00:00:45 | S40 hull + tiles, pink-orange plume over Gulf coast | Onboard hull / down | Chase / fin |
-| `tplus-000050-ascent-hull-plumes.jpg` | T+00:00:50 | S40 hull + tiles, plume over beach approaching Max Q | Onboard hull / down | Chase / fin |
-| `tplus-000055-ascent-hull-plumes.jpg` | T+00:00:55 | S40 hull + tiles, pink plumes over coast near Max Q | Onboard hull / down | Chase / fin |
-| `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Chase / fin |
-| `tplus-000058-maxq-engines-down.jpg` | T+00:00:58 | Max Q, engines-down pink plume over coast / Gulf | Onboard engines-down | Trench / engines |
-| `tplus-000115-ascent-hull-plumes.jpg` | T+00:01:15 | S40 hull + tiles, pink plume, past Max Q | Onboard hull / down | Chase / fin |
-| `tplus-000125-ascent-hull-plumes.jpg` | T+00:01:25 | S40 hull + tiles over coast, post–Max Q | Onboard hull / down | Chase / fin |
-| `tplus-000150-ascent-hull-s40.jpg` | T+00:01:50 | S40 hull + tiles, high coast view toward stage sep | Onboard hull / down | Chase / fin |
-| `tplus-000200-ascent-hull-s40.jpg` | T+00:02:00 | S40 hull over Earth limb, coast + ascent trail | Onboard hull / down | Chase / fin |
-| `tplus-000204-prestage-split.jpg` | T+00:02:04 | Split: booster engines + S40 hull over coast | Split engine / hull | Gridfin + fin |
-| `tplus-000214-prestage-split.jpg` | T+00:02:14 | Pre hot-stage, engine bay + S40 hull | Split engine / hull | Gridfin + fin |
-| `tplus-000221-hotstage-split.jpg` | T+00:02:21 | Hot-staging, engine glow + S40 over Earth | Split engine / hull | Gridfin + fin |
-| `tplus-000227-enginebay.jpg` | T+00:02:27 | Engine bay Raptor IDs, approaching STAGE SEP | Engine bay | Gridfin |
-| `tplus-000235-postsep-hull-s40.jpg` | T+00:02:35 | Post-sep engine bay (Raptor IDs) just after STAGE SEP | Engine bay | Gridfin |
-| `tplus-000237-postsep-hull-s40.jpg` | T+00:02:37 | Post-sep S40 hull, Earth limb + booster trail | Ship hull-cam | Fin |
-| `tplus-000240-postsep-hull-vent.jpg` | T+00:02:40 | Post-sep S40 hull, side vent plume, Earth limb | Ship hull-cam | Fin |
-| `tplus-000250-postsep-hull-s40.jpg` | T+00:02:50 | Post-sep S40 hull, sun glare, ship engines lit | Ship hull-cam | Fin |
-| `tplus-000253-postsep-ice.jpg` | T+00:02:53 | Ice crystals / vent sparkle, S40 | Ship hull-cam | Fin |
-| `tplus-000300-split-postsep.jpg` | T+00:03:00 | Split: engines over Earth + S40 hull | Split engine / hull | Gridfin + fin |
-| `tplus-000310-split-postsep.jpg` | T+00:03:10 | Booster looking at ship engines + S40 hull | Split booster / ship | Gridfin + fin |
-| `tplus-000353-split-booster-engines.jpg` | T+00:03:53 | Booster aft engines over Earth + S40 | Split engine / hull | Gridfin |
-| `tplus-000400-split-engines-hull.jpg` | T+00:04:00 | Split: booster engines + S40 hull over ocean | Split engine / hull | Gridfin + fin |
-| `tplus-000410-booster-hull-earth.jpg` | T+00:04:10 | Booster hull hardware over deep ocean / clouds | Booster onboard | Gridfin |
-| `tplus-000420-booster-hull-earth.jpg` | T+00:04:20 | Booster hull over ocean, Earth limb, ice fleck | Booster onboard | Gridfin |
-| `tplus-000425-split-engines-gridfin.jpg` | T+00:04:25 | Split: hot engine bay + gridfins over coast | Split engines / gridfin | Gridfin |
-| `tplus-000428-split-enginebay-hull.jpg` | T+00:04:28 | Raptor bells (IDs) + reflective hull / Earth | Split engine bay / hull | Gridfin |
-| `tplus-000453-booster-hull-earth.jpg` | T+00:04:53 | Booster engines + ship hull over ocean/clouds | Split booster / ship | Gridfin + fin |
-| `tplus-000511-booster-gridfin-earth.jpg` | T+00:05:11 | Grid-fin hardware, coast + exhaust trail | Booster onboard | Gridfin |
-| `tplus-000528-split-enginebay.jpg` | T+00:05:28 | Engine bay + tiled hull over Earth | Split | Gridfin + fin |
-| `tplus-000535-split-enginebay-ship.jpg` | T+00:05:35 | Engine bay numbers + iridescent steel | Split | Gridfin + fin |
-| `tplus-000550-split-gridfin-engines.jpg` | T+00:05:50 | Looking up Raptor bells + TPS / steel | Split | Gridfin + fin |
-| `tplus-000625-sh-descent-clouds.jpg` | T+00:06:25 | Super Heavy 3.5 km, shadow on cloud deck | Booster hull-down | Chase (booster) |
-| `tplus-000640-sh-landingburn-ocean.jpg` | T+00:06:40 | Super Heavy 0.1 km, ocean sun-glint | Booster hull-down | Chase (booster) |
-| `tplus-000650-ship-hull-engines.jpg` | T+00:06:50 | S40 tiles/steel, ship engines still lit | Ship hull-cam | Fin |
-| `tplus-000807-seco-hull-s40.jpg` | T+00:08:07 | SECO, tiles + steel, flap, Earth | Ship hull-cam | Fin |
-| `tplus-000821-coast-hull-s40.jpg` | T+00:08:21 | Coast material ref: S40, TPS, Earth limb | Ship hull-cam | Fin |
-| `tplus-001646-payload-deploy-start.jpg` | T+00:16:46 | Payload-bay door / hardware departing | Payload bay | Chase |
-| `tplus-001826-payload-bay-door.jpg` | T+00:18:26 | Open payload-bay door in darkness | Payload bay | Chase |
-| `tplus-002119-payload-satellite.jpg` | T+00:21:19 | Starlink V3 / hardware receding | External / chase | Chase |
-| `tplus-002739-payload-complete.jpg` | T+00:27:39 | Deploy complete, tiles + steel, flaps | Ship hull-cam | Fin |
-| `tplus-003903-raptor-relight.jpg` | T+00:39:03 | In-space relight, flap + glow | Ship hull-cam | Fin |
-| `tplus-004725-entry-plasma-split.jpg` | T+00:47:25 | Entry plasma on tiles + leading-edge glow | Split flap / hull | Chase / fin |
-| `tplus-004853-entry-plasma-flaps.jpg` | T+00:48:53 | Plasma envelope on flap + fuselage | Split | Chase / fin |
-| `tplus-010219-transonic-flap-earth.jpg` | T+01:02:19 | Transonic, flap + tiles over cloud deck | Hull / flap | Fin / chase |
-| `tplus-010255-subsonic-hull-s40.jpg` | T+01:02:55 | Subsonic, S40, heat-tint steel, clouds | Hull / flap | Fin / chase |
-| `tplus-010455-landing-approach.jpg` | T+01:04:55 | Belly-flop 1.9 km, tiles + iridescent steel | Hull-down over ocean | Chase |
-| `tplus-010502-landing-burn.jpg` | T+01:05:02 | Landing burn start, 1.2 km, 3 engines | Hull-down | Chase |
-| `tplus-010509-landing-low.jpg` | T+01:05:09 | 0.5 km, scorch, S40, engines | Hull-down | Chase |
-| `tplus-010512-landing-plume.jpg` | T+01:05:12 | Pink landing plume, 0.3 km, missing tiles | Hull-down | Chase |
-| `tplus-010520-splashdown.jpg` | T+01:05:20 | Soft splash, steam cloud, charred hull | External aerial | Chase |
-| `tplus-010524-splash-steam.jpg` | T+01:05:24 | Intact ship in steam, engines-down on water | External aerial | Chase |
-| `heatshield-tiles-post-splash.jpg` | post-splash (~1:45 webcast) | Intact hexagonal TPS, missing-tile targets, flap, ocean spray | Hull close-up / sea drone | Chase (drone) |
+| `tminus-000005-liftoff-pad.jpg` | T−00:00:05 | Ignition / engine start, steam at OLM | Pad tracking | Starbase pad tracker (cut) |
+| `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase pad tracker |
+| `tminus-000000-liftoff-pad.jpg` | T−00:00:00 | Liftoff mark, 33 engines lit, orange glow in steam (HUD still T−) | Pad tracking | Starbase pad tracker |
+| `tplus-000002-liftoff-pad.jpg` | T+00:00:02 | Liftoff, stack clearing pad steam | Pad tracking / aerial | Starbase pad tracker |
+| `tplus-000003-ascent-hull-from-tower-top.jpg` | T+00:00:03 | Just after liftoff, booster hull down at pad steam + plume | Booster onboard hull | Tower Two Cam, panning (cut) |
+| `tplus-000003-ascent-hull-steam.jpg` | T+00:00:03 | Hull-cam down, frost + pad steam, coast below | Booster onboard hull | Tower Two Cam, panning |
+| `tplus-000005-ascent-hull-plume.jpg` | T+00:00:05 | Hull-cam down, gridfin + white plume over marsh | Booster onboard hull | Tower Two Cam, panning |
+| `tplus-000006-ascent-hull-plume.jpg` | T+00:00:06 | Hull-cam / nadir, plume column over Boca Chica | Booster onboard hull | Tower Two Cam, panning |
+| `tplus-000007-ascent-tower-down.jpg` | T+00:00:07 | Tower-down view of ascending stack in steam | Tower peak looking down | Tower Two Cam, panning |
+| `tplus-000008-liftoff-aerial.jpg` | T+00:00:08 | Top-down pad, stack clearing steam, orange engine glow | Aerial pad / coastline | Launchpad Drone perch (cut) |
+| `tplus-000009-liftoff-aerial.jpg` | T+00:00:09 | Top-down stack over fireball + pad steam | Aerial pad / coastline | Launchpad Drone perch |
+| `tplus-000010-liftoff-aerial.jpg` | T+00:00:10 | Top-down stack clearing pad, steam shadow | Aerial pad / coastline | Launchpad Drone perch |
+| `tplus-000011-liftoff-aerial.jpg` | T+00:00:11 | Top-down ascent, orange plume, tank farm | Aerial pad / coastline | Launchpad Drone perch |
+| `tplus-000012-liftoff-aerial.jpg` | T+00:00:12 | Top-down stack over Boca Chica wetlands | Aerial pad / coastline | Launchpad Drone perch |
+| `tplus-000013-ascent-tower-down.jpg` | T+00:00:13 | Tower-down hull + gridfins over coast / steam | Tower peak looking down | Launchpad Drone perch |
+| `tplus-000014-ascent-tracking.jpg` | T+00:00:14 | Tracking ascent over beach / wetlands, pink plume | Ground / chase tracking | Launchpad Drone perch |
+| `tplus-000015-ascent-tracking.jpg` | T+00:00:15 | Tracking ascent, ice shed, beach + Gulf | Ground / chase tracking | Launchpad Drone perch |
+| `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Launchpad Drone perch |
+| `tplus-000016-ascent-plume-coast.jpg` | T+00:00:16 | Plume column over wetlands + beach from above | Aerial / tracking | Launchpad Drone, tilting up |
+| `tplus-000017-ascent-plume.jpg` | T+00:00:17 | Ascent plume over coast / Gulf from above | Aerial / tracking | Launchpad Drone, tilting up |
+| `tplus-000017-ascent-plume-sky.jpg` | T+00:00:17 | Pink plume against hazy sky, coast below | Aerial / tracking | Launchpad Drone, tilting up |
+| `tplus-000022-ascent-tracking.jpg` | T+00:00:22 | Distant stack + plume against sky | Tracking / chase | Starbase long lens (cut T+18) |
+| `tplus-000028-ascent-tracking.jpg` | T+00:00:28 | Distant stack climbing, orange-white plume | Tracking / chase | Starbase long lens |
+| `tplus-000029-ascent-hull-plumes.jpg` | T+00:00:29 | S40 hull + tiles, pink plumes over Boca Chica coast | Onboard hull / down | Ship hull (cut) |
+| `tplus-000035-ascent-hull-plumes.jpg` | T+00:00:35 | S40 hull + tiles, orange plume over coast | Onboard hull / down | Ship hull |
+| `tplus-000040-ascent-hull-plumes.jpg` | T+00:00:40 | S40 hull + tiles, plume shadow on beach / lagoons | Onboard hull / down | Ship hull |
+| `tplus-000045-ascent-hull-plumes.jpg` | T+00:00:45 | S40 hull + tiles, pink-orange plume over Gulf coast | Onboard hull / down | Ship hull |
+| `tplus-000050-ascent-hull-plumes.jpg` | T+00:00:50 | S40 hull + tiles, plume over beach approaching Max Q | Onboard hull / down | Ship hull |
+| `tplus-000055-ascent-hull-plumes.jpg` | T+00:00:55 | S40 hull + tiles, pink plumes over coast near Max Q | Onboard hull / down | Ship hull |
+| `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Ship hull |
+| `tplus-000058-maxq-engines-down.jpg` | T+00:00:58 | Max Q, engines-down pink plume over coast / Gulf | Onboard engines-down | Engines down (cut) |
+| `tplus-000115-ascent-hull-plumes.jpg` | T+00:01:15 | S40 hull + tiles, pink plume, past Max Q | Onboard hull / down | Ship hull (cut) |
+| `tplus-000125-ascent-hull-plumes.jpg` | T+00:01:25 | S40 hull + tiles over coast, post–Max Q | Onboard hull / down | Ship hull |
+| `tplus-000150-ascent-hull-s40.jpg` | T+00:01:50 | S40 hull + tiles, high coast view toward stage sep | Onboard hull / down | Ship hull |
+| `tplus-000200-ascent-hull-s40.jpg` | T+00:02:00 | S40 hull over Earth limb, coast + ascent trail | Onboard hull / down | Ship hull |
+| `tplus-000204-prestage-split.jpg` | T+00:02:04 | Split: booster engines + S40 hull over coast | Split engine / hull | Engine bay (cut) |
+| `tplus-000214-prestage-split.jpg` | T+00:02:14 | Pre hot-stage, engine bay + S40 hull | Split engine / hull | Engine bay |
+| `tplus-000221-hotstage-split.jpg` | T+00:02:21 | Hot-staging, engine glow + S40 over Earth | Split engine / hull | Engine bay |
+| `tplus-000227-enginebay.jpg` | T+00:02:27 | Engine bay Raptor IDs, approaching STAGE SEP | Engine bay | Engine bay |
+| `tplus-000235-postsep-hull-s40.jpg` | T+00:02:35 | Post-sep engine bay (Raptor IDs) just after STAGE SEP | Engine bay | Engine bay |
+| `tplus-000237-postsep-hull-s40.jpg` | T+00:02:37 | Post-sep S40 hull, Earth limb + booster trail | Ship hull-cam | Ship hull (cut) |
+| `tplus-000240-postsep-hull-vent.jpg` | T+00:02:40 | Post-sep S40 hull, side vent plume, Earth limb | Ship hull-cam | Ship hull |
+| `tplus-000250-postsep-hull-s40.jpg` | T+00:02:50 | Post-sep S40 hull, sun glare, ship engines lit | Ship hull-cam | Ship hull |
+| `tplus-000253-postsep-ice.jpg` | T+00:02:53 | Ice crystals / vent sparkle, S40 | Ship hull-cam | Ship hull |
+| `tplus-000300-split-postsep.jpg` | T+00:03:00 | Split: engines over Earth + S40 hull | Split engine / hull | Engine bay (cut) |
+| `tplus-000310-split-postsep.jpg` | T+00:03:10 | Booster looking at ship engines + S40 hull | Split booster / ship | Engine bay |
+| `tplus-000353-split-booster-engines.jpg` | T+00:03:53 | Booster aft engines over Earth + S40 | Split engine / hull | Engine bay |
+| `tplus-000400-split-engines-hull.jpg` | T+00:04:00 | Split: booster engines + S40 hull over ocean | Split engine / hull | Engine bay |
+| `tplus-000410-booster-hull-earth.jpg` | T+00:04:10 | Booster hull hardware over deep ocean / clouds | Booster onboard | Booster hull (cut) |
+| `tplus-000420-booster-hull-earth.jpg` | T+00:04:20 | Booster hull over ocean, Earth limb, ice fleck | Booster onboard | Booster hull |
+| `tplus-000425-split-engines-gridfin.jpg` | T+00:04:25 | Split: hot engine bay + gridfins over coast | Split engines / gridfin | Engine bay (cut) |
+| `tplus-000428-split-enginebay-hull.jpg` | T+00:04:28 | Raptor bells (IDs) + reflective hull / Earth | Split engine bay / hull | Engine bay |
+| `tplus-000453-booster-hull-earth.jpg` | T+00:04:53 | Booster engines + ship hull over ocean/clouds | Split booster / ship | Booster hull (cut) |
+| `tplus-000511-booster-gridfin-earth.jpg` | T+00:05:11 | Grid-fin hardware, coast + exhaust trail | Booster onboard | Booster hull |
+| `tplus-000528-split-enginebay.jpg` | T+00:05:28 | Engine bay + tiled hull over Earth | Split | Engine bay (cut) |
+| `tplus-000535-split-enginebay-ship.jpg` | T+00:05:35 | Engine bay numbers + iridescent steel | Split | Engine bay |
+| `tplus-000550-split-gridfin-engines.jpg` | T+00:05:50 | Looking up Raptor bells + TPS / steel | Split | Engine bay |
+| `tplus-000625-sh-descent-clouds.jpg` | T+00:06:25 | Super Heavy 3.5 km, shadow on cloud deck | Booster hull-down | Booster hull (cut) |
+| `tplus-000640-sh-landingburn-ocean.jpg` | T+00:06:40 | Super Heavy 0.1 km, ocean sun-glint | Booster hull-down | Booster hull |
+| `tplus-000650-ship-hull-engines.jpg` | T+00:06:50 | S40 tiles/steel, ship engines still lit | Ship hull-cam | Ship hull (cut) |
+| `tplus-000807-seco-hull-s40.jpg` | T+00:08:07 | SECO, tiles + steel, flap, Earth | Ship hull-cam | Ship hull |
+| `tplus-000821-coast-hull-s40.jpg` | T+00:08:21 | Coast material ref: S40, TPS, Earth limb | Ship hull-cam | Ship hull |
+| `tplus-001646-payload-deploy-start.jpg` | T+00:16:46 | Payload-bay door / hardware departing | Payload bay | Payload bay (cut) |
+| `tplus-001826-payload-bay-door.jpg` | T+00:18:26 | Open payload-bay door in darkness | Payload bay | Payload bay |
+| `tplus-002119-payload-satellite.jpg` | T+00:21:19 | Starlink V3 / hardware receding | External / chase | Payload bay |
+| `tplus-002739-payload-complete.jpg` | T+00:27:39 | Deploy complete, tiles + steel, flaps | Ship hull-cam | Ship hull (cut) |
+| `tplus-003903-raptor-relight.jpg` | T+00:39:03 | In-space relight, flap + glow | Ship hull-cam | Ship fin / flap (cut) |
+| `tplus-004725-entry-plasma-split.jpg` | T+00:47:25 | Entry plasma on tiles + leading-edge glow | Split flap / hull | Ship fin / flap |
+| `tplus-004853-entry-plasma-flaps.jpg` | T+00:48:53 | Plasma envelope on flap + fuselage | Split | Ship fin / flap |
+| `tplus-010219-transonic-flap-earth.jpg` | T+01:02:19 | Transonic, flap + tiles over cloud deck | Hull / flap | Ship fin / flap |
+| `tplus-010255-subsonic-hull-s40.jpg` | T+01:02:55 | Subsonic, S40, heat-tint steel, clouds | Hull / flap | Ship hull (cut) |
+| `tplus-010455-landing-approach.jpg` | T+01:04:55 | Belly-flop 1.9 km, tiles + iridescent steel | Hull-down over ocean | Ship hull |
+| `tplus-010502-landing-burn.jpg` | T+01:05:02 | Landing burn start, 1.2 km, 3 engines | Hull-down | Ship hull |
+| `tplus-010509-landing-low.jpg` | T+01:05:09 | 0.5 km, scorch, S40, engines | Hull-down | Ship hull |
+| `tplus-010512-landing-plume.jpg` | T+01:05:12 | Pink landing plume, 0.3 km, missing tiles | Hull-down | Ship hull |
+| `tplus-010520-splashdown.jpg` | T+01:05:20 | Soft splash, steam cloud, charred hull | External aerial | Chase, aerial (cut) |
+| `tplus-010524-splash-steam.jpg` | T+01:05:24 | Intact ship in steam, engines-down on water | External aerial | Chase, aerial |
+| `heatshield-tiles-post-splash.jpg` | post-splash (~1:45 webcast) | Intact hexagonal TPS, missing-tile targets, flap, ocean spray | Hull close-up / sea drone | Drone (sea level) |
 
 ## Notes for 3D work
 
