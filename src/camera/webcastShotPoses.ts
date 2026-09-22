@@ -25,39 +25,19 @@ export const PAD_AERIAL_LOOK_NORTH_KM = TOWER_OZ;
 /** Look-at height above the OLM (km) — mid-truss, not the apron. */
 export const PAD_AERIAL_LOOK_UP_KM = TOWER_H * 0.5;
 
-/** Camera nadir relative to the look-at, pad-local `[west, north]` km. */
-function padAerialFromLookAt(): { x: number; z: number } {
-  return {
-    x: padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM,
-    z: padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM,
-  };
-}
-
-export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg(padAerialFromLookAt());
-/** Elevation of the eye above the look-at horizon (deg). */
+/**
+ * Elevation of the eye above the look-at horizon (deg) for the T− tableau.
+ * `padDrone.ts` turns this plus the surveyed nadir into the hover height.
+ */
 export const PAD_AERIAL_EL_DEG = 18.5;
 /** Handheld drone lens (vertical FOV). */
 export const PAD_AERIAL_FOV = 62;
-/**
- * Must match `CameraDirector.frameDistanceFor` pad radius/fill (0.12 km, 0.5)
- * so {@link PAD_AERIAL_FRAME_SCALE} seats the ground track on the T−5 pin.
- */
-const PAD_AERIAL_FRAME_RADIUS_KM = 0.12;
-const PAD_AERIAL_FRAME_FILL = 0.5;
 
-/** Slant range so the nadir sits on {@link padAerialFromOlp2}. */
-function padAerialFrameScale(): number {
-  const p = padAerialFromLookAt();
-  const horiz = Math.hypot(p.x, p.z);
-  const slant = horiz / Math.cos((PAD_AERIAL_EL_DEG * Math.PI) / 180);
-  const half =
-    ((PAD_AERIAL_FOV * Math.PI) / 180) * PAD_AERIAL_FRAME_FILL * 0.5;
-  const framed = PAD_AERIAL_FRAME_RADIUS_KM / Math.tan(half);
-  return slant / framed;
-}
-
-/** Framed pad radius multiplier — ground track on the T−5 pin. */
-export const PAD_AERIAL_FRAME_SCALE = padAerialFrameScale();
+/** ENU bearing (deg) of the T− hover from the tower look-at — due south. */
+export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg({
+  x: padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM,
+  z: padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM,
+});
 
 /**
  * Ground Camera One — `tminus-000200-full-stack.jpg`.
