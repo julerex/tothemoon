@@ -59,14 +59,18 @@ describe("tower peak cameras", () => {
 });
 
 describe("panning tower cam", () => {
-  it("seats the tower-down eye above the parked chopsticks, off the deck axis", () => {
+  it("leans the tower-down eye over the stack, above the parked chopsticks", () => {
     assert.ok(TOWER2_DOWN_CAM_LOCAL.y > TOWER_H, "mast level, above the arms");
     assert.ok(TOWER2_DOWN_CAM_LOCAL.y < TOWER_BEACON_Y, "below the lightning rod tip");
+    const peakToOlm = Math.hypot(TOWER2_CAM_LOCAL.x, TOWER2_CAM_LOCAL.z);
+    const downToOlm = Math.hypot(TOWER2_DOWN_CAM_LOCAL.x, TOWER2_DOWN_CAM_LOCAL.z);
+    assert.ok(downToOlm < peakToOlm, "further out over the OLM than the peak deck");
+    assert.ok(downToOlm > 0.012, "still on the tower, not inside the stack");
     const offAxis = Math.hypot(
       TOWER2_DOWN_CAM_LOCAL.x - TOWER2_CAM_LOCAL.x,
       TOWER2_DOWN_CAM_LOCAL.z - TOWER2_CAM_LOCAL.z,
     );
-    assert.ok(offAxis > 0.005, "offset along the deck so one arm frames the shot");
+    assert.ok(offAxis > 0.005, "off the deck axis so one arm frames the shot");
     assert.ok(TOWER2_DOWN_FOV > TOWER2_CAM_FOV, "wider than the parked lens");
   });
 

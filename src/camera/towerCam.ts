@@ -36,7 +36,7 @@ export const TOWER2_CAM_LOOK_LOCAL = { x: 0, y: 0.072, z: 0 } as const;
  * chopsticks and offset along the deck. The peak-deck pose sits between the
  * two arms, so a wide lens there fills its edges with arm slab.
  */
-const TOWER2_DOWN_PEAK = towerLocalToPad(-TOWER_FACE * 0.5, TOWER_FACE * 0.9);
+const TOWER2_DOWN_PEAK = towerLocalToPad(-TOWER_FACE * 1.3, TOWER_FACE * 0.55);
 export const TOWER2_DOWN_CAM_LOCAL = {
   x: TOWER2_DOWN_PEAK.x,
   y: TOWER_H + 0.012,
