@@ -29,11 +29,6 @@ import {
   GROUND1_HOLD_T0,
   GROUND1_T0,
   PAD_AERIAL_FOV,
-  PAD_TRACK_AZ_DEG,
-  PAD_TRACK_EL_DEG,
-  PAD_TRACK_FOV,
-  PAD_TRACK_FRAME_SCALE,
-  PAD_TRACK_T0,
   SPLASH_DRONE_AZ0_DEG,
   SPLASH_DRONE_ELEV_DEG,
   SPLASH_DRONE_FOV,
@@ -90,13 +85,13 @@ export type WebcastShot = {
  *
  * Countdown: Launchpad Drone wide, Ground Camera One at T−2:00, flame trench
  * under the engines at T−1:46, drone again at T−1:15, Ground Camera One from
- * T−0:30, pad tracker from T−0:05.
+ * T−0:30 through liftoff (the T−0:05 / T+0:02 stills are the same telephoto).
  * Liftoff: launch-tower peak panning down at the rising stack (T+3), Launchpad
  * Drone perched above the pad (T+8) tilting up as the stack climbs past, pad
  * tracker long lens (T+18).
  * Ascent: Starship hull-cam over the plumes (T+29) with the booster
  * engines-down look at Max Q (T+58).
- * Staging through Super Heavy splash: booster engine bay / hull / grid fin
+ * Staging through Super Heavy splash: engines-down then engine bay / hull
  * (left of the split), Starship hull-cam on the post-sep and SECO beats.
  * Orbit: payload-bay cam for the Starlink deploy, hull-cam after.
  * Entry and landing: forward-flap cam on the plasma split, hull-cam through
@@ -151,8 +146,9 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: PAD_AERIAL_FOV,
   },
   {
-    // T−0:30 → T−0:10 full stack, chopsticks open
-    // (`tminus-000030-full-stack.jpg`).
+    // T−0:30 through liftoff on one locked telephoto: the T−0:05 ignition and
+    // T+0:02 liftoff stills are the same framing as `tminus-000030-full-stack.jpg`
+    // (same tower and tank-farm geometry), only with deluge steam added.
     key: "ground-cam-1-hold",
     t0: GROUND1_HOLD_T0,
     mode: "ground1",
@@ -162,19 +158,6 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     elevationDeg: GROUND1_EL_DEG,
     padTrack: true,
     fov: GROUND1_FOV,
-  },
-  {
-    // T−0:05 ignition → T+0:02 liftoff pad tracking
-    // (`tminus-000005-liftoff-pad.jpg`, `tplus-000002-liftoff-pad.jpg`).
-    key: "pad-track-liftoff",
-    t0: PAD_TRACK_T0,
-    mode: "starbase",
-    frame: true,
-    frameScale: PAD_TRACK_FRAME_SCALE,
-    azimuthDeg: PAD_TRACK_AZ_DEG,
-    elevationDeg: PAD_TRACK_EL_DEG,
-    padTrack: true,
-    fov: PAD_TRACK_FOV,
   },
   {
     // T+0:03 → T+0:07 launch-tower peak panning down at the rising stack
@@ -261,14 +244,15 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    // T+3:00 → T+4:00 booster engine bay over Earth (left pane)
-    // (`tplus-000300-split-postsep.jpg`).
-    key: "boostback-engines",
+    // T+3:00 → T+4:00 left pane looks down past the Raptor bells at Earth —
+    // bells edge-on across the top, cloud deck below
+    // (`tplus-000300-split-postsep.jpg`), not the engine-bay fisheye.
+    key: "boostback-engines-down",
     t0: 180,
-    mode: "engines",
+    mode: "enginesDown",
     frame: true,
-    mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
+    mount: "enginesDown",
+    fov: 76,
   },
   {
     // T+4:10 → T+4:20 booster hull over the ocean
@@ -281,8 +265,10 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    // T+4:25 / T+4:28 hot engine bay and Raptor bells
-    // (`tplus-000425-split-engines-gridfin.jpg`).
+    // T+4:25 → T+4:53 hot engine bay: lit center Raptors, foil aft dome,
+    // engine stencils (`tplus-000425-split-engines-gridfin.jpg`,
+    // `tplus-000453-booster-hull-earth.jpg` — the left pane there is the bay,
+    // not the hull the filename suggests).
     key: "booster-engines-mid",
     t0: 265,
     mode: "engines",
@@ -291,19 +277,10 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    // T+4:53 booster hull with the ship in the right pane
-    // (`tplus-000453-booster-hull-earth.jpg`).
-    key: "booster-hull-2",
-    t0: 293,
-    mode: "gridfin",
-    frame: true,
-    mount: "boosterHull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    // T+5:11 grid-fin hardware over the coast
-    // (`tplus-000511-booster-gridfin-earth.jpg`). The hull cam carries the fin
-    // band; the grid-fin mount itself sits on the lattice and reads as a wall.
+    // T+5:11 booster hull over the coast
+    // (`tplus-000511-booster-gridfin-earth.jpg` — the repeating structure is a
+    // raceway with conduit brackets, not grid-fin lattice, so this is the hull
+    // cam; the grid-fin mount sits on the lattice and reads as a wall).
     key: "booster-gridfin",
     t0: 311,
     mode: "gridfin",
@@ -372,20 +349,13 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    // T+1:02:19 transonic flap over the cloud deck
-    // (`tplus-010219-transonic-flap-earth.jpg`).
-    key: "transonic-flap",
-    t0: 3739,
-    mode: "fin",
-    frame: true,
-    mount: "flap",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    // T+1:02:55 → T+1:05:12 hull-cam through the flip and landing burn
-    // (`tplus-010255-subsonic-hull-s40.jpg`, `tplus-010502-landing-burn.jpg`).
+    // T+1:02:19 → T+1:05:12 back on the hull cam through transonic, the flip,
+    // and the landing burn. The transonic still has a flap in frame but the
+    // barrel is the subject, and S40 / the hex field keep their positions all
+    // the way down (`tplus-010219-transonic-flap-earth.jpg` →
+    // `tplus-010512-landing-plume.jpg`).
     key: "landing-hull",
-    t0: 3775,
+    t0: 3739,
     mode: "hull",
     frame: true,
     mount: "hull",

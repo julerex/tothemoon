@@ -10,7 +10,6 @@ import {
   GROUND1_HOLD_T0,
   GROUND1_T0,
   PAD_AERIAL_FOV,
-  PAD_TRACK_T0,
   SPLASH_DRONE_T0,
   TRENCH_T0,
   splashDroneAzimuthDeg,
@@ -68,14 +67,15 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(webcastShotAt(-42).mode, "aerial");
     assert.equal(webcastShotAt(GROUND1_HOLD_T0).key, "ground-cam-1-hold");
     assert.equal(webcastShotAt(-10).mode, "ground1");
+    // T−0:05 ignition and T+0:02 liftoff stills are the same locked telephoto.
+    assert.equal(webcastShotAt(-5).key, "ground-cam-1-hold");
+    assert.equal(webcastShotAt(-5).mode, "ground1");
+    assert.equal(webcastShotAt(2).key, "ground-cam-1-hold");
   });
 
-  it("tracks liftoff from the pad, the tower peak, then the perched drone", () => {
-    const pad = webcastShotAt(PAD_TRACK_T0);
-    assert.equal(pad.key, "pad-track-liftoff");
-    assert.equal(pad.mode, "starbase");
-    assert.equal(pad.padTrack, true);
-    assert.equal(webcastShotAt(2).key, "pad-track-liftoff");
+  it("holds Ground Camera One through liftoff, then the tower peak, then the perched drone", () => {
+    assert.equal(webcastShotAt(-5).mode, "ground1");
+    assert.equal(webcastShotAt(2).key, "ground-cam-1-hold");
     // T+3 → T+7 tower-down stills: OLP-2 peak panning with the stack.
     const tower = webcastShotAt(3);
     assert.equal(tower.mode, "tower2cam");
@@ -111,13 +111,14 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(hot.mount, "engines");
     assert.equal(webcastShotAt(150).mount, "engines");
     assert.equal(webcastShotAt(160).mode, "hull", "T+2:37 post-sep ship hull");
-    assert.equal(webcastShotAt(180).mode, "engines", "T+3:00 booster bay");
+    assert.equal(webcastShotAt(180).mode, "enginesDown", "T+3:00 left pane looks down past the bells");
   });
 
   it("follows left-pane booster cuts through boostback and Super Heavy splash", () => {
     assert.equal(webcastShotAt(255).mount, "boosterHull");
     assert.equal(webcastShotAt(270).mode, "engines");
-    assert.equal(webcastShotAt(300).mount, "boosterHull");
+    assert.equal(webcastShotAt(293).mode, "engines", "T+4:53 left pane is still the bay");
+    assert.equal(webcastShotAt(300).mode, "engines");
     assert.equal(webcastShotAt(315).mount, "boosterHull");
     assert.equal(webcastShotAt(340).mode, "engines");
     assert.equal(webcastShotAt(390).mount, "boosterHull");
@@ -138,7 +139,7 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(webcastShotAt(2343).mode, "fin");
     assert.equal(webcastShotAt(2343).mount, "flap");
     assert.equal(webcastShotAt(2933).mount, "flap", "T+48:53 plasma still");
-    assert.equal(webcastShotAt(3739).mount, "flap", "T+1:02:19 transonic flap");
+    assert.equal(webcastShotAt(3739).mount, "hull", "T+1:02:19 barrel is the subject");
     assert.equal(webcastShotAt(3800).mode, "hull");
     assert.equal(webcastShotAt(3912).mode, "hull", "T+1:05:12 landing plume");
   });

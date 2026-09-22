@@ -22,6 +22,14 @@ The cut table is [`src/camera/webcastShots.ts`](../../src/camera/webcastShots.ts
 
 Theater ascent is a physics bake and climbs a little faster than the webcast HUD, so the drone perch height and the tower tilt are set from the theater profile, not from the burned-in altitude.
 
+**Filenames can lie.** Classify from pixels (left pane of splits), not the name:
+
+- T−0:05–T+0:02 ignition/liftoff stills are the same Ground Camera One telephoto as T−0:30 (tower + tank-farm geometry), only with deluge steam.
+- T+3:00–T+4:00 left pane is **engines-down** (bells edge-on, cloud deck below), not the engine-bay fisheye.
+- T+4:53 left pane is the **engine bay** despite `…booster-hull…` in the filename.
+- T+5:11 is hull/raceway conduit brackets, not grid-fin lattice. The lattice `gridfin` mount fills the frame; Auto-cam uses `boosterHull`.
+- T+1:02:19 has a flap in frame but the barrel is the subject — hull-cam, same as the landing-burn hold.
+
 ## Catalog
 
 `(cut)` in the last column marks the still that fixes a cut time in `FLIGHT13_WEBCAST_SHOTS`; rows without it are the same camera still holding.
@@ -48,10 +56,10 @@ Theater ascent is a physics bake and climbs a little faster than the webcast HUD
 | `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One (cut) |
 | `tminus-000020-full-stack.jpg` | T−00:00:20 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
 | `tminus-000010-full-stack.jpg` | T−00:00:10 | Full stack, chopsticks open, approaching ignition | Ground-level full stack | Ground Camera One |
-| `tminus-000005-liftoff-pad.jpg` | T−00:00:05 | Ignition / engine start, steam at OLM | Pad tracking | Starbase pad tracker (cut) |
-| `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase pad tracker |
-| `tminus-000000-liftoff-pad.jpg` | T−00:00:00 | Liftoff mark, 33 engines lit, orange glow in steam (HUD still T−) | Pad tracking | Starbase pad tracker |
-| `tplus-000002-liftoff-pad.jpg` | T+00:00:02 | Liftoff, stack clearing pad steam | Pad tracking / aerial | Starbase pad tracker |
+| `tminus-000005-liftoff-pad.jpg` | T−00:00:05 | Ignition / engine start, steam at OLM | Ground-level full stack | Ground Camera One |
+| `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Ground Camera One |
+| `tminus-000000-liftoff-pad.jpg` | T−00:00:00 | Liftoff mark, 33 engines lit, orange glow in steam (HUD still T−) | Ground-level full stack | Ground Camera One |
+| `tplus-000002-liftoff-pad.jpg` | T+00:00:02 | Liftoff, stack clearing pad steam | Ground-level full stack | Ground Camera One |
 | `tplus-000003-ascent-hull-from-tower-top.jpg` | T+00:00:03 | Just after liftoff, booster hull down at pad steam + plume | Booster onboard hull | Tower Two Cam, panning (cut) |
 | `tplus-000003-ascent-hull-steam.jpg` | T+00:00:03 | Hull-cam down, frost + pad steam, coast below | Booster onboard hull | Tower Two Cam, panning |
 | `tplus-000005-ascent-hull-plume.jpg` | T+00:00:05 | Hull-cam down, gridfin + white plume over marsh | Booster onboard hull | Tower Two Cam, panning |
@@ -92,15 +100,15 @@ Theater ascent is a physics bake and climbs a little faster than the webcast HUD
 | `tplus-000240-postsep-hull-vent.jpg` | T+00:02:40 | Post-sep S40 hull, side vent plume, Earth limb | Ship hull-cam | Ship hull |
 | `tplus-000250-postsep-hull-s40.jpg` | T+00:02:50 | Post-sep S40 hull, sun glare, ship engines lit | Ship hull-cam | Ship hull |
 | `tplus-000253-postsep-ice.jpg` | T+00:02:53 | Ice crystals / vent sparkle, S40 | Ship hull-cam | Ship hull |
-| `tplus-000300-split-postsep.jpg` | T+00:03:00 | Split: engines over Earth + S40 hull | Split engine / hull | Engine bay (cut) |
-| `tplus-000310-split-postsep.jpg` | T+00:03:10 | Booster looking at ship engines + S40 hull | Split booster / ship | Engine bay |
-| `tplus-000353-split-booster-engines.jpg` | T+00:03:53 | Booster aft engines over Earth + S40 | Split engine / hull | Engine bay |
-| `tplus-000400-split-engines-hull.jpg` | T+00:04:00 | Split: booster engines + S40 hull over ocean | Split engine / hull | Engine bay |
+| `tplus-000300-split-postsep.jpg` | T+00:03:00 | Split: engines over Earth + S40 hull | Split engines-down / hull | Engines down (cut) |
+| `tplus-000310-split-postsep.jpg` | T+00:03:10 | Booster looking at ship engines + S40 hull | Split engines-down / hull | Engines down |
+| `tplus-000353-split-booster-engines.jpg` | T+00:03:53 | Booster aft engines over Earth + S40 | Split engines-down / hull | Engines down |
+| `tplus-000400-split-engines-hull.jpg` | T+00:04:00 | Split: booster engines + S40 hull over ocean | Split engines-down / hull | Engines down |
 | `tplus-000410-booster-hull-earth.jpg` | T+00:04:10 | Booster hull hardware over deep ocean / clouds | Booster onboard | Booster hull (cut) |
 | `tplus-000420-booster-hull-earth.jpg` | T+00:04:20 | Booster hull over ocean, Earth limb, ice fleck | Booster onboard | Booster hull |
 | `tplus-000425-split-engines-gridfin.jpg` | T+00:04:25 | Split: hot engine bay + gridfins over coast | Split engines / gridfin | Engine bay (cut) |
 | `tplus-000428-split-enginebay-hull.jpg` | T+00:04:28 | Raptor bells (IDs) + reflective hull / Earth | Split engine bay / hull | Engine bay |
-| `tplus-000453-booster-hull-earth.jpg` | T+00:04:53 | Booster engines + ship hull over ocean/clouds | Split booster / ship | Booster hull (cut) |
+| `tplus-000453-booster-hull-earth.jpg` | T+00:04:53 | Booster engines + ship hull over ocean/clouds | Split engine bay / hull | Engine bay |
 | `tplus-000511-booster-gridfin-earth.jpg` | T+00:05:11 | Grid-fin hardware, coast + exhaust trail | Booster onboard | Booster hull |
 | `tplus-000528-split-enginebay.jpg` | T+00:05:28 | Engine bay + tiled hull over Earth | Split | Engine bay (cut) |
 | `tplus-000535-split-enginebay-ship.jpg` | T+00:05:35 | Engine bay numbers + iridescent steel | Split | Engine bay |
@@ -117,8 +125,8 @@ Theater ascent is a physics bake and climbs a little faster than the webcast HUD
 | `tplus-003903-raptor-relight.jpg` | T+00:39:03 | In-space relight, flap + glow | Ship hull-cam | Ship fin / flap (cut) |
 | `tplus-004725-entry-plasma-split.jpg` | T+00:47:25 | Entry plasma on tiles + leading-edge glow | Split flap / hull | Ship fin / flap |
 | `tplus-004853-entry-plasma-flaps.jpg` | T+00:48:53 | Plasma envelope on flap + fuselage | Split | Ship fin / flap |
-| `tplus-010219-transonic-flap-earth.jpg` | T+01:02:19 | Transonic, flap + tiles over cloud deck | Hull / flap | Ship fin / flap |
-| `tplus-010255-subsonic-hull-s40.jpg` | T+01:02:55 | Subsonic, S40, heat-tint steel, clouds | Hull / flap | Ship hull (cut) |
+| `tplus-010219-transonic-flap-earth.jpg` | T+01:02:19 | Transonic, flap + tiles over cloud deck | Hull / flap | Ship hull (cut) |
+| `tplus-010255-subsonic-hull-s40.jpg` | T+01:02:55 | Subsonic, S40, heat-tint steel, clouds | Hull / flap | Ship hull |
 | `tplus-010455-landing-approach.jpg` | T+01:04:55 | Belly-flop 1.9 km, tiles + iridescent steel | Hull-down over ocean | Ship hull |
 | `tplus-010502-landing-burn.jpg` | T+01:05:02 | Landing burn start, 1.2 km, 3 engines | Hull-down | Ship hull |
 | `tplus-010509-landing-low.jpg` | T+01:05:09 | 0.5 km, scorch, S40, engines | Hull-down | Ship hull |

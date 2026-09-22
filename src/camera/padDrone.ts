@@ -78,8 +78,8 @@ export const PAD_DRONE_PERCH_UP_KM = 0.6;
 export const PAD_DRONE_PERCH_NORTH_KM = -0.12;
 
 /**
- * Drone legs. Between T−45 and T+6 the broadcast is on Ground Camera One and
- * the pad tracker, so the transit up to the perch is off air. After the
+ * Drone legs. Between T−45 and T+6 the broadcast is on Ground Camera One
+ * (through liftoff), so the transit up to the perch is off air. After the
  * ascent hand-off the drone sinks back to the establishing hover.
  */
 export const PAD_DRONE_KEYS: readonly PadDroneKey[] = Object.freeze([

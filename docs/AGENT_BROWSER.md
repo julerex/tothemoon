@@ -20,12 +20,17 @@ context could not be created`):
 
 ```bash
 google-chrome \
+  --user-data-dir=/tmp/chrome-agent \
   --enable-unsafe-swiftshader \
   --use-gl=angle \
   --use-angle=swiftshader \
   --ignore-gpu-blocklist \
   --remote-debugging-port=9222
 ```
+
+`--user-data-dir` is required on a Cloud VM if another Chrome already holds
+`SingletonLock` on the default profile. Dev server: tmux session `vite-dev-server`
+is fine to reuse (`http://localhost:5173/tothemoon/`).
 
 chrome-devtools MCP starts its own Chrome. If screenshots are black, add those
 flags to the MCP server `args`. HUD, hash routing, and `__theater` still work
@@ -84,15 +89,15 @@ Camera modes: `sun` `moon` `earth` `booster` `tower` `starbase` `aerial` `ground
 
 `setCamera("aerial")` is the Starbase Launchpad Drone. It is **not a hover**: the eye follows the pad-local flight path in `src/camera/padDrone.ts` (T− tableau → perch ~600 m above the pad for liftoff → back to the tableau), and it tracks the stack while the stack is near the pad, so the lens tilts up as the vehicle climbs past around T+16.
 
-`setCamera("payload")` is the Starship Pez-bay cam (Auto-cam holds it for the Starlink deploy, T+16:46 → T+27:39). `setCamera("tower2cam")` is the OLP-2 peak; Auto-cam pans it with the stack from T+3 to T+8 (webcast tower-down cut), a rail pick holds the fixed pad look-at.
+`setCamera("payload")` is the Starship Pez-bay cam (Auto-cam holds it for the Starlink deploy, T+16:46 → T+27:39). Seat it nose-ward on the leeward (up = ship −Y) or the first frame is stars. `setCamera("tower2cam")` is the OLP-2 peak; Auto-cam pans it with the stack from T+3 to T+8 (webcast tower-down cut) from a mast mount leaned out of the chopsticks. A rail pick holds the fixed pad look-at.
 
-Flight 13 Auto-cam walks one cut per webcast camera: drone wide → Ground Camera One (T−2:00) → flame trench (T−1:46) → drone (T−1:15) → Ground Camera One (T−0:30) → pad tracker (T−0:05) → Tower Two Cam (T+3) → drone perch (T+8) → pad long lens (T+18) → ship hull (T+29) → engines-down (T+58) → ship hull (T+1:15) → engine bay (T+2:04) … see `src/camera/webcastShots.ts`.
+Flight 13 Auto-cam walks one cut per webcast camera: drone wide → Ground Camera One (T−2:00) → flame trench (T−1:46) → drone (T−1:15) → Ground Camera One (T−0:30 **through liftoff**) → Tower Two Cam (T+3) → drone perch (T+8) → pad long lens (T+18) → ship hull (T+29) → engines-down (T+58) → ship hull (T+1:15) → engine bay (T+2:04) → engines-down (T+3:00) … see `src/camera/webcastShots.ts`. Filenames in `assets/flight13-webcast/` can lie — classify from pixels (left pane of splits); the catalog analog column in that folder’s README is the mapping.
 
 `setCamera("booster")` looks at Super Heavy from outside (detached after stage-out). `setCamera("tower")` looks at Mechazilla; WASD pans parallel to the Earth. `setCamera("chase")` is Starship (HUD 🚢).
 
 `setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
 
-`setCamera("engines")` is the Super Heavy engine-bay looking at the Raptor bells (hot-stage left pane). `setCamera("enginesDown")` looks down through the bells at the pad / Earth (ascent T+0:22).
+`setCamera("engines")` is the Super Heavy engine-bay looking at the Raptor bells (hot-stage left pane). `setCamera("enginesDown")` looks down through the bells at Earth (Max Q T+58, boostback T+3:00). The Max Q still shows three bells across the top; the theater mount is still dominated by one bell — a remaining visual gap, not a cut-table error.
 
 `craft.speed` is inertial (heliocentric). HUD speed is Earth-relative — they
 will not match. Prefer `hud.phase` / `clock` / `phaseId` for “are we at splash?”.
@@ -249,6 +254,31 @@ Connect: `GET http://127.0.0.1:9222/json/list` then WebSocket `webSocketDebugger
 SwiftShader usually reports a Google/SwiftShader renderer string. The menu
 stub does **not** call `canvas.getContext` (that would steal the context
 before Three.js mounts); `webgl.ok` is only meaningful after `ready: true`.
+
+## Cloud VM: raw CDP (no chrome-devtools CLI)
+
+`scripts/theater-devtools.sh` needs `chrome-devtools` on PATH. Cloud images
+often lack it. Drive the protocol yourself:
+
+1. Launch Chrome with the flags above (`--user-data-dir=/tmp/chrome-agent`).
+2. `GET http://127.0.0.1:9222/json/list` → take `webSocketDebuggerUrl`.
+3. WebSocket JSON-RPC as in [Raw Chrome DevTools Protocol](#raw-chrome-devtools-protocol).
+4. After `Runtime.evaluate` of `seek()`, the hash write can **destroy the
+   execution context**. Re-wait `__theater.ready` (`EVAL_WAIT_READY`) before
+   the next evaluate. A `?t=` URL pauses.
+5. `Page.captureScreenshot` of a lost WebGL context is a black rectangle —
+   check `snapshot().webgl.ok` first.
+
+Scratch Node helpers in `/tmp` (e.g. a tiny CDP client over `ws`) are fine;
+do not commit them. Keep reusable evaluate strings in `src/debug/cdpCommands.ts`.
+
+**Classifying webcast stills.** Walk `assets/flight13-webcast/*.jpg` with the
+catalog README. Trust the pixels, not the filename. Split screens: left pane
+only. Consecutive same-camera stills are one Auto-cam hold. Theater ascent is
+faster than the burned-in HUD altitude — perch height / tower tilt come from
+the theater profile (`padDrone.ts`, `towerTrackLookUpKm`), not the overlay.
+Parallel Task subagents work for a still walk (countdown / mid-flight split /
+coast-entry); apply their pixel reads, not filename guesses.
 
 ## chrome-devtools CLI
 

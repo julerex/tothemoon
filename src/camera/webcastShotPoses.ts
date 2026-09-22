@@ -60,19 +60,6 @@ export const GROUND1_T0 = -120;
 export const GROUND1_HOLD_T0 = -30;
 /** Mission time (s) of the T−1:46 flame-trench engines-up cut. */
 export const TRENCH_T0 = -106;
-/** Mission time (s) of the T−0:05 pad tracker (ignition through tower clear). */
-export const PAD_TRACK_T0 = -5;
-
-/**
- * Pad tracking camera (`tminus-000000-liftoff-pad.jpg` → `tplus-000002`).
- * Ground level south of the pad, wide enough to hold the stack in the deluge
- * steam as it clears the tower.
- */
-export const PAD_TRACK_AZ_DEG = 250;
-export const PAD_TRACK_EL_DEG = 6;
-export const PAD_TRACK_FOV = 46;
-export const PAD_TRACK_FRAME_SCALE = 0.85;
-
 /**
  * Ascent tracker (`tplus-000022-ascent-tracking.jpg`): long lens at the pad
  * holding the stack and plume against the sky after the drone hand-off.

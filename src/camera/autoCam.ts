@@ -189,10 +189,10 @@ const FLIGHT13_PHASE: PhaseTable = {
  *
  * | Phase / beat | Framing |
  * |--------------|---------|
- * | Launch (incl. T− countdown) | Wide pad aerial, Tower One Cam at T−4 |
- * | Ascent | Ground track, then booster hull |
+ * | Launch (incl. T− countdown) | Wide pad aerial, Ground Camera One, trench |
+ * | Ascent | Tower-down, perched drone, pad long lens, then ship hull |
  * | Staging | Engine-bay (left of hot-stage split) |
- * | Boostback / SH landing | Booster engines-down / hull (left pane) |
+ * | Boostback / SH landing | Engines-down then engine bay / hull (left pane) |
  * | Coast / landing | Ship hull-cam |
  * | Entry | Forward-flap cam (left of plasma split) |
  * | Splash | Aerial chase, then sea-level drone |
