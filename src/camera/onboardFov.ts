@@ -29,6 +29,7 @@ export function cameraFovForFocus(focus: string): number {
     focus === "fin" ||
     focus === "gridfin" ||
     focus === "hull" ||
+    focus === "payload" ||
     focus === "engines" ||
     focus === "enginesDown"
   ) {

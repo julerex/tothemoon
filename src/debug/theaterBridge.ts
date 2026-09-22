@@ -40,6 +40,7 @@ const CAMERA_MODES: readonly CameraMode[] = [
   "gridfin",
   "trench",
   "hull",
+  "payload",
   "drone",
   "engines",
   "enginesDown",

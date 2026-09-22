@@ -1,21 +1,49 @@
 /**
  * Flight 13 Auto-cam beats keyed to the official X-replay camera cuts.
  *
- * Times are mission `T+` seconds (negative = countdown). Split-screen
- * webcast frames use the **left** pane. Catalog:
- * `assets/flight13-webcast/README.md` and `docs/STARSHIP_13.md`.
+ * One entry per camera the broadcast cut to, at the mission `T+` second the
+ * still catalog caught the switch (negative = countdown). Split-screen frames
+ * use the **left** pane. Stills: `assets/flight13-webcast/README.md`; capture
+ * SOP: `docs/STARSHIP_13.md`.
  *
  * Modes map to theater cameras; `azimuthDeg` / `elevationDeg` are pad or
- * Earth-ENU bearings (see `enuPose.ts`). Onboard shots use named mounts.
+ * Earth-ENU bearings (see `enuPose.ts`). Onboard shots use named mounts, the
+ * Launchpad Drone flies the `padDrone.ts` path, and the tower peak cams can
+ * pan with the climbing stack (`towerTrack`).
+ *
+ * @see webcastShotPoses.ts — pose constants
  */
 
-import { TOWER_H, TOWER_OX, TOWER_OZ } from "../scene/earthTheater/mechazillaDims";
-import {
-  padAerialFromOlp2,
-  padLocalAzimuthDeg,
-} from "../scene/earthTheater/starbaseSurvey";
 import type { CameraMode } from "./cameraMode";
-import { TOWER1_CAM_FOV } from "./towerCam";
+import { TOWER2_CAM_FOV } from "./towerCam";
+import {
+  ASCENT_TRACK_AZ_DEG,
+  ASCENT_TRACK_EL_DEG,
+  ASCENT_TRACK_FOV,
+  ASCENT_TRACK_FRAME_SCALE,
+  ASCENT_TRACK_T0,
+  GROUND1_AZ_DEG,
+  GROUND1_EL_DEG,
+  GROUND1_FOV,
+  GROUND1_FRAME_SCALE,
+  GROUND1_HOLD_T0,
+  GROUND1_T0,
+  PAD_AERIAL_FOV,
+  PAD_TRACK_AZ_DEG,
+  PAD_TRACK_EL_DEG,
+  PAD_TRACK_FOV,
+  PAD_TRACK_FRAME_SCALE,
+  PAD_TRACK_T0,
+  SPLASH_DRONE_AZ0_DEG,
+  SPLASH_DRONE_ELEV_DEG,
+  SPLASH_DRONE_FOV,
+  SPLASH_DRONE_FRAME_SCALE,
+  SPLASH_DRONE_T0,
+  TRENCH_T0,
+  WEBCAST_ONBOARD_FOV,
+} from "./webcastShotPoses";
+
+export * from "./webcastShotPoses";
 
 /** Onboard mount picked on a gridfin / hull / fin cut. */
 export type WebcastMount =
@@ -26,7 +54,8 @@ export type WebcastMount =
   | "engines"
   | "enginesDown"
   | "boosterHull"
-  | "flap";
+  | "flap"
+  | "payload";
 
 /** One webcast camera hold, active from `t0` until the next shot. */
 export type WebcastShot = {
@@ -47,6 +76,8 @@ export type WebcastShot = {
   chaseSubject?: "ship" | "booster";
   /** Vertical FOV; onboard hull/engine cams are wider than the theater default. */
   fov?: number;
+  /** Tower peak mount pans with the climbing stack instead of the pad look-at. */
+  towerTrack?: boolean;
   /**
    * Sea-level drone hold: reseat each frame on an Earth-ENU orbit of the
    * floating ship (Flight 13 post-splash).
@@ -54,130 +85,36 @@ export type WebcastShot = {
   droneTrack?: boolean;
 };
 
-/** Wider FOV for webcast hull / engine-bay stills. */
-export const WEBCAST_ONBOARD_FOV = 80;
-/** Default theater PerspectiveCamera FOV. */
-export const THEATER_DEFAULT_FOV = 50;
-
-/* T−5 pad drone: south of the OLM, looking NNW at Mechazilla mid-truss. */
-/** Look-at west of the OLM (km) — live tower center. */
-export const PAD_AERIAL_LOOK_WEST_KM = TOWER_OX;
-/** Look-at north of the OLM (km) — live tower center. */
-export const PAD_AERIAL_LOOK_NORTH_KM = TOWER_OZ;
-/** Look-at height above the OLM (km) — mid-truss, not the apron. */
-export const PAD_AERIAL_LOOK_UP_KM = TOWER_H * 0.5;
-
-/** Camera nadir relative to the look-at, pad-local `[west, north]` km. */
-function padAerialFromLookAt(): { x: number; z: number } {
-  return {
-    x: padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM,
-    z: padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM,
-  };
-}
-
-export const PAD_AERIAL_AZ_DEG = padLocalAzimuthDeg(padAerialFromLookAt());
-/** Elevation of the eye above the look-at horizon (deg). */
-export const PAD_AERIAL_EL_DEG = 18.5;
-/** Handheld drone lens (vertical FOV). */
-export const PAD_AERIAL_FOV = 62;
-/**
- * Must match `CameraDirector.frameDistanceFor` pad radius/fill (0.12 km, 0.5)
- * so {@link PAD_AERIAL_FRAME_SCALE} seats the ground track on the T−5 pin.
- */
-const PAD_AERIAL_FRAME_RADIUS_KM = 0.12;
-const PAD_AERIAL_FRAME_FILL = 0.5;
-
-/** Slant range so the nadir sits on {@link padAerialFromOlp2}. */
-function padAerialFrameScale(): number {
-  const p = padAerialFromLookAt();
-  const horiz = Math.hypot(p.x, p.z);
-  const slant = horiz / Math.cos((PAD_AERIAL_EL_DEG * Math.PI) / 180);
-  const half =
-    ((PAD_AERIAL_FOV * Math.PI) / 180) * PAD_AERIAL_FRAME_FILL * 0.5;
-  const framed = PAD_AERIAL_FRAME_RADIUS_KM / Math.tan(half);
-  return slant / framed;
-}
-
-/** Framed pad radius multiplier — ground track on the T−5 pin. */
-export const PAD_AERIAL_FRAME_SCALE = padAerialFrameScale();
-
-/**
- * Ground Camera One — `tminus-000200-full-stack.jpg`.
- * South-southwest of the OLM, telephoto up at the full stack and chopsticks.
- * Gulf (east) to the right; TPS camera-left / stainless right.
- */
-export const GROUND1_AZ_DEG = 248;
-/** Elevation above the local horizon (deg) — rooftop / pad-fence height. */
-export const GROUND1_EL_DEG = 5.2;
-/** Telephoto vertical FOV so the stack + tower fill the frame. */
-export const GROUND1_FOV = 36;
-/** Tight framed-pad multiplier — OLM in the footer, chopsticks at the top. */
-export const GROUND1_FRAME_SCALE = 0.34;
-/** Look-at height above the OLM (km) so the camera frames the stack, not dirt. */
-export const GROUND1_LOOK_UP_KM = 0.085;
-/** Mission time (s) of the T−4:00 Tower One Cam cut. */
-export const TOWER1_T0 = -240;
-/** Mission time (s) of the T−2:00 Ground Camera One cut. */
-export const GROUND1_T0 = -120;
-
-/** Mission time (s) when Auto-cam cuts from aerial splash to the sea drone. */
-export const SPLASH_DRONE_T0 = 3926;
-/** Opening ENU azimuth (deg from east toward north) for the drone hold. */
-export const SPLASH_DRONE_AZ0_DEG = 218;
-/** Slow orbit rate (deg/s) — ~32°/min, a leisurely recovery-drone circle. */
-export const SPLASH_DRONE_AZ_RATE_DEG_S = 32 / 60;
-/** Elevation above the local ocean horizon (deg). */
-export const SPLASH_DRONE_ELEV_DEG = 8;
-/** Chase frameScale: ship + steam + horizon, close enough to read the hull. */
-export const SPLASH_DRONE_FRAME_SCALE = 0.92;
-/** Slightly wider than the theater default — handheld drone lens. */
-export const SPLASH_DRONE_FOV = 58;
-
-/**
- * ENU azimuth for the post-splash recovery drone at mission time `t`.
- * Scrub-deterministic slow orbit around the floating ship.
- *
- * @param t - Mission time (s)
- */
-export function splashDroneAzimuthDeg(t: number): number {
-  const age = Math.max(0, t - SPLASH_DRONE_T0);
-  return SPLASH_DRONE_AZ0_DEG + age * SPLASH_DRONE_AZ_RATE_DEG_S;
-}
-
 /**
  * Sorted Flight 13 webcast cuts (left pane when split).
  *
- * Times follow `assets/flight13-webcast/README.md` HUD clocks. Consecutive
- * stills that keep the same left-pane mount are collapsed into one hold.
- *
- * Pad: wide aerial → Tower One Cam (T−4) → Ground Camera One (T−2) through
- * liftoff.
- * Ascent through Super Heavy splash: booster hull / engine-bay (left of split).
- * After SH landing: ship hull-cam (payload / coast / landing) and flap-cam
- * on the entry split. Splash: brief aerial chase, then sea-level drone orbit
- * of the floating ship (webcast recovery views).
+ * Countdown: Launchpad Drone wide, Ground Camera One at T−2:00, flame trench
+ * under the engines at T−1:46, drone again at T−1:15, Ground Camera One from
+ * T−0:30, pad tracker from T−0:05.
+ * Liftoff: launch-tower peak panning down at the rising stack (T+3), Launchpad
+ * Drone perched above the pad (T+8) tilting up as the stack climbs past, pad
+ * tracker long lens (T+18).
+ * Ascent: Starship hull-cam over the plumes (T+29) with the booster
+ * engines-down look at Max Q (T+58).
+ * Staging through Super Heavy splash: booster engine bay / hull / grid fin
+ * (left of the split), Starship hull-cam on the post-sep and SECO beats.
+ * Orbit: payload-bay cam for the Starlink deploy, hull-cam after.
+ * Entry and landing: forward-flap cam on the plasma split, hull-cam through
+ * the flip and landing burn, then an aerial splash chase and the sea-level
+ * recovery drone.
  */
 export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   {
+    // T−5:00 wide pad tableau (`tminus-000500-pad-hold-wide.jpg`). The drone
+    // flies the padDrone.ts path from here.
     key: "pad-wide",
     t0: -300,
     mode: "aerial",
     frame: true,
-    frameScale: PAD_AERIAL_FRAME_SCALE,
-    // South of the OLM, looking NNW at Mechazilla mid-truss.
-    azimuthDeg: PAD_AERIAL_AZ_DEG,
-    elevationDeg: PAD_AERIAL_EL_DEG,
     fov: PAD_AERIAL_FOV,
   },
   {
-    // T−4:00 — OLP-1 peak looking at the OLP-2 stack (`tminus-000400-pad-hold-wide.jpg`).
-    key: "tower-one",
-    t0: TOWER1_T0,
-    mode: "tower1cam",
-    frame: true,
-    fov: TOWER1_CAM_FOV,
-  },
-  {
+    // T−2:00 ground-level full stack (`tminus-000200-full-stack.jpg`).
     key: "ground-cam-1",
     t0: GROUND1_T0,
     mode: "ground1",
@@ -189,98 +126,231 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: GROUND1_FOV,
   },
   {
-    key: "ascent-track",
-    t0: 8,
+    // Back to the drone between the T−2:00 and T−1:46 stills
+    // (`tminus-000148-pad-hold-wide.jpg` catches the tail of this hold).
+    key: "pad-wide-2",
+    t0: -112,
+    mode: "aerial",
+    frame: true,
+    fov: PAD_AERIAL_FOV,
+  },
+  {
+    // T−1:46 / T−1:30 looking up into the Raptor cluster
+    // (`tminus-000146-engines-up.jpg`).
+    key: "trench-engines-up",
+    t0: TRENCH_T0,
+    mode: "trench",
+    frame: true,
+  },
+  {
+    // T−1:15 through T−0:42 pad-hold wide (`tminus-000115-pad-hold-wide.jpg`).
+    key: "pad-wide-3",
+    t0: -75,
+    mode: "aerial",
+    frame: true,
+    fov: PAD_AERIAL_FOV,
+  },
+  {
+    // T−0:30 → T−0:10 full stack, chopsticks open
+    // (`tminus-000030-full-stack.jpg`).
+    key: "ground-cam-1-hold",
+    t0: GROUND1_HOLD_T0,
+    mode: "ground1",
+    frame: true,
+    frameScale: GROUND1_FRAME_SCALE,
+    azimuthDeg: GROUND1_AZ_DEG,
+    elevationDeg: GROUND1_EL_DEG,
+    padTrack: true,
+    fov: GROUND1_FOV,
+  },
+  {
+    // T−0:05 ignition → T+0:02 liftoff pad tracking
+    // (`tminus-000005-liftoff-pad.jpg`, `tplus-000002-liftoff-pad.jpg`).
+    key: "pad-track-liftoff",
+    t0: PAD_TRACK_T0,
     mode: "starbase",
     frame: true,
-    frameScale: 1.55,
-    azimuthDeg: 188,
-    elevationDeg: 16,
+    frameScale: PAD_TRACK_FRAME_SCALE,
+    azimuthDeg: PAD_TRACK_AZ_DEG,
+    elevationDeg: PAD_TRACK_EL_DEG,
     padTrack: true,
-    fov: 42,
+    fov: PAD_TRACK_FOV,
   },
   {
-    key: "maxq-hull",
-    t0: 22,
-    mode: "gridfin",
+    // T+0:03 → T+0:07 launch-tower peak panning down at the rising stack
+    // (`tplus-000003-ascent-hull-from-tower-top.jpg`, `tplus-000007-ascent-tower-down.jpg`).
+    key: "tower-two-down",
+    t0: 3,
+    mode: "tower2cam",
     frame: true,
-    mount: "boosterHull",
-    fov: WEBCAST_ONBOARD_FOV,
+    towerTrack: true,
+    fov: TOWER2_CAM_FOV,
   },
   {
-    key: "hotstage-engines",
-    t0: 130,
-    mode: "engines",
+    // T+0:08 → T+0:17 Launchpad Drone perched above the pad, tilting up as the
+    // stack climbs past (`tplus-000008-liftoff-aerial.jpg` → `tplus-000017-ascent-plume-sky.jpg`).
+    key: "pad-drone-ascent",
+    t0: 8,
+    mode: "aerial",
     frame: true,
-    mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
+    fov: PAD_AERIAL_FOV,
   },
   {
-    key: "booster-engines-down",
-    t0: 185,
-    mode: "enginesDown",
+    // T+0:18 → T+0:28 pad long lens on the climbing stack
+    // (`tplus-000022-ascent-tracking.jpg`).
+    key: "ascent-track",
+    t0: ASCENT_TRACK_T0,
+    mode: "starbase",
     frame: true,
-    mount: "enginesDown",
-    fov: 76,
+    frameScale: ASCENT_TRACK_FRAME_SCALE,
+    azimuthDeg: ASCENT_TRACK_AZ_DEG,
+    elevationDeg: ASCENT_TRACK_EL_DEG,
+    padTrack: true,
+    fov: ASCENT_TRACK_FOV,
   },
   {
-    key: "booster-hull",
-    t0: 248,
-    mode: "gridfin",
-    frame: true,
-    mount: "boosterHull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "booster-engines-mid",
-    t0: 272,
-    mode: "engines",
-    frame: true,
-    mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "booster-hull-coast",
-    t0: 314,
-    mode: "gridfin",
-    frame: true,
-    mount: "boosterHull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "booster-engines-late",
-    t0: 337,
-    mode: "engines",
-    frame: true,
-    mount: "engines",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "sh-descent",
-    t0: 380,
-    mode: "gridfin",
-    frame: true,
-    mount: "boosterHull",
-    fov: WEBCAST_ONBOARD_FOV,
-  },
-  {
-    key: "ship-hull",
-    t0: 408,
+    // T+0:29 → T+0:56 Starship hull-cam: S40 steel, tiles, plumes over the
+    // coast (`tplus-000029-ascent-hull-plumes.jpg`).
+    key: "ascent-ship-hull",
+    t0: 29,
     mode: "hull",
     frame: true,
     mount: "hull",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    key: "payload-chase",
-    t0: 1200,
-    mode: "chase",
+    // T+0:58 Max Q looking down past the Raptor bells
+    // (`tplus-000058-maxq-engines-down.jpg`).
+    key: "maxq-engines-down",
+    t0: 58,
+    mode: "enginesDown",
     frame: true,
-    frameScale: 1.55,
-    azimuthDeg: 110,
-    elevationDeg: 12,
+    mount: "enginesDown",
+    fov: 76,
   },
   {
+    // T+1:15 → T+2:00 back on the ship hull-cam
+    // (`tplus-000115-ascent-hull-plumes.jpg`).
+    key: "ascent-ship-hull-2",
+    t0: 75,
+    mode: "hull",
+    frame: true,
+    mount: "hull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+2:04 → T+2:35 booster engine bay, left of the hot-stage split
+    // (`tplus-000204-prestage-split.jpg`, `tplus-000227-enginebay.jpg`).
+    key: "hotstage-engines",
+    t0: 124,
+    mode: "engines",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+2:37 → T+2:53 post-sep ship hull-cam over the Earth limb
+    // (`tplus-000237-postsep-hull-s40.jpg`).
+    key: "postsep-ship-hull",
+    t0: 157,
+    mode: "hull",
+    frame: true,
+    mount: "hull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+3:00 → T+4:00 booster engine bay over Earth (left pane)
+    // (`tplus-000300-split-postsep.jpg`).
+    key: "boostback-engines",
+    t0: 180,
+    mode: "engines",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+4:10 → T+4:20 booster hull over the ocean
+    // (`tplus-000410-booster-hull-earth.jpg`).
+    key: "booster-hull",
+    t0: 250,
+    mode: "gridfin",
+    frame: true,
+    mount: "boosterHull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+4:25 / T+4:28 hot engine bay and Raptor bells
+    // (`tplus-000425-split-engines-gridfin.jpg`).
+    key: "booster-engines-mid",
+    t0: 265,
+    mode: "engines",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+4:53 booster hull with the ship in the right pane
+    // (`tplus-000453-booster-hull-earth.jpg`).
+    key: "booster-hull-2",
+    t0: 293,
+    mode: "gridfin",
+    frame: true,
+    mount: "boosterHull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+5:11 grid-fin hardware over the coast
+    // (`tplus-000511-booster-gridfin-earth.jpg`).
+    key: "booster-gridfin",
+    t0: 311,
+    mode: "gridfin",
+    frame: true,
+    mount: "gridfin",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+5:28 → T+5:50 engine bay, Raptor IDs and bells
+    // (`tplus-000528-split-enginebay.jpg`).
+    key: "booster-engines-late",
+    t0: 328,
+    mode: "engines",
+    frame: true,
+    mount: "engines",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+6:25 → T+6:40 Super Heavy descent and landing burn, hull-down
+    // (`tplus-000625-sh-descent-clouds.jpg`).
+    key: "sh-descent",
+    t0: 385,
+    mode: "gridfin",
+    frame: true,
+    mount: "boosterHull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+6:50 → T+8:21 ship hull-cam through SECO
+    // (`tplus-000650-ship-hull-engines.jpg`, `tplus-000807-seco-hull-s40.jpg`).
+    key: "ship-hull",
+    t0: 410,
+    mode: "hull",
+    frame: true,
+    mount: "hull",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+16:46 → T+21:19 payload-bay cam on the Starlink V3 deploy
+    // (`tplus-001646-payload-deploy-start.jpg`).
+    key: "payload-bay",
+    t0: 1006,
+    mode: "payload",
+    frame: true,
+    mount: "payload",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+27:39 deploy complete, back on the hull-cam
+    // (`tplus-002739-payload-complete.jpg`).
     key: "coast-hull",
     t0: 1659,
     mode: "hull",
@@ -289,24 +359,39 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
+    // T+39:03 relight glow on the forward flap, then the T+47:25 entry-plasma
+    // split (`tplus-003903-raptor-relight.jpg`, `tplus-004725-entry-plasma-split.jpg`).
     key: "entry-flap",
-    t0: 2845,
+    t0: 2343,
     mode: "fin",
     frame: true,
     mount: "flap",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
-    key: "transonic-hull",
+    // T+1:02:19 transonic flap over the cloud deck
+    // (`tplus-010219-transonic-flap-earth.jpg`).
+    key: "transonic-flap",
     t0: 3739,
+    mode: "fin",
+    frame: true,
+    mount: "flap",
+    fov: WEBCAST_ONBOARD_FOV,
+  },
+  {
+    // T+1:02:55 → T+1:05:12 hull-cam through the flip and landing burn
+    // (`tplus-010255-subsonic-hull-s40.jpg`, `tplus-010502-landing-burn.jpg`).
+    key: "landing-hull",
+    t0: 3775,
     mode: "hull",
     frame: true,
     mount: "hull",
     fov: WEBCAST_ONBOARD_FOV,
   },
   {
+    // T+1:05:20 aerial splash frame (`tplus-010520-splashdown.jpg`).
     key: "splash-chase",
-    t0: 3918,
+    t0: 3920,
     mode: "chase",
     frame: true,
     frameScale: 1.7,
@@ -314,6 +399,7 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
     elevationDeg: 55,
   },
   {
+    // T+1:05:26 sea-level recovery drone orbit of the floating ship.
     key: "splash-drone",
     t0: SPLASH_DRONE_T0,
     mode: "drone",

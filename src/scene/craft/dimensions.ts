@@ -177,6 +177,25 @@ export const FIN_CAM_LOOK_LOCAL = {
   z: 0.22,
 } as const;
 
+/**
+ * Pez-bay cam (Starlink V3 deploy). Just aft of the leeward bay lip and
+ * outboard of the skin, looking out past the dispenser where the sats fan —
+ * `tplus-001646-payload-deploy-start.jpg`. The bay itself sits at ship-local
+ * `(0, −0.118, 0.58)` (see `payloadFx.ts`).
+ */
+export const PAYLOAD_CAM_LOCAL = {
+  x: 0,
+  y: -(R + 0.035),
+  z: 0.4,
+} as const;
+
+/** Out into the deploy fan: leeward, slightly nose-ward and off-axis. */
+export const PAYLOAD_CAM_LOOK_LOCAL = {
+  x: 0.07,
+  y: -0.6,
+  z: 0.7,
+} as const;
+
 export const CRAFT_CAM_MOUNT_NAMES = [
   "fin-cam",
   "fin-cam-look",
@@ -184,6 +203,8 @@ export const CRAFT_CAM_MOUNT_NAMES = [
   "flap-cam-look",
   "hull-cam",
   "hull-cam-look",
+  "payload-cam",
+  "payload-cam-look",
   "grid-fin-cam",
   "grid-fin-cam-look",
   "booster-hull-cam",

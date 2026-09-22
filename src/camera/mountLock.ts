@@ -1,6 +1,6 @@
 /**
  * Hard-lock vs user-orbit for onboard / webcast mounts (fin, gridfin,
- * engine-bay, trench, hull).
+ * engine-bay, trench, hull, payload bay).
  *
  * Entering a mount snaps the camera to that pose every frame (`"hard"`).
  * These mounts are fixed livestream cameras: pan / orbit / zoom is rejected
@@ -14,6 +14,7 @@ export type MountFocus =
   | "gridfin"
   | "trench"
   | "hull"
+  | "payload"
   | "engines"
   | "enginesDown"
   | "tower1cam"
@@ -29,6 +30,7 @@ export function isMountFocus(mode: string): mode is MountFocus {
     mode === "gridfin" ||
     mode === "trench" ||
     mode === "hull" ||
+    mode === "payload" ||
     mode === "engines" ||
     mode === "enginesDown" ||
     mode === "tower1cam" ||

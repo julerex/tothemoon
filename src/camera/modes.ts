@@ -23,20 +23,24 @@ import {
   isTowerCamFocus,
   towerCamLookName,
   towerCamMountName,
+  towerCamTracksCraft,
 } from "./towerCam";
 import { yawAxisForMode } from "./yawAxis";
 import { cameraFovForFocus } from "./onboardFov";
 import { eastFromNorthUp, enuOffsetKm, northFromEastUp } from "./enuPose";
+import {
+  PAD_DRONE_TOWER_LOOK,
+  padDronePoseAt,
+  padDroneTracksCraft,
+  padDroneUpAxis,
+} from "./padDrone";
 import {
   GROUND1_AZ_DEG,
   GROUND1_EL_DEG,
   GROUND1_FOV,
   GROUND1_FRAME_SCALE,
   GROUND1_LOOK_UP_KM,
-  PAD_AERIAL_AZ_DEG,
-  PAD_AERIAL_EL_DEG,
   PAD_AERIAL_FOV,
-  PAD_AERIAL_FRAME_SCALE,
   PAD_AERIAL_LOOK_NORTH_KM,
   PAD_AERIAL_LOOK_UP_KM,
   PAD_AERIAL_LOOK_WEST_KM,
@@ -192,6 +196,13 @@ export class CameraDirector {
   private droneTrack = false;
   private droneFrameScale = SPLASH_DRONE_FRAME_SCALE;
   private droneEl = SPLASH_DRONE_ELEV_DEG;
+  /**
+   * Launchpad Drone: reseat on the {@link padDronePoseAt} flight path every
+   * frame (pad tableau → perch above the pad → tilt up on the climbing stack).
+   */
+  private padDroneFlight = false;
+  /** Tower peak cam pans with the stack instead of the pad look-at mount. */
+  private towerTrack = false;
   /** Gridfin/hull mount override for webcast engine-bay / hull-down shots. */
   private mountVariant: WebcastMount | "default" = "default";
   private chaseSubject: "ship" | "booster" = "ship";
@@ -472,7 +483,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode);
-    const posed = this.armAerialPose(mode) ?? this.armGround1Pose(mode);
+    this.armPadDroneFlight(mode);
+    const posed = this.armGround1Pose(mode);
     this.applyFocus(mode, posed != null, posed?.frameScale ?? 1, posed ?? undefined);
   }
 
@@ -489,7 +501,8 @@ export class CameraDirector {
     this.clearGuidedPose();
     this.cancelDistanceEase();
     this.armDroneTrack(mode, frameScale);
-    const posed = this.armAerialPose(mode, frameScale) ?? this.armGround1Pose(mode, frameScale);
+    this.armPadDroneFlight(mode);
+    const posed = this.armGround1Pose(mode, frameScale);
     this.applyFocus(mode, /* frame */ true, posed?.frameScale ?? frameScale, posed ?? undefined);
   }
 
@@ -549,10 +562,13 @@ export class CameraDirector {
     azimuthDeg?: number;
     elevationDeg?: number;
     droneTrack?: boolean;
+    towerTrack?: boolean;
     frameScale?: number;
   }): void {
     this.padTrack = !!opts?.padTrack;
     this.droneTrack = !!opts?.droneTrack || mode === "drone";
+    this.padDroneFlight = mode === "aerial";
+    this.towerTrack = !!opts?.towerTrack;
     this.mountVariant = opts?.mount ?? "default";
     this.chaseSubject = opts?.chaseSubject ?? "ship";
     if (opts?.azimuthDeg != null) this.padTrackAz = opts.azimuthDeg;
@@ -582,18 +598,11 @@ export class CameraDirector {
     this.setVerticalFov(SPLASH_DRONE_FOV);
   }
 
-  /** Rail pick: Starbase pad flying-drone hover (T− hold wide). */
-  private armAerialPose(
-    mode: CameraMode,
-    frameScale?: number,
-  ): { azimuthDeg: number; elevationDeg: number; frameScale: number } | null {
-    if (mode !== "aerial") return null;
+  /** Rail pick: Launchpad Drone on its {@link padDronePoseAt} flight path. */
+  private armPadDroneFlight(mode: CameraMode): void {
+    if (mode !== "aerial") return;
+    this.padDroneFlight = true;
     this.setVerticalFov(PAD_AERIAL_FOV);
-    return {
-      azimuthDeg: PAD_AERIAL_AZ_DEG,
-      elevationDeg: PAD_AERIAL_EL_DEG,
-      frameScale: frameScale ?? PAD_AERIAL_FRAME_SCALE,
-    };
   }
 
   /**
@@ -619,6 +628,8 @@ export class CameraDirector {
   private clearGuidedPose(): void {
     this.padTrack = false;
     this.droneTrack = false;
+    this.padDroneFlight = false;
+    this.towerTrack = false;
     this.mountVariant = "default";
     this.chaseSubject = "ship";
     this.setVerticalFov(THEATER_DEFAULT_FOV);
@@ -662,6 +673,10 @@ export class CameraDirector {
     this.captureViewDirection();
     this.seatTrackedFocus(mode);
     const dist = this.resolveFocusDistance(mode, frame, frameScale, prevDist);
+    if (this.padDroneFlight && mode === "aerial") {
+      this.applyPadDroneFlight();
+      return;
+    }
     if (this.padTrack && isPadFocus(mode)) {
       this.padTrackDist = dist;
       this.applyPadTrack();
@@ -879,6 +894,67 @@ export class CameraDirector {
   }
 
   /**
+   * Launchpad Drone: seat the eye on the pad-local flight path and point the
+   * lens at the stack (or Mechazilla before roll-out / once the stack is gone).
+   * Pad-local is `+X` west, `+Y` up, `+Z` north — the frame `padDrone.ts` keys.
+   */
+  private applyPadDroneFlight(): void {
+    if (!this.buildPadEnu()) return;
+    const pad = starbasePadState(this.simTime, this.epoch);
+    const pose = padDronePoseAt(this.simTime);
+    this.camera.position.set(pad.pos.x, pad.pos.y, pad.pos.z);
+    this.camera.position.addScaledVector(this.earthEast, -pose.west);
+    this.camera.position.addScaledVector(this.earthNorth, pose.north);
+    this.camera.position.addScaledVector(this.earthUp, pose.up);
+    this.seatPadDroneLook(pad.pos, pose.aim);
+  }
+
+  private seatPadDroneLook(
+    padPos: { x: number; y: number; z: number },
+    aim: "tower" | "craft",
+  ): void {
+    const dist = Math.hypot(
+      this.craftPos.x - padPos.x,
+      this.craftPos.y - padPos.y,
+      this.craftPos.z - padPos.z,
+    );
+    if (padDroneTracksCraft(aim, dist)) this.desiredTarget.copy(this.craftPos);
+    else this.padDroneTowerTarget(padPos, this.desiredTarget);
+    this.controls.target.copy(this.desiredTarget);
+    this.aimFixedCamera();
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
+  }
+
+  private padDroneTowerTarget(
+    padPos: { x: number; y: number; z: number },
+    out: THREE.Vector3,
+  ): void {
+    out.set(padPos.x, padPos.y, padPos.z);
+    out.addScaledVector(this.earthEast, -PAD_DRONE_TOWER_LOOK.west);
+    out.addScaledVector(this.earthNorth, PAD_DRONE_TOWER_LOOK.north);
+    out.addScaledVector(this.earthUp, PAD_DRONE_TOWER_LOOK.up);
+  }
+
+  /**
+   * Point a pad-fixed lens at {@link controls.target} with the local vertical
+   * as screen-up, staying stable when the subject climbs through the zenith.
+   */
+  private aimFixedCamera(): void {
+    this.tmp.copy(this.controls.target).sub(this.camera.position);
+    if (this.tmp.lengthSq() < 1e-16) this.tmp.copy(this.earthUp);
+    this.tmp.normalize();
+    const up = padDroneUpAxis(
+      { x: this.tmp.x, y: this.tmp.y, z: this.tmp.z },
+      { x: this.earthUp.x, y: this.earthUp.y, z: this.earthUp.z },
+      { x: this.earthNorth.x, y: this.earthNorth.y, z: this.earthNorth.z },
+    );
+    this.camera.up.set(up.x, up.y, up.z);
+    this.camera.lookAt(this.controls.target);
+    this.syncOrbitControlsUp();
+  }
+
+  /**
    * Lift the pad-track look-at up the stack while the vehicle is still on the
    * OLM so a low ground camera frames the full stack, not the dirt apron.
    * Fades out as the craft climbs away from the pad.
@@ -1016,6 +1092,7 @@ export class CameraDirector {
       isBoosterMountFocus(this.focus) ||
       this.focus === "trench" ||
       this.focus === "hull" ||
+      this.focus === "payload" ||
       isTowerCamFocus(this.focus);
     return close ? 0.0002 : 0.1;
   }
@@ -1109,6 +1186,9 @@ export class CameraDirector {
   private copyMountLook(mode: MountFocus, out: THREE.Vector3): boolean {
     if (mode === "fin") return this.copyFinLook(out);
     if (mode === "hull") return this.copyNamedLook(this.craft, "hull-cam-look", out);
+    if (mode === "payload") {
+      return this.copyNamedLook(this.craft, "payload-cam-look", out);
+    }
     if (isBoosterMountFocus(mode)) return this.copyGridFinVariantLook(out);
     if (isTowerCamFocus(mode)) {
       return this.copyNamedLook(this.pad, towerCamLookName(mode), out);
@@ -1212,14 +1292,21 @@ export class CameraDirector {
     this.syncOrbitControlsUp();
   }
 
+  /**
+   * @param localUp host-local screen-up (default host `+Y`). The Pez-bay cam
+   *   looks leeward, so it takes the nose axis instead.
+   */
   private seatMountCam(
     mount: THREE.Object3D,
     look: THREE.Object3D,
     upHost: THREE.Object3D,
+    localUp?: { x: number; y: number; z: number },
   ): void {
     mount.getWorldPosition(this.finPos);
     look.getWorldPosition(this.finLook);
-    this.finUp.set(0, 1, 0).transformDirection(upHost.matrixWorld);
+    this.finUp
+      .set(localUp?.x ?? 0, localUp?.y ?? 1, localUp?.z ?? 0)
+      .transformDirection(upHost.matrixWorld);
     if (this.finUp.lengthSq() < 1e-12) this.finUp.copy(ECLIPTIC_NORTH);
     this.camera.position.copy(this.finPos);
     this.camera.up.copy(this.finUp);
@@ -1634,10 +1721,18 @@ export class CameraDirector {
     this.simTime = simTime;
     this.craftPos.copy(craftPos);
     this.craftVel.copy(craftVel);
+    if (this.holdPadDroneFlight()) return;
     if (this.holdPadTrack()) return;
     if (this.holdDroneTrack()) return;
     if (this.holdHardLockMount()) return;
     this.updateFreeCamera(dt);
+  }
+
+  /** Launchpad Drone: fly the pad-local path every frame (fixed camera). */
+  private holdPadDroneFlight(): boolean {
+    if (!this.padDroneFlight || this.focus !== "aerial") return false;
+    this.applyPadDroneFlight();
+    return true;
   }
 
   /** Reseat a hard-locked mount, or unlock if orbit/pan/zoom keys are held. */
@@ -1708,6 +1803,7 @@ export class CameraDirector {
   private applyLockedMountPose(): void {
     if (this.focus === "fin") { this.applyFinCam(); return; }
     if (this.focus === "hull") { this.applyHullCam(); return; }
+    if (this.focus === "payload") { this.applyPayloadCam(); return; }
     if (isBoosterMountFocus(this.focus)) { this.applyGridFinVariant(); return; }
     if (isTowerCamFocus(this.focus)) { this.applyTowerCam(this.focus); return; }
     if (this.focus === "trench") this.applyTrenchCam();
@@ -1718,9 +1814,29 @@ export class CameraDirector {
     if (!this.pad) return;
     this.pad.updateMatrixWorld(true);
     const mount = this.pad.getObjectByName(towerCamMountName(mode));
+    if (!mount) return;
+    if (this.seatTowerTrack(mount)) return;
     const look = this.pad.getObjectByName(towerCamLookName(mode));
-    if (!mount || !look) return;
+    if (!look) return;
     this.seatMountCam(mount, look, this.pad);
+  }
+
+  /**
+   * Tower peak cam panning with the stack (webcast T+3 → T+8 tower-down cut).
+   * Falls back to the fixed pad look-at once the stack is out of range.
+   */
+  private seatTowerTrack(mount: THREE.Object3D): boolean {
+    if (!this.towerTrack || !this.buildPadEnu()) return false;
+    mount.getWorldPosition(this.finPos);
+    const dist = this.finPos.distanceTo(this.craftPos);
+    if (!towerCamTracksCraft(this.towerTrack, dist)) return false;
+    this.camera.position.copy(this.finPos);
+    this.desiredTarget.copy(this.craftPos);
+    this.controls.target.copy(this.desiredTarget);
+    this.aimFixedCamera();
+    this.trackAnchor.copy(this.desiredTarget);
+    this.trackAnchorValid = true;
+    return true;
   }
 
   private applyHullCam(): void {
@@ -1730,6 +1846,16 @@ export class CameraDirector {
     if (!mount || !look) return;
     this.craft.updateMatrixWorld(true);
     this.seatMountCam(mount, look, this.craft);
+  }
+
+  /** Pez-bay cam: leeward mid-barrel looking out at the Starlink stack. */
+  private applyPayloadCam(): void {
+    if (!this.craft) return;
+    const mount = this.craft.getObjectByName("payload-cam");
+    const look = this.craft.getObjectByName("payload-cam-look");
+    if (!mount || !look) return;
+    this.craft.updateMatrixWorld(true);
+    this.seatMountCam(mount, look, this.craft, { x: 0, y: 0, z: 1 });
   }
 
   private applyGridFinVariant(): void {

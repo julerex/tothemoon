@@ -153,23 +153,11 @@ describe("nextAutoCamCut", () => {
     );
     assert.equal(same.suggestion, null);
 
-    const tower1 = nextAutoCamCut(
-      true,
-      "launch",
-      false,
-      { phase: "launch", staged: false, shotKey: first.shotKey },
-      "flight13",
-      -240,
-    );
-    assert.ok(tower1.suggestion);
-    assert.equal(tower1.suggestion!.mode, "tower1cam");
-    assert.equal(tower1.shotKey, "tower-one");
-
     const ground = nextAutoCamCut(
       true,
       "launch",
       false,
-      { phase: "launch", staged: false, shotKey: tower1.shotKey },
+      { phase: "launch", staged: false, shotKey: first.shotKey },
       "flight13",
       -120,
     );
@@ -178,16 +166,30 @@ describe("nextAutoCamCut", () => {
     assert.equal(ground.suggestion!.padTrack, true);
     assert.equal(ground.shotKey, "ground-cam-1");
 
+    const towerDown = nextAutoCamCut(
+      true,
+      "launch",
+      false,
+      { phase: "launch", staged: false, shotKey: ground.shotKey },
+      "flight13",
+      5,
+    );
+    assert.ok(towerDown.suggestion);
+    assert.equal(towerDown.suggestion!.mode, "tower2cam");
+    assert.equal(towerDown.suggestion!.towerTrack, true);
+    assert.equal(towerDown.shotKey, "tower-two-down");
+
     const hull = nextAutoCamCut(
       true,
       "ascent",
       false,
-      { phase: "ascent", staged: false, shotKey: ground.shotKey },
+      { phase: "ascent", staged: false, shotKey: towerDown.shotKey },
       "flight13",
       30,
     );
     assert.ok(hull.suggestion);
-    assert.equal(hull.suggestion!.mount, "boosterHull");
+    assert.equal(hull.suggestion!.mode, "hull");
+    assert.equal(hull.suggestion!.mount, "hull");
   });
 
   it("suggests only when phase changes", () => {

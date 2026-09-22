@@ -5,6 +5,7 @@
  * `"ground1"` is Ground Camera One — T−2 full stack and tower from the pad.
  * `"tower1cam"` / `"tower2cam"` sit on the OLP-1 / OLP-2 Mechazilla peaks.
  * `"engines"` / `"enginesDown"` are Super Heavy engine-bay webcast mounts.
+ * `"payload"` is the Starship Pez-bay cam (Starlink V3 deploy).
  * `"booster"` looks at Super Heavy from outside; `"tower"` looks at Mechazilla.
  *
  * Rails: {@link FREE_LOOK_CAMERAS} can pan / orbit / zoom (Auto-cam off).
@@ -25,6 +26,7 @@ export type CameraMode =
   | "gridfin"
   | "trench"
   | "hull"
+  | "payload"
   | "drone"
   | "engines"
   | "enginesDown"
@@ -52,6 +54,7 @@ const LOOK_KIND: Record<CameraMode, "free" | "fixed"> = {
   gridfin: "fixed",
   trench: "fixed",
   hull: "fixed",
+  payload: "fixed",
   drone: "fixed",
   engines: "fixed",
   enginesDown: "fixed",
@@ -73,7 +76,7 @@ export const FREE_LOOK_CAMERAS: readonly CameraMode[] = [
 /**
  * Fixed rail (no pan / orbit / zoom). Livestream analogs: pad drone,
  * Ground Camera One, tower peak cams, Starbase, trench, engine-bay, hull,
- * grid-fin, ship fin, recovery drone.
+ * grid-fin, ship fin, payload bay, recovery drone.
  */
 export const FIXED_CAMERAS: readonly CameraMode[] = [
   "aerial",
@@ -87,6 +90,7 @@ export const FIXED_CAMERAS: readonly CameraMode[] = [
   "engines",
   "gridfin",
   "fin",
+  "payload",
   "drone",
 ];
 

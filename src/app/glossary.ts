@@ -157,7 +157,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Launchpad Drone",
     category: "views",
     definition:
-      "Fixed flying-drone hover of the Starbase pad — the Flight 13 T− hold wide shot of Mechazilla, the stack, and the coastline. Distinct from the sea-level recovery Drone after splash. Movement is locked.",
+      "Fixed flying drone over the Starbase pad. It flies the Flight 13 webcast path: the T− wide tableau of Mechazilla, the stack, and the coastline, then a perch above the pad for liftoff where the lens tilts up as the stack climbs past. Distinct from the sea-level recovery Drone after splash. Movement is locked.",
   },
   {
     id: "leo",
@@ -186,6 +186,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     category: "vehicle",
     definition:
       "Steel ring-table the Super Heavy stack sits on at Starbase. Open in the center so engine exhaust dumps into the flame trench; the Flame trench camera looks through that opening at the Raptors.",
+  },
+  {
+    id: "payload",
+    term: "Payload bay",
+    category: "views",
+    definition:
+      "Fixed Starship camera beside the Pez door, looking out at the Starlink V3 stack as it deploys — the Flight 13 T+16:46 through T+21:19 webcast beat. Movement is locked.",
   },
   {
     id: "polar-map",
@@ -234,14 +241,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Tower One Cam",
     category: "views",
     definition:
-      "Fixed camera on the peak of OLP-1 Mechazilla, looking west at the live OLP-2 stack. Matches the elevated full-stack framing of the Flight 13 T−4:00 pad-hold still. Movement is locked.",
+      "Fixed camera on the peak of OLP-1 Mechazilla, looking west at the live OLP-2 stack — an elevated full-stack framing of the pad hold. Movement is locked.",
   },
   {
     id: "tower2cam",
     term: "Tower Two Cam",
     category: "views",
     definition:
-      "Fixed camera on the peak of the live OLP-2 launch tower, looking down at the stack from the vehicle-facing edge of the deck. Movement is locked.",
+      "Fixed camera on the peak of the live OLP-2 launch tower, looking down at the stack from the vehicle-facing edge of the deck. Flight 13 Auto-cam pans it with the vehicle from T+3 to T+8 — the webcast tower-down cut. Movement is locked.",
   },
   {
     id: "tli",

@@ -62,6 +62,10 @@ export const CAMERA_LABELS: Record<
   },
   fin: { title: "Ship fin", detail: "Fixed · aft engines" },
   hull: { title: "Ship hull", detail: "Fixed · barrel cam" },
+  payload: {
+    title: "Payload bay",
+    detail: "Fixed · Pez door and Starlink deploy",
+  },
   engines: {
     title: "Engine bay",
     detail: "Fixed · looking at the Raptor bells",

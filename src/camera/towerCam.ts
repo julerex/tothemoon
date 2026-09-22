@@ -60,6 +60,24 @@ export function isTowerCamFocus(
   return mode === "tower1cam" || mode === "tower2cam";
 }
 
+/**
+ * Farthest (km) a panning tower cam follows the stack. Past this the vehicle
+ * is a speck, so the mount goes back to its fixed pad look-at.
+ */
+export const TOWER_TRACK_MAX_KM = 6;
+
+/**
+ * True when a tower peak cam should pan with the climbing stack instead of
+ * holding its pad look-at (Flight 13 tower-down cut, T+3 → T+8).
+ *
+ * @param track - Shot asked for a panning tower cam
+ * @param craftDistKm - Mount-to-craft distance (km)
+ */
+export function towerCamTracksCraft(track: boolean, craftDistKm: number): boolean {
+  if (!track) return false;
+  return Number.isFinite(craftDistKm) && craftDistKm <= TOWER_TRACK_MAX_KM;
+}
+
 export function towerCamMountName(
   mode: "tower1cam" | "tower2cam",
 ): string {

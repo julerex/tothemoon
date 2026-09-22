@@ -1,26 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { enuOffsetKm } from "./enuPose.ts";
-import { padAerialFromOlp2 } from "../scene/earthTheater/starbaseSurvey.ts";
 import {
+  ASCENT_TRACK_T0,
   FLIGHT13_WEBCAST_SHOTS,
   GROUND1_AZ_DEG,
   GROUND1_EL_DEG,
   GROUND1_FOV,
   GROUND1_FRAME_SCALE,
+  GROUND1_HOLD_T0,
   GROUND1_T0,
-  PAD_AERIAL_AZ_DEG,
-  PAD_AERIAL_EL_DEG,
   PAD_AERIAL_FOV,
-  PAD_AERIAL_FRAME_SCALE,
-  PAD_AERIAL_LOOK_NORTH_KM,
-  PAD_AERIAL_LOOK_WEST_KM,
+  PAD_TRACK_T0,
   SPLASH_DRONE_T0,
-  TOWER1_T0,
+  TRENCH_T0,
   splashDroneAzimuthDeg,
   webcastShotAt,
 } from "./webcastShots.ts";
-import { TOWER1_CAM_FOV } from "./towerCam.ts";
 
 describe("FLIGHT13_WEBCAST_SHOTS", () => {
   it("is sorted by t0 with unique keys", () => {
@@ -34,41 +29,25 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     }
   });
 
-  it("opens on a wide pad aerial and tracks the stack through liftoff", () => {
+  it("only cuts to cameras the theater can mount", () => {
+    for (const shot of FLIGHT13_WEBCAST_SHOTS) {
+      assert.notEqual(shot.mode, "free", shot.key);
+      if (shot.mount) assert.ok(shot.fov ?? 0 > 0, `${shot.key} mount needs a lens`);
+    }
+  });
+
+  it("opens on the wide pad drone and holds it until the T−2:00 ground cut", () => {
     const open = webcastShotAt(-300);
+    assert.equal(open.key, "pad-wide");
     assert.equal(open.mode, "aerial");
+    assert.equal(open.fov, PAD_AERIAL_FOV);
+    // The Launchpad Drone flies padDrone.ts; no fixed bearing on the shot.
+    assert.equal(open.azimuthDeg, undefined);
     assert.equal(open.padTrack, undefined);
-    assert.ok((open.elevationDeg ?? 0) > 15);
-    assert.ok((open.fov ?? 0) > 50);
-    assert.equal(open.azimuthDeg, PAD_AERIAL_AZ_DEG);
-    assert.equal(open.frameScale, PAD_AERIAL_FRAME_SCALE);
-    const half = ((PAD_AERIAL_FOV * Math.PI) / 180) * 0.25;
-    const dist = (0.12 / Math.tan(half)) * PAD_AERIAL_FRAME_SCALE;
-    const off = enuOffsetKm(
-      { x: 1, y: 0, z: 0 },
-      { x: 0, y: 1, z: 0 },
-      { x: 0, y: 0, z: 1 },
-      PAD_AERIAL_AZ_DEG,
-      PAD_AERIAL_EL_DEG,
-      dist,
-    );
-    const wantX = padAerialFromOlp2.x - PAD_AERIAL_LOOK_WEST_KM;
-    const wantZ = padAerialFromOlp2.z - PAD_AERIAL_LOOK_NORTH_KM;
-    const miss = Math.hypot(-off.x - wantX, off.y - wantZ);
-    assert.ok(miss < 0.002, `ground track miss ${miss * 1000} m`);
-    assert.ok((open.frameScale ?? 1) < 0.5, "close T−5 pad drone, not a gulf hover");
-    assert.ok(
-      (open.azimuthDeg ?? 0) > 268 && (open.azimuthDeg ?? 0) < 272,
-      "south of Mechazilla, looking north",
-    );
-    assert.equal(webcastShotAt(-280).key, "pad-wide");
-    assert.equal(webcastShotAt(-280).mode, "aerial");
-    const tower1 = webcastShotAt(TOWER1_T0);
-    assert.equal(tower1.key, "tower-one");
-    assert.equal(tower1.mode, "tower1cam");
-    assert.equal(tower1.fov, TOWER1_CAM_FOV);
-    assert.equal(webcastShotAt(-180).key, "tower-one");
-    assert.equal(webcastShotAt(-180).mode, "tower1cam");
+    assert.equal(webcastShotAt(-150).key, "pad-wide");
+  });
+
+  it("walks the countdown cuts: ground cam, flame trench, drone, ground cam", () => {
     const ground = webcastShotAt(GROUND1_T0);
     assert.equal(ground.key, "ground-cam-1");
     assert.equal(ground.mode, "ground1");
@@ -79,45 +58,89 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.equal(ground.frameScale, GROUND1_FRAME_SCALE);
     assert.ok(GROUND1_EL_DEG < 10, "rooftop / pad-fence height");
     assert.ok(GROUND1_FOV < 45, "telephoto stack+tower");
-    const hold = webcastShotAt(-2);
-    assert.equal(hold.mode, "ground1");
-    assert.equal(hold.padTrack, true);
-    assert.equal(webcastShotAt(16).key, "ascent-track");
+    // T−1:48 drone still, then the T−1:46 engines-up trench cut.
+    assert.equal(webcastShotAt(-110).mode, "aerial");
+    const trench = webcastShotAt(TRENCH_T0);
+    assert.equal(trench.mode, "trench");
+    assert.equal(webcastShotAt(-90).mode, "trench", "T−1:30 still is the same cut");
+    // T−1:15 back on the drone, T−0:30 back on Ground Camera One.
+    assert.equal(webcastShotAt(-75).mode, "aerial");
+    assert.equal(webcastShotAt(-42).mode, "aerial");
+    assert.equal(webcastShotAt(GROUND1_HOLD_T0).key, "ground-cam-1-hold");
+    assert.equal(webcastShotAt(-10).mode, "ground1");
   });
 
-  it("uses booster hull-down at max-Q (left-analog onboard)", () => {
-    const s = webcastShotAt(56);
-    assert.equal(s.mode, "gridfin");
-    assert.equal(s.mount, "boosterHull");
+  it("tracks liftoff from the pad, the tower peak, then the perched drone", () => {
+    const pad = webcastShotAt(PAD_TRACK_T0);
+    assert.equal(pad.key, "pad-track-liftoff");
+    assert.equal(pad.mode, "starbase");
+    assert.equal(pad.padTrack, true);
+    assert.equal(webcastShotAt(2).key, "pad-track-liftoff");
+    // T+3 → T+7 tower-down stills: OLP-2 peak panning with the stack.
+    const tower = webcastShotAt(3);
+    assert.equal(tower.mode, "tower2cam");
+    assert.equal(tower.towerTrack, true);
+    assert.equal(webcastShotAt(7).mode, "tower2cam");
+    // T+8 → T+17 aerial stills: drone above the pad tilting up.
+    assert.equal(webcastShotAt(8).key, "pad-drone-ascent");
+    assert.equal(webcastShotAt(8).mode, "aerial");
+    assert.equal(webcastShotAt(16).mode, "aerial");
+    // T+18 → T+28 pad long lens.
+    const track = webcastShotAt(ASCENT_TRACK_T0);
+    assert.equal(track.key, "ascent-track");
+    assert.equal(track.mode, "starbase");
+    assert.equal(track.padTrack, true);
+    assert.equal(webcastShotAt(28).key, "ascent-track");
   });
 
-  it("picks the left engine-bay pane at hot-stage and keeps it after sep", () => {
-    const hot = webcastShotAt(141);
+  it("uses the ship hull-cam on ascent and engines-down at Max Q", () => {
+    const hull = webcastShotAt(29);
+    assert.equal(hull.mode, "hull");
+    assert.equal(hull.mount, "hull");
+    assert.equal(webcastShotAt(55).mount, "hull");
+    const maxq = webcastShotAt(58);
+    assert.equal(maxq.mode, "enginesDown");
+    assert.equal(maxq.mount, "enginesDown");
+    assert.equal(webcastShotAt(80).mode, "hull", "T+1:15 back on the hull-cam");
+    assert.equal(webcastShotAt(120).mode, "hull");
+  });
+
+  it("picks the left engine-bay pane at hot-stage, ship hull after sep", () => {
+    const hot = webcastShotAt(130);
     assert.equal(hot.mode, "engines");
     assert.equal(hot.mount, "engines");
-    assert.equal(webcastShotAt(160).mount, "engines");
+    assert.equal(webcastShotAt(150).mount, "engines");
+    assert.equal(webcastShotAt(160).mode, "hull", "T+2:37 post-sep ship hull");
+    assert.equal(webcastShotAt(180).mode, "engines", "T+3:00 booster bay");
   });
 
   it("follows left-pane booster cuts through boostback and Super Heavy splash", () => {
-    assert.equal(webcastShotAt(190).mode, "enginesDown");
-    assert.equal(webcastShotAt(190).mount, "enginesDown");
     assert.equal(webcastShotAt(255).mount, "boosterHull");
-    assert.equal(webcastShotAt(280).mode, "engines");
-    assert.equal(webcastShotAt(280).mount, "engines");
-    assert.equal(webcastShotAt(320).mount, "boosterHull");
+    assert.equal(webcastShotAt(270).mode, "engines");
+    assert.equal(webcastShotAt(300).mount, "boosterHull");
+    assert.equal(webcastShotAt(315).mount, "gridfin");
     assert.equal(webcastShotAt(340).mode, "engines");
-    assert.equal(webcastShotAt(340).mount, "engines");
-    assert.equal(webcastShotAt(386).mount, "boosterHull");
-    assert.equal(webcastShotAt(400).mount, "boosterHull");
-    assert.equal(webcastShotAt(420).mode, "hull");
+    assert.equal(webcastShotAt(390).mount, "boosterHull");
+    assert.equal(webcastShotAt(420).mode, "hull", "T+6:50 back on the ship");
+    assert.equal(webcastShotAt(500).mode, "hull");
   });
 
-  it("holds ship hull through coast and landing, flap-cam on the entry split", () => {
-    assert.equal(webcastShotAt(500).mode, "hull");
-    assert.equal(webcastShotAt(2845).mode, "fin");
-    assert.equal(webcastShotAt(2845).mount, "flap");
-    assert.equal(webcastShotAt(3750).mode, "hull");
-    assert.equal(webcastShotAt(3900).mode, "hull");
+  it("mounts the payload-bay cam for the Starlink deploy window", () => {
+    const bay = webcastShotAt(1006);
+    assert.equal(bay.key, "payload-bay");
+    assert.equal(bay.mode, "payload");
+    assert.equal(bay.mount, "payload");
+    assert.equal(webcastShotAt(1279).mode, "payload", "T+21:19 still");
+    assert.equal(webcastShotAt(1700).mode, "hull", "T+27:39 deploy complete");
+  });
+
+  it("holds flap-cam on relight and entry, hull-cam through the landing burn", () => {
+    assert.equal(webcastShotAt(2343).mode, "fin");
+    assert.equal(webcastShotAt(2343).mount, "flap");
+    assert.equal(webcastShotAt(2933).mount, "flap", "T+48:53 plasma still");
+    assert.equal(webcastShotAt(3739).mount, "flap", "T+1:02:19 transonic flap");
+    assert.equal(webcastShotAt(3800).mode, "hull");
+    assert.equal(webcastShotAt(3912).mode, "hull", "T+1:05:12 landing plume");
   });
 
   it("cuts to an aerial chase for splashdown, then a sea-level drone", () => {
@@ -139,11 +162,5 @@ describe("FLIGHT13_WEBCAST_SHOTS", () => {
     assert.ok(a1 > a0);
     assert.ok(a1 - a0 > 20 && a1 - a0 < 45);
     assert.equal(splashDroneAzimuthDeg(0), a0);
-  });
-
-  it("chooses chase for the payload-receding still, hull otherwise mid-coast", () => {
-    assert.equal(webcastShotAt(1000).mode, "hull");
-    assert.equal(webcastShotAt(1210).mode, "chase");
-    assert.equal(webcastShotAt(1660).mode, "hull");
   });
 });

@@ -18,7 +18,15 @@ import {
   VAC_BELL_H,
   VAC_BELL_R,
 } from "./dimensions";
-import { FIN_CAM_LOCAL, FIN_CAM_LOOK_LOCAL, fwdFlapAz, fwdFlapZ, shipOgiveRadiusM } from "./dimensions";
+import {
+  FIN_CAM_LOCAL,
+  FIN_CAM_LOOK_LOCAL,
+  PAYLOAD_CAM_LOCAL,
+  PAYLOAD_CAM_LOOK_LOCAL,
+  fwdFlapAz,
+  fwdFlapZ,
+  shipOgiveRadiusM,
+} from "./dimensions";
 import type { CraftMats } from "./materials";
 import { finishCanvasTexture, makeSizedCanvas } from "./materials";
 import { SHIP_HULL_MARK, paintHullMarkDecal } from "../craftHullMaps";
@@ -214,6 +222,17 @@ function addHullCam(ship: THREE.Group): void {
   );
 }
 
+/** Pez-bay cam: leeward mid-barrel looking out at the Starlink V3 fan. */
+function addPayloadCam(ship: THREE.Group): void {
+  addNamedCam(
+    ship,
+    "payload-cam",
+    "payload-cam-look",
+    [PAYLOAD_CAM_LOCAL.x, PAYLOAD_CAM_LOCAL.y, PAYLOAD_CAM_LOCAL.z],
+    [PAYLOAD_CAM_LOOK_LOCAL.x, PAYLOAD_CAM_LOOK_LOCAL.y, PAYLOAD_CAM_LOOK_LOCAL.z],
+  );
+}
+
 /** Aft elevon + tile face on a named hinge pivot. */
 function addAftFlap(ship: THREE.Group, mats: CraftMats, side: number): void {
   const spec: FlapSpec = {
@@ -291,6 +310,7 @@ function addShipControlSurfaces(ship: THREE.Group, mats: CraftMats): void {
   addFinCam(ship);
   addFlapCam(ship);
   addHullCam(ship);
+  addPayloadCam(ship);
   addAftFlaps(ship, mats);
 }
 

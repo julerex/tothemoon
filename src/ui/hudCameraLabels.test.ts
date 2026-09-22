@@ -72,7 +72,8 @@ describe("cycleCameraMode", () => {
     assert.equal(cycleCameraMode("tower1cam", 1), "tower2cam");
     assert.equal(cycleCameraMode("tower2cam", 1), "starbase");
     assert.equal(cycleCameraMode("starbase", 1), "trench");
-    assert.equal(cycleCameraMode("fin", 1), "drone");
+    assert.equal(cycleCameraMode("fin", 1), "payload");
+    assert.equal(cycleCameraMode("payload", 1), "drone");
     assert.equal(cycleCameraMode("drone", 1), "sun");
     assert.equal(cycleCameraMode("sun", -1), "drone");
   });
