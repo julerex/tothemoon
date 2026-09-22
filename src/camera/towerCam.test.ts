@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { TOWER_H, TOWER_OX, TOWER_OZ } from "../scene/earthTheater/mechazillaDims.ts";
+import {
+  TOWER_BEACON_Y,
+  TOWER_H,
+  TOWER_OX,
+  TOWER_OZ,
+} from "../scene/earthTheater/mechazillaDims.ts";
 import {
   TOWER1_CAM_FOV,
   TOWER1_CAM_LOCAL,
@@ -8,6 +13,8 @@ import {
   TOWER2_CAM_FOV,
   TOWER2_CAM_LOCAL,
   TOWER2_CAM_LOOK_LOCAL,
+  TOWER2_DOWN_CAM_LOCAL,
+  TOWER2_DOWN_FOV,
   TOWER_TRACK_LOOK_UP_HIGH_KM,
   TOWER_TRACK_MAX_KM,
   isTowerCamFocus,
@@ -52,6 +59,17 @@ describe("tower peak cameras", () => {
 });
 
 describe("panning tower cam", () => {
+  it("seats the tower-down eye above the parked chopsticks, off the deck axis", () => {
+    assert.ok(TOWER2_DOWN_CAM_LOCAL.y > TOWER_H, "mast level, above the arms");
+    assert.ok(TOWER2_DOWN_CAM_LOCAL.y < TOWER_BEACON_Y, "below the lightning rod tip");
+    const offAxis = Math.hypot(
+      TOWER2_DOWN_CAM_LOCAL.x - TOWER2_CAM_LOCAL.x,
+      TOWER2_DOWN_CAM_LOCAL.z - TOWER2_CAM_LOCAL.z,
+    );
+    assert.ok(offAxis > 0.005, "offset along the deck so one arm frames the shot");
+    assert.ok(TOWER2_DOWN_FOV > TOWER2_CAM_FOV, "wider than the parked lens");
+  });
+
   it("only pans while the stack is in range", () => {
     assert.equal(towerCamTracksCraft(true, 0.05), true);
     assert.equal(towerCamTracksCraft(true, TOWER_TRACK_MAX_KM + 0.5), false);

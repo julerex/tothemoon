@@ -20,6 +20,7 @@ import { panAxesFromHeld, type PanKey } from "./panAxes";
 import { panUpAxisForMode } from "./panUpAxis";
 import { TRENCH_CAM_FOV, trenchCamWorldPose } from "./trenchCam";
 import {
+  TOWER2_DOWN_CAM_MOUNT,
   isTowerCamFocus,
   towerCamLookName,
   towerCamMountName,
@@ -1821,10 +1822,16 @@ export class CameraDirector {
     this.pad.updateMatrixWorld(true);
     const mount = this.pad.getObjectByName(towerCamMountName(mode));
     if (!mount) return;
-    if (this.seatTowerTrack(mount)) return;
+    if (this.seatTowerTrack(this.towerTrackMount(mode) ?? mount)) return;
     const look = this.pad.getObjectByName(towerCamLookName(mode));
     if (!look) return;
     this.seatMountCam(mount, look, this.pad);
+  }
+
+  /** Mast-level eye for the panning cut; null when the pad has no such mount. */
+  private towerTrackMount(mode: "tower1cam" | "tower2cam"): THREE.Object3D | null {
+    if (!this.towerTrack || mode !== "tower2cam") return null;
+    return this.pad?.getObjectByName(TOWER2_DOWN_CAM_MOUNT) ?? null;
   }
 
   /**

@@ -13,6 +13,8 @@ import {
   TOWER2_CAM_LOOK,
   TOWER2_CAM_LOOK_LOCAL,
   TOWER2_CAM_MOUNT,
+  TOWER2_DOWN_CAM_LOCAL,
+  TOWER2_DOWN_CAM_MOUNT,
 } from "../../camera/towerCam";
 import {
   makeGroundBloomSprite, makeHeatHazeTexture, makeScorchTexture, makeSteamTexture,
@@ -363,6 +365,14 @@ function addTrenchCamMounts(pad: THREE.Group): void {
 function addTowerCamMounts(pad: THREE.Group): void {
   addNamedCamMount(
     pad, TOWER2_CAM_MOUNT, TOWER2_CAM_LOOK, TOWER2_CAM_LOCAL, TOWER2_CAM_LOOK_LOCAL,
+  );
+  // Mast-level eye the panning liftoff cut uses instead of the peak deck.
+  addNamedCamMount(
+    pad,
+    TOWER2_DOWN_CAM_MOUNT,
+    `${TOWER2_DOWN_CAM_MOUNT}-look`,
+    TOWER2_DOWN_CAM_LOCAL,
+    TOWER2_CAM_LOOK_LOCAL,
   );
   addNamedCamMount(
     pad, TOWER1_CAM_MOUNT, TOWER1_CAM_LOOK, TOWER1_CAM_LOCAL, TOWER1_CAM_LOOK_LOCAL,

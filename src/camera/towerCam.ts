@@ -31,6 +31,18 @@ export const TOWER2_CAM_LOCAL = {
 /** Look at the ship / interstage so the chopsticks sit in the near field. */
 export const TOWER2_CAM_LOOK_LOCAL = { x: 0, y: 0.072, z: 0 } as const;
 
+/**
+ * Tower-down mount for the panning liftoff cut — mast level, above the parked
+ * chopsticks and offset along the deck. The peak-deck pose sits between the
+ * two arms, so a wide lens there fills its edges with arm slab.
+ */
+const TOWER2_DOWN_PEAK = towerLocalToPad(-TOWER_FACE * 0.5, TOWER_FACE * 0.9);
+export const TOWER2_DOWN_CAM_LOCAL = {
+  x: TOWER2_DOWN_PEAK.x,
+  y: TOWER_H + 0.012,
+  z: TOWER2_DOWN_PEAK.z,
+} as const;
+
 /** Tower One Cam — OLP-1 peak, west face toward the live pad. */
 export const TOWER1_CAM_LOCAL = {
   x: olp1TowerFromOlp2.x + TOWER_FACE * 0.58,
@@ -44,11 +56,11 @@ export const TOWER1_CAM_LOOK_LOCAL = { x: 0, y: 0.058, z: 0 } as const;
 /** Close look down the chopsticks from the launch tower. */
 export const TOWER2_CAM_FOV = 58;
 /**
- * Wide lens for the panning tower-down cut. The stack clears the deck ~25 m
- * out, so 58° is all hull; the T+3 → T+7 stills keep tower steel and the
- * coastline around it.
+ * Lens for the panning tower-down cut. The stack clears the deck ~30 m out, so
+ * the parked 58° is all hull; the T+3 → T+7 stills keep tower steel and the
+ * coastline around the vehicle.
  */
-export const TOWER2_DOWN_FOV = 78;
+export const TOWER2_DOWN_FOV = 70;
 /**
  * Wide elevated lens matching the T−4 pad-hold still (stack + tower +
  * coastline). Same class as the pad flying drone.
@@ -57,6 +69,7 @@ export const TOWER1_CAM_FOV = 62;
 
 export const TOWER2_CAM_MOUNT = "tower2-cam";
 export const TOWER2_CAM_LOOK = "tower2-cam-look";
+export const TOWER2_DOWN_CAM_MOUNT = "tower2-down-cam";
 export const TOWER1_CAM_MOUNT = "tower1-cam";
 export const TOWER1_CAM_LOOK = "tower1-cam-look";
 
