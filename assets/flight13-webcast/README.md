@@ -19,20 +19,49 @@ Theater camera analogs match [`src/ui/hudCameraLabels.ts`](../../src/ui/hudCamer
 
 | File | HUD clock | Event | Camera | Theater analog |
 | --- | --- | --- | --- | --- |
+| `tminus-000530-pad-hold-wide.jpg` | T−00:05:30 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000500-pad-hold-wide.jpg` | T−00:05:00 | Pad hold, Mechazilla + stack, cryo vent, tank farm | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000430-pad-hold-wide.jpg` | T−00:04:30 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000400-pad-hold-wide.jpg` | T−00:04:00 | Pad hold, Mechazilla + stack, cryo vent at interstage | Aerial wide pad / coastline | Launchpad Drone / Tower One Cam |
+| `tminus-000348-pad-hold-wide.jpg` | T−00:03:48 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000335-pad-hold-wide.jpg` | T−00:03:35 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000320-pad-hold-wide.jpg` | T−00:03:20 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000310-pad-hold-wide.jpg` | T−00:03:10 | Pad hold, Mechazilla + stack, LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000300-pad-hold-wide.jpg` | T−00:03:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000200-full-stack.jpg` | T−00:02:00 | Full stack, chopsticks at interstage, booster cryo vent | Ground-level full stack | Ground Camera One |
+| `tminus-000148-pad-hold-wide.jpg` | T−00:01:48 | Pad hold, Mechazilla + stack, dense LOX vent | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000146-engines-up.jpg` | T−00:01:46 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
 | `tminus-000130-engines-up.jpg` | T−00:01:30 | Looking up Super Heavy Raptor cluster, cryo wisps | Pad under engines | Trench |
+| `tminus-000115-pad-hold-wide.jpg` | T−00:01:15 | Pad hold, Mechazilla + stack, dense LOX vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000100-pad-hold-wide.jpg` | T−00:01:00 | Pad hold, Mechazilla + stack, dense LOX vent across pad | Aerial wide pad / coastline | Launchpad Drone |
+| `tminus-000050-pad-hold-wide.jpg` | T−00:00:50 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000042-pad-hold-wide.jpg` | T−00:00:42 | Pad hold, Mechazilla + stack, cryo vent | Aerial wide pad / coastline | Launchpad Drone |
 | `tminus-000030-full-stack.jpg` | T−00:00:30 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
+| `tminus-000020-full-stack.jpg` | T−00:00:20 | Full stack, chopsticks open, booster cryo vent | Ground-level full stack | Ground Camera One |
+| `tminus-000010-full-stack.jpg` | T−00:00:10 | Full stack, chopsticks open, approaching ignition | Ground-level full stack | Ground Camera One |
+| `tminus-000005-liftoff-pad.jpg` | T−00:00:05 | Ignition / engine start, steam at OLM | Pad tracking | Starbase / trench |
 | `tminus-000002-ignition-chopsticks.jpg` | T−00:00:02 | Ignition, chopsticks open, steam at OLM | Ground-level full stack | Starbase / trench |
 | `tminus-000000-liftoff-pad.jpg` | T−00:00:00 | Liftoff mark, 33 engines lit, orange glow in steam (HUD still T−) | Pad tracking | Starbase |
+| `tplus-000002-liftoff-pad.jpg` | T+00:00:02 | Liftoff, stack clearing pad steam | Pad tracking / aerial | Starbase / Launchpad Drone |
 | `tplus-000003-ascent-hull-from-tower-top.jpg` | T+00:00:03 | Just after liftoff, booster hull down at pad steam + plume | Booster onboard hull | Gridfin / hull |
+| `tplus-000003-ascent-hull-steam.jpg` | T+00:00:03 | Hull-cam down, frost + pad steam, coast below | Booster onboard hull | Gridfin / hull |
+| `tplus-000005-ascent-hull-plume.jpg` | T+00:00:05 | Hull-cam down, gridfin + white plume over marsh | Booster onboard hull | Gridfin / hull |
+| `tplus-000006-ascent-hull-plume.jpg` | T+00:00:06 | Hull-cam / nadir, plume column over Boca Chica | Booster onboard hull | Gridfin / hull |
+| `tplus-000007-ascent-tower-down.jpg` | T+00:00:07 | Tower-down view of ascending stack in steam | Tower peak looking down | Tower One Cam |
 | `tplus-000008-liftoff-aerial.jpg` | T+00:00:08 | Top-down pad, stack clearing steam, orange engine glow | Aerial pad / coastline | Launchpad Drone |
+| `tplus-000009-liftoff-aerial.jpg` | T+00:00:09 | Top-down stack over fireball + pad steam | Aerial pad / coastline | Launchpad Drone |
+| `tplus-000010-liftoff-aerial.jpg` | T+00:00:10 | Top-down stack clearing pad, steam shadow | Aerial pad / coastline | Launchpad Drone |
+| `tplus-000011-liftoff-aerial.jpg` | T+00:00:11 | Top-down ascent, orange plume, tank farm | Aerial pad / coastline | Launchpad Drone |
+| `tplus-000012-liftoff-aerial.jpg` | T+00:00:12 | Top-down stack over Boca Chica wetlands | Aerial pad / coastline | Launchpad Drone |
+| `tplus-000013-ascent-tower-down.jpg` | T+00:00:13 | Tower-down hull + gridfins over coast / steam | Tower peak looking down | Tower One Cam |
+| `tplus-000014-ascent-tracking.jpg` | T+00:00:14 | Tracking ascent over beach / wetlands, pink plume | Ground / chase tracking | Chase |
+| `tplus-000015-ascent-tracking.jpg` | T+00:00:15 | Tracking ascent, ice shed, beach + Gulf | Ground / chase tracking | Chase |
 | `tplus-000016-ascent-tracking.jpg` | T+00:00:16 | Tower-clear, pink plume, ice shed, Boca Chica | Ground tracking | Chase |
+| `tplus-000016-ascent-plume-coast.jpg` | T+00:00:16 | Plume column over wetlands + beach from above | Aerial / tracking | Chase |
 | `tplus-000017-ascent-plume.jpg` | T+00:00:17 | Ascent plume over coast / Gulf from above | Aerial / tracking | Chase |
+| `tplus-000017-ascent-plume-sky.jpg` | T+00:00:17 | Pink plume against hazy sky, coast below | Aerial / tracking | Chase |
+| `tplus-000022-ascent-tracking.jpg` | T+00:00:22 | Distant stack + plume against sky | Tracking / chase | Chase |
+| `tplus-000028-ascent-tracking.jpg` | T+00:00:28 | Distant stack climbing, orange-white plume | Tracking / chase | Chase |
 | `tplus-000029-ascent-hull-plumes.jpg` | T+00:00:29 | S40 hull + tiles, pink plumes over Boca Chica coast | Onboard hull / down | Chase / fin |
 | `tplus-000035-ascent-hull-plumes.jpg` | T+00:00:35 | S40 hull + tiles, orange plume over coast | Onboard hull / down | Chase / fin |
 | `tplus-000040-ascent-hull-plumes.jpg` | T+00:00:40 | S40 hull + tiles, plume shadow on beach / lagoons | Onboard hull / down | Chase / fin |
