@@ -67,8 +67,13 @@ function stepBookmark(rt: HudRuntime, dir: -1 | 1): void {
   jumpToBookmark(rt, next.bookmark);
 }
 
+/** Space and P both toggle playback. */
+export function isPlayPauseCode(code: string): boolean {
+  return code === "Space" || code === "KeyP";
+}
+
 function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
-  if (e.code === "Space") {
+  if (isPlayPauseCode(e.code)) {
     return preventAnd(e, () => rt.data.handlers.onPlayToggle());
   }
   if (e.code === "BracketLeft") {
