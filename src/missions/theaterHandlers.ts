@@ -142,21 +142,17 @@ function onAutoCamToggle(w: TheaterHudWire): boolean {
   return w.autoCam.enabled;
 }
 
-/** L / O: name plates and trajectory overlays share one chrome flag. */
-function toggleSceneChrome(w: TheaterHudWire): boolean {
-  const on = !getZoomLabelsVisible();
-  setZoomLabelsVisible(on);
-  w.setOrbitsVisible(on);
-  return on;
-}
-
 function toggleHandlers(w: TheaterHudWire): Pick<
   HudHandlers,
   "onToggleLabels" | "onToggleOrbits" | "onAutoCamToggle" | "onBookmark"
 > {
   return {
-    onToggleLabels: () => toggleSceneChrome(w),
-    onToggleOrbits: () => toggleSceneChrome(w),
+    onToggleLabels: () => {
+      const on = !getZoomLabelsVisible();
+      setZoomLabelsVisible(on);
+      return on;
+    },
+    onToggleOrbits: () => w.toggleOrbits(),
     onAutoCamToggle: () => onAutoCamToggle(w),
     onBookmark: (bm) => onBookmark(w, bm),
   };

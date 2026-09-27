@@ -8,6 +8,7 @@ import type { CameraDirector, CameraMode } from "../camera/modes.ts";
 import type { MissionClock } from "../mission/clock.ts";
 import type { Trajectory } from "../physics/trajectoryCache.ts";
 import { openingBookmark } from "../mission/bookmarks.ts";
+import { getZoomLabelsVisible, setZoomLabelsVisible } from "../scene/zoomLabels.ts";
 import { makeTheaterHudHandlers, type TheaterHudWire } from "./theaterHandlers.ts";
 
 function stubWire(
@@ -102,6 +103,37 @@ describe("makeTheaterHudHandlers Auto-cam", () => {
     w.autoCam.enabled = false;
     makeTheaterHudHandlers(w).onBookmark?.(openingBookmark());
     assert.equal(snapped, openingBookmark().t);
+  });
+
+  it("toggles orbit overlays on O without touching labels", () => {
+    const { w } = stubWire();
+    let orbits = false;
+    w.toggleOrbits = () => {
+      orbits = !orbits;
+      return orbits;
+    };
+    const labelsBefore = getZoomLabelsVisible();
+    const h = makeTheaterHudHandlers(w);
+    assert.equal(h.onToggleOrbits?.(), true);
+    assert.equal(orbits, true);
+    assert.equal(getZoomLabelsVisible(), labelsBefore);
+    assert.equal(h.onToggleOrbits?.(), false);
+    assert.equal(orbits, false);
+  });
+
+  it("toggles name plates on L without the orbit wire", () => {
+    const { w } = stubWire();
+    let orbitCalls = 0;
+    w.toggleOrbits = () => {
+      orbitCalls += 1;
+      return true;
+    };
+    const before = getZoomLabelsVisible();
+    const on = makeTheaterHudHandlers(w).onToggleLabels?.();
+    assert.equal(on, !before);
+    assert.equal(getZoomLabelsVisible(), !before);
+    assert.equal(orbitCalls, 0);
+    setZoomLabelsVisible(before);
   });
 
   it("turns Auto-cam off when the user picks a free rail camera", () => {

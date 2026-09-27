@@ -101,7 +101,7 @@ export function setLabelsEnabled(rt: HudRuntime, enabled: boolean): void {
 
 export function setOrbitsEnabled(rt: HudRuntime, enabled: boolean): void {
   rt.flags.orbitsEnabled = enabled;
-  applyPressed(rt.dom.btnOrbits, enabled);
+  applyPressed(rt.dom.btnOrbits, enabled, "Orbits");
 }
 
 export function toggleAutoCam(rt: HudRuntime): void {
@@ -110,19 +110,14 @@ export function toggleAutoCam(rt: HudRuntime): void {
   setAutoCamEnabled(rt, on);
 }
 
-function setChromeEnabled(rt: HudRuntime, enabled: boolean): void {
-  setLabelsEnabled(rt, enabled);
-  setOrbitsEnabled(rt, enabled);
-}
-
 export function toggleLabels(rt: HudRuntime): void {
   const on = rt.data.handlers.onToggleLabels?.();
-  if (typeof on === "boolean") setChromeEnabled(rt, on);
+  if (typeof on === "boolean") setLabelsEnabled(rt, on);
 }
 
 export function toggleOrbits(rt: HudRuntime): void {
   const on = rt.data.handlers.onToggleOrbits?.();
-  if (typeof on === "boolean") setChromeEnabled(rt, on);
+  if (typeof on === "boolean") setOrbitsEnabled(rt, on);
 }
 
 export function wireAutoCamButton(rt: HudRuntime): void {
@@ -136,7 +131,7 @@ export function wireSceneToggleButtons(rt: HudRuntime): void {
   rt.dom.btnLabels?.addEventListener("click", () => toggleLabels(rt));
   rt.dom.btnOrbits?.addEventListener("click", () => toggleOrbits(rt));
   applyPressed(rt.dom.btnLabels, rt.flags.labelsEnabled, "Labels");
-  applyPressed(rt.dom.btnOrbits, rt.flags.orbitsEnabled);
+  applyPressed(rt.dom.btnOrbits, rt.flags.orbitsEnabled, "Orbits");
 }
 
 function onCamGridClick(rt: HudRuntime, btn: HTMLButtonElement): void {

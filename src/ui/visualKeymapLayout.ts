@@ -47,7 +47,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "Y" },
     { label: "U" },
     { label: "I" },
-    { label: "O", action: "Labels" },
+    { label: "O", action: "Orbits" },
     { label: "P", action: "Play / pause" },
     { label: "[", action: "Prev camera" },
     { label: "]", action: "Next camera" },
