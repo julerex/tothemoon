@@ -33,7 +33,7 @@ export type CinematicBookmark = Readonly<{
 
 /**
  * Transport start: T−5:00 pad hold. Key **0**.
- * Not part of {@link BOOKMARK_IDS} — digits **1…** stay the mission beats.
+ * Not part of {@link BOOKMARK_IDS} — digits **1…9** stay the mission beats.
  */
 export function openingBookmark(): CinematicBookmark {
   return {
@@ -47,15 +47,33 @@ export function openingBookmark(): CinematicBookmark {
   };
 }
 
-/** Preset id order for UI buttons and 1… keys. */
+/**
+ * Catalog of beats. Digit keys follow mission time, not this order:
+ * {@link buildBookmarks} keeps at most nine so keys **0–9** stay filled.
+ */
 export const BOOKMARK_IDS = [
   "pad",
+  "maxQ",
   "staging",
+  "boostback",
+  "lowEarthOrbit",
+  "landingBurn",
+  "boosterCatch",
+  "seco",
   "translunarInjection",
+  "payload",
+  "coastStart",
   "halfway",
+  "entry",
   "lunarOrbitInsertion",
   "touchdown",
 ] as const;
+
+/** Mission beats that fit on digit keys 1–9 (key 0 is the opening). */
+const DIGIT_BEATS = 9;
+
+/** A coast this long gets its own start bookmark; shorter coasts keep halfway only. */
+const LONG_COAST_S = 3600;
 
 export type BookmarkId = (typeof BOOKMARK_IDS)[number];
 
@@ -66,64 +84,43 @@ type BookmarkSpec = {
   mode: CameraMode;
   frame: boolean;
   frameScale?: number;
+  /** Higher survives when more than {@link DIGIT_BEATS} beats resolve. */
+  priority: number;
   /** Resolve mission time from timeline; null → omit bookmark. */
   resolveT: (tl: MissionTimeline) => number | null;
 };
 
+function beat(
+  id: BookmarkId,
+  label: string,
+  shortLabel: string,
+  mode: CameraMode,
+  priority: number,
+  resolveT: (tl: MissionTimeline) => number | null,
+  frameScale?: number,
+): BookmarkSpec {
+  return { id, label, shortLabel, mode, frame: true, frameScale, priority, resolveT };
+}
+
 const SPECS: BookmarkSpec[] = [
-  {
-    id: "pad",
-    label: "Pad",
-    shortLabel: "Pad",
-    mode: "starbase",
-    frame: true,
-    resolveT: (tl) => eventT(tl, "liftoff") ?? segmentT0(tl, "launch") ?? 0,
-  },
-  {
-    id: "staging",
-    label: "Staging",
-    shortLabel: "Stage",
-    mode: "chase",
-    frame: true,
-    resolveT: (tl) => eventT(tl, "staging"),
-  },
-  {
-    id: "translunarInjection",
-    label: "Translunar injection",
-    shortLabel: "Inject",
-    mode: "chase",
-    frame: true,
-    resolveT: (tl) =>
-      eventT(tl, "translunarInjection") ??
-      segmentT0(tl, "translunarInjection"),
-  },
-  {
-    id: "halfway",
-    label: "Halfway",
-    shortLabel: "Half",
-    mode: "earth",
-    frame: true,
-    // Match Auto-cam coast overview so both bodies stay readable.
-    frameScale: 22,
-    resolveT: (tl) => halfwayCoastT(tl),
-  },
-  {
-    id: "lunarOrbitInsertion",
-    label: "Lunar orbit insertion",
-    shortLabel: "Capture",
-    mode: "moon",
-    frame: true,
-    resolveT: (tl) =>
-      eventT(tl, "lunarOrbitInsertion") ?? segmentT0(tl, "approach"),
-  },
-  {
-    id: "touchdown",
-    label: "Touchdown",
-    shortLabel: "Land",
-    mode: "chase",
-    frame: true,
-    resolveT: (tl) => resolveTouchdown(tl)?.t ?? null,
-  },
+  beat("pad", "Pad", "Pad", "starbase", 90, (tl) => eventT(tl, "liftoff") ?? segmentT0(tl, "launch") ?? 0),
+  beat("maxQ", "Max Q", "Max Q", "chase", 55, (tl) => eventT(tl, "max-q")),
+  beat("staging", "Staging", "Stage", "chase", 80, (tl) => eventT(tl, "staging")),
+  beat("boostback", "Boostback", "Back", "booster", 12, (tl) => eventT(tl, "boostback")),
+  beat("lowEarthOrbit", "Earth orbit", "Orbit", "earth", 32, (tl) =>
+    eventT(tl, "lowEarthOrbit") ?? segmentT0(tl, "lowEarthOrbit")),
+  beat("landingBurn", "Booster land", "Boost", "booster", 28, (tl) => eventT(tl, "landing-burn")),
+  beat("boosterCatch", "Booster catch", "Catch", "booster", 16, (tl) => eventT(tl, "booster-catch")),
+  beat("seco", "SECO", "SECO", "chase", 36, (tl) => eventT(tl, "seco")),
+  beat("translunarInjection", "Translunar injection", "Inject", "chase", 50, (tl) =>
+    eventT(tl, "translunarInjection") ?? segmentT0(tl, "translunarInjection")),
+  beat("payload", "Payload", "Deploy", "chase", 40, (tl) => eventT(tl, "payload-start")),
+  beat("coastStart", "Coast", "Coast", "earth", 24, (tl) => longCoastStartT(tl), 8),
+  beat("halfway", "Halfway", "Half", "earth", 70, (tl) => halfwayCoastT(tl), 22),
+  beat("entry", "Entry", "Entry", "chase", 60, (tl) => eventT(tl, "entry") ?? segmentT0(tl, "entry")),
+  beat("lunarOrbitInsertion", "Lunar orbit insertion", "Capture", "moon", 48, (tl) =>
+    eventT(tl, "lunarOrbitInsertion") ?? segmentT0(tl, "approach")),
+  beat("touchdown", "Touchdown", "Land", "chase", 100, (tl) => resolveTouchdown(tl)?.t ?? null),
 ];
 
 function bookmarkFromSpec(
@@ -172,21 +169,44 @@ function resolveBookmark(
 
 /**
  * Build available cinematic bookmarks from a mission timeline.
- * The T−5:00 opening is first, then {@link BOOKMARK_IDS}; absent beats are skipped.
+ * The T−5:00 opening is first. Other beats are time-sorted and capped at nine
+ * so digit keys **0–9** cover the flight. Absent beats are skipped.
  */
 export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
   const dur = Math.max(timeline.durationS, 1);
-  const out: CinematicBookmark[] = [openingBookmark()];
+  const beats: CinematicBookmark[] = [];
   for (const spec of SPECS) {
     const bm = resolveBookmark(timeline, spec, dur);
-    if (bm) out.push(bm);
+    if (bm) beats.push(bm);
   }
-  return out;
+  return [openingBookmark(), ...capDigitBeats(beats)];
+}
+
+function byTime(a: CinematicBookmark, b: CinematicBookmark): number {
+  return a.t - b.t || a.id.localeCompare(b.id);
+}
+
+/** Keep the highest-priority beats when a flight has more than nine. */
+function capDigitBeats(beats: CinematicBookmark[]): CinematicBookmark[] {
+  const sorted = beats.slice().sort(byTime);
+  if (sorted.length <= DIGIT_BEATS) return sorted;
+  const keep = new Set(
+    sorted
+      .slice()
+      .sort((a, b) => beatPriority(b.id) - beatPriority(a.id) || a.t - b.t)
+      .slice(0, DIGIT_BEATS)
+      .map((b) => b.id),
+  );
+  return sorted.filter((b) => keep.has(b.id));
+}
+
+function beatPriority(id: string): number {
+  return SPECS.find((spec) => spec.id === id)?.priority ?? 0;
 }
 
 /**
  * Map a digit key to a bookmark.
- * **0** is the T−5:00 opening. **1…N** are the mission beats, skipping that opening.
+ * **0** is the T−5:00 opening. **1…9** are the mission beats, skipping that opening.
  * Returns null when the key index is out of range.
  */
 export function bookmarkForDigit(
@@ -249,6 +269,13 @@ function findSegment(
   phase: string,
 ): PhaseSegment | null {
   return segments.find((s) => s.phase === phase) ?? null;
+}
+
+/** Start of a long coast. Short suborbital coasts keep the halfway bookmark only. */
+function longCoastStartT(tl: MissionTimeline): number | null {
+  const coast = findSegment(tl.segments, "coast");
+  if (!coast || coast.t1 - coast.t0 < LONG_COAST_S) return null;
+  return coast.t0;
 }
 
 /** Midpoint of the coast segment, else mid-mission as a weak fallback. */

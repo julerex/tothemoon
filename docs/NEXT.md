@@ -84,7 +84,7 @@ When a phase starts (or staging fires), ease the camera to a sensible default:
 
 ### 5. Cinematic bookmarks — **done**
 
-Preset jumps (buttons + **1…6**): **Pad**, **Staging**, **Translunar injection**, **Halfway**, **Lunar orbit insertion**, **Touchdown** (or **Impact**). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
+Preset jumps (buttons + **0–9**): the beats that flight's timeline actually has, time-sorted, at most ten (key **0** is T−5:00). Seek + `easeToMode` in one action; Auto-cam stays on. Built from `timeline.events` / phase segments (`src/mission/bookmarks.ts`).
 
 ### 6. Chase camera quality — **done**
 

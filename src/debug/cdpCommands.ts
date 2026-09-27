@@ -107,4 +107,5 @@ export const THEATER_KEYS = {
   bookmark0: "0",
   bookmark1: "1",
   bookmark6: "6",
+  bookmark9: "9",
 } as const;

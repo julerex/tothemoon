@@ -173,8 +173,7 @@ Keys via `press_key` (match the HUD keymap, not the old backtick):
 | `Space` | Play / pause |
 | `-` / `+` | Slower / faster |
 | `[` / `]` | Previous / next camera |
-| `0` | T−5:00 opening |
-| `1`…`6` | Bookmarks |
+| `0`–`9` | Timeline bookmarks (0 is T−5:00) |
 | `\` | Toggle Auto-camera |
 | `m` | Menu (pauses; shows the side rails and scrubber) |
 | `h` | Help (pauses) |

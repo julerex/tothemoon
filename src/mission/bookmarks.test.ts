@@ -48,16 +48,22 @@ function landingArcSamples(): Sample[] {
 }
 
 describe("buildBookmarks", () => {
-  it("emits Pad · Stage · translunar injection · Half · lunar orbit insertion · Land for a landing arc", () => {
+  it("fills a landing arc through touchdown and keeps at most ten bookmarks", () => {
     const tl = buildTimeline(landingArcSamples(), 1000);
     const marks = buildBookmarks(tl);
+    assert.ok(marks.length <= 10);
+    assert.equal(marks[0]!.id, "opening");
+    assert.equal(marks[marks.length - 1]!.id, "touchdown");
     assert.deepEqual(
       marks.map((m) => m.id),
       [
         "opening",
         "pad",
+        "lowEarthOrbit",
         "staging",
         "translunarInjection",
+        "landingBurn",
+        "boosterCatch",
         "halfway",
         "lunarOrbitInsertion",
         "touchdown",
@@ -161,12 +167,21 @@ describe("buildBookmarks", () => {
     assert.equal(marks.find((m) => m.id === "pad")!.t, 0);
   });
 
-  it("exports a stable BOOKMARK_IDS order", () => {
+  it("exports a stable BOOKMARK_IDS catalog", () => {
     assert.deepEqual([...BOOKMARK_IDS], [
       "pad",
+      "maxQ",
       "staging",
+      "boostback",
+      "lowEarthOrbit",
+      "landingBurn",
+      "boosterCatch",
+      "seco",
       "translunarInjection",
+      "payload",
+      "coastStart",
       "halfway",
+      "entry",
       "lunarOrbitInsertion",
       "touchdown",
     ]);
@@ -181,19 +196,20 @@ describe("bookmarkForDigit", () => {
     assert.equal(bookmarkForDigit(marks, 0)?.t, openingBookmark().t);
     assert.equal(bookmarkForDigit(marks, 0)?.u, 0);
     assert.equal(bookmarkForDigit(marks, 1)?.id, "pad");
-    assert.equal(bookmarkForDigit(marks, 3)?.id, "translunarInjection");
-    assert.equal(bookmarkForDigit(marks, marks.length - 1)?.id, "touchdown");
+    assert.equal(bookmarkForDigit(marks, 4)?.id, "translunarInjection");
+    assert.equal(bookmarkForDigit(marks, 9)?.id, "touchdown");
     assert.equal(bookmarkForDigit(marks, 99), null);
   });
 });
 
 describe("keymapDigitAction", () => {
-  it("names Flight 13 number keys by the bookmark stage", () => {
+  it("names Flight 13 number keys 0–9 by the bookmark stage", () => {
     const tl = buildTimeline(
       [
-        sample(0, "launch", { staged: false }),
-        sample(142, "ascent", { staged: true, fuelBooster: 0 }),
-        sample(486, "coast", { staged: true }),
+        sample(0, "launch", { staged: false, burning: true }),
+        sample(142, "ascent", { staged: true, burning: true, fuelBooster: 0 }),
+        sample(400, "ascent", { staged: true, burning: true, thrustN: 2e6 }),
+        sample(434, "coast", { staged: true, burning: false }),
         sample(2338, "entry", { staged: true }),
         sample(3907, "descent", { staged: true }),
         sample(3922.5, "splashdown", { staged: true }),
@@ -201,13 +217,42 @@ describe("keymapDigitAction", () => {
       4200,
     );
     const marks = buildBookmarks(tl);
-    assert.equal(keymapDigitAction(marks, 0), "T−5");
-    assert.equal(keymapDigitAction(marks, 1), "Pad");
-    assert.equal(keymapDigitAction(marks, 2), "Staging");
-    assert.equal(keymapDigitAction(marks, 3), "Halfway");
-    assert.equal(keymapDigitAction(marks, 4), "Splashdown");
-    assert.equal(keymapDigitAction(marks, 5), undefined);
-    assert.equal(keymapDigitAction(marks, 6), undefined);
+    assert.deepEqual(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => keymapDigitAction(marks, digit)),
+      ["T−5", "Pad", "Max Q", "Staging", "Booster land", "SECO", "Payload", "Halfway", "Entry", "Splashdown"],
+    );
+    assert.equal(keymapDigitAction(marks, 10), undefined);
+  });
+
+  it("names a long lunar coast on keys 0–9", () => {
+    const tl = buildTimeline(
+      [
+        sample(0, "launch", { staged: false }),
+        sample(13, "ascent", { staged: false }),
+        sample(147, "ascent", { staged: true, fuelBooster: 0 }),
+        sample(304, "lowEarthOrbit", { staged: true }),
+        sample(6930, "translunarInjection", { staged: true }),
+        sample(7163, "coast", { staged: true }),
+        sample(700_000, "coast", { staged: true }),
+      ],
+      710_000,
+    );
+    const marks = buildBookmarks(tl);
+    assert.deepEqual(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => keymapDigitAction(marks, digit)),
+      [
+        "T−5",
+        "Pad",
+        "Staging",
+        "Boostback",
+        "Earth orbit",
+        "Booster land",
+        "Booster catch",
+        "Translunar injection",
+        "Coast",
+        "Halfway",
+      ],
+    );
   });
 });
 
