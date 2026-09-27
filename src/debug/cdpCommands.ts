@@ -106,6 +106,7 @@ export const THEATER_KEYS = {
   metrics: "m",
   hideHud: "h",
   keymap: "k",
+  bookmark0: "0",
   bookmark1: "1",
   bookmark6: "6",
 } as const;

@@ -33,7 +33,7 @@ Texture credits (NASA Blue Marble, LRO WAC Moon, Sentinel-2 cloudless, USDA NAIP
 
 - Loading overlay while Earth / Moon / star-field / Starbase textures fetch (theater is revealed when they are ready)
 - Play / pause, **Auto** speed by phase (or fixed up to 2000×), mission scrubber with phase marks + **event ticks**
-- **Cinematic bookmarks** (Pad · Stage · translunar injection · Half · lunar orbit insertion · Land) — seek + camera; **1…6**
+- **Cinematic bookmarks** (T−5 · Pad · Stage · translunar injection · Half · lunar orbit insertion · Land) — seek + camera; **0** opens at T−5:00, **1…6** the mission beats
 - Event ticks on the scrubber (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click a tick to seek
 - **Ascent / return to launch site cross-section** (**Tab** cycle or button) — true-scale black & white launch-plane diagram (Earth surface + 150 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
 - **Earth great-circle section** (**Earth GC** / **Tab**) — whole-Earth B&W slice on the Flight 13 corridor (Starbase · Gauteng · Indian Ocean landing · Australia); also from the Flight 13 briefing

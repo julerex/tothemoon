@@ -5,7 +5,7 @@
 import type { CinematicBookmark } from "../mission/bookmarks";
 import type { MissionEvent, PhaseSegment } from "../mission/timeline";
 import type { PhaseId } from "../physics/mission";
-import { formatMissionTime } from "./hudFormat";
+import { formatMissionTime, formatWebcastMissionTime } from "./hudFormat";
 import { scrubInfoView, type ScrubInfoView } from "./hudScrubInfo";
 
 const MAJOR_PHASES = new Set<PhaseId>([
@@ -133,9 +133,19 @@ export function renderEventTicks(
   }
 }
 
+function bookmarkClock(t: number): string {
+  return t < 0 ? formatWebcastMissionTime(t) : formatMissionTime(t);
+}
+
+/** Key **0** is the opening. Later buttons keep **1…** on the mission beats. */
+function bookmarkKeyHint(bm: CinematicBookmark, index: number): string {
+  if (bm.id === "opening") return "0";
+  return index > 0 && index < 10 ? String(index) : "";
+}
+
 function bookmarkTitle(bm: CinematicBookmark, index: number): string {
-  const keyHint = index < 9 ? String(index + 1) : "";
-  const base = `${bm.label} · ${formatMissionTime(bm.t)}`;
+  const keyHint = bookmarkKeyHint(bm, index);
+  const base = `${bm.label} · ${bookmarkClock(bm.t)}`;
   return keyHint ? `${base} · ${keyHint}` : base;
 }
 
@@ -145,7 +155,7 @@ function styleBookmarkButton(btn: HTMLButtonElement, bm: CinematicBookmark, inde
   btn.dataset.bookmark = bm.id;
   btn.textContent = bm.shortLabel;
   btn.title = bookmarkTitle(bm, index);
-  btn.setAttribute("aria-label", `Bookmark ${bm.label} at ${formatMissionTime(bm.t)}`);
+  btn.setAttribute("aria-label", `Bookmark ${bm.label} at ${bookmarkClock(bm.t)}`);
 }
 
 function buildBookmarkButton(

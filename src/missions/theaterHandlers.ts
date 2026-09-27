@@ -104,8 +104,24 @@ function cameraHandlers(w: TheaterHudWire): Pick<
   };
 }
 
+/**
+ * T−5:00 opening. Clear Auto-cam memory so the next frame recuts to that
+ * mission's pad-hold shot. With Auto-cam off, seat the inland pad tableau.
+ */
+function onOpeningBookmark(w: TheaterHudWire, bm: CinematicBookmark): void {
+  w.clock.seek(bm.u);
+  w.autoCam.phase = null;
+  w.autoCam.staged = false;
+  w.autoCam.shotKey = null;
+  if (!w.autoCam.enabled) w.director.snapPadOpening(bm.t);
+}
+
 /** Seek to the bookmark and ease the camera, keeping auto-cam state in step. */
 function onBookmark(w: TheaterHudWire, bm: CinematicBookmark): void {
+  if (bm.id === "opening") {
+    onOpeningBookmark(w, bm);
+    return;
+  }
   w.clock.seek(bm.u);
   const frame = sampleAtProgress(w.cache, bm.u);
   w.autoCam.phase = frame.phase;

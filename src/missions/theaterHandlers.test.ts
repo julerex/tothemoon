@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import type { CameraDirector, CameraMode } from "../camera/modes.ts";
 import type { MissionClock } from "../mission/clock.ts";
 import type { Trajectory } from "../physics/trajectoryCache.ts";
+import { openingBookmark } from "../mission/bookmarks.ts";
 import { makeTheaterHudHandlers, type TheaterHudWire } from "./theaterHandlers.ts";
 
 function stubWire(
@@ -70,6 +71,37 @@ describe("makeTheaterHudHandlers Auto-cam", () => {
     h.onOrbitKey("q", true);
     h.onZoomKey("z", true);
     assert.equal(enabled(), true);
+  });
+
+  it("seeks 0 to the T−5 opening and re-arms Auto-cam", () => {
+    const { w } = stubWire();
+    let sought = -1;
+    let snapped: number | null = null;
+    w.clock = { seek(t: number) { sought = t; } } as MissionClock;
+    w.director.snapPadOpening = (t: number) => {
+      snapped = t;
+    };
+    w.autoCam.phase = "coast";
+    w.autoCam.staged = true;
+    w.autoCam.shotKey = "hull";
+    makeTheaterHudHandlers(w).onBookmark?.(openingBookmark());
+    assert.equal(sought, 0);
+    assert.equal(w.autoCam.phase, null);
+    assert.equal(w.autoCam.staged, false);
+    assert.equal(w.autoCam.shotKey, null);
+    assert.equal(snapped, null);
+  });
+
+  it("seats the pad tableau at T−5 when Auto-cam is off", () => {
+    const { w } = stubWire();
+    let snapped: number | null = null;
+    w.clock = { seek() {} } as MissionClock;
+    w.director.snapPadOpening = (t: number) => {
+      snapped = t;
+    };
+    w.autoCam.enabled = false;
+    makeTheaterHudHandlers(w).onBookmark?.(openingBookmark());
+    assert.equal(snapped, openingBookmark().t);
   });
 
   it("turns Auto-cam off when the user picks a free rail camera", () => {

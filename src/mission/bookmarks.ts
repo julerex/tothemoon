@@ -7,6 +7,7 @@
  */
 
 import type { CameraMode } from "../camera/modes";
+import { PRELAUNCH_COUNTDOWN_S } from "./prelaunch";
 import type { MissionEvent, MissionTimeline, PhaseSegment } from "./timeline";
 
 /** One-shot jump: mission time + guided focus framing. */
@@ -29,6 +30,22 @@ export type CinematicBookmark = Readonly<{
    */
   frameScale?: number;
 }>;
+
+/**
+ * Transport start: T−5:00 pad hold. Key **0**.
+ * Not part of {@link BOOKMARK_IDS} — digits **1…** stay the mission beats.
+ */
+export function openingBookmark(): CinematicBookmark {
+  return {
+    id: "opening",
+    label: "T−5:00",
+    shortLabel: "T−5",
+    t: -PRELAUNCH_COUNTDOWN_S,
+    u: 0,
+    mode: "starbase",
+    frame: true,
+  };
+}
 
 /** Preset id order for UI buttons and 1… keys. */
 export const BOOKMARK_IDS = [
@@ -155,11 +172,11 @@ function resolveBookmark(
 
 /**
  * Build available cinematic bookmarks from a mission timeline.
- * Order is always {@link BOOKMARK_IDS}; absent beats are skipped.
+ * The T−5:00 opening is first, then {@link BOOKMARK_IDS}; absent beats are skipped.
  */
 export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
   const dur = Math.max(timeline.durationS, 1);
-  const out: CinematicBookmark[] = [];
+  const out: CinematicBookmark[] = [openingBookmark()];
   for (const spec of SPECS) {
     const bm = resolveBookmark(timeline, spec, dur);
     if (bm) out.push(bm);
@@ -168,15 +185,18 @@ export function buildBookmarks(timeline: MissionTimeline): CinematicBookmark[] {
 }
 
 /**
- * Map 1…N (1-based digit key) to a bookmark in the built list.
+ * Map a digit key to a bookmark.
+ * **0** is the T−5:00 opening. **1…N** are the mission beats, skipping that opening.
  * Returns null when the key index is out of range.
  */
 export function bookmarkForDigit(
   bookmarks: readonly CinematicBookmark[],
   digit: number,
 ): CinematicBookmark | null {
+  if (digit === 0) return bookmarks.find((b) => b.id === "opening") ?? null;
   if (!Number.isInteger(digit) || digit < 1) return null;
-  return bookmarks[digit - 1] ?? null;
+  const beats = bookmarks.filter((b) => b.id !== "opening");
+  return beats[digit - 1] ?? null;
 }
 
 /**

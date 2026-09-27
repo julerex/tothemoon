@@ -7,7 +7,9 @@ import {
   bookmarkForDigit,
   cycleBookmark,
   buildBookmarks,
+  openingBookmark,
 } from "./bookmarks.ts";
+import { PRELAUNCH_COUNTDOWN_S } from "./prelaunch.ts";
 import { buildTimeline } from "./timeline.ts";
 
 function sample(
@@ -51,6 +53,7 @@ describe("buildBookmarks", () => {
     assert.deepEqual(
       marks.map((m) => m.id),
       [
+        "opening",
         "pad",
         "staging",
         "translunarInjection",
@@ -59,14 +62,17 @@ describe("buildBookmarks", () => {
         "touchdown",
       ],
     );
-    assert.equal(marks[0]!.mode, "starbase");
-    assert.equal(marks[1]!.mode, "chase");
-    assert.equal(marks[2]!.mode, "chase");
-    assert.equal(marks[3]!.mode, "earth");
-    assert.ok((marks[3]!.frameScale ?? 1) > 1);
-    assert.equal(marks[4]!.mode, "moon");
-    assert.equal(marks[5]!.mode, "chase");
-    assert.equal(marks[5]!.label, "Touchdown");
+    const byId = (id: string) => marks.find((m) => m.id === id);
+    assert.equal(byId("opening")!.t, -PRELAUNCH_COUNTDOWN_S);
+    assert.equal(byId("opening")!.u, 0);
+    assert.equal(byId("pad")!.mode, "starbase");
+    assert.equal(byId("staging")!.mode, "chase");
+    assert.equal(byId("translunarInjection")!.mode, "chase");
+    assert.equal(byId("halfway")!.mode, "earth");
+    assert.ok((byId("halfway")!.frameScale ?? 1) > 1);
+    assert.equal(byId("lunarOrbitInsertion")!.mode, "moon");
+    assert.equal(byId("touchdown")!.mode, "chase");
+    assert.equal(byId("touchdown")!.label, "Touchdown");
   });
 
   it("places halfway at the midpoint of the coast segment", () => {
@@ -139,7 +145,8 @@ describe("buildBookmarks", () => {
     }
     for (const m of marks) {
       assert.ok(m.u >= 0 && m.u <= 1);
-      assert.equal(m.u, m.t / 1000);
+      if (m.id === "opening") assert.equal(m.u, 0);
+      else assert.equal(m.u, m.t / 1000);
       assert.equal(typeof m.frame, "boolean");
     }
   });
@@ -148,9 +155,9 @@ describe("buildBookmarks", () => {
     const tl = buildTimeline([], 100);
     // pad resolves to t=0 via fallback; no other beats without segments/events
     const marks = buildBookmarks(tl);
-    assert.ok(marks.length >= 1);
-    assert.equal(marks[0]!.id, "pad");
-    assert.equal(marks[0]!.t, 0);
+    assert.ok(marks.length >= 2);
+    assert.equal(marks[0]!.id, "opening");
+    assert.equal(marks.find((m) => m.id === "pad")!.t, 0);
   });
 
   it("exports a stable BOOKMARK_IDS order", () => {
@@ -169,10 +176,12 @@ describe("bookmarkForDigit", () => {
   it("maps 1-based digits onto the built list", () => {
     const tl = buildTimeline(landingArcSamples(), 1000);
     const marks = buildBookmarks(tl);
+    assert.equal(bookmarkForDigit(marks, 0)?.id, "opening");
+    assert.equal(bookmarkForDigit(marks, 0)?.t, openingBookmark().t);
+    assert.equal(bookmarkForDigit(marks, 0)?.u, 0);
     assert.equal(bookmarkForDigit(marks, 1)?.id, "pad");
     assert.equal(bookmarkForDigit(marks, 3)?.id, "translunarInjection");
-    assert.equal(bookmarkForDigit(marks, marks.length)?.id, "touchdown");
-    assert.equal(bookmarkForDigit(marks, 0), null);
+    assert.equal(bookmarkForDigit(marks, marks.length - 1)?.id, "touchdown");
     assert.equal(bookmarkForDigit(marks, 99), null);
   });
 });
@@ -183,9 +192,10 @@ describe("cycleBookmark", () => {
     const marks = buildBookmarks(tl);
     const first = cycleBookmark(marks, -1, 1);
     assert.equal(first?.index, 0);
-    assert.equal(first?.bookmark.id, "pad");
+    assert.equal(first?.bookmark.id, "opening");
     const second = cycleBookmark(marks, 0, 1);
     assert.equal(second?.index, 1);
+    assert.equal(second?.bookmark.id, "pad");
     const wrap = cycleBookmark(marks, marks.length - 1, 1);
     assert.equal(wrap?.index, 0);
   });
