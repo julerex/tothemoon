@@ -2025,9 +2025,12 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 }
 
 /* Auto-cam: webcast bottom bar. Reference still
-   assets/flight13-webcast/tplus-000110-engines-down-broadcast-hud.jpg */
+   assets/flight13-webcast/tplus-000110-engines-down-broadcast-hud.jpg
+   Four equal dials (~12.5% of frame height). Engine rose, speed, and
+   altitude share the open-bottom gauge; each dial sits on a dark disc. */
 #hud.broadcast-mode {
-  --bottom-chrome: 11.5rem;
+  --dial: min(12.5vh, 7.4vw);
+  --bottom-chrome: calc(var(--dial) + 6.5vh);
 }
 
 #hud.broadcast-mode .telemetry,
@@ -2053,7 +2056,7 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   z-index: 6;
   height: var(--bottom-chrome);
   box-sizing: border-box;
-  padding: 2.4rem 1.75rem 0.7rem;
+  padding: 0 4.4vw 1.6vh;
   pointer-events: none;
   align-items: end;
   justify-content: space-between;
@@ -2062,8 +2065,9 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   font-family: var(--font);
   background: linear-gradient(
     to top,
-    rgba(3, 12, 28, 0.82) 0%,
-    rgba(6, 20, 44, 0.46) 46%,
+    rgba(1, 8, 20, 0.9) 0%,
+    rgba(3, 14, 32, 0.62) 38%,
+    rgba(5, 18, 40, 0.28) 68%,
     rgba(6, 20, 44, 0) 100%
   );
 }
@@ -2091,36 +2095,85 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 0.7rem;
+  gap: calc(var(--dial) * 0.27);
 }
 
 .bcast-dial,
 .bcast-gauge {
-  width: 5.7rem;
-  height: 5.7rem;
-}
-
-.bcast-gauge {
   position: relative;
+  width: var(--dial);
+  height: var(--dial);
+  isolation: isolate;
+  flex: 0 0 auto;
 }
 
-.bcast-gauge-ring,
-.bcast-dial {
+/* Dark translucent disc, larger than the ring, fading into the frame. */
+.bcast-dial::before,
+.bcast-gauge::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 156%;
+  height: 156%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(0, 6, 16, 0.78) 0%,
+    rgba(0, 8, 20, 0.66) 52%,
+    rgba(1, 12, 28, 0.38) 72%,
+    rgba(2, 14, 32, 0) 100%
+  );
+  z-index: 0;
+}
+
+.bcast-dial svg,
+.bcast-gauge-ring {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
 }
 
-.bcast-ring,
-.bcast-tick {
+.bcast-ring {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.92);
+  stroke: rgba(255, 255, 255, 0.62);
+  stroke-width: 1.25;
+}
+
+.bcast-ring-inner {
+  stroke: rgba(214, 228, 242, 0.5);
   stroke-width: 1.15;
 }
 
-.bcast-tick {
-  stroke-width: 1;
+.bcast-gauge-arc {
+  fill: none;
+  stroke: rgba(232, 238, 244, 0.78);
+  stroke-width: 3.3;
+  stroke-linecap: round;
+}
+
+.bcast-fuel {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4.4;
+  stroke-linecap: round;
+}
+
+.bcast-chevron {
+  fill: none;
+  stroke: rgba(232, 238, 244, 0.78);
+  stroke-width: 3.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bcast-chevron.is-head {
+  stroke: #fff;
+  stroke-width: 4;
 }
 
 .bcast-cross {
@@ -2154,17 +2207,21 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 .bcast-center {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0 0.4rem 0.15rem;
+  height: var(--dial);
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  align-items: center;
+  justify-items: center;
+  padding: 0 0.8vw;
+  box-sizing: border-box;
 }
 
 .bcast-timeline {
   position: relative;
-  height: 2.85rem;
-  margin: 0 0.2rem 0.15rem;
+  align-self: start;
+  width: 100%;
+  height: calc(var(--dial) * 0.36);
+  margin: 0;
 }
 
 .bcast-timeline::before {
@@ -2206,18 +2263,18 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
   left: 0;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-size: 0.62rem;
+  font-size: calc(var(--dial) * 0.105);
   font-weight: 650;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: rgba(255, 255, 255, 0.94);
 }
 
 .bcast-mark.is-above .bcast-mark-label {
-  bottom: calc(50% + 0.55rem);
+  bottom: calc(50% + var(--dial) * 0.08);
 }
 
 .bcast-mark.is-below .bcast-mark-label {
-  top: calc(50% + 0.5rem);
+  top: calc(50% + var(--dial) * 0.07);
 }
 
 .bcast-mark:not(.is-passed) .bcast-mark-label {
@@ -2235,7 +2292,7 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 }
 
 .bcast-clock {
-  margin: 0.05rem 0 0;
+  margin: 0;
   text-align: center;
   line-height: 1;
   font-weight: 500;
@@ -2244,29 +2301,32 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 }
 
 #bcast-sign {
-  font-size: 1.05rem;
+  font-size: calc(var(--dial) * 0.13);
   font-weight: 650;
   letter-spacing: 0.12em;
-  margin-right: 0.35rem;
+  margin-right: 0.28em;
 }
 
 #bcast-time {
-  font-size: 2.15rem;
+  font-size: calc(var(--dial) * 0.26);
   font-weight: 500;
 }
 
 .bcast-caption {
-  margin: 0.38rem 0 0;
+  margin: 0;
+  align-self: end;
   text-align: center;
-  font-size: 0.68rem;
+  font-size: calc(var(--dial) * 0.1);
   font-weight: 650;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
 }
 
 .bcast-gauge-copy {
   position: absolute;
   inset: 0;
+  z-index: 1;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -2278,78 +2338,41 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 
 .bcast-gauge-kicker,
 .bcast-gauge-unit {
-  font-size: 0.56rem;
+  font-size: calc(var(--dial) * 0.105);
   font-weight: 650;
   letter-spacing: 0.14em;
 }
 
 .bcast-gauge-value {
-  font-size: 1.22rem;
+  font-size: calc(var(--dial) * 0.3);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
 
 .bcast-gauge-value.is-long {
-  font-size: 0.92rem;
+  font-size: calc(var(--dial) * 0.22);
 }
 
 @media (max-width: 720px) {
   #hud.broadcast-mode {
-    --bottom-chrome: 8.8rem;
+    --dial: min(10vh, 14vw);
+    --bottom-chrome: calc(var(--dial) + 4vh);
   }
 
   .broadcast-hud {
-    padding: 1.5rem 0.4rem 0.35rem;
+    padding: 0 2.2vw 1vh;
     gap: 0.35rem;
   }
 
   .bcast-cluster,
   .bcast-gauges {
-    gap: 0.3rem;
+    gap: calc(var(--dial) * 0.16);
   }
 
-  .bcast-dial,
-  .bcast-gauge {
-    width: 3.5rem;
-    height: 3.5rem;
-  }
-
-  .bcast-timeline {
-    height: 2.3rem;
-  }
-
-  .bcast-mark-label {
-    font-size: 0.48rem;
-    letter-spacing: 0.08em;
-  }
-
-  #bcast-sign {
-    font-size: 0.72rem;
-  }
-
-  #bcast-time {
-    font-size: 1.2rem;
-  }
-
+  .bcast-mark-label,
   .bcast-caption {
-    margin-top: 0.2rem;
-    font-size: 0.5rem;
-    letter-spacing: 0.12em;
-  }
-
-  .bcast-gauge-kicker,
-  .bcast-gauge-unit {
-    font-size: 0.4rem;
-    letter-spacing: 0.06em;
-  }
-
-  .bcast-gauge-value {
-    font-size: 0.78rem;
-  }
-
-  .bcast-gauge-value.is-long {
-    font-size: 0.64rem;
+    letter-spacing: 0.08em;
   }
 }
 

@@ -10,6 +10,12 @@ import type { ReadonlySample } from "../physics/missionTypes";
 import { dot, v3 } from "../physics/vec3";
 import {
   buildBroadcastHud,
+  gaugeArcPath,
+  gaugeChevronPath,
+  gaugeFuelDasharray,
+  GAUGE_ARC_END_DEG,
+  GAUGE_ARC_START_DEG,
+  GAUGE_R,
   velocityTiltDeg,
   type BroadcastHudModel,
   type EngineDot,
@@ -28,6 +34,7 @@ type Nodes = {
   engines: SVGSVGElement;
   rocket: SVGGElement;
   dots: SVGElement[];
+  fuel: SVGPathElement | null;
   cluster: string;
   timeline: HTMLElement;
   sign: HTMLElement;
@@ -44,25 +51,28 @@ function svg(name: string): SVGElement {
   return document.createElementNS(SVG_NS, name);
 }
 
-function buildRing(root: SVGSVGElement): void {
+/** Open speed/altitude gauge: gray track plus the two end chevrons. */
+function appendGauge(root: SVGSVGElement): void {
   if (root.childElementCount > 0) return;
-  const ring = svg("circle");
-  ring.setAttribute("cx", "50");
-  ring.setAttribute("cy", "50");
-  ring.setAttribute("r", "46");
-  ring.setAttribute("class", "bcast-ring");
-  root.append(ring);
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-    const inner = i % 3 === 0 ? 39 : 42;
-    const line = svg("line");
-    line.setAttribute("x1", String(50 + Math.cos(a) * inner));
-    line.setAttribute("y1", String(50 + Math.sin(a) * inner));
-    line.setAttribute("x2", String(50 + Math.cos(a) * 46));
-    line.setAttribute("y2", String(50 + Math.sin(a) * 46));
-    line.setAttribute("class", "bcast-tick");
-    root.append(line);
-  }
+  const arc = svg("path");
+  arc.setAttribute("d", gaugeArcPath());
+  arc.setAttribute("class", "bcast-gauge-arc");
+  const head = svg("path");
+  head.setAttribute("d", gaugeChevronPath(GAUGE_ARC_START_DEG));
+  head.setAttribute("class", "bcast-chevron is-head");
+  const tail = svg("path");
+  tail.setAttribute("d", gaugeChevronPath(GAUGE_ARC_END_DEG));
+  tail.setAttribute("class", "bcast-chevron");
+  root.append(arc, head, tail);
+}
+
+/** Same open arc, drawn over the engine rose. `pathLength` makes the dash a percent. */
+function fuelArc(): SVGPathElement {
+  const fuel = svg("path");
+  fuel.setAttribute("d", gaugeArcPath());
+  fuel.setAttribute("pathLength", "100");
+  fuel.setAttribute("class", "bcast-fuel");
+  return fuel as SVGPathElement;
 }
 
 function buildAttitude(root: SVGSVGElement): SVGGElement {
@@ -71,7 +81,7 @@ function buildAttitude(root: SVGSVGElement): SVGGElement {
   const ring = svg("circle");
   ring.setAttribute("cx", "50");
   ring.setAttribute("cy", "50");
-  ring.setAttribute("r", "46");
+  ring.setAttribute("r", String(GAUGE_R));
   ring.setAttribute("class", "bcast-ring");
   const cross = svg("path");
   cross.setAttribute("d", "M50 8 V92 M8 50 H92 M50 50 m-28 0 a28 18 0 1 0 56 0 a28 18 0 1 0 -56 0");
@@ -148,37 +158,59 @@ function ensureNodes(): Nodes | null {
   ) {
     return null;
   }
-  buildRing(speedRing);
-  buildRing(altRing);
+  appendGauge(speedRing);
+  appendGauge(altRing);
   const rocket = buildAttitude(attitude);
   nodes = {
-    engines, rocket, dots: [], cluster: "",
+    engines, rocket, dots: [], fuel: null, cluster: "",
     timeline, sign, time, caption, speed, alt, altUnit,
   };
   return nodes;
 }
 
-function paintEngines(gfx: Nodes, dots: readonly EngineDot[], cluster: string): void {
+const ENGINE_DOT_SCALE = 33;
+
+function paintEngines(
+  gfx: Nodes,
+  dots: readonly EngineDot[],
+  cluster: string,
+  fuel: number,
+): void {
   if (gfx.cluster !== cluster || gfx.dots.length !== dots.length) {
-    const ring = svg("circle");
-    ring.setAttribute("cx", "50");
-    ring.setAttribute("cy", "50");
-    ring.setAttribute("r", "46");
-    ring.setAttribute("class", "bcast-ring");
+    const inner = svg("circle");
+    inner.setAttribute("cx", "50");
+    inner.setAttribute("cy", "50");
+    inner.setAttribute("r", "40");
+    inner.setAttribute("class", "bcast-ring bcast-ring-inner");
     const circles = dots.map((d) => {
       const c = svg("circle");
-      c.setAttribute("cx", String(50 + d.x * 38));
-      c.setAttribute("cy", String(50 + d.y * 38));
-      c.setAttribute("r", "2.15");
+      c.setAttribute("cx", String(50 + d.x * ENGINE_DOT_SCALE));
+      c.setAttribute("cy", String(50 + d.y * ENGINE_DOT_SCALE));
+      c.setAttribute("r", "2.45");
       c.setAttribute("class", d.lit ? "bcast-dot is-lit" : "bcast-dot");
       return c;
     });
-    gfx.engines.replaceChildren(ring, ...circles);
+    const track = svg("path");
+    track.setAttribute("d", gaugeArcPath());
+    track.setAttribute("class", "bcast-gauge-arc");
+    const fuelPath = fuelArc();
+    const head = svg("path");
+    head.setAttribute("d", gaugeChevronPath(GAUGE_ARC_START_DEG));
+    head.setAttribute("class", "bcast-chevron is-head");
+    const tail = svg("path");
+    tail.setAttribute("d", gaugeChevronPath(GAUGE_ARC_END_DEG));
+    tail.setAttribute("class", "bcast-chevron");
+    gfx.engines.replaceChildren(inner, ...circles, track, fuelPath, head, tail);
     gfx.dots = circles;
+    gfx.fuel = fuelPath;
     gfx.cluster = cluster;
-    return;
+  } else {
+    gfx.dots.forEach((node, i) => node.classList.toggle("is-lit", dots[i]?.lit === true));
   }
-  gfx.dots.forEach((node, i) => node.classList.toggle("is-lit", dots[i]?.lit === true));
+  if (gfx.fuel) {
+    gfx.fuel.setAttribute("stroke-dasharray", gaugeFuelDasharray(fuel));
+    gfx.fuel.setAttribute("visibility", fuel <= 0.004 ? "hidden" : "visible");
+  }
 }
 
 function markerNode(m: BroadcastHudModel["markers"][number]): HTMLElement {
@@ -212,7 +244,7 @@ function paintTimeline(timeline: HTMLElement, model: BroadcastHudModel): void {
 
 function paint(gfx: Nodes, model: BroadcastHudModel): void {
   const cluster = model.engines.length > 10 ? "booster" : "ship";
-  paintEngines(gfx, model.engines, cluster);
+  paintEngines(gfx, model.engines, cluster, model.fuel);
   gfx.rocket.setAttribute("transform", `rotate(${model.tiltDeg.toFixed(1)} 50 50)`);
   paintTimeline(gfx.timeline, model);
   gfx.sign.textContent = model.clockSign;
@@ -239,6 +271,7 @@ export function applyBroadcastHud(rt: HudRuntime, tel: Telemetry): void {
     events: rt.data.timeline.events,
     staged: tel.staged,
     lit: tel.burning || tel.thrustN > 0,
+    fuel: tel.staged ? tel.fuelShip : tel.fuelBooster,
     tiltDeg: tiltAt(rt.data.samples, tel.t, rt.data.epoch),
   }));
 }

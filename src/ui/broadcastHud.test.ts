@@ -6,6 +6,13 @@ import {
   broadcastSpeedKmh,
   buildBroadcastHud,
   engineDots,
+  gaugeArcPath,
+  gaugeChevronPath,
+  gaugeFuelDasharray,
+  gaugePoint,
+  GAUGE_ARC_END_DEG,
+  GAUGE_ARC_START_DEG,
+  GAUGE_R,
   velocityTiltDeg,
   type BroadcastEvent,
 } from "./broadcastHud.ts";
@@ -50,6 +57,7 @@ describe("broadcast timeline", () => {
       events: ASCENT,
       staged: false,
       lit: true,
+      fuel: 0.56,
       tiltDeg: 18,
     });
     assert.deepEqual(hud.markers.map((m) => m.label), ["LIFTOFF", "MAX Q", "STAGE SEP"]);
@@ -65,6 +73,7 @@ describe("broadcast timeline", () => {
     assert.equal(hud.caption, "STARSHIP FLIGHT TEST");
     assert.equal(hud.engines.length, 33);
     assert.ok(hud.engines.every((e) => e.lit));
+    assert.equal(hud.fuel, 0.56);
   });
 
   it("slides the three beats forward after stage sep", () => {
@@ -75,6 +84,7 @@ describe("broadcast timeline", () => {
       events: ASCENT,
       staged: true,
       lit: true,
+      fuel: 0.4,
       tiltDeg: 70,
     });
     assert.deepEqual(hud.markers.map((m) => m.id), ["max-q", "staging", "seco"]);
@@ -94,10 +104,44 @@ describe("broadcast timeline", () => {
       ],
       staged: false,
       lit: false,
+      fuel: Number.NaN,
       tiltDeg: 0,
     });
     assert.equal(hud.caption, "STARBASE → MOON");
     assert.ok(hud.engines.every((e) => !e.lit));
+    assert.equal(hud.fuel, 0);
+  });
+});
+
+describe("webcast gauge arc", () => {
+  it("opens across the bottom, from 8 o'clock clockwise to 4 o'clock", () => {
+    const start = gaugePoint(GAUGE_ARC_START_DEG);
+    const end = gaugePoint(GAUGE_ARC_END_DEG);
+    assert.ok(start.x < 15 && start.y > 70, `8 o'clock start ${start.x},${start.y}`);
+    assert.ok(end.x > 85 && end.y > 70, `4 o'clock end ${end.x},${end.y}`);
+    const path = gaugeArcPath();
+    assert.match(path, new RegExp(`^M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${GAUGE_R}`));
+    assert.match(path, / 0 1 1 /);
+  });
+
+  it("grows the fuel dash clockwise from empty to full", () => {
+    assert.equal(gaugeFuelDasharray(0), "0.00 100");
+    assert.equal(gaugeFuelDasharray(0.56), "56.00 100");
+    assert.equal(gaugeFuelDasharray(1), "100.00 100");
+    assert.equal(gaugeFuelDasharray(2), "100.00 100");
+    assert.equal(gaugeFuelDasharray(Number.NaN), "0.00 100");
+  });
+
+  it("puts each chevron tip just outside the arc", () => {
+    for (const deg of [GAUGE_ARC_START_DEG, GAUGE_ARC_END_DEG]) {
+      const path = gaugeChevronPath(deg);
+      const tip = path.split(" L ")[1];
+      assert.ok(tip, path);
+      const [x, y] = tip.split(" ").map(Number);
+      const dx = x - 50;
+      const dy = y - 50;
+      assert.ok(Math.hypot(dx, dy) > GAUGE_R, `tip inside the arc at ${deg}°`);
+    }
   });
 });
 

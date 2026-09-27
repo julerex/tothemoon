@@ -54,6 +54,8 @@ export type BroadcastHudModel = {
   markers: BroadcastMarker[];
   playheadU: number;
   engines: EngineDot[];
+  /** Propellant remaining on the engine rose, 0–1. */
+  fuel: number;
   /** Degrees clockwise from nose-up. 0 = vertical. */
   tiltDeg: number;
 };
@@ -73,8 +75,79 @@ export type BroadcastHudInput = {
   staged: boolean;
   /** Engines firing (thrust or burn flag). */
   lit: boolean;
+  /** Propellant remaining for the cluster on the rose, 0–1. */
+  fuel: number;
   tiltDeg: number;
 };
+
+/**
+ * Open-bottom webcast gauge, measured off
+ * `assets/flight13-webcast/tplus-000110-engines-down-broadcast-hud.jpg`.
+ * Degrees are y-down (0 = east, 90 = south). The stroke runs clockwise
+ * from 8 o'clock over the top to 4 o'clock. Speed, altitude, and the
+ * engine-rose fuel arc share it. The bright fuel portion starts at 8 o'clock.
+ */
+export const GAUGE_ARC_START_DEG = 150;
+export const GAUGE_ARC_END_DEG = 30;
+export const GAUGE_ARC_SWEEP_DEG = 240;
+/** Radius inside the 100×100 dial viewBox. Attitude uses the same radius. */
+export const GAUGE_R = 46;
+
+function clamp01(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.min(1, Math.max(0, v));
+}
+
+function gaugeXY(deg: number, r: number): { x: number; y: number } {
+  const t = (deg * Math.PI) / 180;
+  return { x: 50 + r * Math.cos(t), y: 50 + r * Math.sin(t) };
+}
+
+function num(v: number): string {
+  return v.toFixed(2);
+}
+
+/** Centerline point on the gauge arc. */
+export function gaugePoint(deg: number, r = GAUGE_R): { x: number; y: number } {
+  return gaugeXY(deg, r);
+}
+
+/** SVG path for the open gauge. Large arc, sweep clockwise (y-down). */
+export function gaugeArcPath(r = GAUGE_R): string {
+  const a = gaugeXY(GAUGE_ARC_START_DEG, r);
+  const b = gaugeXY(GAUGE_ARC_END_DEG, r);
+  return `M ${num(a.x)} ${num(a.y)} A ${r} ${r} 0 1 1 ${num(b.x)} ${num(b.y)}`;
+}
+
+/**
+ * Dash for a fuel fraction along {@link gaugeArcPath} when the path's
+ * `pathLength` is 100. Fill grows clockwise from 8 o'clock.
+ */
+export function gaugeFuelDasharray(fuel: number): string {
+  return `${(clamp01(fuel) * 100).toFixed(2)} 100`;
+}
+
+/**
+ * Chevron at an arc end. The tip sits just outside the stroke and the
+ * wings sit back on the circle, so it reads as the hook in the still.
+ */
+export function gaugeChevronPath(deg: number, r = GAUGE_R): string {
+  const t = (deg * Math.PI) / 180;
+  const ox = Math.cos(t);
+  const oy = Math.sin(t);
+  const tx = -Math.sin(t);
+  const ty = Math.cos(t);
+  const px = 50 + ox * r;
+  const py = 50 + oy * r;
+  const tipX = px + ox * 5.4;
+  const tipY = py + oy * 5.4;
+  const wing = 3.6;
+  const x1 = px - tx * wing;
+  const y1 = py - ty * wing;
+  const x2 = px + tx * wing;
+  const y2 = py + ty * wing;
+  return `M ${num(x1)} ${num(y1)} L ${num(tipX)} ${num(tipY)} L ${num(x2)} ${num(y2)}`;
+}
 
 type Milestone = { id: string; t: number; label: string };
 
@@ -207,6 +280,7 @@ export function buildBroadcastHud(input: BroadcastHudInput): BroadcastHudModel {
     markers: timeline.markers,
     playheadU: timeline.playheadU,
     engines: engineDots(cluster, input.lit),
+    fuel: clamp01(input.fuel),
     tiltDeg: input.tiltDeg,
   };
 }
