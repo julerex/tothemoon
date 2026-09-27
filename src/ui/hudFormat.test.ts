@@ -58,19 +58,18 @@ describe("clamp01 / parseSpeedMode", () => {
 describe("nudgePlaybackSpeed", () => {
   it("steps along PLAYBACK_SPEED_STEPS", () => {
     assert.equal(nudgePlaybackSpeed(1, 1), 10);
-    assert.equal(nudgePlaybackSpeed(1, -1), -1);
-    assert.equal(nudgePlaybackSpeed(2000, 1), 2000);
-    assert.equal(nudgePlaybackSpeed(-2000, -1), -2000);
+    assert.equal(nudgePlaybackSpeed(1, -1), 1);
+    assert.equal(nudgePlaybackSpeed(10, 1), 60);
+    assert.equal(nudgePlaybackSpeed(60, 1), 3600);
+    assert.equal(nudgePlaybackSpeed(3600, 1), 86400);
+    assert.equal(nudgePlaybackSpeed(86400, 1), 86400);
+    assert.equal(nudgePlaybackSpeed(86400, -1), 3600);
     assert.equal(nudgePlaybackSpeed(7, 1), 10);
     assert.equal(nudgePlaybackSpeed(7, -1), 1);
   });
 
-  it("includes reverse and forward extremes", () => {
-    assert.equal(PLAYBACK_SPEED_STEPS[0], -2000);
-    assert.equal(
-      PLAYBACK_SPEED_STEPS[PLAYBACK_SPEED_STEPS.length - 1],
-      2000,
-    );
+  it("offers 1×, 10×, 60×, 3600×, and 86400×", () => {
+    assert.deepEqual([...PLAYBACK_SPEED_STEPS], [1, 10, 60, 3600, 86400]);
   });
 });
 

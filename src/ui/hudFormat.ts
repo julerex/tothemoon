@@ -17,16 +17,14 @@ export function clamp01(v: number): number {
 }
 
 /**
- * Playback rates offered in the HUD / nudged by `-` (slower / reverse) and
- * `+` on the equals key (faster / forward). Includes negative reverse rates.
+ * Playback rates offered in the HUD and nudged by `-` / `+`.
+ * 1×, 10×, one minute per second, one hour per second, one day per second.
  */
-export const PLAYBACK_SPEED_STEPS = [
-  -2000, -1000, -500, -100, -50, -10, -1, 1, 10, 50, 100, 500, 1000, 2000,
-] as const;
+export const PLAYBACK_SPEED_STEPS = [1, 10, 60, 3600, 86400] as const;
 
 /**
  * Step playback speed along {@link PLAYBACK_SPEED_STEPS}.
- * `dir > 0` → next faster (or less reverse); `dir < 0` → next slower / reverse.
+ * `dir > 0` → next faster; `dir < 0` → next slower.
  */
 export function nudgePlaybackSpeed(current: number, dir: -1 | 1): number {
   return dir > 0 ? nextFasterSpeed(current) : nextSlowerSpeed(current);
