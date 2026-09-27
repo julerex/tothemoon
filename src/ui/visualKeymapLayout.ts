@@ -91,6 +91,27 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
   ],
 ];
 
+/**
+ * Copy rows, replacing digit-key captions.
+ * A missing caption clears a generic "Bookmark" label on that key.
+ */
+export function rowsWithDigitActions(
+  actionForDigit: (digit: number) => string | undefined,
+  rows: readonly KeyRow[] = KEYMAP_ROWS,
+): KeyRow[] {
+  return rows.map((row) => row.map((key) => digitKeyWithAction(key, actionForDigit)));
+}
+
+function digitKeyWithAction(
+  key: KeyCap,
+  actionForDigit: (digit: number) => string | undefined,
+): KeyCap {
+  if (key.label.length !== 1 || key.label < "0" || key.label > "9") return key;
+  const action = actionForDigit(Number(key.label));
+  if (!action) return key.w != null ? { label: key.label, w: key.w } : { label: key.label };
+  return { ...key, action };
+}
+
 export const GAP = 0.08; // key-unit gap
 export const ROW_GAP = 0.1;
 

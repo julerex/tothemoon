@@ -200,6 +200,21 @@ export function bookmarkForDigit(
 }
 
 /**
+ * KeyMap caption for a digit key.
+ * **0** stays T−5. Other digits use the bookmark's stage label.
+ * Missing beats return undefined so the key is not labeled "Bookmark".
+ */
+export function keymapDigitAction(
+  bookmarks: readonly CinematicBookmark[],
+  digit: number,
+): string | undefined {
+  const bm = bookmarkForDigit(bookmarks, digit);
+  if (!bm) return undefined;
+  if (bm.id === "opening") return "T−5";
+  return bm.label;
+}
+
+/**
  * Next or previous bookmark in the built list.
  * Unknown current (`< 0`) wraps from the start (`dir > 0`) or end (`dir < 0`).
  */

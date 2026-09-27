@@ -4,6 +4,7 @@ import {
   boardSizeUnits,
   drawVisualKeymap,
   KEYMAP_ROWS,
+  rowsWithDigitActions,
   rowWidthUnits,
 } from "./visualKeymap.ts";
 
@@ -92,6 +93,26 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("K"), "KeyMap");
     assert.equal(actions.get("M"), "Menu");
     assert.equal(actions.get("Esc"), "Close");
+  });
+
+  it("replaces Bookmark captions with the mission stage names", () => {
+    const rows = rowsWithDigitActions((digit) => {
+      const stages = ["T−5", "Pad", "Staging", "Halfway", "Splashdown"];
+      return stages[digit];
+    });
+    const actions = new Map<string, string>();
+    for (const row of rows) {
+      for (const key of row) {
+        if (key.action) actions.set(key.label, key.action);
+      }
+    }
+    assert.equal(actions.get("1"), "Pad");
+    assert.equal(actions.get("2"), "Staging");
+    assert.equal(actions.get("4"), "Splashdown");
+    assert.equal(actions.has("5"), false);
+    assert.equal(actions.has("6"), false);
+    assert.equal(actions.get("0"), "T−5");
+    assert.equal(actions.get("P"), "Play / pause");
   });
 
   it("places Esc immediately left of the backtick", () => {

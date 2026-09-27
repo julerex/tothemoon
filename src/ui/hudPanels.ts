@@ -16,7 +16,9 @@ import {
   isPolarOverlayOpen,
   setPolarOverlayOpen,
 } from "./polarOverlay";
+import { keymapDigitAction } from "../mission/bookmarks";
 import { drawVisualKeymap } from "./visualKeymap";
+import { rowsWithDigitActions } from "./visualKeymapLayout";
 
 export function setHudVisible(rt: HudRuntime, visible: boolean): void {
   rt.flags.hudVisible = visible;
@@ -155,7 +157,8 @@ export function redrawKeymap(rt: HudRuntime): void {
   if (!rt.flags.keymapOpen || !keymapCtx || !keymapCanvas) return;
   const rect = keymapCanvas.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  drawVisualKeymap(keymapCtx, Math.max(rect.width, 320), Math.max(rect.height, 200), dpr);
+  const rows = rowsWithDigitActions((digit) => keymapDigitAction(rt.data.bookmarks, digit));
+  drawVisualKeymap(keymapCtx, Math.max(rect.width, 320), Math.max(rect.height, 200), dpr, rows);
 }
 
 function canDrawCrossSection(rt: HudRuntime): boolean {

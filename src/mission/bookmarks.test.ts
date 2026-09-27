@@ -5,6 +5,7 @@ import { v3 } from "../physics/vec3.ts";
 import {
   BOOKMARK_IDS,
   bookmarkForDigit,
+  keymapDigitAction,
   cycleBookmark,
   buildBookmarks,
   openingBookmark,
@@ -183,6 +184,30 @@ describe("bookmarkForDigit", () => {
     assert.equal(bookmarkForDigit(marks, 3)?.id, "translunarInjection");
     assert.equal(bookmarkForDigit(marks, marks.length - 1)?.id, "touchdown");
     assert.equal(bookmarkForDigit(marks, 99), null);
+  });
+});
+
+describe("keymapDigitAction", () => {
+  it("names Flight 13 number keys by the bookmark stage", () => {
+    const tl = buildTimeline(
+      [
+        sample(0, "launch", { staged: false }),
+        sample(142, "ascent", { staged: true, fuelBooster: 0 }),
+        sample(486, "coast", { staged: true }),
+        sample(2338, "entry", { staged: true }),
+        sample(3907, "descent", { staged: true }),
+        sample(3922.5, "splashdown", { staged: true }),
+      ],
+      4200,
+    );
+    const marks = buildBookmarks(tl);
+    assert.equal(keymapDigitAction(marks, 0), "T−5");
+    assert.equal(keymapDigitAction(marks, 1), "Pad");
+    assert.equal(keymapDigitAction(marks, 2), "Staging");
+    assert.equal(keymapDigitAction(marks, 3), "Halfway");
+    assert.equal(keymapDigitAction(marks, 4), "Splashdown");
+    assert.equal(keymapDigitAction(marks, 5), undefined);
+    assert.equal(keymapDigitAction(marks, 6), undefined);
   });
 });
 
