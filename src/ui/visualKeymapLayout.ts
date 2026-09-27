@@ -21,6 +21,7 @@ export type KeyRow = readonly KeyCap[];
  */
 export const KEYMAP_ROWS: readonly KeyRow[] = [
   [
+    { label: "Esc", action: "Close" },
     { label: "`" },
     { label: "1", action: "Bookmark" },
     { label: "2", action: "Bookmark" },
@@ -87,7 +88,6 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "Space", action: "Play / pause", w: 6.5 },
     { label: "Alt", w: 1.25 },
     { label: "Ctrl", w: 1.5 },
-    { label: "Esc", action: "Close", w: 1.5 },
   ],
 ];
 

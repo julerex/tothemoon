@@ -84,6 +84,17 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("Tab"), "Dashboards");
     assert.equal(actions.get("Space"), "Play / pause");
     assert.equal(actions.get("K"), "KeyMap");
+    assert.equal(actions.get("Esc"), "Close");
+  });
+
+  it("places Esc immediately left of the backtick", () => {
+    const top = KEYMAP_ROWS[0]!;
+    const grave = top.findIndex((k) => k.label === "`");
+    assert.ok(grave > 0);
+    assert.equal(top[grave - 1]!.label, "Esc");
+    for (const row of KEYMAP_ROWS.slice(1)) {
+      assert.equal(row.some((k) => k.label === "Esc"), false);
+    }
   });
 
   it("rowWidthUnits sums key widths and gaps", () => {
