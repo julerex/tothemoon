@@ -1,6 +1,7 @@
 /** Visual KeyMap canvas draw pass. */
 
 import type { KeyCap, KeyRow } from "./visualKeymapLayout";
+import { drawKeymapMouse } from "./visualKeymapMouse";
 import {
   KEYMAP_ROWS,
   ROW_GAP,
@@ -18,7 +19,10 @@ type KeymapLayout = {
   boardU: number;
   rowGapPx: number;
   radius: number;
-  padBottom: number;
+  mouseX: number;
+  mouseY: number;
+  mouseW: number;
+  mouseH: number;
   W: number;
   H: number;
   dpr: number;
@@ -37,7 +41,7 @@ export function drawVisualKeymap(
 ): void {
   const layout = prepareKeymapCanvas(ctx, cssW, cssH, dpr, rows);
   paintKeymapBoard(ctx, layout, rows);
-  drawMouseLegend(ctx, layout);
+  drawKeymapMouse(ctx, layout.mouseX, layout.mouseY, layout.mouseW, layout.mouseH, dpr);
 }
 
 function prepareKeymapCanvas(
@@ -83,24 +87,37 @@ function computeKeymapLayout(
   rows: readonly KeyRow[],
 ): KeymapLayout {
   const { w: boardU, h: boardH } = boardSizeUnits(rows);
-  const padX = 18 * dpr;
-  const padTop = 14 * dpr;
-  const padBottom = 36 * dpr;
-  const unitX = Math.max(1, (W - padX * 2) / boardU);
-  const unitY = Math.max(1, (H - padTop - padBottom) / boardH);
+  const pad = 16 * dpr;
+  const gap = 24 * dpr;
+  const availH = Math.max(1, H - pad * 2);
+  const availW = Math.max(1, W - pad * 2);
+  const mouseW = mouseColumnWidth(availW, availH);
+  const boardPx = Math.max(1, availW - gap - mouseW);
+  const unitX = Math.max(1, boardPx / boardU);
+  const unitY = Math.max(1, availH / boardH);
+  const mouseH = Math.min(availH, mouseW / 0.62);
   return {
     unitX,
     unitY,
     boardU,
     rowGapPx: ROW_GAP * unitY,
-    originX: padX,
-    originY: padTop,
+    originX: pad,
+    originY: pad,
     radius: Math.max(3 * dpr, Math.min(unitX, unitY) * 0.12),
-    padBottom,
+    mouseX: pad + boardPx + gap,
+    mouseY: pad + (availH - mouseH) * 0.5,
+    mouseW,
+    mouseH,
     W,
     H,
     dpr,
   };
+}
+
+/** Mouse is taller than it is wide. Cap the column so the keys keep most of the screen. */
+function mouseColumnWidth(availW: number, availH: number): number {
+  const natural = availH * 0.62;
+  return Math.min(natural, Math.max(availW * 0.22, 1));
 }
 
 function paintKeymapBoard(
@@ -279,21 +296,6 @@ function drawUnboundKeyText(
   ctx.font = `600 ${labelSize}px ui-monospace, "Cascadia Code", Menlo, monospace`;
   ctx.fillText(label, anchor, y + keyH * 0.5);
 }
-
-function drawMouseLegend(
-  ctx: CanvasRenderingContext2D,
-  layout: KeymapLayout,
-): void {
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = "#fff";
-  ctx.font = `500 ${11 * layout.dpr}px "Segoe UI", system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText(MOUSE_LEGEND, layout.W * 0.5, layout.H - layout.padBottom * 0.45);
-  ctx.globalAlpha = 1;
-}
-
-const MOUSE_LEGEND =
-  "Mouse · left-drag orbit  ·  right-drag pan  ·  scroll zoom   ·   double-tap 1–5 frame";
 
 function roundRect(
   ctx: CanvasRenderingContext2D,

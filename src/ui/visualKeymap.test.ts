@@ -17,6 +17,7 @@ function mockCtx() {
   let fills = 0;
   let strokes = 0;
   let texts = 0;
+  const written: string[] = [];
   const ctx = {
     canvas,
     lineWidth: 1,
@@ -42,11 +43,15 @@ function mockCtx() {
     fill() {
       fills++;
     },
-    fillText() {
+    fillText(text: string) {
       texts++;
+      written.push(text);
     },
     get counts() {
       return { fills, strokes, texts };
+    },
+    get written() {
+      return written;
     },
   };
   return ctx;
@@ -194,13 +199,17 @@ describe("visualKeymap layout", () => {
     assert.equal(h, 1);
   });
 
-  it("drawVisualKeymap paints board and mouse legend without throwing", () => {
+  it("draws the board and labels the mouse buttons and wheel", () => {
     const ctx = mockCtx();
     drawVisualKeymap(ctx as unknown as CanvasRenderingContext2D, 800, 400, 1);
     assert.ok(ctx.canvas.width === 800);
     assert.ok(ctx.canvas.height === 400);
     assert.ok(ctx.counts.strokes > 10);
     assert.ok(ctx.counts.texts > 10);
+    assert.ok(ctx.written.includes("Orbit"));
+    assert.ok(ctx.written.includes("Pan"));
+    assert.ok(ctx.written.includes("Zoom"));
+    assert.equal(ctx.written.some((text) => /white outline|double-tap/i.test(text)), false);
     // Second call with same size should not resize
     drawVisualKeymap(ctx as unknown as CanvasRenderingContext2D, 800, 400, 1);
     assert.equal(ctx.canvas.width, 800);
