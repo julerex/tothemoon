@@ -38,7 +38,7 @@ Texture credits (NASA Blue Marble, LRO WAC Moon, Sentinel-2 cloudless, USDA NAIP
 - **Ascent / return to launch site cross-section** (**Tab** cycle or button) — true-scale black & white launch-plane diagram (Earth surface + 150 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
 - **Earth great-circle section** (**Earth GC** / **Tab**) — whole-Earth B&W slice on the Flight 13 corridor (Starbase · Gauteng · Indian Ocean landing · Australia); also from the Flight 13 briefing
 - **Polar trajectories** (**Polar** / **Tab**) — Earth-centric 2-D map looking along ecliptic +Z (perpendicular to Earth's orbital plane): ship path + Moon path, true scale
-- **KeyMap** (**K**, **Tab** cycle, or button) — white-outline keyboard on black with the action under each key
+- **KeyMap** (**K** or button) — white-outline keyboard on black with the action under each key. **Tab** cycles the dashboards and does not open the KeyMap
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
 - Cameras: **Auto-cam** (toggle `\`; Flight 13 follows the official webcast left-pane cuts only) · **Free** rail (☀️🌍🌙 **🚀 Booster**, **🏗️ Launch Tower**, **🚢 Starship** — pan / orbit / zoom; picking one turns Auto-cam **off**) · **Fixed** rail (livestream mounts such as **Launchpad Drone**, **Ground Camera One**, **Tower One / Tower Two** peak cams, fin / hull / engine-bay, **Drone** recovery — movement locked, with a notice if you try) · **[** / **]** cycle cameras · **−** slower · **+** faster · **,** / **.** cycle bookmarks · **C**/**V** roll · **T**/**B** pan up/down on Free pad cameras (Earth-perpendicular at the launch tower)

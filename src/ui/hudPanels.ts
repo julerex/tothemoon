@@ -95,44 +95,40 @@ export function setPolarMapOpen(rt: HudRuntime, open: boolean): void {
   if (open) closeOtherPanels(rt, "polar");
 }
 
+/** Tab dashboards. The KeyMap is not one of them. */
+export type TheaterDashboard = "main" | "cross" | "earthGc" | "polar";
+
 /**
- * Tab theater cycle: main → ascent CS → Earth GC → Polar → KeyMap → main.
- * Menu stays on M only (not in the cycle).
+ * Tab cycle: main → ascent cross-section → Earth GC → Polar → main.
+ * Menu (M) and KeyMap (K) stay off this cycle.
  */
-export function cycleTheaterViews(rt: HudRuntime): void {
-  const earthGc = isEarthGcOverlayOpen();
-  const polar = isPolarOverlayOpen();
-  if (!rt.flags.crossSectionOpen && !earthGc && !polar && !rt.flags.keymapOpen) {
-    setCrossSectionOpen(rt, true);
-    return;
+export function nextTheaterDashboard(current: TheaterDashboard): TheaterDashboard {
+  if (current === "main") return "cross";
+  if (current === "cross") return "earthGc";
+  if (current === "earthGc") return "polar";
+  return "main";
+}
+
+function currentDashboard(rt: HudRuntime): TheaterDashboard {
+  if (rt.flags.crossSectionOpen) return "cross";
+  if (isEarthGcOverlayOpen()) return "earthGc";
+  if (isPolarOverlayOpen()) return "polar";
+  return "main";
+}
+
+function showDashboard(rt: HudRuntime, id: TheaterDashboard): void {
+  if (id === "cross") setCrossSectionOpen(rt, true);
+  else if (id === "earthGc") setEarthGcOpen(rt, true);
+  else if (id === "polar") setPolarMapOpen(rt, true);
+  else {
+    setCrossSectionOpen(rt, false);
+    setEarthGcOpen(rt, false);
+    setPolarMapOpen(rt, false);
   }
-  advanceTheaterCycle(rt, earthGc, polar);
 }
 
-function cycleFromCrossSection(rt: HudRuntime): void {
-  setCrossSectionOpen(rt, false);
-  setEarthGcOpen(rt, true);
-}
-
-function cycleFromEarthGc(rt: HudRuntime): void {
-  setEarthGcOpen(rt, false);
-  setPolarMapOpen(rt, true);
-}
-
-function cycleFromPolar(rt: HudRuntime): void {
-  setPolarMapOpen(rt, false);
-  setKeymapOpen(rt, true);
-}
-
-function advanceTheaterCycle(
-  rt: HudRuntime,
-  earthGc: boolean,
-  polar: boolean,
-): void {
-  if (rt.flags.crossSectionOpen) cycleFromCrossSection(rt);
-  else if (earthGc) cycleFromEarthGc(rt);
-  else if (polar) cycleFromPolar(rt);
-  else setKeymapOpen(rt, false);
+export function cycleTheaterViews(rt: HudRuntime): void {
+  showDashboard(rt, nextTheaterDashboard(currentDashboard(rt)));
 }
 
 export function redrawKeymap(rt: HudRuntime): void {

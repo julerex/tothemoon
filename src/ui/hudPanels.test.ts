@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextMenuPlayback } from "./hudPanels.ts";
+import { nextMenuPlayback, nextTheaterDashboard } from "./hudPanels.ts";
+
+describe("nextTheaterDashboard", () => {
+  it("cycles the dashboards and skips the KeyMap", () => {
+    assert.equal(nextTheaterDashboard("main"), "cross");
+    assert.equal(nextTheaterDashboard("cross"), "earthGc");
+    assert.equal(nextTheaterDashboard("earthGc"), "polar");
+    assert.equal(nextTheaterDashboard("polar"), "main");
+  });
+});
 
 describe("nextMenuPlayback", () => {
   it("pauses on open and remembers a playing theater", () => {
