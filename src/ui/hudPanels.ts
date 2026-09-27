@@ -33,7 +33,13 @@ function closeOtherPanels(rt: HudRuntime, keep: string): void {
   if (keep !== "polar") setPolarMapOpen(rt, false);
 }
 
+/** Menu or KeyMap is up, so the mission clock stays paused. */
+export function playbackOverlayOpen(rt: HudRuntime): boolean {
+  return rt.flags.metricsOpen || rt.flags.keymapOpen;
+}
+
 export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
+  const wasHolding = playbackOverlayOpen(rt);
   rt.flags.keymapOpen = open;
   if (rt.dom.keymapEl) rt.dom.keymapEl.hidden = !open;
   rt.dom.btnKeymap?.setAttribute("aria-pressed", open ? "true" : "false");
@@ -42,35 +48,38 @@ export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
     closeOtherPanels(rt, "keymap");
     requestAnimationFrame(() => redrawKeymap(rt));
   }
+  syncOverlayPlayback(rt, wasHolding);
 }
 
 /**
- * Opening the Menu pauses. Closing resumes only when the theater was playing.
- * `playing: null` leaves the clock alone.
+ * Opening the Menu or KeyMap pauses. Closing the last of them resumes only
+ * when the theater was playing. `playing: null` leaves the clock alone.
  */
-export function nextMenuPlayback(
-  opening: boolean,
+export function nextOverlayPlayback(
+  holding: boolean,
   wasPlaying: boolean,
   resumeOnClose: boolean,
 ): { resumeOnClose: boolean; playing: boolean | null } {
-  if (opening) return { resumeOnClose: wasPlaying, playing: false };
+  if (holding) return { resumeOnClose: wasPlaying, playing: false };
   return { resumeOnClose: false, playing: resumeOnClose ? true : null };
 }
 
-function syncMenuPlayback(rt: HudRuntime, opening: boolean): void {
-  const next = nextMenuPlayback(opening, rt.flags.lastPlaying, rt.flags.menuResumePlay);
-  rt.flags.menuResumePlay = next.resumeOnClose;
+function syncOverlayPlayback(rt: HudRuntime, wasHolding: boolean): void {
+  const holding = playbackOverlayOpen(rt);
+  if (holding === wasHolding) return;
+  const next = nextOverlayPlayback(holding, rt.flags.lastPlaying, rt.flags.overlayResumePlay);
+  rt.flags.overlayResumePlay = next.resumeOnClose;
   if (next.playing != null) rt.data.handlers.setPlaying?.(next.playing);
 }
 
 export function setMetricsOpen(rt: HudRuntime, open: boolean): void {
-  const was = rt.flags.metricsOpen;
+  const wasHolding = playbackOverlayOpen(rt);
   rt.flags.metricsOpen = open;
   if (rt.dom.metricsEl) rt.dom.metricsEl.hidden = !open;
   applyPressed(rt.dom.btnMetrics, open);
   rt.dom.hudRoot?.classList.toggle("menu-open", open);
   if (open) closeOtherPanels(rt, "metrics");
-  if (open !== was) syncMenuPlayback(rt, open);
+  syncOverlayPlayback(rt, wasHolding);
 }
 
 export function setCrossSectionOpen(rt: HudRuntime, open: boolean): void {

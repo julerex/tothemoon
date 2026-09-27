@@ -66,8 +66,8 @@ export type HudFlags = {
   scrubbing: boolean;
   lastPhase: PhaseId | null;
   lastPlaying: boolean;
-  /** Resume playback when the Menu closes, because it was playing when opened. */
-  menuResumePlay: boolean;
+  /** Resume playback when the Menu and KeyMap are both closed, if it was playing. */
+  overlayResumePlay: boolean;
   completeShown: boolean;
   keymapOpen: boolean;
   metricsOpen: boolean;

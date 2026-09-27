@@ -44,7 +44,7 @@ import {
   wireCameraChrome,
 } from "./hudCameraCtl";
 import { wireKeyboard } from "./hudKeys";
-import { redrawCrossSection, redrawKeymap, wireOverlayCloses, wirePanelOpenButtons } from "./hudPanels";
+import { playbackOverlayOpen, redrawCrossSection, redrawKeymap, wireOverlayCloses, wirePanelOpenButtons } from "./hudPanels";
 import {
   syncSpeedSelect,
   updateNewsTicker,
@@ -65,14 +65,14 @@ function createHudFlagsA(): Pick<
   | "scrubbing"
   | "lastPhase"
   | "lastPlaying"
-  | "menuResumePlay"
+  | "overlayResumePlay"
   | "completeShown"
   | "keymapOpen"
   | "metricsOpen"
   | "crossSectionOpen"
 > {
   return {
-    scrubbing: false, lastPhase: null, lastPlaying: false, menuResumePlay: false,
+    scrubbing: false, lastPhase: null, lastPlaying: false, overlayResumePlay: false,
     completeShown: false, keymapOpen: false, metricsOpen: false, crossSectionOpen: false,
   };
 }
@@ -185,12 +185,12 @@ function completeShownBag(rt: HudRuntime): { value: boolean } {
   };
 }
 
-function holdMenuPause(rt: HudRuntime, playing: boolean): void {
-  if (rt.flags.metricsOpen && playing) rt.data.handlers.setPlaying?.(false);
+function holdOverlayPause(rt: HudRuntime, playing: boolean): void {
+  if (playbackOverlayOpen(rt) && playing) rt.data.handlers.setPlaying?.(false);
 }
 
 function applyUpdateChrome(rt: HudRuntime, tel: Telemetry, view: ReturnType<typeof buildTelemetryView>): void {
-  holdMenuPause(rt, tel.playing);
+  holdOverlayPause(rt, tel.playing);
   rt.flags.lastPlaying = tel.playing;
   updateNewsTicker(rt, tel.t, tel.playing, tel.playbackSpeed);
   syncSpeedSelect(rt, view);

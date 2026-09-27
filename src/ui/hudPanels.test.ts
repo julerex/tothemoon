@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextMenuPlayback, nextTheaterDashboard } from "./hudPanels.ts";
+import { nextOverlayPlayback, nextTheaterDashboard } from "./hudPanels.ts";
 
 describe("nextTheaterDashboard", () => {
   it("cycles the dashboards and skips the KeyMap", () => {
@@ -11,27 +11,27 @@ describe("nextTheaterDashboard", () => {
   });
 });
 
-describe("nextMenuPlayback", () => {
-  it("pauses on open and remembers a playing theater", () => {
-    assert.deepEqual(nextMenuPlayback(true, true, false), {
+describe("nextOverlayPlayback", () => {
+  it("pauses when the Menu or KeyMap opens and remembers a playing theater", () => {
+    assert.deepEqual(nextOverlayPlayback(true, true, false), {
       resumeOnClose: true,
       playing: false,
     });
   });
 
   it("pauses on open without resuming a theater that was already paused", () => {
-    assert.deepEqual(nextMenuPlayback(true, false, false), {
+    assert.deepEqual(nextOverlayPlayback(true, false, false), {
       resumeOnClose: false,
       playing: false,
     });
   });
 
-  it("resumes on close only when the Menu paused a playing theater", () => {
-    assert.deepEqual(nextMenuPlayback(false, false, true), {
+  it("resumes only when the last pause overlay closes a playing theater", () => {
+    assert.deepEqual(nextOverlayPlayback(false, false, true), {
       resumeOnClose: false,
       playing: true,
     });
-    assert.deepEqual(nextMenuPlayback(false, true, false), {
+    assert.deepEqual(nextOverlayPlayback(false, true, false), {
       resumeOnClose: false,
       playing: null,
     });
