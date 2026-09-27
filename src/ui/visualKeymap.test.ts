@@ -61,7 +61,7 @@ describe("visualKeymap layout", () => {
       }
     }
     assert.equal(actions.get("-"), "Slower");
-    assert.equal(actions.get("="), "Faster");
+    assert.equal(actions.get("+"), "Faster");
     assert.equal(actions.get(","), "Prev bookmark");
     assert.equal(actions.get("."), "Next bookmark");
     assert.equal(actions.get("["), "Prev camera");

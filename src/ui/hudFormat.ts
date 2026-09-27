@@ -18,7 +18,7 @@ export function clamp01(v: number): number {
 
 /**
  * Playback rates offered in the HUD / nudged by `-` (slower / reverse) and
- * `=` (faster / forward). Includes negative reverse rates.
+ * `+` on the equals key (faster / forward). Includes negative reverse rates.
  */
 export const PLAYBACK_SPEED_STEPS = [
   -2000, -1000, -500, -100, -50, -10, -1, 1, 10, 50, 100, 500, 1000, 2000,

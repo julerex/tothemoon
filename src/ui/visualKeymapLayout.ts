@@ -34,7 +34,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "9" },
     { label: "0" },
     { label: "-", action: "Slower" },
-    { label: "=", action: "Faster" },
+    { label: "+", action: "Faster" },
     { label: "⌫", w: 1.5 },
   ],
   [

@@ -22,7 +22,7 @@ export type HudHandlers = {
   onPlayToggle: () => void;
   /** Playback speed multiplier (1, 10, …) */
   onSpeedMode: (rate: number) => void;
-  /** `-` / `=` — step playback speed down / up through fixed presets */
+  /** `-` / `+` (equals key) — step playback speed down / up through fixed presets */
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;

@@ -99,7 +99,7 @@ export const THEATER_KEYS = {
   camPrev: "[",
   camNext: "]",
   slower: "-",
-  faster: "=",
+  faster: "+",
   bookmarkPrev: ",",
   bookmarkNext: ".",
   autoCam: "g",

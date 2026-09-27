@@ -72,7 +72,7 @@ export function isPlayPauseCode(code: string): boolean {
   return code === "Space" || code === "KeyP";
 }
 
-/** `-` steps slower; `=` steps faster. Shift on the same keys (`_` / `+`) matches. */
+/** `-` steps slower; the equals key steps faster and is drawn as `+`. */
 export function speedNudgeDir(code: string): -1 | 1 | null {
   if (code === "Minus") return -1;
   if (code === "Equal") return 1;
