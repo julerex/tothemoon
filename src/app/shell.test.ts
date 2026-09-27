@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseRoute } from "./shell";
+import { menuPanelForView, parseRoute } from "./shell";
 import {
   missionById,
   missionByPath,
@@ -12,11 +12,7 @@ import {
   glossaryCategoryLabel,
   glossaryGrouped,
 } from "./glossary";
-import {
-  MAIN_MENU_ITEMS,
-  MAIN_MENU_POINTS,
-  mainMenuActionForDigit,
-} from "./menus";
+import { missionPathForDigit } from "./menus";
 
 describe("parseRoute", () => {
   it("maps empty and root to main", () => {
@@ -130,39 +126,24 @@ describe("glossary", () => {
   });
 });
 
-describe("main menu orientation points", () => {
-  it("lists short titles and usable details", () => {
-    assert.ok(MAIN_MENU_POINTS.length >= 4);
-    for (const p of MAIN_MENU_POINTS) {
-      assert.ok(p.title.length > 0);
-      assert.ok(p.detail.length > 20);
-    }
+describe("main page", () => {
+  it("shows the mission list on the main page and on #/missions", () => {
+    assert.equal(menuPanelForView("main"), "missions");
+    assert.equal(menuPanelForView("missions"), "missions");
+  });
+
+  it("keeps the glossary on its own panel", () => {
+    assert.equal(menuPanelForView("glossary"), "glossary");
   });
 });
 
-describe("main menu digit keys", () => {
-  it("numbers items 1…n without gaps", () => {
-    assert.equal(MAIN_MENU_ITEMS.length, 3);
-    MAIN_MENU_ITEMS.forEach((item, i) => {
-      assert.equal(item.digit, String(i + 1));
-    });
-  });
-
-  it("maps digit keys to navigation and external actions", () => {
-    assert.deepEqual(mainMenuActionForDigit("1"), {
-      type: "nav",
-      path: "/missions",
-    });
-    assert.deepEqual(mainMenuActionForDigit("2"), {
-      type: "nav",
-      path: "/glossary",
-    });
-    assert.deepEqual(mainMenuActionForDigit("3"), {
-      type: "external",
-      href: "https://github.com/julerex/tothemoon",
-    });
-    assert.equal(mainMenuActionForDigit("0"), null);
-    assert.equal(mainMenuActionForDigit("4"), null);
-    assert.equal(mainMenuActionForDigit("a"), null);
+describe("mission list digit keys", () => {
+  it("opens flights in catalog order", () => {
+    assert.ok(MISSIONS.length >= 2);
+    assert.equal(missionPathForDigit("1"), MISSIONS[0]?.path);
+    assert.equal(missionPathForDigit("2"), MISSIONS[1]?.path);
+    assert.equal(missionPathForDigit("0"), null);
+    assert.equal(missionPathForDigit("9"), null);
+    assert.equal(missionPathForDigit("a"), null);
   });
 });

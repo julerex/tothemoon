@@ -1,6 +1,6 @@
 # tothemoon
 
-Interactive **Three.js** mission theaters. Open the site to a **main menu**, then **Mission Menu** to pick a flight:
+Interactive **Three.js** mission theaters. Open the site to the mission list (no HUD — flight cards only):
 
 | Mission | Status |
 |---------|--------|
@@ -9,7 +9,7 @@ Interactive **Three.js** mission theaters. Open the site to a **main menu**, the
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
 
-Deep links: `#/` main · `#/missions` Mission Menu · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13`
+Deep links: `#/` and `#/missions` mission list · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13`
 
 **Time-seek URLs** (every mission): append `?t=` on the hash to open at that mission clock. Liftoff is `t=0`. Examples: `#/mission/flight-13?t=1:05:21` (official splash), `#/mission/flight-13?t=-0:05:00` (T− hold), `#/mission/to-the-moon?t=T+50:00:00`. Accepts `T+`/`T−` clocks, `H:MM:SS`, `M:SS`, raw seconds, and `1h5m21s`. The address bar stays in sync as you scrub or play so you can copy a shareable URL.
 

@@ -81,52 +81,25 @@ body {
   text-align: center;
 }
 
-/* ── Menu shell (main + Mission Menu + briefings) ── */
+/* ── Menu shell (mission list + glossary) ── */
 
 body.menus-active {
   background: var(--bg);
 }
 
-/* HUD rails stay up as the info-bar frame; theater controls are inert. */
-body.menus-active .hud-header,
-body.menus-active .cam-grid,
-body.menus-active .cam-toggles,
-body.menus-active .tel-actions,
-body.menus-active .transport {
-  pointer-events: none;
-}
-
-body.menus-active .hud-header {
-  visibility: hidden;
-}
-
-/* Ticker strip stays; crawl copy is empty on menus. */
-body.menus-active .news-ticker,
-body.menus-active .news-ticker[hidden] {
-  display: flex;
-}
-
-body.menus-active .news-ticker-text {
-  visibility: hidden;
-}
-
-body.menus-active .news-ticker-track {
-  animation: none;
+/* Mission HUD (rails, ticker, transport) is theater-only. */
+body.menus-active #hud .hud-chrome {
+  display: none;
 }
 
 .menus {
   position: absolute;
-  /* Sit flush against the inner edge of the left/right HUD rails and
-   * above the bottom ticker strip. */
-  top: 0;
-  right: var(--rail-width);
-  bottom: var(--bottom-chrome);
-  left: var(--rail-width);
+  inset: 0;
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0;
+  padding: 1.25rem 1rem;
   overflow: auto;
   pointer-events: auto;
 }
@@ -215,14 +188,6 @@ body.menus-active .news-ticker-track {
   margin: auto;
 }
 
-.menu-screen-home {
-  align-self: stretch;
-  flex: 1 1 auto;
-  width: auto;
-  min-height: 100%;
-  margin: 0;
-}
-
 .menu-screen[hidden] {
   display: none;
 }
@@ -237,22 +202,6 @@ body.menus-active .news-ticker-track {
 
 .menu-panel-wide {
   width: min(100%, 52rem);
-}
-
-.menu-panel-home {
-  width: 100%;
-  min-height: 100%;
-  height: 100%;
-  padding: 2.6rem 3rem 1.85rem;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  border-radius: 0;
-  border-top: none;
-  border-bottom: none;
-  border-left: none;
-  border-right: none;
-  overflow: auto;
 }
 
 .menu-kicker {
@@ -277,137 +226,21 @@ body.menus-active .news-ticker-track {
   font-size: clamp(1.35rem, 3vw, 1.75rem);
 }
 
-.menu-lead {
-  margin: 0.85rem 0 0;
-  max-width: 36rem;
-  color: var(--muted);
-  font-size: 0.98rem;
-  line-height: 1.55;
-}
-
-.menu-panel-home .menu-lead {
-  max-width: 46rem;
-}
-
-.menu-points {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.15rem 2.25rem;
-  margin: 1.85rem 0 0;
-  padding: 0;
-  list-style: none;
-  flex: 1 1 auto;
-  align-content: center;
-}
-
-.menu-point {
-  margin: 0;
-}
-
-.menu-point-title {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.menu-point-detail {
-  margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 0.94rem;
-  line-height: 1.5;
-}
-
-.menu-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 1.5rem;
-}
-
-.menu-panel-home .menu-actions {
-  margin-top: 2rem;
-}
-
-.menu-btn {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.75rem 1.35rem;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-
-.menu-btn-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  padding: 0 0.2rem;
-  border: 1px solid currentColor;
-  border-radius: 0.2rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1;
-  opacity: 0.85;
-}
-
-.menu-btn-primary .menu-btn-num {
-  border-color: rgba(0, 0, 0, 0.35);
-  opacity: 0.9;
-}
-
-.menu-btn-text {
-  letter-spacing: 0.08em;
-}
-
-.menu-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.65);
-}
-
-.menu-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.menu-btn-primary {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--btn-active-text);
-}
-
-.menu-btn-primary:hover:not(:disabled) {
-  background: #e8e8e8;
-  border-color: #e8e8e8;
-  color: var(--btn-active-text);
-}
-
-.menu-btn-ghost {
-  background: transparent;
-  color: var(--text);
-}
-
 .menu-foot {
   margin: 1.35rem 0 0;
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.menu-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.menu-foot-links a.menu-back {
+  text-decoration: none;
 }
 
 .menu-header-row {
@@ -516,15 +349,6 @@ body.menus-active .news-ticker-track {
 @media (max-width: 720px) {
   .flight13-grid {
     grid-template-columns: 1fr;
-  }
-
-  .menu-points {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .menu-panel-home {
-    padding: 1.5rem 1.25rem 1.25rem;
   }
 }
 

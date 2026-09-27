@@ -2,8 +2,8 @@
  * App entry: menu shell first, then lazy-load the selected mission.
  *
  * Routes (hash):
- *   #/                  Main menu
- *   #/missions          Mission Menu
+ *   #/                  Mission list (no HUD)
+ *   #/missions          Mission list (same screen)
  *   #/glossary          Glossary
  *   #/mission/<path>    Start that mission (to-the-moon | flight-13)
  *   #/mission/<path>?t= Seek that mission to a clock time (H:MM:SS / seconds)
@@ -162,7 +162,7 @@ window.addEventListener("hashchange", () => {
   applyRoute();
 });
 
-// Default: main menu when no hash
+// Default: mission list when no hash
 if (!location.hash || location.hash === "#") {
   location.replace("#/");
 }

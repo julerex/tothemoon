@@ -1,6 +1,7 @@
 /**
  * App shell: show/hide menu vs mission theater surfaces.
- * Theater is the canvas + mission HUD; menus sit above a static backdrop.
+ * Theater is the canvas plus the mission HUD. Menu pages are the flight
+ * list (or the glossary) on a static backdrop, with that HUD hidden.
  */
 
 import { seekParamFromQuery } from "./seekUrl";
@@ -12,8 +13,8 @@ function el(id: string): HTMLElement | null {
 }
 
 /**
- * Show or hide the 3D canvas. HUD chrome (side info bars + ticker) stays
- * up so menus can sit flush against those rails.
+ * Show or hide the 3D canvas. Menu pages do not keep the mission HUD;
+ * `body.menus-active` hides that chrome in CSS.
  */
 export function setTheaterVisible(visible: boolean): void {
   const canvas = el("c");
@@ -31,21 +32,39 @@ export function setTheaterVisible(visible: boolean): void {
 function showTheaterShell(): void {
   const menusRoot = el("menus");
   if (menusRoot) menusRoot.hidden = true;
+  setMissionHudPresented(true);
   setTheaterVisible(true);
 }
 
+/** Mission HUD is in the tree only while a theater is up. */
+function setMissionHudPresented(presented: boolean): void {
+  const hud = el("hud");
+  if (!hud) return;
+  hud.setAttribute("aria-hidden", presented ? "false" : "true");
+}
+
+/**
+ * Panel shown for a menu route. The main page and `#/missions` both
+ * show the flight cards. The glossary stays its own screen.
+ */
+export function menuPanelForView(
+  view: Exclude<ShellView, "theater">,
+): "missions" | "glossary" {
+  return view === "glossary" ? "glossary" : "missions";
+}
+
 function setMenuPanelVisibility(view: Exclude<ShellView, "theater">): void {
-  const mainMenu = el("main-menu");
+  const panel = menuPanelForView(view);
   const missionMenu = el("mission-menu");
   const glossaryMenu = el("glossary-menu");
-  if (mainMenu) mainMenu.hidden = view !== "main";
-  if (missionMenu) missionMenu.hidden = view !== "missions";
-  if (glossaryMenu) glossaryMenu.hidden = view !== "glossary";
+  if (missionMenu) missionMenu.hidden = panel !== "missions";
+  if (glossaryMenu) glossaryMenu.hidden = panel !== "glossary";
 }
 
 function showMenuShell(view: Exclude<ShellView, "theater">): void {
   const menusRoot = el("menus");
   setTheaterVisible(false);
+  setMissionHudPresented(false);
   if (menusRoot) menusRoot.hidden = false;
   document.body.classList.add("menus-active");
   document.body.classList.remove("theater-active");
@@ -53,8 +72,8 @@ function showMenuShell(view: Exclude<ShellView, "theater">): void {
 }
 
 /**
- * Switch between main menu, mission picker, glossary, and (after a mission
- * starts) theater. Does not start mission code — only DOM visibility.
+ * Switch between the mission list, glossary, and (after a mission starts)
+ * theater. Does not start mission code — only DOM visibility.
  */
 export function setShellView(view: ShellView): void {
   if (view === "theater") showTheaterShell();

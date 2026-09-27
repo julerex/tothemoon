@@ -56,8 +56,7 @@ missions by only changing the hash: a live theater ignores a different
 
 | Goal | URL |
 |------|-----|
-| Main menu | `http://localhost:5173/tothemoon/#/` |
-| Mission menu | `http://localhost:5173/tothemoon/#/missions` |
+| Mission list (no HUD) | `http://localhost:5173/tothemoon/#/` or `#/missions` |
 | Flight 13 splash | `http://localhost:5173/tothemoon/?agent=1#/mission/flight-13?t=1:05:21` |
 | Flight 13 T− hold | `http://localhost:5173/tothemoon/?agent=1#/mission/flight-13?t=-0:05:00` |
 | Lunar T+50 h | `http://localhost:5173/tothemoon/?agent=1#/mission/to-the-moon?t=T+50:00:00` |
