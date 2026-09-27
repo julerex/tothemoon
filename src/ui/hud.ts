@@ -68,12 +68,13 @@ function createHudFlagsA(): Pick<
   | "overlayResumePlay"
   | "completeShown"
   | "keymapOpen"
+  | "helpOpen"
   | "metricsOpen"
   | "crossSectionOpen"
 > {
   return {
     scrubbing: false, lastPhase: null, lastPlaying: false, overlayResumePlay: false,
-    completeShown: false, keymapOpen: false, metricsOpen: false, crossSectionOpen: false,
+    completeShown: false, keymapOpen: false, helpOpen: false, metricsOpen: false, crossSectionOpen: false,
   };
 }
 

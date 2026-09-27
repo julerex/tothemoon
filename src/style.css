@@ -1684,8 +1684,17 @@ kbd {
 
 /* Metrics overlay (M) — shares .keymap shell; monospace values */
 
-.metrics-card {
+.metrics-card,
+.help-card {
   width: min(40rem, 100%);
+}
+
+.help-body {
+  grid-template-columns: 1fr 1fr;
+}
+
+.help-body .keymap-section dl > div {
+  grid-template-columns: minmax(7rem, auto) 1fr;
 }
 
 .metrics-body {

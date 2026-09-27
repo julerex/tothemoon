@@ -178,7 +178,7 @@ Keys via `press_key` (match the HUD keymap, not the old backtick):
 | `1`…`6` | Bookmarks |
 | `\` | Toggle Auto-camera |
 | `m` | Menu (pauses; shows the side rails and scrubber) |
-| `h` | Hide HUD |
+| `h` | Help (pauses) |
 | `k` | KeyMap |
 | `Tab` | Cycle dashboards |
 

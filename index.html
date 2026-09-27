@@ -170,7 +170,7 @@
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>M</kbd> menu</span>
               <span class="footer-sep" aria-hidden="true">·</span>
-              <span><kbd>H</kbd> hide HUD</span>
+              <span><kbd>H</kbd> help</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>0</kbd> T−5 · <kbd>1</kbd>–<kbd>6</kbd> bookmarks</span>
             </p>
@@ -422,6 +422,75 @@
           <button type="button" id="mc-replay" class="mc-replay">
             Replay from liftoff
           </button>
+        </div>
+
+        <div
+          id="help"
+          class="keymap help"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="help-title"
+        >
+          <div class="keymap-card panel help-card">
+            <header class="keymap-header">
+              <h2 id="help-title">Help</h2>
+              <button
+                type="button"
+                id="help-close"
+                class="keymap-close"
+                title="Close (H or Esc)"
+                aria-label="Close help"
+              >
+                ×
+              </button>
+            </header>
+            <div class="keymap-body help-body">
+              <section class="keymap-section">
+                <h3>Playback</h3>
+                <dl>
+                  <div><dt><kbd>P</kbd> <kbd>Space</kbd></dt><dd>Play / pause</dd></div>
+                  <div><dt><kbd>−</kbd> <kbd>+</kbd></dt><dd>Slower / faster — 1×, 10×, 60×, 3600×, 86400×</dd></div>
+                  <div><dt><kbd>0</kbd></dt><dd>Opening at T−5:00</dd></div>
+                  <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Mission bookmarks</dd></div>
+                  <div><dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Previous / next bookmark</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Screens</h3>
+                <dl>
+                  <div><dt><kbd>H</kbd></dt><dd>This help</dd></div>
+                  <div><dt><kbd>K</kbd></dt><dd>KeyMap</dd></div>
+                  <div><dt><kbd>M</kbd></dt><dd>Menu — telemetry, cameras, and the scrubber</dd></div>
+                  <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, cross-section, Earth great circle, polar map</dd></div>
+                  <div><dt><kbd>Esc</kbd></dt><dd>Close the open screen</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>View</h3>
+                <dl>
+                  <div><dt><kbd>\</kbd></dt><dd>Toggle Auto-camera</dd></div>
+                  <div><dt><kbd>L</kbd></dt><dd>Toggle labels</dd></div>
+                  <div><dt><kbd>O</kbd></dt><dd>Toggle orbits</dd></div>
+                  <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next camera</dd></div>
+                </dl>
+              </section>
+              <section class="keymap-section">
+                <h3>Free camera</h3>
+                <dl>
+                  <div><dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>Pan forward / back</dd></div>
+                  <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>Pan left / right</dd></div>
+                  <div><dt><kbd>T</kbd> <kbd>B</kbd></dt><dd>Pan up / down</dd></div>
+                  <div><dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Yaw left / right</dd></div>
+                  <div><dt><kbd>R</kbd> <kbd>F</kbd></dt><dd>Pitch up / down</dd></div>
+                  <div><dt><kbd>C</kbd> <kbd>V</kbd></dt><dd>Roll left / right</dd></div>
+                  <div><dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Zoom in / out</dd></div>
+                  <div><dt>Mouse</dt><dd>Left-drag orbit · right-drag pan · scroll zoom</dd></div>
+                </dl>
+              </section>
+            </div>
+            <p class="metrics-foot">Paused while open · <kbd>H</kbd> / <kbd>Esc</kbd> close</p>
+          </div>
         </div>
 
         <div

@@ -70,6 +70,7 @@ export type HudFlags = {
   overlayResumePlay: boolean;
   completeShown: boolean;
   keymapOpen: boolean;
+  helpOpen: boolean;
   metricsOpen: boolean;
   crossSectionOpen: boolean;
   hudVisible: boolean;

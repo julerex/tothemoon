@@ -60,7 +60,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "D", action: "Pan →" },
     { label: "F", action: "Pitch ↓" },
     { label: "G" },
-    { label: "H", action: "HUD" },
+    { label: "H", action: "Help" },
     { label: "J" },
     { label: "K", action: "KeyMap" },
     { label: "L", action: "Toggle Labels" },

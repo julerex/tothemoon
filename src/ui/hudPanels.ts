@@ -27,15 +27,25 @@ export function setHudVisible(rt: HudRuntime, visible: boolean): void {
 
 function closeOtherPanels(rt: HudRuntime, keep: string): void {
   if (keep !== "keymap") setKeymapOpen(rt, false);
+  if (keep !== "help") setHelpOpen(rt, false);
   if (keep !== "metrics") setMetricsOpen(rt, false);
   if (keep !== "cross") setCrossSectionOpen(rt, false);
   if (keep !== "earthGc") setEarthGcOpen(rt, false);
   if (keep !== "polar") setPolarMapOpen(rt, false);
 }
 
-/** Menu or KeyMap is up, so the mission clock stays paused. */
+/** Menu, KeyMap, or Help is up, so the mission clock stays paused. */
 export function playbackOverlayOpen(rt: HudRuntime): boolean {
-  return rt.flags.metricsOpen || rt.flags.keymapOpen;
+  return rt.flags.metricsOpen || rt.flags.keymapOpen || rt.flags.helpOpen;
+}
+
+export function setHelpOpen(rt: HudRuntime, open: boolean): void {
+  const wasHolding = playbackOverlayOpen(rt);
+  rt.flags.helpOpen = open;
+  if (rt.dom.helpEl) rt.dom.helpEl.hidden = !open;
+  rt.dom.hudRoot?.classList.toggle("help-open", open);
+  if (open) closeOtherPanels(rt, "help");
+  syncOverlayPlayback(rt, wasHolding);
 }
 
 export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
@@ -52,7 +62,7 @@ export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
 }
 
 /**
- * Opening the Menu or KeyMap pauses. Closing the last of them resumes only
+ * Opening the Menu, KeyMap, or Help pauses. Closing the last of them resumes only
  * when the theater was playing. `playing: null` leaves the clock alone.
  */
 export function nextOverlayPlayback(
@@ -190,6 +200,7 @@ export function redrawCrossSection(rt: HudRuntime, missionT: number): void {
 export function anyPanelOpen(rt: HudRuntime): boolean {
   return (
     rt.flags.keymapOpen ||
+    rt.flags.helpOpen ||
     rt.flags.metricsOpen ||
     rt.flags.crossSectionOpen ||
     isEarthGcOverlayOpen() ||
@@ -202,6 +213,7 @@ export function handleEscapePanels(rt: HudRuntime): void {
   else if (isEarthGcOverlayOpen()) setEarthGcOpen(rt, false);
   else if (isPolarOverlayOpen()) setPolarMapOpen(rt, false);
   else if (rt.flags.metricsOpen) setMetricsOpen(rt, false);
+  else if (rt.flags.helpOpen) setHelpOpen(rt, false);
   else setKeymapOpen(rt, false);
 }
 
@@ -227,6 +239,8 @@ function wirePanelCloses(rt: HudRuntime): void {
   const { dom } = rt;
   dom.keymapClose?.addEventListener("click", () => setKeymapOpen(rt, false));
   wireBackdropClose(dom.keymapEl, () => setKeymapOpen(rt, false));
+  dom.helpClose?.addEventListener("click", () => setHelpOpen(rt, false));
+  wireBackdropClose(dom.helpEl, () => setHelpOpen(rt, false));
   dom.metricsClose?.addEventListener("click", () => setMetricsOpen(rt, false));
   wireBackdropClose(dom.metricsEl, () => setMetricsOpen(rt, false));
   dom.crossSectionClose?.addEventListener("click", () =>

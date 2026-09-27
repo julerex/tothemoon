@@ -82,6 +82,8 @@ export type HudOverlays = {
   hudRoot: HTMLElement | null;
   keymapEl: HTMLElement | null;
   keymapClose: HTMLButtonElement | null;
+  helpEl: HTMLElement | null;
+  helpClose: HTMLButtonElement | null;
   keymapCanvas: HTMLCanvasElement | null;
   keymapCtx: CanvasRenderingContext2D | null;
   metricsEl: HTMLElement | null;
@@ -286,6 +288,8 @@ function collectPanelOverlay(): Omit<
   return {
     metricsEl: q("#metrics"),
     metricsClose: q("#metrics-close"),
+    helpEl: q("#help"),
+    helpClose: q("#help-close"),
     crossSectionEl: q("#cross-section"),
     crossSectionClose: q("#cross-section-close"),
     crossSectionCanvas,

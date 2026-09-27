@@ -9,7 +9,7 @@ import {
   cycleTheaterViews,
   handleEscapePanels,
   playbackOverlayOpen,
-  setHudVisible,
+  setHelpOpen,
   setKeymapOpen,
   setMetricsOpen,
 } from "./hudPanels";
@@ -42,7 +42,7 @@ function handlePanelToggleKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 function handleUiKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.key === "Tab") return preventAnd(e, () => cycleTheaterViews(rt));
   if (e.key === "h" || e.key === "H") {
-    return preventAnd(e, () => setHudVisible(rt, !rt.flags.hudVisible));
+    return preventAnd(e, () => setHelpOpen(rt, !rt.flags.helpOpen));
   }
   if (handlePanelToggleKey(rt, e)) return true;
   if (e.key === "Escape" && anyPanelOpen(rt)) {
