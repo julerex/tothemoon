@@ -51,7 +51,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "P", action: "Play / pause" },
     { label: "[", action: "Prev camera" },
     { label: "]", action: "Next camera" },
-    { label: "\\", w: 1.5 },
+    { label: "\\", action: "Toggle Auto-camera", w: 1.5 },
   ],
   [
     { label: "Caps", w: 1.75 },
@@ -59,7 +59,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "S", action: "Pan back" },
     { label: "D", action: "Pan →" },
     { label: "F", action: "Pitch ↓" },
-    { label: "G", action: "Auto-cam" },
+    { label: "G" },
     { label: "H", action: "HUD" },
     { label: "J" },
     { label: "K", action: "KeyMap" },

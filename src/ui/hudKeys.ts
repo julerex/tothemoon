@@ -155,7 +155,7 @@ function handleLabelOrbitKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 
 function handleToggleSceneKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (handleLabelOrbitKey(rt, e)) return true;
-  if (e.key === "g" || e.key === "G") return preventAnd(e, () => toggleAutoCam(rt));
+  if (e.code === "Backslash") return preventAnd(e, () => toggleAutoCam(rt));
   return false;
 }
 

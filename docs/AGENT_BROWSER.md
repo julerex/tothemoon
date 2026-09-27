@@ -176,7 +176,7 @@ Keys via `press_key` (match the HUD keymap, not the old backtick):
 | `[` / `]` | Previous / next camera |
 | `0` | T−5:00 opening |
 | `1`…`6` | Bookmarks |
-| `g` | Auto-cam |
+| `\` | Toggle Auto-camera |
 | `m` | Menu (pauses; shows the side rails and scrubber) |
 | `h` | Hide HUD |
 | `k` | KeyMap |
@@ -315,7 +315,7 @@ URL with a new `?agent=` query (or `#/missions`, then the mission).
 **Clock does not move.** Seek URLs pause. Call `play()` or press Space.
 
 **Auto-cam fights a camera pick.** `setCamera` / `frameCamera` / `setCameraPose`
-disable Auto-cam. `g` toggles it back on. `setCameraPose` also switches to
+disable Auto-cam. `\` toggles it back on. `setCameraPose` also switches to
 `free` so subject tracking does not overwrite the seated pose.
 
 **Inspect / move the camera.** `getCamera()` (or `snapshot().cam`) is the live
