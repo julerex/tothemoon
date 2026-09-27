@@ -221,7 +221,7 @@ export function bookmarkForDigit(
 
 /**
  * KeyMap caption for a digit key.
- * **0** stays T−5. Other digits use the bookmark's stage label.
+ * **0** reads t minus 5. Other digits use the bookmark's stage label.
  * Missing beats return undefined so the key is not labeled "Bookmark".
  */
 export function keymapDigitAction(
@@ -230,7 +230,7 @@ export function keymapDigitAction(
 ): string | undefined {
   const bm = bookmarkForDigit(bookmarks, digit);
   if (!bm) return undefined;
-  if (bm.id === "opening") return "T−5";
+  if (bm.id === "opening") return "t minus 5";
   return bm.label;
 }
 

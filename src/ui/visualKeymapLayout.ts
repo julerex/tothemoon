@@ -37,7 +37,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "7" },
     { label: "8" },
     { label: "9" },
-    { label: "0", action: "T−5" },
+    { label: "0", action: "t minus 5" },
     { label: "-", action: "Slower" },
     { label: "+", action: "Faster" },
     { label: "⌫", w: 1.5 },

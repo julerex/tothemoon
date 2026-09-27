@@ -219,7 +219,7 @@ describe("keymapDigitAction", () => {
     const marks = buildBookmarks(tl);
     assert.deepEqual(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => keymapDigitAction(marks, digit)),
-      ["T−5", "Pad", "Max Q", "Staging", "Booster land", "SECO", "Payload", "Halfway", "Entry", "Splashdown"],
+      ["t minus 5", "Pad", "Max Q", "Staging", "Booster land", "SECO", "Payload", "Halfway", "Entry", "Splashdown"],
     );
     assert.equal(keymapDigitAction(marks, 10), undefined);
   });
@@ -241,7 +241,7 @@ describe("keymapDigitAction", () => {
     assert.deepEqual(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => keymapDigitAction(marks, digit)),
       [
-        "T−5",
+        "t minus 5",
         "Pad",
         "Staging",
         "Boostback",
