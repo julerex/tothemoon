@@ -171,7 +171,9 @@ Keys via `press_key` (match the HUD keymap, not the old backtick):
 | Key | Action |
 |-----|--------|
 | `Space` | Play / pause |
-| `-` / `=` | Cycle cameras |
+| `-` / `=` | Slower / faster |
+| `,` / `.` | Previous / next bookmark |
+| `[` / `]` | Previous / next camera |
 | `1`…`6` | Bookmarks |
 | `g` | Auto-cam |
 | `m` | Metrics |

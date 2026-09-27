@@ -72,6 +72,20 @@ export function isPlayPauseCode(code: string): boolean {
   return code === "Space" || code === "KeyP";
 }
 
+/** `-` steps slower; `=` steps faster. Shift on the same keys (`_` / `+`) matches. */
+export function speedNudgeDir(code: string): -1 | 1 | null {
+  if (code === "Minus") return -1;
+  if (code === "Equal") return 1;
+  return null;
+}
+
+/** `,` previous bookmark; `.` next bookmark. */
+export function bookmarkStepDir(code: string): -1 | 1 | null {
+  if (code === "Comma") return -1;
+  if (code === "Period") return 1;
+  return null;
+}
+
 function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (isPlayPauseCode(e.code)) {
     return preventAnd(e, () => rt.data.handlers.onPlayToggle());
@@ -82,12 +96,10 @@ function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.code === "BracketRight") {
     return preventAnd(e, () => cycleCamera(rt, 1));
   }
-  if (e.code === "Minus") {
-    return preventAnd(e, () => stepBookmark(rt, -1));
-  }
-  if (e.code === "Equal") {
-    return preventAnd(e, () => stepBookmark(rt, 1));
-  }
+  const speedDir = speedNudgeDir(e.code);
+  if (speedDir) return preventAnd(e, () => nudgeSpeed(rt, speedDir));
+  const bookmarkDir = bookmarkStepDir(e.code);
+  if (bookmarkDir) return preventAnd(e, () => stepBookmark(rt, bookmarkDir));
   return handleDigitBookmark(rt, e);
 }
 
@@ -128,12 +140,6 @@ function nudgeSpeed(rt: HudRuntime, dir: -1 | 1): void {
   rt.dom.speed.value = String(rt.data.handlers.onSpeedNudge(dir));
 }
 
-function handleSpeedNudgeKey(rt: HudRuntime, e: KeyboardEvent): boolean {
-  if (e.key === "," || e.key === "<") return preventAnd(e, () => nudgeSpeed(rt, -1));
-  if (e.key === "." || e.key === ">") return preventAnd(e, () => nudgeSpeed(rt, 1));
-  return false;
-}
-
 function handleLabelOrbitKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (e.key === "l" || e.key === "L") {
     return preventAnd(e, () => toggleLabels(rt));
@@ -150,16 +156,12 @@ function handleToggleSceneKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   return false;
 }
 
-function handleMiscKey(rt: HudRuntime, e: KeyboardEvent): boolean {
-  return handleSpeedNudgeKey(rt, e) || handleToggleSceneKey(rt, e);
-}
-
 function onKeyDown(rt: HudRuntime, e: KeyboardEvent): void {
   if (e.repeat || isFormTypingTarget(e.target)) return;
   if (handleUiKey(rt, e)) return;
   if (handleTransportKey(rt, e)) return;
   if (handleHoldKeyDown(rt, e)) return;
-  handleMiscKey(rt, e);
+  handleToggleSceneKey(rt, e);
 }
 
 function onKeyUp(rt: HudRuntime, e: KeyboardEvent): void {
