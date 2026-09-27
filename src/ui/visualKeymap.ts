@@ -7,6 +7,7 @@ export {
   KEYMAP_ROWS,
   rowWidthUnits,
   rowKeySlots,
+  rowLiftUnits,
   keyLegendAlign,
   boardSizeUnits,
   rowsWithDigitActions,

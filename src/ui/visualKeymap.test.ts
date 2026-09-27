@@ -7,6 +7,7 @@ import {
   rowsWithDigitActions,
   keyLegendAlign,
   rowKeySlots,
+  rowLiftUnits,
   rowWidthUnits,
 } from "./visualKeymap.ts";
 
@@ -117,13 +118,23 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("P"), "Play / pause");
   });
 
-  it("places Esc immediately left of the backtick", () => {
+  it("places Esc above the backtick at half the key height", () => {
     const top = KEYMAP_ROWS[0]!;
     const grave = top.findIndex((k) => k.label === "`");
+    const esc = grave - 1;
     assert.ok(grave > 0);
-    assert.equal(top[grave - 1]!.label, "Esc");
+    assert.equal(top[esc]!.label, "Esc");
+    assert.equal(top[esc]!.h, 0.5);
+    assert.equal(rowLiftUnits(top), 0.5 + 0.1);
+    const { w } = boardSizeUnits();
+    const slots = rowKeySlots(top, w);
+    assert.equal(slots[esc]!.x, slots[grave]!.x);
+    assert.equal(slots[esc]!.w, slots[grave]!.w);
+    const withoutEsc = top.filter((key) => key.label !== "Esc");
+    assert.ok(Math.abs(rowWidthUnits(top) - rowWidthUnits(withoutEsc)) < 1e-9);
     for (const row of KEYMAP_ROWS.slice(1)) {
       assert.equal(row.some((k) => k.label === "Esc"), false);
+      assert.equal(rowLiftUnits(row), 0);
     }
   });
 

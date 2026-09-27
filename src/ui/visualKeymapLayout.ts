@@ -10,6 +10,11 @@ export type KeyCap = {
   action?: string;
   /** Width in key units (1 = standard letter key). */
   w?: number;
+  /**
+   * Height in key units. Below 1, the key stacks above the next key in the
+   * row instead of taking its own column. Esc is 0.5, above `` ` ``.
+   */
+  h?: number;
 };
 
 /** One keyboard row left → right. */
@@ -21,7 +26,7 @@ export type KeyRow = readonly KeyCap[];
  */
 export const KEYMAP_ROWS: readonly KeyRow[] = [
   [
-    { label: "Esc", action: "Close" },
+    { label: "Esc", action: "Close", h: 0.5 },
     { label: "`" },
     { label: "1", action: "Bookmark" },
     { label: "2", action: "Bookmark" },
@@ -132,14 +137,35 @@ export function keyLegendAlign(label: string, trailing = false): LegendAlign {
   return "center";
 }
 
-/** Total width in key units for a row (keys + gaps). */
+/** True when the key takes a column. Half-height keys stack above the next one. */
+function inlineKey(key: KeyCap): boolean {
+  return (key.h ?? 1) >= 1;
+}
+
+/** Total width in key units for a row (inline keys + gaps). Half-height keys add none. */
 export function rowWidthUnits(row: KeyRow): number {
   let w = 0;
-  for (let i = 0; i < row.length; i++) {
-    w += row[i]!.w ?? 1;
-    if (i < row.length - 1) w += GAP;
+  let seen = 0;
+  for (const key of row) {
+    if (!inlineKey(key)) continue;
+    if (seen > 0) w += GAP;
+    w += key.w ?? 1;
+    seen++;
   }
   return w;
+}
+
+/**
+ * Extra height above a row for stacked keys, including the gap under them.
+ * Zero when every key is full height.
+ */
+export function rowLiftUnits(row: KeyRow): number {
+  let h = 0;
+  for (const key of row) {
+    const kh = key.h ?? 1;
+    if (kh < 1) h = Math.max(h, kh);
+  }
+  return h > 0 ? h + ROW_GAP : 0;
 }
 
 /**
@@ -149,31 +175,70 @@ export function rowWidthUnits(row: KeyRow): number {
 export function rowKeySlots(row: KeyRow, boardW: number): KeySlot[] {
   const slack = Math.max(0, boardW - rowWidthUnits(row));
   const growAt = slackKeyIndex(row);
-  const slots: KeySlot[] = [];
-  let x = 0;
-  for (let i = 0; i < row.length; i++) {
-    const w = (row[i]!.w ?? 1) + (i === growAt ? slack : 0);
-    slots.push({ x, w });
-    x += w;
-    if (i < row.length - 1) x += GAP;
-  }
+  const slots: KeySlot[] = row.map(() => ({ x: 0, w: 1 }));
+  placeInlineSlots(row, slots, slack, growAt);
+  copyStackedSlots(row, slots);
   return slots;
+}
+
+function placeInlineSlots(
+  row: KeyRow,
+  slots: KeySlot[],
+  slack: number,
+  growAt: number,
+): void {
+  const inlineCount = row.filter(inlineKey).length;
+  let x = 0;
+  let placed = 0;
+  for (let i = 0; i < row.length; i++) {
+    const key = row[i]!;
+    if (!inlineKey(key)) continue;
+    const w = (key.w ?? 1) + (i === growAt ? slack : 0);
+    slots[i] = { x, w };
+    x += w;
+    placed++;
+    if (placed < inlineCount) x += GAP;
+  }
+}
+
+/** A half-height key shares the column of the next full key (Esc sits on `` ` ``). */
+function copyStackedSlots(row: KeyRow, slots: KeySlot[]): void {
+  for (let i = 0; i < row.length; i++) {
+    if (inlineKey(row[i]!)) continue;
+    const host = nextInlineIndex(row, i);
+    slots[i] = host >= 0 ? { ...slots[host]! } : { x: 0, w: row[i]!.w ?? 1 };
+  }
+}
+
+function nextInlineIndex(row: KeyRow, from: number): number {
+  for (let i = from + 1; i < row.length; i++) {
+    if (inlineKey(row[i]!)) return i;
+  }
+  return -1;
 }
 
 /** Space absorbs a short bottom row; every other row grows its right-hand key. */
 function slackKeyIndex(row: KeyRow): number {
-  const space = row.findIndex((key) => key.label === "Space");
+  const space = row.findIndex((key) => key.label === "Space" && inlineKey(key));
   if (space >= 0) return space;
-  return Math.max(0, row.length - 1);
+  for (let i = row.length - 1; i >= 0; i--) {
+    if (inlineKey(row[i]!)) return i;
+  }
+  return 0;
 }
 
-/** Board width = widest row; height = rows + gaps. */
+/** Board width = widest row; height = rows, gaps, and any half-key stack. */
 export function boardSizeUnits(rows: readonly KeyRow[] = KEYMAP_ROWS): {
   w: number;
   h: number;
 } {
   let maxW = 0;
-  for (const row of rows) maxW = Math.max(maxW, rowWidthUnits(row));
-  const h = rows.length + Math.max(0, rows.length - 1) * ROW_GAP;
+  let h = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    maxW = Math.max(maxW, rowWidthUnits(row));
+    h += rowLiftUnits(row) + 1;
+    if (i < rows.length - 1) h += ROW_GAP;
+  }
   return { w: maxW, h };
 }

@@ -7,6 +7,7 @@ import {
   boardSizeUnits,
   keyLegendAlign,
   rowKeySlots,
+  rowLiftUnits,
 } from "./visualKeymapLayout";
 
 type KeymapLayout = {
@@ -110,6 +111,7 @@ function paintKeymapBoard(
   setKeymapStrokeStyle(ctx, layout.dpr);
   let y = layout.originY;
   for (const row of rows) {
+    y += rowLiftUnits(row) * layout.unitY;
     drawKeyRow(ctx, layout, row, y);
     y += layout.unitY + layout.rowGapPx;
   }
@@ -151,10 +153,11 @@ function drawKeyCap(
   trailing: boolean,
 ): void {
   const active = Boolean(key.action);
-  const keyH = layout.unitY;
-  strokeKeyOutline(ctx, x, y, kw, keyH, layout.radius, active);
-  if (active) fillKeySoft(ctx, x, y, kw, keyH, layout.radius);
-  drawKeyLabels(ctx, layout, key, x, y, kw, keyH, active, trailing);
+  const keyH = (key.h ?? 1) * layout.unitY;
+  const top = (key.h ?? 1) < 1 ? y - layout.rowGapPx - keyH : y;
+  strokeKeyOutline(ctx, x, top, kw, keyH, layout.radius, active);
+  if (active) fillKeySoft(ctx, x, top, kw, keyH, layout.radius);
+  drawKeyLabels(ctx, layout, key, x, top, kw, keyH, active, trailing);
 }
 
 function strokeKeyOutline(
@@ -199,10 +202,10 @@ function drawKeyLabels(
   ctx.globalAlpha = active ? 1 : 0.4;
   ctx.fillStyle = "#fff";
   ctx.textAlign = keyLegendAlign(key.label, trailing);
-  const labelSize = Math.min(layout.unitY * 0.28, kw * 0.22);
+  const labelSize = Math.min(keyH * 0.28, kw * 0.22);
   const legend = legendBox(key.label, trailing, x, kw, layout.dpr);
   if (key.action) {
-    drawBoundKeyText(ctx, layout, key, legend, y, keyH, labelSize);
+    drawBoundKeyText(ctx, key, legend, y, keyH, labelSize);
   } else {
     drawUnboundKeyText(ctx, key.label, legend.anchor, y, keyH, labelSize);
   }
@@ -229,7 +232,6 @@ function legendBox(
 
 function drawBoundKeyText(
   ctx: CanvasRenderingContext2D,
-  layout: KeymapLayout,
   key: KeyCap,
   legend: { anchor: number; maxWidth: number },
   y: number,
@@ -237,7 +239,7 @@ function drawBoundKeyText(
   labelSize: number,
 ): void {
   fillKeyGlyph(ctx, key.label, legend.anchor, y, keyH, labelSize, 0.34);
-  fillKeyAction(ctx, layout, key.action!, legend, y, keyH);
+  fillKeyAction(ctx, key.action!, legend, y, keyH);
 }
 
 function fillKeyGlyph(
@@ -255,13 +257,12 @@ function fillKeyGlyph(
 
 function fillKeyAction(
   ctx: CanvasRenderingContext2D,
-  layout: KeymapLayout,
   action: string,
   legend: { anchor: number; maxWidth: number },
   y: number,
   keyH: number,
 ): void {
-  const actionSize = Math.min(layout.unitY * 0.155, legend.maxWidth * 0.14);
+  const actionSize = Math.min(keyH * 0.155, legend.maxWidth * 0.14);
   ctx.globalAlpha = 0.85;
   ctx.font = `500 ${actionSize}px "Segoe UI", system-ui, sans-serif`;
   ctx.fillText(action, legend.anchor, y + keyH * 0.68, legend.maxWidth);
