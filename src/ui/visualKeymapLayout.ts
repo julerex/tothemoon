@@ -76,7 +76,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "V", action: "Roll →" },
     { label: "B", action: "Pan ↓" },
     { label: "N" },
-    { label: "M", action: "Metrics" },
+    { label: "M", action: "Menu" },
     { label: ",", action: "Prev bookmark" },
     { label: ".", action: "Next bookmark" },
     { label: "/" },

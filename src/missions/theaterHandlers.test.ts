@@ -95,7 +95,7 @@ describe("makeTheaterHudHandlers Auto-cam", () => {
   it("seats the pad tableau at T−5 when Auto-cam is off", () => {
     const { w } = stubWire();
     let snapped: number | null = null;
-    w.clock = { seek() {} } as MissionClock;
+    w.clock = { seek() {} } as unknown as MissionClock;
     w.director.snapPadOpening = (t: number) => {
       snapped = t;
     };

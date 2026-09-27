@@ -88,6 +88,9 @@ export function bookmarkStepDir(code: string): -1 | 1 | null {
 
 function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   if (isPlayPauseCode(e.code)) {
+    if (rt.flags.metricsOpen) {
+      return preventAnd(e, () => rt.data.handlers.setPlaying?.(false));
+    }
     return preventAnd(e, () => rt.data.handlers.onPlayToggle());
   }
   if (e.code === "BracketLeft") {

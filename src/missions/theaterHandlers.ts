@@ -53,10 +53,14 @@ function onSpeedNudge(w: TheaterHudWire, dir: Parameters<HudHandlers["onSpeedNud
 
 function transportHandlers(w: TheaterHudWire): Pick<
   HudHandlers,
-  "onPlayToggle" | "onSpeedMode" | "onSpeedNudge" | "onScrub"
+  "onPlayToggle" | "setPlaying" | "onSpeedMode" | "onSpeedNudge" | "onScrub"
 > {
   return {
     onPlayToggle: () => w.clock.toggle(),
+    setPlaying: (playing) => {
+      if (playing) w.clock.play();
+      else w.clock.pause();
+    },
     onSpeedMode: (rate) => w.clock.setSpeed(rate),
     onSpeedNudge: (dir) => onSpeedNudge(w, dir),
     onScrub: (t) => w.clock.seek(t),

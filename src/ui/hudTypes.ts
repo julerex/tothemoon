@@ -20,6 +20,8 @@ import type { HudDom, MetricsDom } from "./hudDom";
 
 export type HudHandlers = {
   onPlayToggle: () => void;
+  /** Set play or pause without toggling. The Menu holds the clock with this. */
+  setPlaying?: (playing: boolean) => void;
   /** Playback speed multiplier (1, 10, …) */
   onSpeedMode: (rate: number) => void;
   /** `-` / `+` (equals key) — step playback speed down / up through fixed presets */
@@ -64,6 +66,8 @@ export type HudFlags = {
   scrubbing: boolean;
   lastPhase: PhaseId | null;
   lastPlaying: boolean;
+  /** Resume playback when the Menu closes, because it was playing when opened. */
+  menuResumePlay: boolean;
   completeShown: boolean;
   keymapOpen: boolean;
   metricsOpen: boolean;

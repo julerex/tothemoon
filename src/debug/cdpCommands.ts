@@ -103,7 +103,7 @@ export const THEATER_KEYS = {
   bookmarkPrev: ",",
   bookmarkNext: ".",
   autoCam: "g",
-  metrics: "m",
+  menu: "m",
   hideHud: "h",
   keymap: "k",
   bookmark0: "0",

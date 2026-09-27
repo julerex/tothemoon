@@ -65,13 +65,14 @@ function createHudFlagsA(): Pick<
   | "scrubbing"
   | "lastPhase"
   | "lastPlaying"
+  | "menuResumePlay"
   | "completeShown"
   | "keymapOpen"
   | "metricsOpen"
   | "crossSectionOpen"
 > {
   return {
-    scrubbing: false, lastPhase: null, lastPlaying: false,
+    scrubbing: false, lastPhase: null, lastPlaying: false, menuResumePlay: false,
     completeShown: false, keymapOpen: false, metricsOpen: false, crossSectionOpen: false,
   };
 }
@@ -184,7 +185,12 @@ function completeShownBag(rt: HudRuntime): { value: boolean } {
   };
 }
 
+function holdMenuPause(rt: HudRuntime, playing: boolean): void {
+  if (rt.flags.metricsOpen && playing) rt.data.handlers.setPlaying?.(false);
+}
+
 function applyUpdateChrome(rt: HudRuntime, tel: Telemetry, view: ReturnType<typeof buildTelemetryView>): void {
+  holdMenuPause(rt, tel.playing);
   rt.flags.lastPlaying = tel.playing;
   updateNewsTicker(rt, tel.t, tel.playing, tel.playbackSpeed);
   syncSpeedSelect(rt, view);

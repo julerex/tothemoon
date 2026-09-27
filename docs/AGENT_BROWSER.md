@@ -177,7 +177,7 @@ Keys via `press_key` (match the HUD keymap, not the old backtick):
 | `0` | T−5:00 opening |
 | `1`…`6` | Bookmarks |
 | `g` | Auto-cam |
-| `m` | Metrics |
+| `m` | Menu (pauses; shows the side rails and scrubber) |
 | `h` | Hide HUD |
 | `k` | KeyMap |
 | `Tab` | Cycle dashboards |

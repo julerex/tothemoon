@@ -1954,6 +1954,67 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   outline: none;
 }
 
+/* Control chrome (left rail, right rail, bottom bar) is part of the Menu. */
+#hud .telemetry,
+#hud .camera-rail,
+#hud .bottom-bar {
+  display: none;
+}
+
+#hud.menu-open .telemetry,
+#hud.menu-open .camera-rail,
+#hud.menu-open .bottom-bar {
+  display: flex;
+  z-index: 25;
+}
+
+#hud.menu-open .bottom-bar {
+  position: relative;
+}
+
+#hud:not(.menu-open) .hud-header {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+#hud:not(.menu-open) .cam-ident {
+  right: 1.1rem;
+  bottom: 1.15rem;
+}
+
+/* Menu card sits between the rails and above the bottom bar. */
+#hud.menu-open .metrics {
+  top: 0;
+  left: var(--rail-width);
+  right: var(--rail-width);
+  bottom: var(--bottom-chrome);
+  z-index: 20;
+}
+
+.menu-top {
+  display: flex;
+  padding: 0.75rem 0.9rem 0;
+}
+
+.menu-go-missions {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius);
+  padding: 0.42rem 0.75rem;
+}
+
+.menu-go-missions:hover,
+.menu-go-missions:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  outline: none;
+}
+
 /* Auto-cam: webcast bottom bar. Reference still
    assets/flight13-webcast/tplus-000110-engines-down-broadcast-hud.jpg */
 #hud.broadcast-mode {
@@ -2000,6 +2061,16 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
 #hud.broadcast-mode .broadcast-hud {
   display: flex;
+}
+
+#hud.menu-open.broadcast-mode .telemetry,
+#hud.menu-open.broadcast-mode .camera-rail,
+#hud.menu-open.broadcast-mode .bottom-bar {
+  display: flex;
+}
+
+#hud.menu-open .broadcast-hud {
+  display: none;
 }
 
 body.menus-active #hud.broadcast-mode .broadcast-hud {

@@ -44,11 +44,33 @@ export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
   }
 }
 
+/**
+ * Opening the Menu pauses. Closing resumes only when the theater was playing.
+ * `playing: null` leaves the clock alone.
+ */
+export function nextMenuPlayback(
+  opening: boolean,
+  wasPlaying: boolean,
+  resumeOnClose: boolean,
+): { resumeOnClose: boolean; playing: boolean | null } {
+  if (opening) return { resumeOnClose: wasPlaying, playing: false };
+  return { resumeOnClose: false, playing: resumeOnClose ? true : null };
+}
+
+function syncMenuPlayback(rt: HudRuntime, opening: boolean): void {
+  const next = nextMenuPlayback(opening, rt.flags.lastPlaying, rt.flags.menuResumePlay);
+  rt.flags.menuResumePlay = next.resumeOnClose;
+  if (next.playing != null) rt.data.handlers.setPlaying?.(next.playing);
+}
+
 export function setMetricsOpen(rt: HudRuntime, open: boolean): void {
+  const was = rt.flags.metricsOpen;
   rt.flags.metricsOpen = open;
   if (rt.dom.metricsEl) rt.dom.metricsEl.hidden = !open;
   applyPressed(rt.dom.btnMetrics, open);
+  rt.dom.hudRoot?.classList.toggle("menu-open", open);
   if (open) closeOtherPanels(rt, "metrics");
+  if (open !== was) syncMenuPlayback(rt, open);
 }
 
 export function setCrossSectionOpen(rt: HudRuntime, open: boolean): void {
@@ -75,7 +97,7 @@ export function setPolarMapOpen(rt: HudRuntime, open: boolean): void {
 
 /**
  * Tab theater cycle: main → ascent CS → Earth GC → Polar → KeyMap → main.
- * Metrics stays on M only (not in the cycle).
+ * Menu stays on M only (not in the cycle).
  */
 export function cycleTheaterViews(rt: HudRuntime): void {
   const earthGc = isEarthGcOverlayOpen();

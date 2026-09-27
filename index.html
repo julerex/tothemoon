@@ -177,7 +177,7 @@
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>G</kbd> auto-cam</span>
               <span class="footer-sep" aria-hidden="true">·</span>
-              <span><kbd>M</kbd> metrics</span>
+              <span><kbd>M</kbd> menu</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>H</kbd> hide HUD</span>
               <span class="footer-sep" aria-hidden="true">·</span>
@@ -246,9 +246,9 @@
               type="button"
               id="btn-metrics"
               aria-pressed="false"
-              title="Mission metrics (M)"
+              title="Menu (M)"
             >
-              Metrics
+              Menu
             </button>
           </div>
         </section>
@@ -480,11 +480,15 @@
           role="dialog"
           aria-modal="true"
           aria-labelledby="metrics-title"
+          aria-label="Menu"
         >
           <div class="keymap-card panel metrics-card">
+            <div class="menu-top">
+              <a class="menu-go-missions" href="#/missions">Go to Mission Menu</a>
+            </div>
             <header class="keymap-header">
-              <h2 id="metrics-title">Mission metrics</h2>
-              <button type="button" id="metrics-close" class="keymap-close" title="Close (M or Esc)" aria-label="Close metrics">
+              <h2 id="metrics-title">Menu</h2>
+              <button type="button" id="metrics-close" class="keymap-close" title="Close (M or Esc)" aria-label="Close menu">
                 ×
               </button>
             </header>
@@ -549,7 +553,7 @@
                 </dl>
               </section>
             </div>
-            <p class="metrics-foot">Live at scrubber time · <kbd>M</kbd> / <kbd>Esc</kbd> close</p>
+            <p class="metrics-foot">Paused while open · <kbd>M</kbd> / <kbd>Esc</kbd> close</p>
           </div>
         </div>
 
