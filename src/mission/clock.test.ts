@@ -18,12 +18,12 @@ describe("pure ClockState transitions", () => {
     assert.deepEqual(s, { t: 0, playing: false, speed: 1 });
   });
 
-  it("normalizeSpeed rejects zero/non-finite and clamps |speed| ≥ 0.1", () => {
+  it("normalizeSpeed rejects zero/non-finite, clamps speed ≥ 0.1, and stays forward", () => {
     assert.equal(normalizeSpeed(0), 1);
     assert.equal(normalizeSpeed(Number.NaN), 1);
     assert.equal(normalizeSpeed(0.01), 0.1);
-    assert.equal(normalizeSpeed(-0.05), -0.1);
-    assert.equal(normalizeSpeed(-2), -2);
+    assert.equal(normalizeSpeed(-0.05), 0.1);
+    assert.equal(normalizeSpeed(-2), 2);
     assert.equal(normalizeSpeed(5), 5);
   });
 
@@ -69,13 +69,14 @@ describe("pure ClockState transitions", () => {
     assert.equal(end.playing, false);
   });
 
-  it("clockTick rewinds and pauses at start", () => {
+  it("a negative rate plays forward", () => {
     let s = clockSeek(initialClockState(), 0.5);
     s = clockSetSpeed(s, -1);
+    assert.equal(s.speed, 1);
     s = clockPlay(s);
-    s = clockTick(s, 60, 100);
-    assert.equal(s.t, 0);
-    assert.equal(s.playing, false);
+    s = clockTick(s, 10, 100);
+    assert.ok(Math.abs(s.t - 0.6) < 1e-12);
+    assert.equal(s.playing, true);
   });
 });
 
@@ -120,9 +121,9 @@ describe("MissionClock shell", () => {
     c.setSpeed(0.01);
     assert.equal(c.speed, 0.1);
     c.setSpeed(-0.05);
-    assert.equal(c.speed, -0.1);
+    assert.equal(c.speed, 0.1);
     c.setSpeed(-2);
-    assert.equal(c.speed, -2);
+    assert.equal(c.speed, 2);
   });
 
   it("tick advances only while playing and pauses at end", () => {
@@ -139,14 +140,15 @@ describe("MissionClock shell", () => {
     assert.equal(c.playing, false);
   });
 
-  it("negative speed rewinds and pauses at start", () => {
+  it("a negative rate plays forward", () => {
     const c = createMissionClock();
     c.seek(0.5);
     c.setSpeed(-1);
+    assert.equal(c.speed, 1);
     c.play();
-    c.tick(60, 100); // −0.6 → clamp to 0
-    assert.equal(c.t, 0);
-    assert.equal(c.playing, false);
+    c.tick(10, 100);
+    assert.ok(Math.abs(c.t - 0.6) < 1e-12);
+    assert.equal(c.playing, true);
   });
 
   it("toggle flips playing", () => {

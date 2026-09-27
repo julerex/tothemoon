@@ -2,7 +2,7 @@
  * Normalized mission transport clock for play/pause/scrub/speed.
  *
  * Progress `t` is in [0, 1]. At |speed| = 1, wall-clock duration equals the
- * mission duration; higher |speed| compresses playback. Negative speed rewinds.
+ * mission duration; higher speed compresses playback. Playback is forward only.
  *
  * Pure transitions operate on {@link ClockState}. {@link createMissionClock}
  * returns a thin shell that holds state and notifies subscribers (seek / tick
@@ -12,13 +12,13 @@
 /** Listener called with normalized progress after seek/tick. */
 export type ClockListener = (t: number) => void;
 
-/** Immutable transport state (normalized progress, play flag, signed speed). */
+/** Immutable transport state (normalized progress, play flag, forward speed). */
 export type ClockState = Readonly<{
   /** Normalized progress in [0, 1]. */
   t: number;
   /** True while the clock advances on `tick`. */
   playing: boolean;
-  /** Signed playback rate (mission-duration multiples per wall second). */
+  /** Playback rate (mission-duration multiples per wall second). Always ≥ 0.1. */
   speed: number;
 }>;
 
@@ -33,12 +33,12 @@ export function clamp01(v: number): number {
 }
 
 /**
- * Signed rate; |speed| ≥ 0.1. Negative rewinds. Non-finite / zero → 1.
+ * Forward rate; speed ≥ 0.1. A negative request plays forward at that
+ * magnitude. Non-finite / zero → 1.
  */
 export function normalizeSpeed(speed: number): number {
   if (!Number.isFinite(speed) || speed === 0) return 1;
-  const mag = Math.max(0.1, Math.abs(speed));
-  return speed < 0 ? -mag : mag;
+  return Math.max(0.1, Math.abs(speed));
 }
 
 /** Replace playback rate (does not change t / playing). */
@@ -74,13 +74,12 @@ export function clockSeek(state: ClockState, t: number): ClockState {
 
 /**
  * Advance by real delta seconds while playing.
- * At |speed| 1, full mission takes `missionDurationS` real seconds.
- * Negative speed rewinds; clamps and pauses at 0 / 1.
- * Returns the same reference when paused or when state is unchanged.
+ * At speed 1, full mission takes `missionDurationS` real seconds.
+ * Clamps and pauses at the end. Returns the same reference when paused
+ * or when state is unchanged.
  */
-function applyEndClamps(speed: number, t: number, playing: boolean): { t: number; playing: boolean } {
-  if (speed > 0 && t >= 1) return { t: 1, playing: false };
-  if (speed < 0 && t <= 0) return { t: 0, playing: false };
+function applyEndClamps(t: number, playing: boolean): { t: number; playing: boolean } {
+  if (t >= 1) return { t: 1, playing: false };
   return { t, playing };
 }
 
@@ -91,8 +90,8 @@ export function clockTick(
 ): ClockState {
   if (!state.playing) return state;
   if (!(missionDurationS > 0) || !Number.isFinite(dtSec)) return state;
-  const rate = state.speed / missionDurationS;
-  const next = applyEndClamps(state.speed, clamp01(state.t + dtSec * rate), state.playing);
+  const rate = Math.abs(state.speed) / missionDurationS;
+  const next = applyEndClamps(clamp01(state.t + dtSec * rate), state.playing);
   if (next.t === state.t && next.playing === state.playing) return state;
   return Object.freeze({ ...state, t: next.t, playing: next.playing });
 }
@@ -106,13 +105,13 @@ export type MissionClock = Readonly<{
   readonly t: number;
   /** True while the clock is advancing on `tick`. */
   readonly playing: boolean;
-  /** Signed playback rate (mission-duration multiples per wall second). */
+  /** Playback rate (mission-duration multiples per wall second). Always ≥ 0.1. */
   readonly speed: number;
   /** Snapshot of pure transport state. */
   getState: () => ClockState;
   /** Replace entire state (e.g. restore); does not notify. */
   setState: (next: ClockState) => void;
-  /** Signed rate; |speed| ≥ 0.1. Negative rewinds. Non-finite / zero → 1. */
+  /** Forward rate; speed ≥ 0.1. A negative request plays forward. Non-finite / zero → 1. */
   setSpeed: (speed: number) => void;
   /** Start advancing on subsequent `tick` calls. */
   play: () => void;
@@ -124,8 +123,8 @@ export type MissionClock = Readonly<{
   seek: (t: number) => void;
   /**
    * Advance by real delta seconds.
-   * At |speed| 1, full mission takes `missionDurationS` real seconds.
-   * Negative speed rewinds; clamps and pauses at 0 / 1.
+   * At speed 1, full mission takes `missionDurationS` real seconds.
+   * Clamps and pauses at the end.
    */
   tick: (dtSec: number, missionDurationS: number) => void;
   /**
