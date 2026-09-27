@@ -93,15 +93,13 @@ export function theaterUrl(
   return `${origin}/?${nonce}${hash}`;
 }
 
-/** P / Space / brackets / minus / equals / comma / period — match the live HUD keymap. */
+/** P / Space / brackets / minus / equals — match the live HUD keymap. */
 export const THEATER_KEYS = {
   playPause: "p",
   camPrev: "[",
   camNext: "]",
   slower: "-",
   faster: "+",
-  bookmarkPrev: ",",
-  bookmarkNext: ".",
   autoCam: "\\",
   menu: "m",
   help: "h",

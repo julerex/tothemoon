@@ -80,7 +80,6 @@ export type HudFlags = {
   orbitsEnabled: boolean;
   lastCamKey: string | null;
   lastCamKeyT: number;
-  lastBookmarkIndex: number;
   lastNewsId: string | null;
   lastNewsRate: number;
 };

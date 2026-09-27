@@ -137,7 +137,7 @@ function drawKeyRow(
     const slot = slots[i]!;
     const x = layout.originX + slot.x * layout.unitX;
     const kw = slot.w * layout.unitX;
-    drawKeyCap(ctx, layout, row[i]!, x, y, kw);
+    drawKeyCap(ctx, layout, row[i]!, x, y, kw, i === row.length - 1);
   }
 }
 
@@ -148,12 +148,13 @@ function drawKeyCap(
   x: number,
   y: number,
   kw: number,
+  trailing: boolean,
 ): void {
   const active = Boolean(key.action);
   const keyH = layout.unitY;
   strokeKeyOutline(ctx, x, y, kw, keyH, layout.radius, active);
   if (active) fillKeySoft(ctx, x, y, kw, keyH, layout.radius);
-  drawKeyLabels(ctx, layout, key, x, y, kw, keyH, active);
+  drawKeyLabels(ctx, layout, key, x, y, kw, keyH, active, trailing);
 }
 
 function strokeKeyOutline(
@@ -193,12 +194,13 @@ function drawKeyLabels(
   kw: number,
   keyH: number,
   active: boolean,
+  trailing: boolean,
 ): void {
   ctx.globalAlpha = active ? 1 : 0.4;
   ctx.fillStyle = "#fff";
-  ctx.textAlign = keyLegendAlign(key.label);
+  ctx.textAlign = keyLegendAlign(key.label, trailing);
   const labelSize = Math.min(layout.unitY * 0.28, kw * 0.22);
-  const legend = legendBox(key.label, x, kw, layout.dpr);
+  const legend = legendBox(key.label, trailing, x, kw, layout.dpr);
   if (key.action) {
     drawBoundKeyText(ctx, layout, key, legend, y, keyH, labelSize);
   } else {
@@ -206,16 +208,21 @@ function drawKeyLabels(
   }
 }
 
-/** Anchor and max text width. Left-aligned legends sit inset from the cap's left edge. */
+/** Anchor and max text width. Side-aligned legends sit inset from that edge of the cap. */
 function legendBox(
   label: string,
+  trailing: boolean,
   x: number,
   kw: number,
   dpr: number,
 ): { anchor: number; maxWidth: number } {
+  const align = keyLegendAlign(label, trailing);
   const inset = Math.max(8 * dpr, kw * 0.1);
-  if (keyLegendAlign(label) === "left") {
+  if (align === "left") {
     return { anchor: x + inset, maxWidth: Math.max(1, kw - inset * 2) };
+  }
+  if (align === "right") {
+    return { anchor: x + kw - inset, maxWidth: Math.max(1, kw - inset * 2) };
   }
   return { anchor: x + kw * 0.5, maxWidth: Math.max(1, kw - 6 * dpr) };
 }

@@ -47,7 +47,7 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "Y" },
     { label: "U" },
     { label: "I" },
-    { label: "O", action: "Orbits" },
+    { label: "O", action: "Toggle Orbits" },
     { label: "P", action: "Play / pause" },
     { label: "[", action: "Prev camera" },
     { label: "]", action: "Next camera" },
@@ -77,8 +77,8 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "B", action: "Pan ↓" },
     { label: "N" },
     { label: "M", action: "Menu" },
-    { label: ",", action: "Prev bookmark" },
-    { label: ".", action: "Next bookmark" },
+    { label: "," },
+    { label: "." },
     { label: "/" },
     { label: "Shift", w: 2.25 },
   ],
@@ -118,9 +118,17 @@ export const ROW_GAP = 0.1;
 /** One key's position in a row, in key units from the row's left edge. */
 export type KeySlot = { x: number; w: number };
 
-/** Tab, Caps, and Shift print on the left of the cap. Other legends stay centered. */
-export function keyLegendAlign(label: string): "left" | "center" {
-  if (label === "Tab" || label === "Caps" || label === "Shift") return "left";
+export type LegendAlign = "left" | "center" | "right";
+
+/**
+ * Tab, Caps, and the left Shift print on the left of the cap.
+ * Backslash, Enter, Backspace, and the right Shift print on the right.
+ * `trailing` distinguishes the two Shift keys.
+ */
+export function keyLegendAlign(label: string, trailing = false): LegendAlign {
+  if (label === "Tab" || label === "Caps") return "left";
+  if (label === "Shift") return trailing ? "right" : "left";
+  if (label === "\\" || label === "Enter" || label === "⌫") return "right";
   return "center";
 }
 

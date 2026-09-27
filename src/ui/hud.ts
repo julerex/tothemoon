@@ -87,7 +87,6 @@ function createHudFlagsB(): Pick<
   | "orbitsEnabled"
   | "lastCamKey"
   | "lastCamKeyT"
-  | "lastBookmarkIndex"
 > {
   return {
     hudVisible: true,
@@ -97,7 +96,6 @@ function createHudFlagsB(): Pick<
     orbitsEnabled: false,
     lastCamKey: null,
     lastCamKeyT: 0,
-    lastBookmarkIndex: -1,
   };
 }
 

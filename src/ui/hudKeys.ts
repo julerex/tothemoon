@@ -2,7 +2,7 @@
  * Keyboard: transport, bookmarks, camera holds, panels, scene toggles.
  */
 
-import { bookmarkForDigit, cycleBookmark } from "../mission/bookmarks";
+import { bookmarkForDigit } from "../mission/bookmarks";
 import { cycleCamera, noteCameraMode, toggleAutoCam, toggleLabels, toggleOrbits } from "./hudCameraCtl";
 import {
   anyPanelOpen,
@@ -62,12 +62,6 @@ function handleDigitBookmark(rt: HudRuntime, e: KeyboardEvent): boolean {
   return true;
 }
 
-function stepBookmark(rt: HudRuntime, dir: -1 | 1): void {
-  const next = cycleBookmark(rt.data.bookmarks, rt.flags.lastBookmarkIndex, dir);
-  if (!next) return;
-  jumpToBookmark(rt, next.bookmark);
-}
-
 /** Space and P both toggle playback. */
 export function isPlayPauseCode(code: string): boolean {
   return code === "Space" || code === "KeyP";
@@ -77,13 +71,6 @@ export function isPlayPauseCode(code: string): boolean {
 export function speedNudgeDir(code: string): -1 | 1 | null {
   if (code === "Minus") return -1;
   if (code === "Equal") return 1;
-  return null;
-}
-
-/** `,` previous bookmark; `.` next bookmark. */
-export function bookmarkStepDir(code: string): -1 | 1 | null {
-  if (code === "Comma") return -1;
-  if (code === "Period") return 1;
   return null;
 }
 
@@ -102,8 +89,6 @@ function handleTransportKey(rt: HudRuntime, e: KeyboardEvent): boolean {
   }
   const speedDir = speedNudgeDir(e.code);
   if (speedDir) return preventAnd(e, () => nudgeSpeed(rt, speedDir));
-  const bookmarkDir = bookmarkStepDir(e.code);
-  if (bookmarkDir) return preventAnd(e, () => stepBookmark(rt, bookmarkDir));
   return handleDigitBookmark(rt, e);
 }
 

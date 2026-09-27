@@ -65,8 +65,8 @@ describe("visualKeymap layout", () => {
     }
     assert.equal(actions.get("-"), "Slower");
     assert.equal(actions.get("+"), "Faster");
-    assert.equal(actions.get(","), "Prev bookmark");
-    assert.equal(actions.get("."), "Next bookmark");
+    assert.equal(actions.has(","), false);
+    assert.equal(actions.has("."), false);
     assert.equal(actions.get("["), "Prev camera");
     assert.equal(actions.get("]"), "Next camera");
     assert.equal(actions.has("`"), false);
@@ -87,7 +87,7 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.has("G"), false);
     assert.equal(actions.get("\\"), "Toggle Auto-camera");
     assert.equal(actions.get("L"), "Toggle Labels");
-    assert.equal(actions.get("O"), "Orbits");
+    assert.equal(actions.get("O"), "Toggle Orbits");
     assert.equal(actions.get("Tab"), "Dashboards");
     assert.equal(actions.get("P"), "Play / pause");
     assert.equal(actions.get("Space"), "Play / pause");
@@ -154,8 +154,11 @@ describe("visualKeymap layout", () => {
     assert.equal(shift.w, 2.25);
     assert.equal(keyLegendAlign("Tab"), "left");
     assert.equal(keyLegendAlign("Caps"), "left");
-    assert.equal(keyLegendAlign("Shift"), "left");
-    assert.equal(keyLegendAlign("Enter"), "center");
+    assert.equal(keyLegendAlign("Shift", false), "left");
+    assert.equal(keyLegendAlign("Shift", true), "right");
+    assert.equal(keyLegendAlign("\\"), "right");
+    assert.equal(keyLegendAlign("Enter"), "right");
+    assert.equal(keyLegendAlign("⌫"), "right");
     assert.equal(keyLegendAlign("A"), "center");
     for (const row of KEYMAP_ROWS) {
       const slots = rowKeySlots(row, w);
