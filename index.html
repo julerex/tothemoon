@@ -450,46 +450,115 @@
               </button>
             </header>
             <div class="keymap-body help-body">
-              <section class="keymap-section">
-                <h3>Playback</h3>
-                <dl>
-                  <div><dt><kbd>P</kbd> <kbd>Space</kbd></dt><dd>Play / pause</dd></div>
-                  <div><dt><kbd>−</kbd> <kbd>+</kbd></dt><dd>Slower / faster — 1×, 10×, 60×, 3600×, 86400×</dd></div>
-                  <div><dt><kbd>0</kbd>–<kbd>9</kbd></dt><dd>Timeline bookmarks (0 is T−5:00)</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Screens</h3>
-                <dl>
-                  <div><dt><kbd>H</kbd></dt><dd>This help</dd></div>
-                  <div><dt><kbd>K</kbd></dt><dd>KeyMap</dd></div>
-                  <div><dt><kbd>M</kbd></dt><dd>Menu — telemetry, cameras, and the scrubber</dd></div>
-                  <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, cross-section, Earth great circle, polar map</dd></div>
-                  <div><dt><kbd>Esc</kbd></dt><dd>Close the open screen</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>View</h3>
-                <dl>
-                  <div><dt><kbd>\</kbd></dt><dd>Toggle Auto-camera</dd></div>
-                  <div><dt><kbd>L</kbd></dt><dd>Toggle labels</dd></div>
-                  <div><dt><kbd>O</kbd></dt><dd>Toggle orbits</dd></div>
-                  <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next camera</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Free camera</h3>
-                <dl>
-                  <div><dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>Pan forward / back</dd></div>
-                  <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>Pan left / right</dd></div>
-                  <div><dt><kbd>T</kbd> <kbd>B</kbd></dt><dd>Pan up / down</dd></div>
-                  <div><dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Yaw left / right</dd></div>
-                  <div><dt><kbd>R</kbd> <kbd>F</kbd></dt><dd>Pitch up / down</dd></div>
-                  <div><dt><kbd>C</kbd> <kbd>V</kbd></dt><dd>Roll left / right</dd></div>
-                  <div><dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Zoom in / out</dd></div>
-                  <div><dt>Mouse</dt><dd>Left-drag orbit · right-drag pan · scroll zoom</dd></div>
-                </dl>
-              </section>
+              <div class="help-keys">
+                <section class="keymap-section">
+                  <h3>Playback</h3>
+                  <dl>
+                    <div><dt><kbd>P</kbd> <kbd>Space</kbd></dt><dd>Play / pause</dd></div>
+                    <div><dt><kbd>−</kbd> <kbd>+</kbd></dt><dd>Slower / faster — 1×, 10×, 60×, 3600×, 86400×</dd></div>
+                    <div><dt><kbd>0</kbd>–<kbd>9</kbd></dt><dd>Timeline bookmarks (0 is T−5:00)</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Screens</h3>
+                  <dl>
+                    <div><dt><kbd>H</kbd></dt><dd>This help</dd></div>
+                    <div><dt><kbd>K</kbd></dt><dd>KeyMap</dd></div>
+                    <div><dt><kbd>M</kbd></dt><dd>Menu — telemetry, cameras, and the scrubber</dd></div>
+                    <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, cross-section, Earth great circle, polar map</dd></div>
+                    <div><dt><kbd>Esc</kbd></dt><dd>Close the open screen</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>View</h3>
+                  <dl>
+                    <div><dt><kbd>\</kbd></dt><dd>Toggle Auto-camera</dd></div>
+                    <div><dt><kbd>L</kbd></dt><dd>Toggle labels</dd></div>
+                    <div><dt><kbd>O</kbd></dt><dd>Toggle orbits</dd></div>
+                    <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next camera</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Free camera</h3>
+                  <dl>
+                    <div><dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>Pan forward / back</dd></div>
+                    <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>Pan left / right</dd></div>
+                    <div><dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Yaw left / right</dd></div>
+                    <div><dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Zoom in / out</dd></div>
+                    <div><dt><kbd>T</kbd> <kbd>B</kbd></dt><dd>Pan up / down</dd></div>
+                    <div><dt><kbd>R</kbd> <kbd>F</kbd></dt><dd>Pitch up / down</dd></div>
+                    <div><dt><kbd>C</kbd> <kbd>V</kbd></dt><dd>Roll left / right</dd></div>
+                    <div><dt>Mouse</dt><dd>Left-drag orbit · right-drag pan · scroll zoom</dd></div>
+                  </dl>
+                </section>
+              </div>
+              <article class="help-doc">
+                <section>
+                  <h3>Auto-camera</h3>
+                  <p>
+                    Auto-camera is the view the theater opens on. It cuts the camera as the mission plays, so you can watch without flying the view yourself.
+                    On Starship Flight 13 the cuts follow the webcast: the same mounts, in the same order, at the mission time the broadcast switched.
+                    On the lunar flight the cuts follow the phase of the trajectory.
+                  </p>
+                  <p>
+                    While Auto-camera is on, the bottom of the screen is the webcast bar. It shows the engine lights, attitude, a short milestone line, the T+ or T− clock, and dials for speed and altitude.
+                    The telemetry rail, the camera buttons, and the scrubber stay hidden until you open the Menu.
+                  </p>
+                  <p>
+                    Press <kbd>\</kbd> to turn Auto-camera off, and press it again to turn it back on.
+                    Choosing a camera, or holding a free-camera key, also turns it off, and the view stays where you left it.
+                  </p>
+                </section>
+                <section>
+                  <h3>Playback and bookmarks</h3>
+                  <p>
+                    The clock runs forward only. <kbd>P</kbd> or <kbd>Space</kbd> plays and pauses.
+                    <kbd>−</kbd> and <kbd>+</kbd> step the rate through 1×, 10×, 60×, 3600×, and 86400×.
+                    One second of wall time is then one second, ten seconds, one minute, one hour, or one day of the mission.
+                  </p>
+                  <p>
+                    Keys <kbd>0</kbd> through <kbd>9</kbd> jump to bookmarks on the flight you are watching.
+                    <kbd>0</kbd> is the pad at t minus 5. The other keys are the beats that trajectory actually has, in time order.
+                    A flight that never lands does not grow a landing bookmark to fill an empty key.
+                  </p>
+                </section>
+                <section>
+                  <h3>Screens and dashboards</h3>
+                  <p>
+                    <kbd>H</kbd> opens this help. <kbd>K</kbd> opens the KeyMap, a keyboard with the action written on each key.
+                    <kbd>M</kbd> opens the Menu: telemetry, the camera buttons, and the scrubber.
+                    The mission clock pauses while Help, the KeyMap, or the Menu is open. Closing the last of them resumes playback if the theater was already playing.
+                    <kbd>Esc</kbd> closes whichever of those screens is up.
+                  </p>
+                  <p>
+                    <kbd>Tab</kbd> does not open the KeyMap. It cycles the theater pictures: the main view, the ascent cross-section, the Earth great-circle slice, and the polar map.
+                    The clock keeps running through that cycle.
+                  </p>
+                </section>
+                <section>
+                  <h3>Cameras</h3>
+                  <p>
+                    Free cameras can move. They are Sun, Earth, Moon, Booster, Launch Tower, and Starship.
+                    <kbd>W</kbd> and <kbd>S</kbd> pan forward and back, <kbd>A</kbd> and <kbd>D</kbd> pan left and right, <kbd>Q</kbd> and <kbd>E</kbd> yaw, and <kbd>Z</kbd> and <kbd>X</kbd> zoom.
+                    <kbd>T</kbd> and <kbd>B</kbd> pan up and down, <kbd>R</kbd> and <kbd>F</kbd> pitch, and <kbd>C</kbd> and <kbd>V</kbd> roll.
+                    Drag with the left mouse button to orbit, drag with the right button to pan, and scroll the wheel to zoom.
+                  </p>
+                  <p>
+                    Fixed cameras are the livestream mounts: the pad drone, the ground camera, the tower cams, the hull, the engines, the payload bay, the grid fin, and the recovery drone.
+                    They keep their frame. Movement keys do not steer them.
+                  </p>
+                  <p>
+                    <kbd>[</kbd> and <kbd>]</kbd> step through the camera list. Picking a camera turns Auto-camera off.
+                  </p>
+                </section>
+                <section>
+                  <h3>Labels and orbits</h3>
+                  <p>
+                    <kbd>L</kbd> shows or hides the name plates. <kbd>O</kbd> shows or hides the orbit lines.
+                    Each one toggles on its own.
+                  </p>
+                </section>
+              </article>
             </div>
             <p class="metrics-foot">Paused while open · <kbd>H</kbd> / <kbd>Esc</kbd> close</p>
           </div>

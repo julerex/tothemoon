@@ -1684,17 +1684,84 @@ kbd {
 
 /* Metrics overlay (M) — shares .keymap shell; monospace values */
 
-.metrics-card,
-.help-card {
+.metrics-card {
   width: min(40rem, 100%);
 }
 
+/* Help (H) fills the viewport. The key lists stay at the top; the essay scrolls. */
+.help {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+  background: #000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  z-index: 30;
+}
+
+.help-card {
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: #000;
+  animation: none;
+}
+
 .help-body {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.5rem 2.75rem;
+}
+
+.help-keys {
+  display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 2rem;
+  width: min(68rem, 100%);
+  margin: 0 auto;
 }
 
 .help-body .keymap-section dl > div {
   grid-template-columns: minmax(7rem, auto) 1fr;
+}
+
+.help-doc {
+  width: min(42rem, 100%);
+  margin: 2.75rem auto 0;
+}
+
+.help-doc section + section {
+  margin-top: 1.75rem;
+}
+
+.help-doc h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--text);
+}
+
+.help-doc p {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.help-doc p:last-child {
+  margin-bottom: 0;
 }
 
 .metrics-body {
@@ -2468,7 +2535,8 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
     font-size: 0.62rem;
   }
 
-  .keymap-body {
+  .keymap-body,
+  .help-keys {
     grid-template-columns: 1fr;
   }
 
