@@ -1728,11 +1728,13 @@ kbd {
   letter-spacing: 0.02em;
 }
 
-/* Full-bleed theater panels (cross-section · KeyMap) — black board above transport */
+/* Full-bleed theater panels. Cross-section stays above the transport;
+ * the KeyMap covers the viewport, including the webcast bar. */
 
 /*
  * Full-bleed above the bottom bar (ticker / event info / scrubber / footer).
  * Bottom clearance matches .telemetry so the time slider stays free.
+ * KeyMap overrides bottom to 0 below.
  */
 .cross-section,
 .earth-gc,
@@ -1751,11 +1753,15 @@ kbd {
   -webkit-backdrop-filter: none;
 }
 
+.visual-keymap {
+  bottom: 0;
+  z-index: 30;
+}
+
 /* Keep ticker / scrubber above the overlay */
 #hud.cross-section-open .bottom-bar,
 #hud.earth-gc-open .bottom-bar,
-#hud.polar-map-open .bottom-bar,
-#hud.keymap-open .bottom-bar {
+#hud.polar-map-open .bottom-bar {
   position: relative;
   z-index: 25;
 }
@@ -1888,14 +1894,9 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.visual-keymap-sub {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0.35rem 0.85rem 0.45rem;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.03em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+.visual-keymap-sub,
+.visual-keymap-card > .metrics-foot {
+  display: none;
 }
 
 .visual-keymap-canvas-wrap {
@@ -2454,8 +2455,7 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 
   .cross-section,
   .earth-gc,
-  .polar-map,
-  .visual-keymap {
+  .polar-map {
     bottom: var(--bottom-chrome);
   }
 

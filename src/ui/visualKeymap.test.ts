@@ -5,6 +5,8 @@ import {
   drawVisualKeymap,
   KEYMAP_ROWS,
   rowsWithDigitActions,
+  keyLegendAlign,
+  rowKeySlots,
   rowWidthUnits,
 } from "./visualKeymap.ts";
 
@@ -132,6 +134,37 @@ describe("visualKeymap layout", () => {
     ] as const;
     // 1 + gap(0.08) + 2
     assert.ok(Math.abs(rowWidthUnits(row) - 3.08) < 1e-9);
+  });
+
+  it("left-aligns Tab, Caps, and Shift and fills each row to the board width", () => {
+    const { w } = boardSizeUnits();
+    const firstOf = (label: string) => {
+      const row = KEYMAP_ROWS.find((candidate) => candidate[0]?.label === label);
+      assert.ok(row);
+      return rowKeySlots(row, w)[0]!;
+    };
+    const tab = firstOf("Tab");
+    const caps = firstOf("Caps");
+    const shift = firstOf("Shift");
+    assert.equal(tab.x, 0);
+    assert.equal(caps.x, 0);
+    assert.equal(shift.x, 0);
+    assert.equal(tab.w, 1.5);
+    assert.equal(caps.w, 1.75);
+    assert.equal(shift.w, 2.25);
+    assert.equal(keyLegendAlign("Tab"), "left");
+    assert.equal(keyLegendAlign("Caps"), "left");
+    assert.equal(keyLegendAlign("Shift"), "left");
+    assert.equal(keyLegendAlign("Enter"), "center");
+    assert.equal(keyLegendAlign("A"), "center");
+    for (const row of KEYMAP_ROWS) {
+      const slots = rowKeySlots(row, w);
+      const last = slots[slots.length - 1]!;
+      assert.ok(Math.abs(last.x + last.w - w) < 1e-6);
+    }
+    const bottom = KEYMAP_ROWS[4]!;
+    const space = bottom.findIndex((key) => key.label === "Space");
+    assert.ok(rowKeySlots(bottom, w)[space]!.w > (bottom[space]!.w ?? 1));
   });
 
   it("boardSizeUnits is finite and positive", () => {

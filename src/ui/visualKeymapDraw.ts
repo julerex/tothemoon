@@ -1,14 +1,20 @@
 /** Visual KeyMap canvas draw pass. */
 
 import type { KeyCap, KeyRow } from "./visualKeymapLayout";
-import { GAP, KEYMAP_ROWS, ROW_GAP, boardSizeUnits, rowWidthUnits } from "./visualKeymapLayout";
+import {
+  KEYMAP_ROWS,
+  ROW_GAP,
+  boardSizeUnits,
+  keyLegendAlign,
+  rowKeySlots,
+} from "./visualKeymapLayout";
 
 type KeymapLayout = {
-  unit: number;
+  unitX: number;
+  unitY: number;
   originX: number;
   originY: number;
   boardU: number;
-  gapPx: number;
   rowGapPx: number;
   radius: number;
   padBottom: number;
@@ -76,50 +82,23 @@ function computeKeymapLayout(
   rows: readonly KeyRow[],
 ): KeymapLayout {
   const { w: boardU, h: boardH } = boardSizeUnits(rows);
-  const unit = keymapUnit(W, H, dpr, boardU, boardH);
-  return keymapLayoutFromUnit(W, H, dpr, boardU, boardH, unit);
-}
-
-function keymapUnit(
-  W: number,
-  H: number,
-  dpr: number,
-  boardU: number,
-  boardH: number,
-): number {
-  const padX = 28 * dpr;
-  const padTop = 20 * dpr;
-  const padBottom = 48 * dpr;
-  return Math.min((W - padX * 2) / boardU, (H - padTop - padBottom) / boardH);
-}
-
-function keymapLayoutFromUnit(
-  W: number,
-  H: number,
-  dpr: number,
-  boardU: number,
-  boardH: number,
-  unit: number,
-): KeymapLayout {
-  const padTop = 20 * dpr;
-  const padBottom = 48 * dpr;
+  const padX = 18 * dpr;
+  const padTop = 14 * dpr;
+  const padBottom = 36 * dpr;
+  const unitX = Math.max(1, (W - padX * 2) / boardU);
+  const unitY = Math.max(1, (H - padTop - padBottom) / boardH);
   return {
-    ...keymapGeometry(W, H, dpr, boardU, boardH, unit, padTop, padBottom),
-    padBottom, W, H, dpr,
-  };
-}
-
-function keymapGeometry(
-  W: number, H: number, dpr: number,
-  boardU: number, boardH: number, unit: number,
-  padTop: number, padBottom: number,
-) {
-  const availH = H - padTop - padBottom;
-  return {
-    unit, boardU, gapPx: GAP * unit, rowGapPx: ROW_GAP * unit,
-    originX: (W - boardU * unit) * 0.5,
-    originY: padTop + (availH - boardH * unit) * 0.35,
-    radius: Math.max(3 * dpr, unit * 0.12),
+    unitX,
+    unitY,
+    boardU,
+    rowGapPx: ROW_GAP * unitY,
+    originX: padX,
+    originY: padTop,
+    radius: Math.max(3 * dpr, Math.min(unitX, unitY) * 0.12),
+    padBottom,
+    W,
+    H,
+    dpr,
   };
 }
 
@@ -132,7 +111,7 @@ function paintKeymapBoard(
   let y = layout.originY;
   for (const row of rows) {
     drawKeyRow(ctx, layout, row, y);
-    y += layout.unit + layout.rowGapPx;
+    y += layout.unitY + layout.rowGapPx;
   }
 }
 
@@ -153,12 +132,12 @@ function drawKeyRow(
   row: KeyRow,
   y: number,
 ): void {
-  const rowU = rowWidthUnits(row);
-  let x = layout.originX + (layout.boardU - rowU) * layout.unit * 0.5;
-  for (const key of row) {
-    const kw = (key.w ?? 1) * layout.unit;
-    drawKeyCap(ctx, layout, key, x, y, kw);
-    x += kw + layout.gapPx;
+  const slots = rowKeySlots(row, layout.boardU);
+  for (let i = 0; i < row.length; i++) {
+    const slot = slots[i]!;
+    const x = layout.originX + slot.x * layout.unitX;
+    const kw = slot.w * layout.unitX;
+    drawKeyCap(ctx, layout, row[i]!, x, y, kw);
   }
 }
 
@@ -171,7 +150,7 @@ function drawKeyCap(
   kw: number,
 ): void {
   const active = Boolean(key.action);
-  const keyH = layout.unit;
+  const keyH = layout.unitY;
   strokeKeyOutline(ctx, x, y, kw, keyH, layout.radius, active);
   if (active) fillKeySoft(ctx, x, y, kw, keyH, layout.radius);
   drawKeyLabels(ctx, layout, key, x, y, kw, keyH, active);
@@ -217,68 +196,80 @@ function drawKeyLabels(
 ): void {
   ctx.globalAlpha = active ? 1 : 0.4;
   ctx.fillStyle = "#fff";
-  const labelSize = Math.min(layout.unit * 0.28, kw * 0.22);
+  ctx.textAlign = keyLegendAlign(key.label);
+  const labelSize = Math.min(layout.unitY * 0.28, kw * 0.22);
+  const legend = legendBox(key.label, x, kw, layout.dpr);
   if (key.action) {
-    drawBoundKeyText(ctx, layout, key, x, y, kw, keyH, labelSize);
+    drawBoundKeyText(ctx, layout, key, legend, y, keyH, labelSize);
   } else {
-    drawUnboundKeyText(ctx, key.label, x, y, kw, keyH, labelSize);
+    drawUnboundKeyText(ctx, key.label, legend.anchor, y, keyH, labelSize);
   }
+}
+
+/** Anchor and max text width. Left-aligned legends sit inset from the cap's left edge. */
+function legendBox(
+  label: string,
+  x: number,
+  kw: number,
+  dpr: number,
+): { anchor: number; maxWidth: number } {
+  const inset = Math.max(8 * dpr, kw * 0.1);
+  if (keyLegendAlign(label) === "left") {
+    return { anchor: x + inset, maxWidth: Math.max(1, kw - inset * 2) };
+  }
+  return { anchor: x + kw * 0.5, maxWidth: Math.max(1, kw - 6 * dpr) };
 }
 
 function drawBoundKeyText(
   ctx: CanvasRenderingContext2D,
   layout: KeymapLayout,
   key: KeyCap,
-  x: number,
+  legend: { anchor: number; maxWidth: number },
   y: number,
-  kw: number,
   keyH: number,
   labelSize: number,
 ): void {
-  fillKeyGlyph(ctx, key.label, x, y, kw, keyH, labelSize, 0.34);
-  fillKeyAction(ctx, layout, key.action!, x, y, kw, keyH);
+  fillKeyGlyph(ctx, key.label, legend.anchor, y, keyH, labelSize, 0.34);
+  fillKeyAction(ctx, layout, key.action!, legend, y, keyH);
 }
 
 function fillKeyGlyph(
   ctx: CanvasRenderingContext2D,
   label: string,
-  x: number,
+  anchor: number,
   y: number,
-  kw: number,
   keyH: number,
   labelSize: number,
   yFrac: number,
 ): void {
   ctx.font = `600 ${labelSize}px ui-monospace, "Cascadia Code", Menlo, monospace`;
-  ctx.fillText(label, x + kw * 0.5, y + keyH * yFrac);
+  ctx.fillText(label, anchor, y + keyH * yFrac);
 }
 
 function fillKeyAction(
   ctx: CanvasRenderingContext2D,
   layout: KeymapLayout,
   action: string,
-  x: number,
+  legend: { anchor: number; maxWidth: number },
   y: number,
-  kw: number,
   keyH: number,
 ): void {
-  const actionSize = Math.min(layout.unit * 0.155, kw * 0.14);
+  const actionSize = Math.min(layout.unitY * 0.155, legend.maxWidth * 0.14);
   ctx.globalAlpha = 0.85;
   ctx.font = `500 ${actionSize}px "Segoe UI", system-ui, sans-serif`;
-  ctx.fillText(action, x + kw * 0.5, y + keyH * 0.68, kw - 6 * layout.dpr);
+  ctx.fillText(action, legend.anchor, y + keyH * 0.68, legend.maxWidth);
 }
 
 function drawUnboundKeyText(
   ctx: CanvasRenderingContext2D,
   label: string,
-  x: number,
+  anchor: number,
   y: number,
-  kw: number,
   keyH: number,
   labelSize: number,
 ): void {
   ctx.font = `600 ${labelSize}px ui-monospace, "Cascadia Code", Menlo, monospace`;
-  ctx.fillText(label, x + kw * 0.5, y + keyH * 0.5);
+  ctx.fillText(label, anchor, y + keyH * 0.5);
 }
 
 function drawMouseLegend(

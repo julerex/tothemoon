@@ -115,6 +115,15 @@ function digitKeyWithAction(
 export const GAP = 0.08; // key-unit gap
 export const ROW_GAP = 0.1;
 
+/** One key's position in a row, in key units from the row's left edge. */
+export type KeySlot = { x: number; w: number };
+
+/** Tab, Caps, and Shift print on the left of the cap. Other legends stay centered. */
+export function keyLegendAlign(label: string): "left" | "center" {
+  if (label === "Tab" || label === "Caps" || label === "Shift") return "left";
+  return "center";
+}
+
 /** Total width in key units for a row (keys + gaps). */
 export function rowWidthUnits(row: KeyRow): number {
   let w = 0;
@@ -123,6 +132,31 @@ export function rowWidthUnits(row: KeyRow): number {
     if (i < row.length - 1) w += GAP;
   }
   return w;
+}
+
+/**
+ * Lay a row out from x = 0 so Tab, Caps, and Shift share the left edge.
+ * Spare width goes to Space, or to the last key, so the row ends at `boardW`.
+ */
+export function rowKeySlots(row: KeyRow, boardW: number): KeySlot[] {
+  const slack = Math.max(0, boardW - rowWidthUnits(row));
+  const growAt = slackKeyIndex(row);
+  const slots: KeySlot[] = [];
+  let x = 0;
+  for (let i = 0; i < row.length; i++) {
+    const w = (row[i]!.w ?? 1) + (i === growAt ? slack : 0);
+    slots.push({ x, w });
+    x += w;
+    if (i < row.length - 1) x += GAP;
+  }
+  return slots;
+}
+
+/** Space absorbs a short bottom row; every other row grows its right-hand key. */
+function slackKeyIndex(row: KeyRow): number {
+  const space = row.findIndex((key) => key.label === "Space");
+  if (space >= 0) return space;
+  return Math.max(0, row.length - 1);
 }
 
 /** Board width = widest row; height = rows + gaps. */
