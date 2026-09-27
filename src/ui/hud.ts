@@ -54,6 +54,7 @@ import {
   wireTransportControls,
 } from "./hudTransport";
 import type { HudData, HudFlags, HudHandlers, HudRuntime } from "./hudTypes";
+import { applyBroadcastHud } from "./broadcastHudApply";
 import { buildTelemetryView, type Telemetry } from "./telemetryView";
 
 export type { Telemetry } from "./telemetryView";
@@ -195,6 +196,7 @@ function applyUpdateChrome(rt: HudRuntime, tel: Telemetry, view: ReturnType<type
 function update(rt: HudRuntime, tel: Telemetry): void {
   const view = buildTelemetryView(tel, { segments: rt.data.timeline.segments });
   applyMainTelemetryLabels(rt.dom, view);
+  applyBroadcastHud(rt, tel);
   applyCompleteCardLabels(rt.dom, view, completeShownBag(rt));
   if (tel.cameraMode !== rt.flags.lastCamMode) rememberCameraMode(rt, tel.cameraMode);
   applyUpdateChrome(rt, tel, view);

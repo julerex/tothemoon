@@ -7,7 +7,7 @@ Development **reference frames** from the official SpaceX Flight 13 replay. Not 
 | Source | https://x.com/i/broadcasts/1AJEmmYdMDnJL |
 | Capture | 2026-08-15, player fullscreen, stream quality 2160p (display 1920×1200) |
 | Copyright | © SpaceX. Stills from the archived webcast for in-repo visual reference only. |
-| HUD | Grey mission overlay (speed, altitude, `T+`) is **burned into the stream** — keep it. |
+| HUD | Grey mission overlay (speed, altitude, `T+`) is **burned into the stream** — keep it. Auto-cam copies the bottom bar from `tplus-000110-engines-down-broadcast-hud.jpg` and hides the side rails. |
 
 Capture SOP: [docs/STARSHIP_13.md](../../docs/STARSHIP_13.md). Filenames use the on-screen HUD clock when readable (`tplus-HHMMSS` / `tminus-HHMMSS`).
 
@@ -87,6 +87,7 @@ Theater ascent is a physics bake and climbs a little faster than the webcast HUD
 | `tplus-000055-ascent-hull-plumes.jpg` | T+00:00:55 | S40 hull + tiles, pink plumes over coast near Max Q | Onboard hull / down | Ship hull |
 | `tplus-000056-maxq-hull-plumes.jpg` | T+00:00:56 | Max Q, hull tiles + pink plumes over coast | Onboard hull / down | Ship hull |
 | `tplus-000058-maxq-engines-down.jpg` | T+00:00:58 | Max Q, engines-down pink plume over coast / Gulf | Onboard engines-down | Engines down (cut) |
+| `tplus-000110-engines-down-broadcast-hud.jpg` | T+00:01:10 | Engines-down over the coast; full webcast bottom bar (engines, attitude, LIFTOFF / MAX Q / STAGE SEP, speed, altitude) | Onboard engines-down | HUD reference for Auto-cam, not a camera cut |
 | `tplus-000115-ascent-hull-plumes.jpg` | T+00:01:15 | S40 hull + tiles, pink plume, past Max Q | Onboard hull / down | Ship hull (cut) |
 | `tplus-000125-ascent-hull-plumes.jpg` | T+00:01:25 | S40 hull + tiles over coast, post–Max Q | Onboard hull / down | Ship hull |
 | `tplus-000150-ascent-hull-s40.jpg` | T+00:01:50 | S40 hull + tiles, high coast view toward stage sep | Onboard hull / down | Ship hull |

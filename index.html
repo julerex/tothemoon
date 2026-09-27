@@ -41,12 +41,45 @@
         <p class="underground-msg">You are underground!</p>
       </div>
 
-      <div id="hud" aria-label="Mission controls">
+      <div id="hud" class="broadcast-mode" aria-label="Mission controls">
         <header class="hud-header hud-chrome">
           <a class="hud-menu-link" href="#/missions" title="Back to Mission Menu">← Missions</a>
           <h1>Starbase → Moon</h1>
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
+
+        <div id="broadcast-hud" class="broadcast-hud hud-chrome" aria-label="Webcast display">
+          <div class="bcast-cluster">
+            <svg id="bcast-engines" class="bcast-dial" viewBox="0 0 100 100" aria-hidden="true"></svg>
+            <svg id="bcast-attitude" class="bcast-dial" viewBox="0 0 100 100" aria-hidden="true"></svg>
+          </div>
+          <div class="bcast-center">
+            <div class="bcast-timeline" id="bcast-timeline" aria-hidden="true"></div>
+            <p class="bcast-clock" role="timer">
+              <span id="bcast-sign">T+</span>
+              <span id="bcast-time">00:00:00</span>
+            </p>
+            <p class="bcast-caption" id="bcast-caption">STARSHIP FLIGHT TEST</p>
+          </div>
+          <div class="bcast-gauges">
+            <div class="bcast-gauge">
+              <svg id="bcast-speed-ring" class="bcast-gauge-ring" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <p class="bcast-gauge-copy">
+                <span class="bcast-gauge-kicker">SPEED</span>
+                <span class="bcast-gauge-value" id="bcast-speed">0</span>
+                <span class="bcast-gauge-unit">KM/H</span>
+              </p>
+            </div>
+            <div class="bcast-gauge">
+              <svg id="bcast-alt-ring" class="bcast-gauge-ring" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <p class="bcast-gauge-copy">
+                <span class="bcast-gauge-kicker">ALTITUDE</span>
+                <span class="bcast-gauge-value" id="bcast-alt">0.0</span>
+                <span class="bcast-gauge-unit" id="bcast-alt-unit">KM</span>
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div class="bottom-bar hud-chrome">
           <div

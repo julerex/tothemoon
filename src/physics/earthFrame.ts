@@ -274,9 +274,34 @@ export function surfaceState(
   return surfaceBasis(t, lat, lon, epoch, outPos, outVel);
 }
 
+const _rel = v3();
+
+/**
+ * Velocity relative to the rotating Earth (km/s).
+ * Subtracts Earth COM motion and ω×r so a pad hold reads ~0, not ωR cos φ.
+ */
+export function groundRelativeVelocity(
+  pos: V3,
+  vel: V3,
+  earthPos: V3,
+  earthVel: V3,
+  out: V3 = v3(),
+): V3 {
+  earthNorthPole(_north);
+  set(_omega, _north.x * EARTH_SPIN_RATE, _north.y * EARTH_SPIN_RATE, _north.z * EARTH_SPIN_RATE);
+  set(_tmp, pos.x - earthPos.x, pos.y - earthPos.y, pos.z - earthPos.z);
+  cross(_tmp2, _omega, _tmp);
+  return set(
+    out,
+    vel.x - (earthVel.x + _tmp2.x),
+    vel.y - (earthVel.y + _tmp2.y),
+    vel.z - (earthVel.z + _tmp2.z),
+  );
+}
+
 /**
  * Speed relative to the rotating Earth (webcast HUD), km/s.
- * Subtracts Earth COM motion and ω×r so a pad hold reads ~0, not ωR cos φ.
+ * Same subtraction as {@link groundRelativeVelocity}.
  */
 export function groundRelativeSpeedKmS(
   pos: V3,
@@ -284,15 +309,8 @@ export function groundRelativeSpeedKmS(
   earthPos: V3,
   earthVel: V3,
 ): number {
-  earthNorthPole(_north);
-  set(_omega, _north.x * EARTH_SPIN_RATE, _north.y * EARTH_SPIN_RATE, _north.z * EARTH_SPIN_RATE);
-  set(_tmp, pos.x - earthPos.x, pos.y - earthPos.y, pos.z - earthPos.z);
-  cross(_tmp2, _omega, _tmp);
-  return Math.hypot(
-    vel.x - (earthVel.x + _tmp2.x),
-    vel.y - (earthVel.y + _tmp2.y),
-    vel.z - (earthVel.z + _tmp2.z),
-  );
+  groundRelativeVelocity(pos, vel, earthPos, earthVel, _rel);
+  return Math.hypot(_rel.x, _rel.y, _rel.z);
 }
 
 /** Starbase pad state at mission time t. */

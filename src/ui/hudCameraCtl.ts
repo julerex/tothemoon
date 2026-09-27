@@ -80,10 +80,18 @@ export function handleCameraKey(rt: HudRuntime, mode: CameraMode, key: string): 
   else switchCamera(rt, mode);
 }
 
+function syncBroadcastMode(rt: HudRuntime): void {
+  rt.dom.hudRoot?.classList.toggle("broadcast-mode", rt.flags.autoCamEnabled);
+}
+
 export function setAutoCamEnabled(rt: HudRuntime, enabled: boolean): void {
-  if (rt.flags.autoCamEnabled === enabled) return;
+  if (rt.flags.autoCamEnabled === enabled) {
+    syncBroadcastMode(rt);
+    return;
+  }
   rt.flags.autoCamEnabled = enabled;
   applyAutoCamChrome(rt.dom.btnAutoCam, rt.dom.autoCamEl, enabled);
+  syncBroadcastMode(rt);
 }
 
 export function setLabelsEnabled(rt: HudRuntime, enabled: boolean): void {
@@ -118,6 +126,7 @@ export function toggleOrbits(rt: HudRuntime): void {
 }
 
 export function wireAutoCamButton(rt: HudRuntime): void {
+  syncBroadcastMode(rt);
   if (!rt.dom.btnAutoCam) return;
   rt.dom.btnAutoCam.addEventListener("click", () => toggleAutoCam(rt));
   applyAutoCamChrome(rt.dom.btnAutoCam, rt.dom.autoCamEl, true);

@@ -42,7 +42,7 @@ Texture credits (NASA Blue Marble, LRO WAC Moon, Sentinel-2 cloudless, USDA NAIP
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
 - Mission-complete card
 - Cameras: **Auto-cam** (toggle **G**; Flight 13 follows the official webcast left-pane cuts only) · **Free** rail (☀️🌍🌙 **🚀 Booster**, **🏗️ Launch Tower**, **🚢 Starship** — pan / orbit / zoom; picking one turns Auto-cam **off**) · **Fixed** rail (livestream mounts such as **Launchpad Drone**, **Ground Camera One**, **Tower One / Tower Two** peak cams, fin / hull / engine-bay, **Drone** recovery — movement locked, with a notice if you try) · **[** / **]** cycle cameras · **−** / **=** cycle bookmarks · **C**/**V** roll · **T**/**B** pan up/down on Free pad cameras (Earth-perpendicular at the launch tower)
-- HUD: phase, mission time, **Sky** (Moon phase % lit + Sun λ), distance, altitude, speed, fuel bars + thrust
+- HUD: phase, mission time, **Sky** (Moon phase % lit + Sun λ), distance, altitude, speed, fuel bars + thrust. **Auto-cam** (default, **G**) replaces the side rails with the webcast bottom bar (engine cluster, attitude, milestone line, `T+` clock, speed and altitude dials). Turn Auto-cam off to get the rails and scrubber back.
 - Metrics (**M**): full telemetry; Flight 13 also shows **Force check** (n-body vs Earth-only coast |Δr|)
 - Logarithmic depth buffer for near craft + far Moon
 

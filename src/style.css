@@ -1954,6 +1954,325 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   outline: none;
 }
 
+/* Auto-cam: webcast bottom bar. Reference still
+   assets/flight13-webcast/tplus-000110-engines-down-broadcast-hud.jpg */
+#hud.broadcast-mode {
+  --bottom-chrome: 11.5rem;
+}
+
+#hud.broadcast-mode .telemetry,
+#hud.broadcast-mode .camera-rail,
+#hud.broadcast-mode .bottom-bar,
+#hud.broadcast-mode .cam-ident,
+#hud.broadcast-mode .hud-header h1,
+#hud.broadcast-mode .hud-header .subtitle {
+  display: none;
+}
+
+#hud.broadcast-mode .hud-header {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.broadcast-hud {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  height: var(--bottom-chrome);
+  box-sizing: border-box;
+  padding: 2.4rem 1.75rem 0.7rem;
+  pointer-events: none;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.1rem;
+  color: #fff;
+  font-family: var(--font);
+  background: linear-gradient(
+    to top,
+    rgba(3, 12, 28, 0.82) 0%,
+    rgba(6, 20, 44, 0.46) 46%,
+    rgba(6, 20, 44, 0) 100%
+  );
+}
+
+#hud.broadcast-mode .broadcast-hud {
+  display: flex;
+}
+
+body.menus-active #hud.broadcast-mode .broadcast-hud {
+  display: none;
+}
+
+.bcast-cluster,
+.bcast-gauges {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.7rem;
+}
+
+.bcast-dial,
+.bcast-gauge {
+  width: 5.7rem;
+  height: 5.7rem;
+}
+
+.bcast-gauge {
+  position: relative;
+}
+
+.bcast-gauge-ring,
+.bcast-dial {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.bcast-ring,
+.bcast-tick {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 1.15;
+}
+
+.bcast-tick {
+  stroke-width: 1;
+}
+
+.bcast-cross {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 0.7;
+}
+
+.bcast-n {
+  fill: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+
+.bcast-rocket {
+  fill: #fff;
+}
+
+.bcast-dot {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 0.8;
+}
+
+.bcast-dot.is-lit {
+  fill: #fff;
+  stroke: #fff;
+}
+
+.bcast-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0 0.4rem 0.15rem;
+}
+
+.bcast-timeline {
+  position: relative;
+  height: 2.85rem;
+  margin: 0 0.2rem 0.15rem;
+}
+
+.bcast-timeline::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.bcast-mark,
+.bcast-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.bcast-mark-dot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+}
+
+.bcast-mark.is-passed .bcast-mark-dot {
+  background: #fff;
+}
+
+.bcast-mark-label {
+  position: absolute;
+  left: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.bcast-mark.is-above .bcast-mark-label {
+  bottom: calc(50% + 0.55rem);
+}
+
+.bcast-mark.is-below .bcast-mark-label {
+  top: calc(50% + 0.5rem);
+}
+
+.bcast-mark:not(.is-passed) .bcast-mark-label {
+  opacity: 0.7;
+}
+
+.bcast-playhead {
+  width: 2px;
+  top: 50%;
+  bottom: auto;
+  height: 0.85rem;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.75);
+}
+
+.bcast-clock {
+  margin: 0.05rem 0 0;
+  text-align: center;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+#bcast-sign {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  margin-right: 0.35rem;
+}
+
+#bcast-time {
+  font-size: 2.15rem;
+  font-weight: 500;
+}
+
+.bcast-caption {
+  margin: 0.38rem 0 0;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.28em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.bcast-gauge-copy {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02rem;
+  line-height: 1.05;
+}
+
+.bcast-gauge-kicker,
+.bcast-gauge-unit {
+  font-size: 0.56rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+}
+
+.bcast-gauge-value {
+  font-size: 1.22rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.bcast-gauge-value.is-long {
+  font-size: 0.92rem;
+}
+
+@media (max-width: 720px) {
+  #hud.broadcast-mode {
+    --bottom-chrome: 8.8rem;
+  }
+
+  .broadcast-hud {
+    padding: 1.5rem 0.4rem 0.35rem;
+    gap: 0.35rem;
+  }
+
+  .bcast-cluster,
+  .bcast-gauges {
+    gap: 0.3rem;
+  }
+
+  .bcast-dial,
+  .bcast-gauge {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
+  .bcast-timeline {
+    height: 2.3rem;
+  }
+
+  .bcast-mark-label {
+    font-size: 0.48rem;
+    letter-spacing: 0.08em;
+  }
+
+  #bcast-sign {
+    font-size: 0.72rem;
+  }
+
+  #bcast-time {
+    font-size: 1.2rem;
+  }
+
+  .bcast-caption {
+    margin-top: 0.2rem;
+    font-size: 0.5rem;
+    letter-spacing: 0.12em;
+  }
+
+  .bcast-gauge-kicker,
+  .bcast-gauge-unit {
+    font-size: 0.4rem;
+    letter-spacing: 0.06em;
+  }
+
+  .bcast-gauge-value {
+    font-size: 0.78rem;
+  }
+
+  .bcast-gauge-value.is-long {
+    font-size: 0.64rem;
+  }
+}
+
 @media (max-width: 640px) {
   :root {
     --rail-width: 14rem;
