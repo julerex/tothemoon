@@ -82,7 +82,7 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("C"), "Roll ←");
     assert.equal(actions.get("V"), "Roll →");
     assert.equal(actions.get("G"), "Auto-cam");
-    assert.equal(actions.get("L"), "Labels");
+    assert.equal(actions.get("L"), "Toggle Labels");
     assert.equal(actions.get("O"), "Orbits");
     assert.equal(actions.get("Tab"), "Dashboards");
     assert.equal(actions.get("P"), "Play / pause");
