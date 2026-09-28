@@ -1852,6 +1852,20 @@ kbd {
   z-index: 25;
 }
 
+/* Graphs pause the picture, so the transport bar has to stay up to move the playhead. */
+#hud.flight-graphs-open {
+  --bottom-chrome: 6.55rem;
+}
+
+#hud.flight-graphs-open .bottom-bar,
+#hud.flight-graphs-open.broadcast-mode .bottom-bar {
+  display: flex;
+}
+
+#hud.flight-graphs-open .broadcast-hud {
+  display: none;
+}
+
 /* When HUD chrome is hidden, use the full viewport (no scrubber clearance) */
 #hud.cross-section-open.hud-hidden .cross-section,
 #hud.earth-gc-open.hud-hidden .earth-gc,

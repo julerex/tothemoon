@@ -56,7 +56,7 @@ export function drawFlightGraphs(
   ));
   paintChart(ctx, layout.accel, "Acceleration", series, linearMap(
     0,
-    seriesMax(series, (p) => p.accelG),
+    robustMax(series, (p) => p.accelG),
     layout.accel,
     (v) => `${v.toFixed(v >= 10 ? 0 : 1)} g`,
   ));
@@ -247,6 +247,28 @@ function seriesMax(series: FlightGraphSeries, pick: (p: FlightGraphPoint) => num
   for (const p of series.ship) max = Math.max(max, pick(p));
   for (const p of series.booster) max = Math.max(max, pick(p));
   return max;
+}
+
+/** Hard-splash samples can exceed this and would flatten the burn curves. */
+const ACCEL_AXIS_CAP_G = 12;
+
+/**
+ * Axis top for acceleration. Ignores samples above {@link ACCEL_AXIS_CAP_G}
+ * (the gulf splash step) so ascent and entry stay readable. Those samples
+ * still draw, clipped to the top of the chart.
+ */
+function robustMax(series: FlightGraphSeries, pick: (p: FlightGraphPoint) => number): number {
+  let max = 0;
+  let capped = 0;
+  const consider = (v: number) => {
+    if (v > ACCEL_AXIS_CAP_G) return;
+    capped = Math.max(capped, v);
+  };
+  for (const p of series.ship) consider(pick(p));
+  for (const p of series.booster) consider(pick(p));
+  for (const p of series.ship) max = Math.max(max, pick(p));
+  for (const p of series.booster) max = Math.max(max, pick(p));
+  return capped > 0 ? capped : max;
 }
 
 function altMap(series: FlightGraphSeries, rect: Rect): YMap {
