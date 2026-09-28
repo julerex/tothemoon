@@ -12,6 +12,7 @@ import { earthNorthPole } from "./earthFrame";
 import { radialHeightAboveEllipsoid } from "./wgs84";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
 import { makeFlight13Epoch } from "./flight13Epoch";
+import { makeFlight14Epoch } from "./flight14Epoch";
 import { makeLunarEpoch } from "./missionEpoch";
 import { hasHorizonsTable } from "./horizonsEpoch";
 import {
@@ -30,7 +31,9 @@ import { resolveTrajectoryMeta } from "./trajectoryMeta";
 import { len, type V3, v3 } from "./vec3";
 import packedTrajectory from "../data/trajectory.json";
 import packedFlight13 from "../data/flight13-trajectory.json";
+import packedFlight14 from "../data/flight14-trajectory.json";
 import { runFlight13Mission } from "./flight13Mission";
+import { runFlight14Mission } from "./flight14Mission";
 
 export type FrameState = {
   t: number;
@@ -73,7 +76,7 @@ export type Trajectory = Readonly<{
   keplerRefMaxDevKm: number;
   /** Horizons τ=0 mission time used when samples were baked. */
   horizonsLandingT: number;
-  /** Explicit ephemeris matching the bake (lunar Horizons or Flight 13). */
+  /** Explicit ephemeris matching the bake (lunar Horizons, Flight 13, or Flight 14). */
   epoch: EphemerisEpoch;
 }>;
 
@@ -123,7 +126,12 @@ function landTFromResult(result: {
     : result.durationS;
 }
 
+function isFlight14Result(result: { message?: string }): boolean {
+  return result.message != null && /Flight 14/i.test(result.message);
+}
+
 function isFlight13Result(result: { message?: string; durationS: number }): boolean {
+  if (isFlight14Result(result)) return false;
   return (
     (result.message != null &&
       (/Flight 13/i.test(result.message) ||
@@ -133,7 +141,7 @@ function isFlight13Result(result: { message?: string; durationS: number }): bool
   );
 }
 
-/** Ephemeris for a packed / computed mission result (lunar or Flight 13). */
+/** Ephemeris for a packed / computed mission result (lunar, Flight 13, or Flight 14). */
 export function epochFromResult(result: {
   moonPhase0: number;
   horizonsLandingT?: number;
@@ -141,6 +149,7 @@ export function epochFromResult(result: {
   message?: string;
 }): EphemerisEpoch {
   const landT = landTFromResult(result);
+  if (isFlight14Result(result)) return makeFlight14Epoch(result.moonPhase0, landT);
   if (isFlight13Result(result)) return makeFlight13Epoch(result.moonPhase0, landT);
   return makeLunarEpoch(result.moonPhase0, landT, hasHorizonsTable());
 }
@@ -269,6 +278,28 @@ export function computeFlight13Trajectory(): Trajectory {
   const result = runFlight13Mission({ epoch });
   console.info(
     `[flight13] Runtime recompute ${(performance.now() - t0).toFixed(0)}ms — ${result.message}, ${result.samples.length} samples`,
+  );
+  return makeTrajectory(result);
+}
+
+/** Load baked Flight 14 trajectory pack. */
+export function loadFlight14Trajectory(): Trajectory {
+  const result = unpackPackedTrajectory(
+    packedFlight14 as unknown as PackedTrajectory,
+  );
+  console.info(
+    `[flight14] Loaded precomputed trajectory — ${result.message}, ${result.samples.length} samples, ${(result.durationS / 3600).toFixed(2)} h`,
+  );
+  return makeTrajectory(result);
+}
+
+/** Re-run Flight 14 integration in the browser (slow). Use `?recompute=1`. */
+export function computeFlight14Trajectory(): Trajectory {
+  const t0 = performance.now();
+  const epoch = makeFlight14Epoch(0, 0);
+  const result = runFlight14Mission({ epoch });
+  console.info(
+    `[flight14] Runtime recompute ${(performance.now() - t0).toFixed(0)}ms — ${result.message}, ${result.samples.length} samples`,
   );
   return makeTrajectory(result);
 }

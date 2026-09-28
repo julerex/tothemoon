@@ -723,6 +723,77 @@
       </div>
 
       <div
+        id="flight14-briefing"
+        class="menu-screen flight14-briefing"
+        hidden
+        role="dialog"
+        aria-labelledby="flight14-briefing-title"
+      >
+        <div class="menu-panel menu-panel-wide">
+          <header class="menu-header-row">
+            <button type="button" class="menu-back" data-briefing-action="close">← Missions</button>
+            <div>
+              <p class="menu-kicker">Starship flight test</p>
+              <h1 class="menu-title menu-title-sm" id="flight14-briefing-title">Flight 14 briefing</h1>
+              <p class="menu-card-sub-static">28 Sep 2026 · Starbase OLP-2 · Ship 41 / Booster 21 · first orbital flight</p>
+            </div>
+          </header>
+          <div class="flight13-grid">
+            <section class="flight13-overview">
+              <h2 class="flight13-h2">Overview</h2>
+              <p>
+                Starship’s initial orbital mission: insertion near 275 km, about six orbits,
+                26 Starlink V3 satellites, then a single-Raptor deorbit and splash in the
+                Pacific (west of Chile on the public table). Ascent stays on the passively
+                safe Indian Ocean corridor until the health-check circularization burn.
+              </p>
+              <p class="flight13-note">
+                Theater splash is wherever that deorbit and the force model meet the sea —
+                no Chile buoy, no longitude teleport. SpaceX page + X broadcast win over blogs.
+              </p>
+              <ul class="flight13-objectives">
+                <li>Booster: boostback + landing burn to a Gulf of America splash (full inner-13)</li>
+                <li>Ship: SECO still suborbital, then single-Raptor insertion if deorbit hardware is healthy</li>
+                <li>26 Starlink V3 (Pez deploy ~T+34 min → T+1:05)</li>
+                <li>Deorbit ~T+8:52, entry, landing flip 3→2→1, splash ~T+9:50:30</li>
+                <li>Hull marks S41 / B21; two tiles reflown from Ship 40 (shown when a still confirms them)</li>
+              </ul>
+              <p class="flight13-source">
+                Source:
+                <a href="https://www.spacex.com/launches/starship-flight-14">spacex.com/launches/starship-flight-14</a>
+                · webcast
+                <a href="https://x.com/i/broadcasts/1qxvvenMPMQxB">X broadcast</a>
+                · <a href="./docs/STARSHIP_14.md">STARSHIP_14.md</a>
+              </p>
+              <p>
+                <button type="button" class="menu-back" data-briefing-action="gc">Earth orbital plane</button>
+                <button type="button" class="menu-back" data-briefing-action="theater">Play theater →</button>
+              </p>
+            </section>
+            <section>
+              <h2 class="flight13-h2">Official T+ table <span class="flight13-approx">(approximate)</span></h2>
+              <ol class="flight13-events">
+                <li><span>00:00:00</span><span>Liftoff</span></li>
+                <li><span>00:00:58</span><span>Max Q</span></li>
+                <li><span>00:02:20</span><span>Super Heavy MECO</span></li>
+                <li><span>00:02:22</span><span>Hot-staging</span></li>
+                <li><span>00:02:27</span><span>Boostback start</span></li>
+                <li><span>00:07:01</span><span>Booster landing-burn shutdown</span></li>
+                <li><span>00:08:11</span><span>Starship SECO (still suborbital)</span></li>
+                <li><span>00:25:28</span><span>Orbital insertion burn</span></li>
+                <li><span>00:34:18</span><span>Payload deploy start (26 sats)</span></li>
+                <li><span>01:04:50</span><span>Payload deploy complete</span></li>
+                <li><span>08:52:18</span><span>Deorbit burn</span></li>
+                <li><span>09:28:52</span><span>Entry</span></li>
+                <li><span>09:50:11</span><span>Landing burn</span></li>
+                <li><span>09:50:30</span><span>Splashdown</span></li>
+              </ol>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div
         id="earth-gc"
         class="keymap cross-section earth-gc"
         hidden

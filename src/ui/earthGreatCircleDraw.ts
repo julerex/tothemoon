@@ -14,11 +14,13 @@ import {
 } from "./canvasDiagram";
 import {
   fitEarthGcView,
+  orbitalRingPoints,
   suborbitalArcPoints,
   type EarthGcLabel,
   type EarthGcModel,
   type PlanePoint,
-} from "./earthGreatCircleGeometry";
+  type ViewTransform,
+} from "./earthGreatCircle";
 
 export { worldToCanvas };
 
@@ -46,7 +48,8 @@ function paintEarthGc(
   drawEarthDisk(ctx, c0, model.rEarth, view);
   drawAtmShell(ctx, c0, model.rAtm, view);
   drawStarbaseDiameter(ctx, model, view);
-  drawSuborbitalArc(ctx, model, view);
+  if (model.profileId === "flight-14") drawOrbitalRing(ctx, model, view);
+  else drawSuborbitalArc(ctx, model, view);
   drawAllSiteLabels(ctx, model, view);
   drawEarthScaleBar(ctx, view, cssW, cssH);
   drawGcReadout(ctx, model, cssW);
@@ -119,6 +122,19 @@ function lineAB(
   ctx.stroke();
 }
 
+function drawOrbitalRing(
+  ctx: CanvasRenderingContext2D,
+  model: EarthGcModel,
+  view: ViewTransform,
+): void {
+  const ring = orbitalRingPoints(model);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.4;
+  ctx.globalAlpha = 0.85;
+  strokeWorldPolyline(ctx, view, ring);
+  ctx.globalAlpha = 1;
+}
+
 function drawSuborbitalArc(
   ctx: CanvasRenderingContext2D,
   model: EarthGcModel,
@@ -187,6 +203,12 @@ function fillGcLeftReadout(
   ctx: CanvasRenderingContext2D,
   model: EarthGcModel,
 ): void {
+  if (model.profileId === "flight-14") {
+    ctx.fillText("Flight 14 · orbital plane (Chile-west target)", 12, 10);
+    ctx.fillText(model.subtitle, 12, 26);
+    ctx.fillText(`LEO ring  ${model.arcPeakAltKm.toFixed(0)} km  ·  no splash buoy`, 12, 42);
+    return;
+  }
   const endDeg = (model.arcEndRad * 180) / Math.PI;
   const arcKm = model.arcEndRad * model.rEarth;
   ctx.fillText("Flight 13 · Earth great-circle section", 12, 10);

@@ -32,4 +32,11 @@ export {
   suborbitalArcPoints,
 } from "./earthGreatCircleGeometry";
 
+export {
+  buildFlight14EarthGcModel,
+  flight14DeorbitPlane,
+  FLIGHT14_SITES,
+  orbitalRingPoints,
+} from "./earthFlight14Geometry";
+
 export { drawEarthGreatCircle, worldToCanvas } from "./earthGreatCircleDraw";

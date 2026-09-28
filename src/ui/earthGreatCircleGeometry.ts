@@ -54,7 +54,7 @@ export type EarthGcLabel = {
 export type EarthGcPlane = Flight13CorridorPlane;
 
 export type EarthGcModel = {
-  profileId: "flight-13";
+  profileId: "flight-13" | "flight-14";
   title: string;
   subtitle: string;
   plane: EarthGcPlane;

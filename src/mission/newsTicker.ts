@@ -2,9 +2,14 @@
  * News ticker beats (facade + builders).
  */
 export type { NewsBeat } from "./newsTickerCopy";
-export { expandEventCopy, isFlightTestTimeline, phaseAmbientFor } from "./newsTickerCopy";
+export { expandEventCopy, isFlightTestTimeline, isOrbitalFlightTestTimeline, phaseAmbientFor } from "./newsTickerCopy";
 import type { NewsBeat } from "./newsTickerCopy";
-import { expandEventCopy, isFlightTestTimeline, phaseAmbientFor } from "./newsTickerCopy";
+import {
+  expandEventCopy,
+  isFlightTestTimeline,
+  isOrbitalFlightTestTimeline,
+  phaseAmbientFor,
+} from "./newsTickerCopy";
 import type { MissionTimeline, PhaseSegment } from "./timeline";
 import type { PhaseId } from "../physics/mission";
 
@@ -12,7 +17,8 @@ type BeatPush = (t: number, id: string, wire: string, line: string) => void;
 
 export function buildNewsBeats(timeline: MissionTimeline): NewsBeat[] {
   const flightTest = isFlightTestTimeline(timeline);
-  const beats = collectNewsBeats(timeline, flightTest);
+  const orbital = isOrbitalFlightTestTimeline(timeline);
+  const beats = collectNewsBeats(timeline, flightTest, orbital);
   beats.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));
   return beats;
 }
@@ -20,13 +26,14 @@ export function buildNewsBeats(timeline: MissionTimeline): NewsBeat[] {
 function collectNewsBeats(
   timeline: MissionTimeline,
   flightTest: boolean,
+  orbital: boolean,
 ): NewsBeat[] {
   const beats: NewsBeat[] = [];
   const push = makeBeatPush(beats, new Set<string>());
-  pushOpeningBeat(push, timeline, flightTest);
-  pushEventBeats(push, timeline, flightTest);
-  pushPhaseAmbientBeats(push, timeline, flightTest);
-  injectMidPhaseBeats(beats, timeline, flightTest);
+  pushOpeningBeat(push, timeline, flightTest, orbital);
+  pushEventBeats(push, timeline, flightTest, orbital);
+  pushPhaseAmbientBeats(push, timeline, flightTest, orbital);
+  injectMidPhaseBeats(beats, timeline, flightTest, orbital);
   return beats;
 }
 
@@ -42,6 +49,7 @@ function pushOpeningBeat(
   push: BeatPush,
   timeline: MissionTimeline,
   flightTest: boolean,
+  orbital: boolean,
 ): void {
   if (timeline.events.some((e) => e.id === "liftoff" || e.t < 1)) return;
   push(
@@ -49,7 +57,9 @@ function pushOpeningBeat(
     "open",
     "STANDBY",
     flightTest
-      ? "SpaceWire desk is live for Starship Flight 13 — awaiting liftoff from Starbase."
+      ? orbital
+        ? "SpaceWire desk is live for Starship Flight 14 — awaiting liftoff from Starbase."
+        : "SpaceWire desk is live for Starship Flight 13 — awaiting liftoff from Starbase."
       : "SpaceWire desk is live for the Starbase-to-Moon theater — awaiting liftoff.",
   );
 }
@@ -58,9 +68,10 @@ function pushEventBeats(
   push: BeatPush,
   timeline: MissionTimeline,
   flightTest: boolean,
+  orbital: boolean,
 ): void {
   for (const ev of timeline.events) {
-    const { wire, line } = expandEventCopy(ev, flightTest);
+    const { wire, line } = expandEventCopy(ev, flightTest, orbital);
     push(ev.t, ev.id, wire, line);
   }
 }
@@ -69,10 +80,11 @@ function pushPhaseAmbientBeats(
   push: BeatPush,
   timeline: MissionTimeline,
   flightTest: boolean,
+  orbital: boolean,
 ): void {
   for (const seg of timeline.segments) {
     if (segmentCoveredByEvent(timeline, seg)) continue;
-    const amb = phaseAmbientFor(seg.phase, flightTest);
+    const amb = phaseAmbientFor(seg.phase, flightTest, orbital);
     if (!amb) continue;
     const { wire, line } = amb;
     push(seg.t0, `phase-${seg.phase}-${seg.t0.toFixed(0)}`, wire, line);
@@ -88,13 +100,24 @@ function segmentCoveredByEvent(
 
 type MidItem = { wire: string; line: string; everyS: number };
 
-function midPhaseCopy(flightTest: boolean): Partial<Record<PhaseId, MidItem[]>> {
+function midPhaseCopy(
+  flightTest: boolean,
+  orbital: boolean,
+): Partial<Record<PhaseId, MidItem[]>> {
   return {
     coast: flightTest ? FLIGHT_COAST_MID : LUNAR_COAST_MID,
     entry: ENTRY_MID,
-    lowEarthOrbit: LEO_MID,
+    lowEarthOrbit: orbital ? F14_LEO_MID : LEO_MID,
   };
 }
+
+const F14_LEO_MID: MidItem[] = [
+  {
+    everyS: 3600,
+    wire: "ORBIT",
+    line: "On-orbit coast — vehicle health check between payload and the deorbit window.",
+  },
+];
 
 const FLIGHT_COAST_MID: MidItem[] = [
   {
@@ -137,8 +160,9 @@ function injectMidPhaseBeats(
   beats: NewsBeat[],
   timeline: MissionTimeline,
   flightTest: boolean,
+  orbital: boolean,
 ): void {
-  const midCopy = midPhaseCopy(flightTest);
+  const midCopy = midPhaseCopy(flightTest, orbital);
   for (const seg of timeline.segments) {
     const list = midCopy[seg.phase];
     if (!list) continue;

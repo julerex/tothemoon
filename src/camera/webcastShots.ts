@@ -385,15 +385,22 @@ export const FLIGHT13_WEBCAST_SHOTS: readonly WebcastShot[] = [
   },
 ];
 
+export function webcastShotAtFrom(
+  shots: readonly WebcastShot[],
+  t: number,
+): WebcastShot {
+  let current = shots[0]!;
+  for (const shot of shots) {
+    if (t + 1e-9 >= shot.t0) current = shot;
+    else break;
+  }
+  return current;
+}
+
 /**
  * Active webcast shot at mission time `t` (s). Times before the first cut
  * still return that opening pad-wide hold.
  */
 export function webcastShotAt(t: number): WebcastShot {
-  let current = FLIGHT13_WEBCAST_SHOTS[0]!;
-  for (const shot of FLIGHT13_WEBCAST_SHOTS) {
-    if (t + 1e-9 >= shot.t0) current = shot;
-    else break;
-  }
-  return current;
+  return webcastShotAtFrom(FLIGHT13_WEBCAST_SHOTS, t);
 }

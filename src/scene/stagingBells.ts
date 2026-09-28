@@ -49,7 +49,7 @@ export function applyDetachedBoosterBells(
 ): void {
   const bells = booster.getObjectByName("booster-engines");
   if (!bells) return;
-  const litCount = opts.profile === "gulf" && opts.phase === "landing"
+  const litCount = opts.sched.hardSplash && opts.phase === "landing"
     ? gulfLandingEngineCount(opts.age, opts.sched)
     : BOOSTER_LANDING_ENGINES;
   for (let i = 0; i < bells.children.length; i++) {
