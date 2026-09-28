@@ -32,6 +32,19 @@ function advanceBoostHot(loop: F14Loop): void {
   }
 }
 
+/**
+ * Circular at this radius. A 0.2% hot cutoff leaves an ~80 km ellipse,
+ * which is what the altitude graph was drawing.
+ */
+function insertCircular(g: SecoGeom): boolean {
+  const here = g.r - R_EARTH;
+  return (
+    perigeeAltKm(g) >= here - 20 &&
+    Math.abs(g.vRad) <= 0.008 &&
+    Math.abs(g.vHoriz - g.vCirc) <= 0.005
+  );
+}
+
 function perigeeAltKm(g: SecoGeom): number {
   const v2 = g.vHoriz * g.vHoriz + g.vRad * g.vRad;
   const eps = 0.5 * v2 - MU_EARTH / g.r;
@@ -49,8 +62,7 @@ function advanceInsertWindow(loop: F14Loop): void {
   }
   if (loop.mode === "insert" && t >= F14.INSERT) {
     const g = secoGeom(loop);
-    const bound = perigeeAltKm(g) >= 175 && Math.abs(g.vRad) <= 0.02 && g.vHoriz >= g.vCirc * 1.002;
-    if (bound || t >= F14.INSERT_END + 90) loop.mode = "idle";
+    if (insertCircular(g) || t >= F14.INSERT_END + 90) loop.mode = "idle";
   }
 }
 

@@ -30,7 +30,7 @@ code comments. HUD may label theater values explicitly when helpful.
 
 | Layer | Approach | Main realism gap |
 |-------|----------|------------------|
-| **Gravity** | Restricted n-body (Earth + Moon + solar tide) + Earth J₂ + US76-ish piecewise drag, RK4 | No lunar harmonics; analytic fallback still Kepler Moon; Sun is a tide, not a free body |
+| **Gravity** | Restricted n-body (Earth + Moon + Sun point masses) + Earth J₂ + US76-ish piecewise drag, RK4 | No lunar harmonics; analytic fallback still Kepler Moon; Sun is a point mass in the heliocentric frame |
 | **Ephemeris** | **JPL Horizons DE441** table for the July 2027 lunar window; analytic circular Earth + Kepler Moon fallback (mean Ω̇ / ω̇) | Flight 13 bake stays analytic so the pad frame matches (Horizons launch-window table is packed) |
 | **Ascent** | Staged A5: throttle, max-Q dip, hot-stage, integrated circularize | Not ops throttle tables; gravity losses on the ship insert are real |
 | **Low Earth orbit** | Integrated dogleg into the transfer plane | Guidance is PD-to-circular-in-plane, not ops-optimal |

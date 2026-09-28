@@ -23,7 +23,7 @@ import { runFlight13Mission } from "./flight13Mission.ts";
 import type { ReadonlySample } from "./missionTypes.ts";
 
 describe("acceleration gravity models", () => {
-  it("earth model omits Moon / solar tide relative to nbody", () => {
+  it("earth model omits the Moon relative to nbody", () => {
     const t = 0;
     const b = bodyPositions(t);
     // LEO-ish geocentric offset
@@ -39,7 +39,7 @@ describe("acceleration gravity models", () => {
     acceleration(t, pos, null, aE, vel, { gravity: "earth" });
     const d = sub(v3(), aN, aE);
     const dLen = len(d);
-    // Moon + solar tide residual should be tiny vs Earth g (~0.009 km/s²)
+    // Lunar residual should be tiny vs Earth g (~0.009 km/s²). The Sun is in both models.
     assert.ok(dLen > 0, "models should differ by third-body terms");
     assert.ok(dLen < 5e-5, `third-body residual too large ${dLen}`);
     // Order of magnitude: lunar accel ~ μ_moon / r_em² ≈ 3e-6 km/s²

@@ -1,13 +1,13 @@
 /**
  * Restricted n-body craft integrator (RK4) and force model.
  *
- * Accelerations (default **nbody**): Earth + Moon point-mass gravity, solar
- * tide about Earth, Earth J₂, and a US76-ish piecewise atmosphere + quadratic
- * drag below ~150 km.
+ * Accelerations (default **nbody**): Earth + Moon + Sun point-mass gravity,
+ * Earth J₂, and a US76-ish piecewise atmosphere + quadratic drag below ~150 km.
  *
- * **earth** model: Earth point-mass + J₂ + atmosphere only (no Moon, no Sun
- * tide). Useful as an independent check that short suborbital flights are not
- * dominated by third-body terms.
+ * **earth** model: Earth + Sun point-mass + J₂ + atmosphere (no Moon). The Sun
+ * stays in both models: the frame is heliocentric, so dropping it lets Earth
+ * fall sunward and pumps low-Earth-orbit eccentricity. The Moon is the
+ * third-body term the earth model is for checking.
  *
  * Units: km, s, km/s, km/s².
  */
@@ -18,7 +18,7 @@ export type GravityModel = "nbody" | "earth";
 export type AccelOptions = {
   /**
    * Force model. Default `"nbody"`.
-   * `"earth"` = Earth μ + J₂ + drag only (ignore Moon / solar tide).
+   * `"earth"` = Earth μ + Sun μ + J₂ + drag (no Moon).
    */
   gravity?: GravityModel;
   /**
@@ -112,29 +112,6 @@ function addGravity(acc: V3, craft: V3, body: V3, mu: number): void {
 }
 
 /**
- * Third-body **tidal** acceleration relative to a primary (Earth).
- *
- * a = −μ [ (r_c − r_b)/|r_c−r_b|³ − (r_p − r_b)/|r_p−r_b|³ ]
- *
- * Required when the primary is on rails: full solar point-mass would pull the
- * craft into a solar orbit while Earth stays near the EM barycenter, draining
- * Earth-relative energy on multi-day coasts. Tidal form is the correct
- * restricted n-body residual.
- */
-function addPointMass(acc: V3, from: V3, to: V3, mu: number, sign: number): void {
-  sub(_r, from, to);
-  const r = len(_r);
-  if (r <= 1e-6) return;
-  const f = sign * (-mu / (r * r * r));
-  acc.x += _r.x * f; acc.y += _r.y * f; acc.z += _r.z * f;
-}
-
-function addTidalGravity(acc: V3, craft: V3, body: V3, primary: V3, mu: number): void {
-  addPointMass(acc, craft, body, mu, 1);
-  addPointMass(acc, primary, body, mu, -1);
-}
-
-/**
  * Earth J₂ acceleration in the inertial frame.
  * a = 1½ J₂ μ R² / r⁵ · [ (5 ζ² − 1) r − 2 ζ n̂ ]
  * where ζ = (r · n̂)/r and n̂ is the Earth north pole.
@@ -192,14 +169,14 @@ export function addEarthDrag(
 /**
  * Gravitational acceleration on craft at time t (optional thrust + Earth J2/drag).
  *
- * Default restricted n-body: Earth + Moon point-mass, Sun as **tidal** residual
- * about Earth (ephemeris-fixed primaries), plus J₂ / drag / thrust.
- * With `{ gravity: "earth" }`: Earth μ + J₂ + drag only.
+ * Default restricted n-body: Earth, Moon, and Sun point masses, plus J₂ /
+ * drag / thrust. The Sun is a full point mass because Earth is on a
+ * heliocentric ephemeris; the solar tide is what remains after subtracting
+ * that ephemeris acceleration. `{ gravity: "earth" }` drops only the Moon.
  * Pass `vel` to include atmospheric drag; omit for pure gravity+J2.
  */
 function addNbodyTerms(out: V3, pos: V3): void {
   addGravity(out, pos, _bodies.moon, MU_MOON);
-  addTidalGravity(out, pos, _bodies.sun, _bodies.earth, MU_SUN);
 }
 
 function addThrust(out: V3, thrust: V3 | null): void {
@@ -210,6 +187,9 @@ function addThrust(out: V3, thrust: V3 | null): void {
 function earthBaseAccel(out: V3, pos: V3): void {
   addGravity(out, pos, _bodies.earth, MU_EARTH);
   addEarthJ2(out, pos, _bodies.earth);
+  // Heliocentric frame: Earth accelerates toward the Sun. Omitting this
+  // common mode shows up as a once-per-rev eccentricity pump in LEO.
+  addGravity(out, pos, _bodies.sun, MU_SUN);
 }
 
 export function acceleration(

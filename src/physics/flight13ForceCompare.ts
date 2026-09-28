@@ -1,8 +1,8 @@
 /**
  * Cross-check Flight 13 restricted n-body dynamics against Earth-only mechanics.
  *
- * Re-integrates the same theater profile with `{ gravity: "earth" }` (Earth μ +
- * J₂ + atmosphere/drag, no Moon / solar tide) and compares sample paths at
+ * Re-integrates the same theater profile with `{ gravity: "earth" }` (Earth +
+ * Sun μ + J₂ + atmosphere/drag, no Moon) and compares sample paths at
  * matched mission times. On a ~1 h suborbital arc third-body accelerations are
  * tiny, so large deviations (before terminal descent) flag a bug in
  * the shared force model or integrator rather than expected physics.

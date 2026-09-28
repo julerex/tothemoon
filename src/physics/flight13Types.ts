@@ -45,8 +45,8 @@ export type SteerGeo = {
 /** Options for {@link runFlight13Mission}. */
 export type Flight13MissionOptions = {
   /**
-   * Force model. Default `"nbody"` (Earth + Moon + solar tide + J₂ + drag).
-   * `"earth"` drops Moon / Sun for an independent Earth-mechanics check.
+   * Force model. Default `"nbody"` (Earth + Moon + Sun + J₂ + drag).
+   * `"earth"` drops the Moon. The Sun stays in both: the frame is heliocentric.
    */
   gravity?: GravityModel;
   /** Explicit ephemeris; default {@link makeFlight13Epoch}. */

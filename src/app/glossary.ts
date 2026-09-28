@@ -185,7 +185,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "N-body / restricted n-body",
     category: "physics",
     definition:
-      "Craft integrated under Earth + Moon gravity (plus solar tide, Earth J₂, and simple drag at low altitude). Bodies follow prescribed ephemerides; the craft does not back-react on them.",
+      "Craft integrated under Earth, Moon, and Sun point-mass gravity (plus Earth J₂ and simple drag at low altitude). Bodies follow prescribed ephemerides; the craft does not back-react on them.",
   },
   {
     id: "olm",

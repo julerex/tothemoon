@@ -47,6 +47,10 @@ export function firstSplashdownT(
 
 export const FLOAT_DT_S = 2;
 export const SHIP_PROP_RESERVE = 0.07;
-export const SECO_VCIRC_FRAC = 1.0;
+/**
+ * A hair above circular. The heliocentric Sun pulls the coast down; 1.000
+ * arrives ~24 km low at the entry knot.
+ */
+export const SECO_VCIRC_FRAC = 1.0011;
 export const SECO_VRAD_MAX = 0.18;
 export const SECO_ALT_MIN_KM = 148;

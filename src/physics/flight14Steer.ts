@@ -170,7 +170,7 @@ function steerRetro(vHoriz: number, along: V3, out: V3): void {
 
 /** Single-Raptor circularize at the current radius (prograde, not corridor). */
 function steerInsert(geo: SteerGeo, out: V3): void {
-  const vTarget = geo.vCirc * 1.006;
+  const vTarget = geo.vCirc;
   const tgtRad = -1.5 * geo.vRad;
   const needH = Math.max(0, vTarget - geo.vHoriz);
   const radW = Math.min(0.8, 0.3 + Math.abs(geo.vRad) * 1.5);

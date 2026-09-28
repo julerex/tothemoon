@@ -3,10 +3,9 @@
  *
  * Timeline anchors match docs/STARSHIP_13.md (SpaceX public profile, approx).
  * Dynamics: restricted RK4 with mass-coupled thrust + atmosphere. Default
- * force model is full restricted n-body (Earth + Moon + solar tide + J₂ +
- * drag). Pass `{ gravity: "earth" }` for Earth-only mechanics (μ + J₂ + drag,
- * no Moon/Sun) — used to cross-check that third-body terms stay small on a
- * ~1 h suborbital arc.
+ * force model is full restricted n-body (Earth + Moon + Sun + J₂ + drag).
+ * Pass `{ gravity: "earth" }` for Earth + Sun + J₂ + drag with no Moon —
+ * used to cross-check that the lunar term stays small on a ~1 h suborbital arc.
  *
  * Ascent follows the Earth-fixed Starbase → Gauteng great circle, with a
  * modest out-of-plane pull onto that same plane in inertial axes at liftoff.

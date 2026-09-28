@@ -12,16 +12,18 @@ import {
 import {
   addEarthDrag,
   addEarthJ2,
+  altitudeEarth,
   atmDensity,
   acceleration,
   getBodies,
   moonRelativeSpecificEnergy,
   nearBodyCoastDt,
+  rk4Step,
   rk4StepDoubling,
 } from "./integrator.ts";
 import { earthNorthPole } from "./earthFrame.ts";
 import { WGS84_A } from "./wgs84.ts";
-import { len, v3 } from "./vec3.ts";
+import { cross, len, normalize, v3 } from "./vec3.ts";
 
 describe("Earth J2", () => {
   it("is zero along the equatorial plane for the radial component symmetry", () => {
@@ -109,6 +111,46 @@ describe("nearBodyCoastDt", () => {
     assert.equal(nearBodyCoastDt(20_000), 1);
     assert.equal(nearBodyCoastDt(4_000), 0.5);
     assert.ok(nearBodyCoastDt(4_000) < DT_NEAR);
+  });
+});
+
+describe("heliocentric low Earth orbit", () => {
+  it("does not grow an ellipse over a few revolutions", () => {
+    const b0 = getBodies(0);
+    const earth = v3(b0.earth.x, b0.earth.y, b0.earth.z);
+    const earthVel = v3(b0.earthVel.x, b0.earthVel.y, b0.earthVel.z);
+    const pole = earthNorthPole(v3());
+    const radial = v3();
+    cross(radial, pole, earth);
+    normalize(radial, radial);
+    const r = R_EARTH + 275;
+    const vc = Math.sqrt(MU_EARTH / r);
+    const vHat = v3();
+    cross(vHat, pole, radial);
+    normalize(vHat, vHat);
+    const state = {
+      t: 0,
+      pos: v3(earth.x + radial.x * r, earth.y + radial.y * r, earth.z + radial.z * r),
+      vel: v3(
+        earthVel.x + vHat.x * vc,
+        earthVel.y + vHat.y * vc,
+        earthVel.z + vHat.z * vc,
+      ),
+    };
+    let min = Infinity;
+    let max = -Infinity;
+    const end = 4 * 3600;
+    while (state.t < end - 1e-9) {
+      rk4Step(state, Math.min(1, end - state.t), undefined, { gravity: "nbody" });
+      const alt = altitudeEarth(state.t, state.pos);
+      if (alt < min) min = alt;
+      if (alt > max) max = alt;
+    }
+    assert.ok(
+      max - min < 40,
+      `altitude span ${min.toFixed(1)}..${max.toFixed(1)} km`,
+    );
+    assert.ok(min > 200, `altitude fell to ${min.toFixed(1)} km`);
   });
 });
 

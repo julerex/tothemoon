@@ -108,5 +108,22 @@ describe("flight14 golden bands (baked pack)", () => {
       alt > 180 && alt < 400,
       `insertion alt ${alt} km (want ~275)`,
     );
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const s of pack.samples) {
+      if (s.t < F14.INSERT_END + 120 || s.t > F14.DEORBIT - 60) continue;
+      const coastAlt = altitudeEarth(
+        s.t,
+        { x: s.p[0]!, y: s.p[1]!, z: s.p[2]! },
+        epoch,
+      );
+      if (coastAlt < min) min = coastAlt;
+      if (coastAlt > max) max = coastAlt;
+    }
+    assert.ok(
+      max - min < 30,
+      `LEO altitude ${min.toFixed(1)}..${max.toFixed(1)} km (want a near-circle near 275)`,
+    );
   });
 });

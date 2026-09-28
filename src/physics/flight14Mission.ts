@@ -3,8 +3,7 @@
  *
  * Timeline anchors match docs/STARSHIP_14.md (SpaceX public profile, approx).
  * Dynamics: restricted RK4 with mass-coupled thrust + atmosphere. Default
- * force model is full restricted n-body (Earth + Moon + solar tide + J₂ +
- * drag).
+ * force model is full restricted n-body (Earth + Moon + Sun + J₂ + drag).
  *
  * Ascent follows the same passively safe Starbase → Indian Ocean corridor as
  * Flight 13 until SECO (intentionally short of circular). A single-Raptor

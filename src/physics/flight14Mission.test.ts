@@ -70,6 +70,20 @@ describe("runFlight14Mission", { timeout: 180_000 }, () => {
       insertAlt > 180 && insertAlt < 400,
       `insertion alt ${insertAlt} km (want ~275)`,
     );
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const s of result.samples) {
+      if (s.t < F14.INSERT_END + 120 || s.t > F14.DEORBIT - 60) continue;
+      const alt = altitudeEarth(s.t, s.pos, epoch);
+      if (alt < min) min = alt;
+      if (alt > max) max = alt;
+    }
+    assert.ok(max > min, "expected a low Earth orbit coast");
+    assert.ok(
+      max - min < 30,
+      `LEO altitude ${min.toFixed(1)}..${max.toFixed(1)} km (want a near-circle near 275)`,
+    );
   });
 
   it("splashes near the public landing call, not at Gauteng", () => {

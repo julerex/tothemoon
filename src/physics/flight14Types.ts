@@ -20,7 +20,7 @@ export type BurnMode =
 /** Options for {@link runFlight14Mission}. */
 export type Flight14MissionOptions = {
   /**
-   * Force model. Default `"nbody"` (Earth + Moon + solar tide + J₂ + drag).
+   * Force model. Default `"nbody"` (Earth + Moon + Sun + J₂ + drag).
    * `"earth"` drops Moon / Sun for an independent Earth-mechanics check.
    */
   gravity?: GravityModel;
