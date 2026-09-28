@@ -19,7 +19,6 @@ import {
   type EarthGcLabel,
   type EarthGcModel,
   type PlanePoint,
-  type ViewTransform,
 } from "./earthGreatCircle";
 
 export { worldToCanvas };

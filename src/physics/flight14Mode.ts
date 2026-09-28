@@ -140,7 +140,6 @@ export function flight14Phase(loop: F14Loop, alt: number): PhaseId {
   if (t < F14.SECO) return "ascent";
   if (loop.mode === "land") return "descent";
   if (loop.prop.staged && alt < ATM_H_MAX_KM && t >= F14.DEORBIT) {
-    if (loop.mode === "land") return "descent";
     return "entry";
   }
   if (t >= F14.INSERT_END) return "lowEarthOrbit";

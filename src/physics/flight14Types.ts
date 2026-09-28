@@ -1,6 +1,7 @@
 /** Flight 14 loop state. Shares sample helpers with Flight 13. */
 import type { AccelOptions, CraftState, GravityModel } from "./integrator";
 import type { EphemerisEpoch } from "./ephemerisEpoch";
+import type { Sample } from "./missionTypes";
 import type { PropState } from "./propellant";
 import type { V3 } from "./vec3";
 
@@ -29,7 +30,7 @@ export type Flight14MissionOptions = {
 
 export type F14Loop = {
   state: CraftState;
-  samples: import("./missionTypes").Sample[];
+  samples: Sample[];
   prop: PropState;
   epoch: EphemerisEpoch;
   mode: BurnMode;
