@@ -16,7 +16,6 @@
   --radius: 2px;
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-  /* Ticker + event info + scrubber + footer (overlays sit on this) */
   --bottom-chrome: 6.55rem;
 }
 
@@ -85,7 +84,6 @@ body.menus-active {
   background: var(--bg);
 }
 
-/* Mission HUD is theater-only. */
 body.menus-active #hud .hud-chrome {
   display: none;
 }
@@ -536,14 +534,12 @@ body.menus-active #hud .hud-chrome {
   gap: 0.75rem;
 }
 
-/* H key: hide chrome (slider, menu button, title) — K/M overlays still work */
 #hud.hud-hidden .hud-chrome {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
-/* Mission clock and playback rate, above the flight rows in the menu */
 .mission-clock {
   display: flex;
   flex-direction: column;
@@ -1980,7 +1976,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   outline: none;
 }
 
-/* The scrubber is part of the Menu. Broadcast mode shows only the footer strip. */
 #hud .bottom-bar {
   display: none;
 }
@@ -1998,8 +1993,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   bottom: 1.15rem;
 }
 
-/* Menu card sits above the bottom bar. A centered card uses 90vh and
-   runs off this shorter box, which hides the camera dropdowns. */
 #hud.menu-open .metrics {
   bottom: var(--bottom-chrome);
   z-index: 20;

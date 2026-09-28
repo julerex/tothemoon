@@ -170,10 +170,6 @@ export function wireReplay(rt: HudRuntime): void {
   rt.dom.mcReplay?.addEventListener("click", () => onReplayClick(rt));
 }
 
-/**
- * Step the mission clock by one physics second through `onScrub`.
- * Does not pause and does not write the scrub thumb.
- */
 export function seekOnePhysicsSecond(rt: HudRuntime, dir: -1 | 1): void {
   const dur = rt.data.physicsDurationS;
   const physicsT = transportUToPhysicsT(rt.data.clock.t, dur);

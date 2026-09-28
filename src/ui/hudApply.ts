@@ -99,7 +99,6 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.altEl.textContent = m.altitude;
 }
 
-/** Visible on/off copy for a menu toggle (`Autocam is on`). */
 export function toggleIsOnLabel(name: string, enabled: boolean): string {
   return `${name} is ${enabled ? "on" : "off"}`;
 }

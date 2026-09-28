@@ -82,18 +82,10 @@ export function timelineWithPrelaunch(
 
 declare const physicsDurationBrand: unique symbol;
 
-/**
- * Physics sample span in seconds (liftoff = 0).
- * The transport clock is longer by {@link PRELAUNCH_COUNTDOWN_S}.
- */
 export type PhysicsDurationS = number & {
   readonly [physicsDurationBrand]: "physics-seconds";
 };
 
-/**
- * Accept a physics span only when `transportDurationS` of it matches the
- * timeline length. Passing the transport length itself fails the check.
- */
 export function physicsDurationForTimeline(
   physicsDurationS: number,
   timelineDurationS: number,
@@ -107,11 +99,6 @@ export function physicsDurationForTimeline(
   return physicsDurationS as PhysicsDurationS;
 }
 
-/**
- * Transport u after stepping one physics second.
- * Clamps to [−PRELAUNCH_COUNTDOWN_S, physicsDurationS]. An endpoint step
- * returns the same u.
- */
 export function physicsStepTransportU(
   physicsT: number,
   dir: -1 | 1,

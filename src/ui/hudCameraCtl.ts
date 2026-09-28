@@ -1,7 +1,3 @@
-/**
- * Camera menus and scene chrome (auto-cam / labels / orbits).
- */
-
 import { FIXED_CAMERAS, FREE_LOOK_CAMERAS } from "../camera/cameraMode";
 import type { CameraMode } from "../camera/modes";
 import { applyAutoCamChrome, applyPressed } from "./hudApply";
@@ -20,7 +16,6 @@ import type { HudRuntime } from "./hudTypes";
 
 let camLockHideTimer = 0;
 
-/** Flash the lock note when the user tries to move a mounted camera. */
 export function showCamLockNote(rt: HudRuntime): void {
   const el = rt.dom.camLockNoteEl;
   if (!el) return;
@@ -65,7 +60,6 @@ export function switchCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }
 
-/** Auto-cam cut: update the menus and flash the camera name. */
 export function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }
@@ -156,7 +150,6 @@ function bindCameraSelect(
   });
 }
 
-/** Fill both selects once and sync them to the current mode. */
 export function wireCameraMenus(rt: HudRuntime): void {
   const free = rt.dom.camSelectFree;
   const mounted = rt.dom.camSelectMounted;
@@ -171,7 +164,6 @@ export function wireCameraMenus(rt: HudRuntime): void {
   syncCameraSelects(free, mounted, rt.flags.lastCamMode);
 }
 
-/** Auto-cam, labels/orbits, and camera menus. */
 export function wireCameraChrome(rt: HudRuntime): void {
   wireAutoCamButton(rt);
   wireSceneToggleButtons(rt);

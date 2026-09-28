@@ -111,26 +111,19 @@ export function cycleCameraMode(current: CameraMode, dir: -1 | 1): CameraMode {
   return CAMERA_CYCLE[(from + dir + n) % n]!;
 }
 
-/** Which dropdown a mode belongs in. */
 export type CameraFamily = "free" | "mounted";
 
-/**
- * The two selects show at most one real mode.
- * `""` is the disabled placeholder. Internal `"free"` is both empty.
- */
 export type CameraSelectState =
   | { readonly free: CameraMode; readonly mounted: "" }
   | { readonly free: ""; readonly mounted: CameraMode }
   | { readonly free: ""; readonly mounted: "" };
 
-/** One `<option>`. `value: ""` is the placeholder. */
 export type CameraOption = Readonly<{
   value: string;
   label: string;
   disabled: boolean;
 }>;
 
-/** Placeholder first, then `modes` in array order. */
 export function cameraOptions(
   modes: readonly CameraMode[],
   emptyLabel: string,
@@ -145,7 +138,6 @@ export function cameraOptions(
   ];
 }
 
-/** Project the active mode onto the two selects. The lists are disjoint. */
 export function cameraSelectState(mode: CameraMode): CameraSelectState {
   if (FREE_LOOK_CAMERAS.includes(mode)) return { free: mode, mounted: "" };
   if (FIXED_CAMERAS.includes(mode)) return { free: "", mounted: mode };
@@ -165,10 +157,6 @@ function camerasInFamily(family: CameraFamily): readonly CameraMode[] {
   }
 }
 
-/**
- * Parse a select value at the DOM boundary.
- * A value outside that family's list, including `""`, is null.
- */
 export function cameraModeFromSelect(
   value: string,
   family: CameraFamily,

@@ -31,7 +31,6 @@ function isFormTypingTarget(t: EventTarget | null): boolean {
   return false;
 }
 
-/** `ArrowLeft` → −1, `ArrowRight` → +1, anything else → null. */
 export function arrowSeekDir(code: string): -1 | 1 | null {
   if (code === "ArrowLeft") return -1;
   if (code === "ArrowRight") return 1;

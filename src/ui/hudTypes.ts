@@ -30,7 +30,6 @@ export type HudHandlers = {
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
-  /** Focus + size-relative zoom. The menu does not call this. */
   onCameraFrame?: (mode: CameraMode) => void;
   /** Q/E yaw about the mode axis, R/F pitch, C/V view-axis roll (hold) */
   onOrbitKey: (
