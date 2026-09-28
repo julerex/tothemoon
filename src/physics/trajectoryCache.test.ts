@@ -25,11 +25,11 @@ describe("normalizePhaseId", () => {
 });
 
 describe("epochFromResult", () => {
-  it("builds Flight 13 epoch for short splash missions", () => {
+  it("builds Flight 14 epoch for orbital splash missions", () => {
     const e = epochFromResult({
       moonPhase0: 0,
-      durationS: 3600,
-      message: "Flight 13 splashdown",
+      durationS: 35700,
+      message: "Flight 14 · orbital · Pacific splashdown",
     });
     assert.equal(e.useHorizons, false);
     assert.ok(e.clockUtcMsAtT0 != null);

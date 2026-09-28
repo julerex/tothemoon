@@ -108,6 +108,23 @@ body.menus-active #hud .hud-chrome {
   display: none;
 }
 
+#flight14-briefing {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 1rem;
+  overflow: auto;
+  pointer-events: auto;
+  background: var(--bg);
+}
+
+#flight14-briefing[hidden] {
+  display: none;
+}
+
 /* Full-screen hold while mission JS, meshes, and 4K JPEGs load */
 .theater-loading {
   position: absolute;

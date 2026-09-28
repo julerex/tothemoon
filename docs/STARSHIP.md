@@ -1,11 +1,12 @@
 # Starship and the Starbase launch complex
 
 Public-hardware reference for agents working on the theater. **Not** ops data and
-**not** a substitute for the Flight 13 recap.
+**not** a substitute for the Flight 13 / Flight 14 recaps.
 
 Related:
 
 - [STARSHIP_13.md](./STARSHIP_13.md) — flown Flight 13 timeline, webcast SOP, theater mapping
+- [STARSHIP_14.md](./STARSHIP_14.md) — Flight 14 orbital test, webcast SOP, theater mapping
 - [VISUAL_REALISM.md](./VISUAL_REALISM.md) — what the 3D pad/craft currently draw
 - [NEXT.md](./NEXT.md) — product roadmap
 - Mesh numbers in `src/scene/craft/dimensions.ts` and `src/scene/earthTheater/mechazillaDims.ts`

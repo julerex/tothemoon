@@ -5,7 +5,7 @@
  *   #/                  Mission list (no HUD)
  *   #/missions          Mission list (same screen)
  *   #/glossary          Glossary
- *   #/mission/<path>    Start that mission (to-the-moon | flight-13)
+ *   #/mission/<path>    Start that mission (to-the-moon | flight-13 | flight-14)
  *   #/mission/<path>?t= Seek that mission to a clock time (H:MM:SS / seconds)
  */
 import "./style.css";
@@ -44,6 +44,8 @@ const MISSION_THEATERS: Readonly<
     import("./missions/toTheMoon").then((m) => m.startToTheMoonMission),
   "flight-13": () =>
     import("./missions/flight13").then((m) => m.startFlight13Mission),
+  "flight-14": () =>
+    import("./missions/flight14").then((m) => m.startFlight14Mission),
 };
 
 /** Document title per menu surface. */
@@ -54,8 +56,10 @@ const MENU_TITLES: Readonly<Record<"main" | "missions" | "glossary", string>> = 
 };
 
 function hideBriefing(): void {
-  const briefing = document.getElementById("flight13-briefing");
-  if (briefing) briefing.hidden = true;
+  for (const id of ["flight13-briefing", "flight14-briefing"]) {
+    const briefing = document.getElementById(id);
+    if (briefing) briefing.hidden = true;
+  }
 }
 
 /** Reload if leaving an active theater via hash navigation. */

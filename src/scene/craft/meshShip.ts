@@ -29,7 +29,7 @@ import {
 } from "./dimensions";
 import type { CraftMats } from "./materials";
 import { finishCanvasTexture, makeSizedCanvas } from "./materials";
-import { SHIP_HULL_MARK, paintHullMarkDecal } from "../craftHullMaps";
+import { SHIP_HULL_MARK, paintHullMarkDecal, type HullMarkSpec } from "../craftHullMaps";
 import { makePlumeGroup } from "./plumes";
 import {
   addFlapChildren,
@@ -113,9 +113,8 @@ function addHeatFwdWear(ship: THREE.Group, mats: CraftMats): void {
   }
 }
 
-/** Flight 13 S40 stencil on the stainless leeward (fin-cam readable). */
-function addHullMark(ship: THREE.Group): void {
-  const spec = SHIP_HULL_MARK;
+/** Ship hull stencil on the stainless leeward (fin-cam readable). */
+function addHullMark(ship: THREE.Group, spec: HullMarkSpec): void {
   const canvas = makeSizedCanvas(256, 96);
   paintHullMarkDecal(canvas.getContext("2d")!, 256, 96, spec.text);
   const mat = new THREE.MeshStandardMaterial({
@@ -129,7 +128,7 @@ function addHullMark(ship: THREE.Group): void {
     polygonOffsetUnits: -2,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(spec.width, spec.height), mat);
-  mesh.name = "hull-mark-s40";
+  mesh.name = `hull-mark-${spec.text.toLowerCase()}`;
   const r = R * 1.014;
   const z = spec.zFrac * SHIP_H;
   mesh.position.set(Math.sin(spec.ang) * r, Math.cos(spec.ang) * r, z);
@@ -294,14 +293,14 @@ function addShipPlumeAndLight(ship: THREE.Group): void {
   ship.add(shipExhaustLight);
 }
 
-function addShipStructure(ship: THREE.Group, mats: CraftMats): void {
+function addShipStructure(ship: THREE.Group, mats: CraftMats, mark: HullMarkSpec): void {
   addShipNose(ship, mats);
   addShipBarrel(ship, mats);
   addHeatMain(ship, mats);
   addHeatFwd(ship, mats);
   addHeatEdgeWear(ship, mats);
   addHeatFwdWear(ship, mats);
-  addHullMark(ship);
+  addHullMark(ship, mark);
   addShipWeldRings(ship, mats);
 }
 
@@ -321,10 +320,10 @@ function addShipPropulsion(ship: THREE.Group): void {
 
 
 /** Assemble full ship stage group. */
-export function buildShip(mats: CraftMats): THREE.Group {
+export function buildShip(mats: CraftMats, mark: HullMarkSpec = SHIP_HULL_MARK): THREE.Group {
   const ship = new THREE.Group();
   ship.name = "ship";
-  addShipStructure(ship, mats);
+  addShipStructure(ship, mats, mark);
   addShipControlSurfaces(ship, mats);
   addShipPropulsion(ship);
   ship.position.z = BOOST_H;

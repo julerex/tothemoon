@@ -5,6 +5,8 @@ import { makeCondensationCloud, makeIceFlakeGroup } from "./plumes";
 import { buildBooster } from "./meshBooster";
 import { buildShip } from "./meshShip";
 import { createNameLabel } from "../zoomLabels";
+import type { HullMarkSpec } from "../hexTileLayout";
+import { BOOSTER_HULL_MARK, SHIP_HULL_MARK } from "../hexTileLayout";
 
 function addExhaustLight(mesh: THREE.Group): void {
   const exhaustLight = new THREE.PointLight(0xff9a58, 0, 0.35, 2);
@@ -21,10 +23,15 @@ function addShipNameLabel(group: THREE.Group): void {
   group.add(shipLabel);
 }
 
-function buildCraftMesh(mats: CraftMats): THREE.Group {
+export type CraftHullMarks = {
+  ship?: HullMarkSpec;
+  booster?: HullMarkSpec;
+};
+
+function buildCraftMesh(mats: CraftMats, marks?: CraftHullMarks): THREE.Group {
   const mesh = new THREE.Group();
-  mesh.add(buildShip(mats));
-  mesh.add(buildBooster(mats));
+  mesh.add(buildShip(mats, marks?.ship ?? SHIP_HULL_MARK));
+  mesh.add(buildBooster(mats, marks?.booster ?? BOOSTER_HULL_MARK));
   addExhaustLight(mesh);
   mesh.add(makeCondensationCloud(BOOST_H + SHIP_H, R));
   mesh.add(makeIceFlakeGroup());
@@ -43,9 +50,9 @@ function assembleCraftRoot(mesh: THREE.Group): {
   return { group, mesh };
 }
 
-export function createCraft(): {
+export function createCraft(marks?: CraftHullMarks): {
   group: THREE.Group;
   mesh: THREE.Group;
 } {
-  return assembleCraftRoot(buildCraftMesh(makeCraftMaterials()));
+  return assembleCraftRoot(buildCraftMesh(makeCraftMaterials(), marks));
 }

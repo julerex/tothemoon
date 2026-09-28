@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  FLIGHT14_PAYLOAD,
   PAYLOAD_END_S,
   PAYLOAD_SAT_COUNT,
   PAYLOAD_START_S,
@@ -74,12 +75,25 @@ describe("payloadSatPose", () => {
 
   it("covers all twenty sats", () => {
     assert.equal(PAYLOAD_SAT_COUNT, 20);
-    // Just after the last sat releases — earlier sats still held through the window.
     const t = payloadSatReleaseT(PAYLOAD_SAT_COUNT - 1) + 20;
     let visible = 0;
     for (let i = 0; i < PAYLOAD_SAT_COUNT; i++) {
       if (payloadSatPose(i, t).visible) visible++;
     }
     assert.equal(visible, PAYLOAD_SAT_COUNT);
+  });
+});
+
+describe("Flight 14 payload profile", () => {
+  it("deploys 26 sats across the longer on-orbit window", () => {
+    assert.equal(FLIGHT14_PAYLOAD.satCount, 26);
+    assert.ok(FLIGHT14_PAYLOAD.endS - FLIGHT14_PAYLOAD.startS > 1800);
+    assert.equal(payloadDeployStrength(FLIGHT14_PAYLOAD.startS + 10, FLIGHT14_PAYLOAD), 1);
+    const last = payloadSatReleaseT(25, FLIGHT14_PAYLOAD);
+    assert.ok(last > FLIGHT14_PAYLOAD.startS);
+    assert.ok(last < FLIGHT14_PAYLOAD.endS);
+    const pose = payloadSatPose(25, last + 40, FLIGHT14_PAYLOAD);
+    assert.equal(pose.visible, true);
+    assert.equal(payloadSatPose(26, last + 40, FLIGHT14_PAYLOAD).visible, false);
   });
 });

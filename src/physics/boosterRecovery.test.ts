@@ -18,6 +18,7 @@ import {
   GULF_LAND_LAT,
   GULF_LAND_LON,
   GULF_SCHEDULE,
+  F14_GULF_SCHEDULE,
   LANDING_CONTACT_FLASH_S,
   LANDING_END_S,
   LANDING_START_S,
@@ -219,6 +220,13 @@ describe("gulf recovery profile", () => {
     assert.equal(GULF_SCHEDULE.hardSplash, true);
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingStartS + 1, "gulf"), "landing");
     assert.equal(boosterPhaseAt(GULF_SCHEDULE.landingEndS + 1, "gulf"), "caught");
+  });
+
+  it("uses Flight 14 gulf ages with a soft splash (full inner-13)", () => {
+    assert.equal(F14_GULF_SCHEDULE.hardSplash, false);
+    assert.equal(F14_GULF_SCHEDULE.landingStartS, 253);
+    assert.equal(F14_GULF_SCHEDULE.landingEndS, 279);
+    assert.equal(boosterPhaseAt(F14_GULF_SCHEDULE.landingStartS + 1, "gulf14"), "landing");
   });
 
   it("ends in the Gulf, not the chopsticks", () => {

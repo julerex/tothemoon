@@ -3,7 +3,7 @@
  */
 
 import { ATM_H_MAX_KM } from "../physics/constants";
-import type { RecoveryProfile } from "../physics/boosterRecovery";
+import { isGulfRecovery, type RecoveryProfile } from "../physics/boosterRecovery";
 import {
   drawBoosterIcon,
   drawShipIcon,
@@ -274,7 +274,7 @@ function fillCsLegend(
   ctx.textAlign = "right";
   ctx.globalAlpha = 0.8;
   ctx.fillText("white trails · true scale · launch plane", cssW - 12, 10);
-  const dest = recovery === "gulf" ? "Gulf splash" : "chopsticks";
+  const dest = isGulfRecovery(recovery) ? "Gulf splash" : "chopsticks";
   ctx.fillText(`Booster path: liftoff → ${dest}`, cssW - 12, 25);
   ctx.globalAlpha = 1;
 }

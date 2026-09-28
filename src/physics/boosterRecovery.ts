@@ -74,7 +74,7 @@ const SEP_DV = 0.035;
 const SEP_RADIAL = 0.01;
 
 /** Recovery landing profile. */
-export type RecoveryProfile = "chopsticks" | "gulf";
+export type RecoveryProfile = "chopsticks" | "gulf" | "gulf14";
 
 /**
  * Timing / site schedule for a recovery profile (ages in s after stage-out).
@@ -170,9 +170,32 @@ export const CHOPSTICKS_SCHEDULE: RecoverySchedule = {
   hardSplash: false,
 };
 
+/** Flight 14 gulf schedule (ages after stage-out). Soft splash, full inner-13. */
+export const F14_GULF_SCHEDULE: RecoverySchedule = {
+  profile: "gulf14",
+  flipS: 6,
+  boostbackStartS: 5, // T+2:27 if stage ≈ T+2:22
+  boostbackEndS: 45, // T+3:07
+  landingStartS: 253, // T+6:35
+  landingEndS: 279, // T+7:01
+  holdS: 45,
+  fadeS: 22,
+  landAltKm: 0.03,
+  gateAltKm: 5.0,
+  coastLoftKm: 10,
+  landLat: GULF_LAND_LAT,
+  landLon: GULF_LAND_LON,
+  hardSplash: false,
+};
+
+export function isGulfRecovery(profile: RecoveryProfile): boolean {
+  return profile === "gulf" || profile === "gulf14";
+}
+
 export function recoverySchedule(
   profile: RecoveryProfile = "chopsticks",
 ): RecoverySchedule {
+  if (profile === "gulf14") return F14_GULF_SCHEDULE;
   return profile === "gulf" ? GULF_SCHEDULE : CHOPSTICKS_SCHEDULE;
 }
 

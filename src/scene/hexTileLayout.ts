@@ -46,30 +46,47 @@ export const TILE_SIDE_MARK = {
  * Flight 13 ship hull number on the stainless leeward, readable from fin cam.
  * Angle uses the craft `(sin θ, cos θ)` barrel convention (θ = 0 is +Y belly).
  */
-export const SHIP_HULL_MARK = {
-  text: "S40",
+export type HullMarkSpec = {
+  text: string;
   /** Radians from +Y toward +X (starboard steel, just past the TPS chine). */
+  ang: number;
+  /** Fraction of height from the engines (0) toward the nose / interstage (1). */
+  zFrac: number;
+  width: number;
+  height: number;
+};
+
+export const SHIP_HULL_MARK: HullMarkSpec = {
+  text: "S40",
   ang: Math.PI * 0.58,
-  /** Fraction of ship height from the engines (0) toward the nose (1). */
   zFrac: 0.38,
-  /** Decal width in craft mesh units (~2.6 m). */
   width: 0.066,
-  /** Decal height in craft mesh units (~1.1 m). */
   height: 0.028,
-} as const;
+};
+
+/** Flight 14 Ship 41 stencil (same placement as S40). */
+export const FLIGHT14_SHIP_HULL_MARK: HullMarkSpec = {
+  ...SHIP_HULL_MARK,
+  text: "S41",
+};
 
 /**
  * Flight 13 Super Heavy hull number (Booster 20) on the stainless leeward.
  * Same barrel angle convention as {@link SHIP_HULL_MARK}.
  */
-export const BOOSTER_HULL_MARK = {
+export const BOOSTER_HULL_MARK: HullMarkSpec = {
   text: "B20",
   ang: Math.PI * 0.58,
-  /** Fraction of booster height from the engines (0) toward the interstage (1). */
   zFrac: 0.58,
   width: 0.07,
   height: 0.03,
-} as const;
+};
+
+/** Flight 14 Booster 21 stencil (same placement as B20). */
+export const FLIGHT14_BOOSTER_HULL_MARK: HullMarkSpec = {
+  ...BOOSTER_HULL_MARK,
+  text: "B21",
+};
 
 /** One hex-tile patch on the stainless face of each aft elevon. */
 export const AFT_FLAP_STEEL_TILE_PATCHES = 2;
