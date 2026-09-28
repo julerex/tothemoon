@@ -2109,11 +2109,43 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
 
 #hud.broadcast-mode .telemetry,
 #hud.broadcast-mode .camera-rail,
-#hud.broadcast-mode .bottom-bar,
 #hud.broadcast-mode .cam-ident,
 #hud.broadcast-mode .hud-header h1,
 #hud.broadcast-mode .hud-header .subtitle {
   display: none;
+}
+
+/* Auto-cam keeps the shortcut / copyright / source strip.
+   Ticker, event line, and scrubber stay on the Menu. */
+body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) {
+  justify-content: flex-start;
+  gap: 0;
+}
+
+body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .bottom-bar {
+  display: flex;
+  margin-top: 0;
+  position: relative;
+  z-index: 8;
+  flex: 0 0 auto;
+}
+
+body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .bottom-bar > :not(.footer-row) {
+  display: none;
+}
+
+body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .broadcast-hud {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: calc(100% + 2.2rem);
+  margin-top: auto;
+  margin-left: -1.1rem;
+  margin-right: -1.1rem;
+  padding-bottom: 0.45vh;
+  flex: 0 0 auto;
 }
 
 #hud.broadcast-mode .hud-header {
