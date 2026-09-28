@@ -154,6 +154,6 @@ Official @SpaceX highlight clips for later visual refinement. Watch on X; do **n
 | Caption | Landing burn and splashdown of Starship on Flight 13 |
 | Posted | 2026-07-28 |
 | Media | Two 4K (3840×2160) videos (~51 s, ~59 s) plus a still |
-| Theater use | [VISUAL_REALISM.md](../../docs/VISUAL_REALISM.md) **V17** splash steam / ocean glitter (shipped); motion look-target for queued **V28–V33** (sea) and **V36–V37** (landing plumes / flip) |
+| Theater use | [VISUAL_REALISM.md](../../docs/VISUAL_REALISM.md) **V17** splash steam / ocean glitter and **V28** sun-path sea (shipped); motion look-target for queued **V29–V33** (sea) and **V36–V37** (landing plumes / flip) |
 
 The stills catalog above is from the full webcast. Use this post when you need **motion** of the Indian Ocean landing burn, flip, and splash steam — the webcast stills already cover single frames of the same beat (`tplus-010502` through `tplus-010524` and `heatshield-tiles-post-splash`).

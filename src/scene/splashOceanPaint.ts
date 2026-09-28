@@ -124,9 +124,10 @@ function paintSeaEdgeFade(
   r: number,
 ): void {
   ctx.globalCompositeOperation = "destination-in";
-  const a = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r);
+  // Long blend into the globe is the shader feather (OCEAN_EDGE_*).
+  // This pass only clears the square corners past the round rim.
+  const a = ctx.createRadialGradient(cx, cy, r * 0.88, cx, cy, r);
   a.addColorStop(0, "rgba(0,0,0,1)");
-  a.addColorStop(0.58, "rgba(0,0,0,0.94)");
   a.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = a;
   ctx.fillRect(0, 0, size, size);

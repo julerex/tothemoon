@@ -69,7 +69,7 @@ starting another.
 - Explicitly deferred work below (free n-body, engine-out tables, DE430 + RCS)
 
 Product leftovers live in [docs/NEXT.md](./docs/NEXT.md): **P3.15** bundle
-size, **P4** stretch. Visual V0–V27 are shipped; **V28–V47** are queued in
+size, **P4** stretch. Visual V0–V28 are shipped; **V29–V47** are queued in
 [docs/VISUAL_REALISM.md](./docs/VISUAL_REALISM.md).
 
 Last locked sequence (all **done** 2026-08-18):

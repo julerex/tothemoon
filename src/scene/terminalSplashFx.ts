@@ -36,6 +36,26 @@ export const WEATHER_CLOUD_FULL_KM = 55;
  */
 export const WEATHER_CLOUD_FADE_KM = 130;
 
+/**
+ * Splash-sea day mix, matching `groundSky` sun elevation.
+ * `dot(sun, up)` at or below {@link OCEAN_DAY_LO} is night; at or above
+ * {@link OCEAN_DAY_HI} is full day.
+ */
+export const OCEAN_DAY_LO = -0.12;
+export const OCEAN_DAY_HI = 0.28;
+
+/**
+ * Radial feather of the 80 km splash plate, as a fraction of the plate radius.
+ * Interior stays opaque; the rim fades into the globe.
+ */
+export const OCEAN_EDGE_LO = 0.42;
+export const OCEAN_EDGE_HI = 1;
+
+/** Gulf beacon / ring / label are off inside this camera distance (km). */
+export const GULF_LOCATOR_NEAR_KM = 30;
+/** Gulf far locator is fully on at and beyond this camera distance (km). */
+export const GULF_LOCATOR_FAR_KM = 90;
+
 /** Long-period theater swell amplitude (km) — about 4.5 m. */
 export const OCEAN_SWELL_AMP_KM = 0.0045;
 /** Near-field chop amplitude on the inner splash plate (km) — about 2.2 m. */
@@ -51,6 +71,43 @@ export function splashOceanPlateOpacity(altKm: number): number {
   if (altKm <= 18) return 1;
   if (altKm >= 75) return 0;
   return clamp01((75 - altKm) / (75 - 18));
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (!(edge1 > edge0)) return x >= edge1 ? 1 : 0;
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Day factor for the splash-sea sky reflection [0, 1].
+ * Same sun-elevation shoulder as the ground-sky shell.
+ *
+ * @param sunDotUp - `dot(unit Earth→Sun, local up)`
+ */
+export function oceanDayFactor(sunDotUp: number): number {
+  if (!Number.isFinite(sunDotUp)) return 0;
+  return smoothstep(OCEAN_DAY_LO, OCEAN_DAY_HI, sunDotUp);
+}
+
+/**
+ * Opacity of the sunlit plate at `radialKm` from its center.
+ * 1 through {@link OCEAN_EDGE_LO} of the radius, 0 at the rim.
+ */
+export function oceanPlateEdgeFade(radialKm: number, radiusKm: number): number {
+  if (!Number.isFinite(radialKm) || !(radiusKm > 0)) return 0;
+  const u = radialKm / radiusKm;
+  return 1 - smoothstep(OCEAN_EDGE_LO, OCEAN_EDGE_HI, u);
+}
+
+/**
+ * Gulf marker opacity from camera distance to the site.
+ * Off inside {@link GULF_LOCATOR_NEAR_KM} so the 8 km pillar does not fill
+ * a low camera; a far locator can remain for Earth-cam.
+ */
+export function gulfLocatorOpacity(distKm: number): number {
+  if (!Number.isFinite(distKm) || distKm < 0) return 0;
+  return smoothstep(GULF_LOCATOR_NEAR_KM, GULF_LOCATOR_FAR_KM, distKm);
 }
 
 /**

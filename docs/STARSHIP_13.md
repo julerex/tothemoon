@@ -199,7 +199,7 @@ Posted **2026-07-28** by @SpaceX. These are **4K highlight videos** of the India
 | Caption | Landing burn and splashdown of Starship on Flight 13 |
 | Posted | 2026-07-28 |
 | Media | Two 3840×2160 clips (~51 s and ~59 s) plus a still |
-| Theater use | [VISUAL_REALISM.md](./VISUAL_REALISM.md) **V17** steam / glitter and **V14** landing plume are shipped. Motion look-target for queued **V28–V33** (sea) and **V36–V37** (per-bell plumes, flip). |
+| Theater use | [VISUAL_REALISM.md](./VISUAL_REALISM.md) **V17** steam / glitter, **V14** landing plume, and **V28** sun-path sea are shipped. Motion look-target for queued **V29–V33** (sea) and **V36–V37** (per-bell plumes, flip). |
 
 Prefer this post over the long webcast when you only need the landing burn → flip → 3→2→1 → soft splash → intact hull in steam. The archived broadcast remains the source for pad, ascent, staging, payload, relight, and entry.
 
@@ -245,7 +245,7 @@ Not SpaceX page copy. Full interactive theater (same class as Starbase → Moon)
 
 **Launch complex:** Flight 13 flew from **OLP-2**. OLP-1’s tower is in the scene empty (mount pulled). Vehicle, pad, and production-site facts: [STARSHIP.md](./STARSHIP.md).
 
-**Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean sea and spray (no site beacon; not lunar dust), Super Heavy Gulf hard splash. Photorealism track **V13–V27 shipped** (hull/engine look through V22; **V23** pad T−5 aerial massing — tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks; **V23.5** soft cryo vent puffs; **V24** hex OLM vs T− stills; **V25** axial launch exhaust stream + denser Mechazilla lattice; **V26** OLP-1 second tower; **V27** 2-bay box-section Mechazilla + dusk work lights + 3D chopsticks / wrap-around ship QD). **V28–V47 are queued** for the splash sea, ship, booster, and tower ([VISUAL_REALISM.md](./VISUAL_REALISM.md)). Highlight clips remain the motion look-reference for V28–V33 and V36–V37.
+**Visuals:** entry plasma glow, belly-flop → engines-first attitude, Indian Ocean sea and spray (no site beacon; not lunar dust), Super Heavy Gulf hard splash. Photorealism track **V13–V27 shipped** (hull/engine look through V22; **V23** pad T−5 aerial massing — tank farm, tubular Mechazilla, circular hardstand, lattice chopsticks; **V23.5** soft cryo vent puffs; **V24** hex OLM vs T− stills; **V25** axial launch exhaust stream + denser Mechazilla lattice; **V26** OLP-1 second tower; **V27** 2-bay box-section Mechazilla + dusk work lights + 3D chopsticks / wrap-around ship QD). **V28 shipped** (sun-path sea, Gulf shares it, near-field locator off). **V29–V47 are queued** for the rest of the splash sea, ship, booster, and tower ([VISUAL_REALISM.md](./VISUAL_REALISM.md)). Highlight clips remain the motion look-reference for V29–V33 and V36–V37.
 
 **Booster recovery:** force-model **Gulf of America** hard splash (`recovery: "gulf"`) — Earth μ + J₂ + drag RK4 after stage-out; boostback ~T+2:25–3:03 (public table; recap says the 33-engine burn ended early) and a **partial** landing burn ~T+6:24–6:53 from ~3.5 km AGL (webcast HUD 3.5 km at T+6:25, 0.1 km at T+6:40; official table start is T+6:27, approximate). NSF / Wikipedia: **10 of 13** inner Raptors relit, then **8**, then **5**, then a hard splash (SpaceX recap: “a subset”). The booster falls into the water near ~25.55°N 96.15°W (theater, not a surveyed buoy) — no chopsticks seat. Chopsticks RTLS on the same force model is the default for the lunar mission.
 

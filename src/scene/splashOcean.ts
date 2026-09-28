@@ -9,9 +9,9 @@
  *
  * Scene unit = 1 km.
  *
- * @see terminalFx.ts — opacity / swell helpers
+ * @see terminalFx.ts — opacity / swell / sun-path helpers
  * @see terminalSiteFx.ts — site parenting
- * @see docs/VISUAL_REALISM.md — V21
+ * @see docs/VISUAL_REALISM.md — V21 sea state, V28 sun path
  */
 
 import * as THREE from "three";
@@ -21,8 +21,13 @@ import { geocentricRadiusAt } from "../physics/wgs84";
 import { drapePlatePoint } from "./starbasePlate";
 import {
   OCEAN_CHOP_AMP_KM,
+  OCEAN_DAY_HI,
+  OCEAN_DAY_LO,
+  OCEAN_EDGE_HI,
+  OCEAN_EDGE_LO,
   OCEAN_SWELL_AMP_KM,
 } from "./terminalFx";
+import type { Vec3Like } from "./sunLight";
 import { paintRippleTile, paintSunlitOcean } from "./splashOceanPaint";
 export { paintSunlitOcean } from "./splashOceanPaint";
 
@@ -40,7 +45,11 @@ const VISIBLE_EPS = 0.02;
 
 export type SplashOcean = {
   group: THREE.Group;
-  setFrame: (opacity: number, missionT: number) => void;
+  /**
+   * @param sunDir - Unit Earth→Sun (same vector as `applySunLight`). Omitted
+   *   keeps the previous direction.
+   */
+  setFrame: (opacity: number, missionT: number, sunDir?: Vec3Like) => void;
 };
 
 export type WeatherClouds = {
@@ -112,6 +121,9 @@ const OCEAN_FRAGMENT = /* glsl */ `
   uniform sampler2D uRipple;
   uniform float uOpacity;
   uniform float uTime;
+  uniform float uFeather;
+  uniform vec3 uSunDir;
+  uniform vec3 uUp;
   varying vec2 vRestXZ;
   varying vec3 vWorldPos;
   varying vec3 vWorldNormal;
@@ -133,18 +145,40 @@ const OCEAN_FRAGMENT = /* glsl */ `
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
     float ndv = max(0.0, dot(n, viewDir));
     float fresnel = pow(1.0 - ndv, 3.2);
-    float spec = pow(max(0.0, dot(reflect(-viewDir, n), viewDir)), 28.0);
-    float sparkle = pow(max(0.0, chop + 0.15), 5.0) * 0.55;
+
+    vec3 sunDir = normalize(uSunDir);
+    vec3 up = normalize(uUp);
+    float sunNd = max(0.0, dot(reflect(-sunDir, n), viewDir));
+    float path = pow(sunNd, 8.0);
+    float spark = pow(sunNd, 56.0);
+    float glitter = (path * 0.65 + spark) * fresnel;
+
+    vec3 refl = reflect(-viewDir, n);
+    float elev = clamp(dot(refl, up), -1.0, 1.0);
+    float zenith = clamp(elev, 0.0, 1.0);
+    float horizon = 1.0 - smoothstep(-0.02, 0.35, elev);
+    vec3 zenithDay = vec3(0.25, 0.52, 0.92);
+    vec3 horizonDay = vec3(0.72, 0.82, 0.95);
+    vec3 dayCol = mix(horizonDay, zenithDay, smoothstep(0.0, 0.85, zenith));
+    float sunFace = pow(max(dot(refl, sunDir), 0.0), 4.0);
+    dayCol += vec3(1.0, 0.82, 0.55) * sunFace * 0.35 * horizon;
+    float day = smoothstep(${OCEAN_DAY_LO.toFixed(2)}, ${OCEAN_DAY_HI.toFixed(2)}, dot(sunDir, up));
+    vec3 zenithNight = vec3(0.02, 0.04, 0.10);
+    vec3 horizonNight = vec3(0.06, 0.09, 0.16);
+    vec3 nightCol = mix(horizonNight, zenithNight, smoothstep(0.0, 0.8, zenith));
+    vec3 sky = mix(nightCol, dayCol, day);
 
     vec3 deep = sea.rgb * vec3(0.92, 0.96, 1.02);
-    vec3 sky = vec3(0.78, 0.88, 0.98);
-    vec3 foam = vec3(0.9, 0.95, 1.0);
-    vec3 col = mix(deep, sky, fresnel * 0.42);
-    col = mix(col, foam, sparkle * 0.35);
-    col += vec3(0.85, 0.93, 1.0) * spec * 0.22;
-    col += vec3(chop * 0.08);
+    vec3 col = mix(deep, sky, fresnel * mix(0.22, 0.7, day));
+    col += vec3(1.0, 0.97, 0.9) * glitter;
+    col += vec3(chop * 0.05);
 
-    gl_FragColor = vec4(col, sea.a * uOpacity);
+    float edge = 1.0;
+    if (uFeather > 0.5) {
+      float radial = length(vRestXZ) / ${SPLASH_OCEAN_RADIUS_KM.toFixed(1)};
+      edge = 1.0 - smoothstep(${OCEAN_EDGE_LO.toFixed(2)}, ${OCEAN_EDGE_HI.toFixed(1)}, radial);
+    }
+    gl_FragColor = vec4(col, sea.a * uOpacity * edge);
     #include <logdepthbuf_fragment>
   }
 `;
@@ -153,6 +187,9 @@ function makeOceanMaterial(
   map: THREE.CanvasTexture,
   ripple: THREE.CanvasTexture,
   chop: number,
+  feather: number,
+  sunDir: THREE.Vector3,
+  up: THREE.Vector3,
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -161,6 +198,9 @@ function makeOceanMaterial(
       uOpacity: { value: 0 },
       uTime: { value: 0 },
       uChop: { value: chop },
+      uFeather: { value: feather },
+      uSunDir: { value: sunDir },
+      uUp: { value: up },
     },
     vertexShader: OCEAN_VERTEX,
     fragmentShader: OCEAN_FRAGMENT,
@@ -218,14 +258,24 @@ function makeOceanMesh(
  * Sunlit splash sea: wide textured plate + inner chop mesh.
  * Starts hidden; {@link SplashOcean.setFrame} opens it near the surface.
  */
+function bindPlateUp(mesh: THREE.Mesh, up: THREE.Vector3, q: THREE.Quaternion): void {
+  mesh.onBeforeRender = () => {
+    mesh.getWorldQuaternion(q);
+    up.set(0, 1, 0).applyQuaternion(q);
+  };
+}
+
 export function createSplashOcean(latRad = 0): SplashOcean {
   const group = new THREE.Group();
   group.name = "splash-ocean";
   const drapeRadiusKm = geocentricRadiusAt(latRad, EARTH_SURFACE_ALT_KM);
   const map = makeCanvasTex(512, paintSunlitOcean, false);
   const ripple = makeCanvasTex(128, paintRippleTile, true);
-  const outerMat = makeOceanMaterial(map, ripple, 0);
-  const chopMat = makeOceanMaterial(map, ripple, 1);
+  const sunDir = new THREE.Vector3(1, 0, 0);
+  const up = new THREE.Vector3(0, 1, 0);
+  const upQuat = new THREE.Quaternion();
+  const outerMat = makeOceanMaterial(map, ripple, 0, 1, sunDir, up);
+  const chopMat = makeOceanMaterial(map, ripple, 1, 0, sunDir, up);
   const outer = makeOceanMesh(
     SPLASH_OCEAN_MESH, SPLASH_OCEAN_RADIUS_KM, OUTER_SEGS, outerMat,
     SPLASH_WATERLINE_ALT_KM - 0.0004, drapeRadiusKm,
@@ -234,15 +284,27 @@ export function createSplashOcean(latRad = 0): SplashOcean {
     SPLASH_OCEAN_CHOP_MESH, SPLASH_OCEAN_CHOP_RADIUS_KM, CHOP_SEGS, chopMat,
     SPLASH_WATERLINE_ALT_KM, drapeRadiusKm,
   );
+  bindPlateUp(outer, up, upQuat);
+  bindPlateUp(chop, up, upQuat);
   group.add(outer, chop);
   group.visible = false;
   return {
     group,
-    setFrame(opacity, missionT) {
+    setFrame(opacity, missionT, sun) {
       const on = opacity > VISIBLE_EPS;
       group.visible = on;
       outer.visible = on;
       chop.visible = on;
+      if (
+        sun
+        && Number.isFinite(sun.x)
+        && Number.isFinite(sun.y)
+        && Number.isFinite(sun.z)
+      ) {
+        sunDir.set(sun.x, sun.y, sun.z);
+        if (sunDir.lengthSq() > 1e-12) sunDir.normalize();
+        else sunDir.set(1, 0, 0);
+      }
       if (!on) return;
       const t = Number.isFinite(missionT) ? missionT : 0;
       outerMat.uniforms.uOpacity!.value = opacity;
