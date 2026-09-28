@@ -153,6 +153,8 @@ describe("cdpCommands", () => {
     const url = theaterUrl("flight-13", "1:05:21", "http://localhost:5173/tothemoon");
     assert.match(url, /^http:\/\/localhost:5173\/tothemoon\/\?agent=/);
     assert.match(url, /#\/mission\/flight-13\?t=1:05:21$/);
+    const url14 = theaterUrl("flight-14", "0:25:28", "http://localhost:5173/tothemoon");
+    assert.match(url14, /#\/mission\/flight-14\?t=0:25:28$/);
   });
 
   it("emits function-declaration evaluate strings", () => {

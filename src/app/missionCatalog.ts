@@ -3,7 +3,7 @@
  * Each mission is a lazy-loaded entry point; physics packs stay mission-local.
  */
 
-export type MissionId = "to-the-moon" | "flight-13";
+export type MissionId = "to-the-moon" | "flight-13" | "flight-14";
 
 export type MissionStatus = "ready" | "preview";
 
@@ -28,6 +28,17 @@ export const MISSIONS: readonly MissionDef[] = [
       "ship through T+1:10. Same visual stack as the lunar mission (pad, craft, cameras, HUD).",
     status: "ready",
     path: "flight-13",
+  },
+  {
+    id: "flight-14",
+    title: "Starship Flight 14",
+    subtitle: "28 Sep 2026 · Starbase OLP-2 · first orbital flight",
+    blurb:
+      "Full theater: staged ascent, hot-stage, Gulf booster recovery, single-Raptor " +
+      "insertion near 275 km, 26 Starlink V3, deorbit, Pacific splashdown, and a " +
+      "sea-level drone hold of the floating ship. Same visual stack as Flight 13.",
+    status: "ready",
+    path: "flight-14",
   },
   {
     id: "to-the-moon",

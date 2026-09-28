@@ -27,9 +27,10 @@ import {
   type WebcastMount,
   type WebcastShot,
 } from "./webcastShots";
+import { webcastShotAt as flight14WebcastShotAt } from "./flight14WebcastShots";
 
 /** Which mission’s Auto-cam table to use. */
-export type AutoCamProfile = "lunar" | "flight13";
+export type AutoCamProfile = "lunar" | "flight13" | "flight14";
 
 /** Suggested focus when Auto-cam advances to a phase (or staging). */
 export type AutoCamSuggestion = {
@@ -115,16 +116,20 @@ export function lunarFinaleShouldCut(
  * Chase look-ahead / look-down for terminal Auto-cam shots.
  * Identity when Auto-cam is off so Free orbit is not biased.
  */
+function isFlightTestCam(profile: AutoCamProfile): boolean {
+  return profile === "flight13" || profile === "flight14";
+}
+
 export function finaleChaseBias(
   enabled: boolean,
   profile: AutoCamProfile,
   phase: PhaseId,
 ): { lookAheadScale: number; lookDownKm: number } {
   if (!enabled) return { lookAheadScale: 1, lookDownKm: 0 };
-  if (profile === "flight13" && phase === "descent") {
+  if (isFlightTestCam(profile) && phase === "descent") {
     return { lookAheadScale: 1.18, lookDownKm: 0.08 };
   }
-  if (profile === "flight13" && (phase === "splashdown" || phase === "landed")) {
+  if (isFlightTestCam(profile) && (phase === "splashdown" || phase === "landed")) {
     // Floating ship: look at the hull, not along heliocentric velocity.
     return { lookAheadScale: 0, lookDownKm: 0 };
   }
@@ -223,7 +228,7 @@ export function autoCamForPhase(
   phase: PhaseId,
   profile: AutoCamProfile = "lunar",
 ): AutoCamSuggestion {
-  return profile === "flight13"
+  return isFlightTestCam(profile)
     ? autoCamForPhaseFlight13(phase)
     : autoCamForPhaseLunar(phase);
 }
@@ -242,7 +247,7 @@ export function autoCamForStagingFlight13(): AutoCamSuggestion {
 export function autoCamForStaging(
   profile: AutoCamProfile = "lunar",
 ): AutoCamSuggestion {
-  return profile === "flight13"
+  return isFlightTestCam(profile)
     ? autoCamForStagingFlight13()
     : autoCamForStagingLunar();
 }
@@ -272,10 +277,18 @@ export function nextAutoCamCut(
   shotKey: string | null;
 } {
   const shotKey =
-    profile === "flight13" && missionT != null ? webcastShotAt(missionT).key : null;
+    isFlightTestCam(profile) && missionT != null
+      ? shotAt(profile, missionT).key
+      : null;
   if (!enabled) return { suggestion: null, phase, staged, shotKey };
   const suggestion = cutSuggestion(phase, staged, prev, profile, missionT, shotKey);
   return { suggestion, phase, staged, shotKey };
+}
+
+function shotAt(profile: AutoCamProfile, missionT: number): WebcastShot {
+  return profile === "flight14"
+    ? flight14WebcastShotAt(missionT)
+    : webcastShotAt(missionT);
 }
 
 function cutSuggestion(
@@ -286,9 +299,9 @@ function cutSuggestion(
   missionT: number | undefined,
   shotKey: string | null,
 ): AutoCamSuggestion | null {
-  if (profile === "flight13" && missionT != null && shotKey) {
+  if (isFlightTestCam(profile) && missionT != null && shotKey) {
     if (shotKey === prev.shotKey) return null;
-    return autoCamFromWebcastShot(webcastShotAt(missionT));
+    return autoCamFromWebcastShot(shotAt(profile, missionT));
   }
   if (prev.phase === null || phase !== prev.phase) {
     return autoCamForPhase(phase, profile);

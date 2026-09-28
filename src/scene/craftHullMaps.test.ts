@@ -9,6 +9,7 @@ import {
   HEX_TILE_COLS,
   HEX_TILE_ROWS,
   SHIP_HULL_MARK,
+  FLIGHT14_SHIP_HULL_MARK,
   TILE_SIDE_MARK,
   clamp01,
   hexCellCenter,
@@ -87,6 +88,12 @@ describe("S40 / 00 hull identity", () => {
     assert.ok(SHIP_HULL_MARK.height > 0.015);
     // Past the windward TPS arc (±0.32π from +Y) onto steel.
     assert.ok(Math.abs(SHIP_HULL_MARK.ang) > Math.PI * 0.35);
+  });
+
+  it("stencils Flight 14 S41 at the same leeward pose", () => {
+    assert.equal(FLIGHT14_SHIP_HULL_MARK.text, "S41");
+    assert.equal(FLIGHT14_SHIP_HULL_MARK.ang, SHIP_HULL_MARK.ang);
+    assert.equal(FLIGHT14_SHIP_HULL_MARK.zFrac, SHIP_HULL_MARK.zFrac);
   });
 
   it("paints a 00 cue on the tiled belly", () => {

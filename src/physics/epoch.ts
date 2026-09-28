@@ -9,6 +9,9 @@
  * 5:51 p.m. CDT (docs/STARSHIP_13.md). Launch-window Horizons table is packed;
  * the bake stays analytic (pad frame). No theater sun-phase offset.
  *
+ * **Flight 14:** liftoff at the flown instant — 2026-09-28 12:48:59 UTC =
+ * 7:48:59 a.m. CDT (docs/STARSHIP_14.md). Analytic pad frame.
+ *
  * Pure: wall-clock mapping takes an explicit UTC epoch or landing map —
  * no module mutable state.
  */
@@ -25,6 +28,13 @@ export const LANDING_UTC_MS = Date.UTC(2027, 6, 20, 12, 0, 0);
  * 5:51 p.m. CDT 24 July 2026 → 22:51 UTC. See docs/STARSHIP_13.md.
  */
 export const FLIGHT13_LIFTOFF_UTC_MS = Date.UTC(2026, 6, 24, 22, 51, 0);
+
+/**
+ * Flight 14 flown liftoff (UTC).
+ * 7:48:59 a.m. CDT 28 September 2026 → 12:48:59 UTC. See docs/STARSHIP_14.md.
+ * Window open (7:15 a.m. CT) is not T0.
+ */
+export const FLIGHT14_LIFTOFF_UTC_MS = Date.UTC(2026, 8, 28, 12, 48, 59);
 
 /**
  * Full-Moon reference: penumbral eclipse greatest eclipse

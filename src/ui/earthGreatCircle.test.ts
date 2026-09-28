@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { R_EARTH } from "../physics/constants.ts";
 import {
   buildFlight13EarthGcModel,
+  buildFlight14EarthGcModel,
   flight13GreatCirclePlane,
   labelAngleOrder,
   projectSiteToPlane,
@@ -102,5 +103,24 @@ describe("siteUnit", () => {
   it("returns unit mesh-local vectors", () => {
     const u = siteUnit(0, 0);
     assert.ok(Math.abs(len(u) - 1) < 1e-9);
+  });
+});
+
+describe("buildFlight14EarthGcModel", () => {
+  it("does not use the Flight 13 Gauteng corridor as the splash label", () => {
+    const m = buildFlight14EarthGcModel();
+    assert.equal(m.profileId, "flight-14");
+    const ids = new Set(m.labels.map((l) => l.id));
+    assert.ok(ids.has("starbase"));
+    assert.ok(ids.has("chile-west"));
+    assert.ok(ids.has("pacific"));
+    assert.equal(ids.has("gauteng"), false);
+    assert.equal(ids.has("indian-ocean"), false);
+  });
+
+  it("keeps the Flight 13 model on the Gauteng plane", () => {
+    const f13 = buildFlight13EarthGcModel();
+    assert.equal(f13.profileId, "flight-13");
+    assert.ok(f13.labels.some((l) => l.id === "gauteng"));
   });
 });

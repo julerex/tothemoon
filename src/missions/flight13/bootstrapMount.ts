@@ -27,6 +27,9 @@ import {createVectorArrows} from "../../scene/vectorArrows";
 import {createBodies} from "../../scene/bodies";
 import {CameraDirector} from "../../camera/modes";
 import {setTheaterVisible} from "../../app/shell";
+import {setEarthGcProfile} from "../../ui/earthGcOverlay";
+import {setAttitudeKnots} from "../../physics/flight13Attitude";
+import {F13_ATT} from "../../physics/flight13Timeline";
 import type {OrientScratch} from "./orientCraft";
 import type {F13Ctx} from "./bootstrap";
 
@@ -39,8 +42,10 @@ export function requireCanvas(): HTMLCanvasElement {
 export function hideMenusAndBriefing(): void {
   const menus = document.getElementById("menus");
   if (menus) menus.hidden = true;
-  const briefing = document.getElementById("flight13-briefing");
-  if (briefing) briefing.hidden = true;
+  for (const id of ["flight13-briefing", "flight14-briefing"]) {
+    const briefing = document.getElementById(id);
+    if (briefing) briefing.hidden = true;
+  }
 }
 
 export function setFlight13HudTitles(): void {
@@ -59,6 +64,8 @@ export function prepareChrome(): void {
   document.title = "tothemoon — Starship Flight 13";
   hideMenusAndBriefing();
   setFlight13HudTitles();
+  setAttitudeKnots(F13_ATT);
+  setEarthGcProfile("flight-13");
 }
 
 export function loadCache(): Trajectory {

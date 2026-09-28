@@ -6,10 +6,11 @@ Interactive **Three.js** mission theaters. Open the site to the mission list (no
 |---------|--------|
 | **Starbase → Moon** | Full theater (ascent → low Earth orbit → translunar coast → ballistic lunar flyby) |
 | **Starship Flight 13** | Full theater (staged ascent → suborbital coast → entry → Indian Ocean splashdown → sea-level drone hold through T+1:10); craft trail is **Earth-fixed** (co-rotates / revolves with the globe) |
+| **Starship Flight 14** | Full theater (first orbital flight: staged ascent → insertion ~275 km → 26 Starlink V3 → deorbit → Pacific splashdown → sea-level drone hold); craft trail is **Earth-fixed** |
 
 **Live:** [https://julerex.github.io/tothemoon/](https://julerex.github.io/tothemoon/)
 
-Deep links: `#/` and `#/missions` mission list · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13`
+Deep links: `#/` and `#/missions` mission list · `#/glossary` Glossary · `#/mission/to-the-moon` · `#/mission/flight-13` · `#/mission/flight-14`
 
 **Time-seek URLs** (every mission): append `?t=` on the hash to open at that mission clock. Liftoff is `t=0`. Examples: `#/mission/flight-13?t=1:05:21` (official splash), `#/mission/flight-13?t=-0:05:00` (T− hold), `#/mission/to-the-moon?t=T+50:00:00`. Accepts `T+`/`T−` clocks, `H:MM:SS`, `M:SS`, raw seconds, and `1h5m21s`. The address bar stays in sync as you scrub or play so you can copy a shareable URL.
 
@@ -23,7 +24,7 @@ Deep links: `#/` and `#/missions` mission list · `#/glossary` Glossary · `#/mi
 - Mission: **Starbase pad** → staged ascent → **integrated** low Earth orbit dogleg (out-of-plane thrust on RK4, paid ship Δv) → finite translunar injection (no end-of-burn velocity snap) → **n-body coast** → **LOI** → **LLO** → **powered descent** → land
 - **Mass-coupled thrust** — peak engine force F, acceleration a = F/m(t), pure rocket-equation ṁ (Isp) through translunar injection; empty tanks cut engines
 - **Super Heavy recovery** — detached booster is RK4-integrated on Earth μ + J₂ + drag after stage-out (boostback + landing burn booked on leftover prop). Landing burn starts at the public T+ mark (~5 km AGL chopsticks / ~3.5 km Flight 13 gulf). Lunar chopsticks seats on the tower; Flight 13 gulf is a hard splash after a 10→8→5 inner-13 relight
-- Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread). Pack **v2** also stores `minMoonAlt`, peak inertial speed, and stage-out time so the complete card never re-scans samples at load
+- Trajectory is **baked at build time** into `src/data/trajectory.json` (instant load; no RK4 on the main thread). Flight 13 / Flight 14 packs live beside it (`flight13-trajectory.json`, `flight14-trajectory.json`; `npm run precompute:flight14`). Pack **v2** also stores `minMoonAlt`, peak inertial speed, and stage-out time so the complete card never re-scans samples at load
 
 The craft mesh is a near-true-size Super Heavy + Starship stack (tens of meters): ring welds, denser heat-shield tiles, Raptor field, multi-layer additive plumes that change by regime (**pink–magenta** in atmosphere / landing vs cooler vacuum / LOI looks) plus an **axial exhaust stream** on pad/ascent, dual exhaust lights in hot-stage, Super Heavy cryo frost + ice shed, maximum dynamic pressure condensation, and scrub-safe thrust lag. The booster stages off at low Earth orbit insert with fallaway + flash, a dim amber free-flyer locator (~30 s), and a brief boostback ignition flash; plumes scale with thrust. Starbase pad (flame trench, denser deluge steam, dual Mechazilla towers — live OLP-2 plus empty OLP-1) sits on a **Sentinel-2 surrounds plate** (~80 km square, Copernicus / EOX cloudless) plus five landward 80 km neighbors (N / NW / W / SW / S; the Gulf stays Blue Marble) with a nested **USDA NAIP pad plate** (~8 km square, 60 cm public-domain orthoimagery). Earth uses a NASA **Blue Marble** albedo (procedural night-lights, stronger atmospheric limb, soft anti-sun fill); the Moon uses an **LRO WAC** color mosaic (procedural fallback) plus dim **Earthshine**. Lunar landing site beacon + dust puff mark touchdown. In system views the vehicle is tiny — **STARSHIP** and **SUPER HEAVY** name plates mark each stage. Use the **Ship** camera to see liftoff up close.
 
@@ -36,7 +37,7 @@ Texture credits (NASA Blue Marble, LRO WAC Moon, Sentinel-2 cloudless, USDA NAIP
 - **Cinematic bookmarks** — **0–9** seek that flight's timeline (T−5, pad, staging, and the later beats the trajectory actually has, through splashdown or the long coast)
 - Event ticks on the scrubber (liftoff, staging, translunar injection, lunar orbit insertion, touchdown) — click a tick to seek
 - **Ascent / return to launch site cross-section** (**Tab** cycle or button) — true-scale black & white launch-plane diagram (Earth surface + 150 km atmosphere, booster path liftoff → chopsticks); mission clock keeps running
-- **Earth great-circle section** (**Earth GC** / **Tab**) — whole-Earth B&W slice on the Flight 13 corridor (Starbase · Gauteng · Indian Ocean landing · Australia); also from the Flight 13 briefing
+- **Earth great-circle section** (**Earth GC** / **Tab**) — Flight 13: whole-Earth B&W slice on the Starbase–Gauteng corridor (Indian Ocean landing · Australia), also from the Flight 13 briefing. Flight 14: orbital-plane / Chile-west target view (no splash buoy) from the Flight 14 briefing.
 - **Polar trajectories** (**Polar** / **Tab**) — Earth-centric 2-D map looking along ecliptic +Z (perpendicular to Earth's orbital plane): ship path + Moon path, true scale
 - **Help** (**H**) and **KeyMap** (**K** or button) — the theater pauses while either is open. **Tab** cycles the dashboards and does not open the KeyMap. The KeyMap is a white-outline keyboard on black with the action under each key
 - Landing beat on terminal complete (camera settle + 1× hold, then mission-complete card); theater site **Malapert Massif** (south pole)
@@ -80,7 +81,7 @@ Base path is `/tothemoon/` (GitHub project Pages).
 
 Recommended next work (prioritized): [docs/NEXT.md](./docs/NEXT.md).  
 Visual realism backlog (for agents): [docs/VISUAL_REALISM.md](./docs/VISUAL_REALISM.md) (V0–V28 shipped; V29–V47 queued).  
-Starship + Starbase hardware (public vs theater): [docs/STARSHIP.md](./docs/STARSHIP.md). Flight 13 recap / webcast SOP: [docs/STARSHIP_13.md](./docs/STARSHIP_13.md).
+Starship + Starbase hardware (public vs theater): [docs/STARSHIP.md](./docs/STARSHIP.md). Flight 13 recap / webcast SOP: [docs/STARSHIP_13.md](./docs/STARSHIP_13.md). Flight 14 orbital test: [docs/STARSHIP_14.md](./docs/STARSHIP_14.md).
 
 ## Deploy
 

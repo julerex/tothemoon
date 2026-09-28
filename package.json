@@ -5,9 +5,10 @@
   "type": "module",
   "description": "Interactive Three.js Earth→Moon spacecraft mission theater",
   "scripts": {
-    "precompute": "tsx scripts/precompute-trajectory.ts && tsx scripts/precompute-flight13.ts",
+    "precompute": "tsx scripts/precompute-trajectory.ts && tsx scripts/precompute-flight13.ts && tsx scripts/precompute-flight14.ts",
     "precompute:moon": "tsx scripts/precompute-trajectory.ts",
     "precompute:flight13": "tsx scripts/precompute-flight13.ts",
+    "precompute:flight14": "tsx scripts/precompute-flight14.ts",
     "horizons": "tsx scripts/fetch-horizons-epoch.ts",
     "horizons:flight13": "tsx scripts/fetch-horizons-epoch.ts --flight13",
     "starbase-surrounds": "tsx scripts/fetch-starbase-surrounds.ts",

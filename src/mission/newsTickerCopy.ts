@@ -28,6 +28,14 @@ export function isFlightTestTimeline(timeline: MissionTimeline): boolean {
   );
 }
 
+/** Flight 14 (orbital flight test) vs Flight 13 (suborbital). */
+export function isOrbitalFlightTestTimeline(timeline: MissionTimeline): boolean {
+  return (
+    isFlightTestTimeline(timeline) &&
+    timeline.segments.some((s) => s.phase === "lowEarthOrbit")
+  );
+}
+
 /**
  * Expand a timeline event into a news-desk sentence.
  * Falls back to title + detail when no bespoke copy exists.
@@ -35,8 +43,9 @@ export function isFlightTestTimeline(timeline: MissionTimeline): boolean {
 export function expandEventCopy(
   ev: MissionEvent,
   flightTest: boolean,
+  orbital = false,
 ): { wire: string; line: string } {
-  const known = resolveKnownCopy(ev.id, flightTest);
+  const known = resolveKnownCopy(ev.id, flightTest, orbital);
   if (known) return known;
   const flight = flightTestSpecialCopy(ev.id, flightTest);
   if (flight) return flight;
@@ -46,11 +55,12 @@ export function expandEventCopy(
 function resolveKnownCopy(
   id: string,
   flightTest: boolean,
+  orbital: boolean,
 ): { wire: string; line: string } | null {
   const known = COPY_BY_ID[id];
   if (!known) return null;
   const line =
-    typeof known.line === "function" ? known.line(flightTest) : known.line;
+    typeof known.line === "function" ? known.line(flightTest, orbital) : known.line;
   return { wire: known.wire, line };
 }
 
@@ -83,16 +93,18 @@ function fallbackEventCopy(ev: MissionEvent): { wire: string; line: string } {
 
 type CopySpec = {
   wire: string;
-  line: string | ((flightTest: boolean) => string);
+  line: string | ((flightTest: boolean, orbital?: boolean) => string);
 };
 
 /** Bespoke wire copy keyed by timeline event id. */
 const COPY_BY_ID: Record<string, CopySpec> = {
   liftoff: {
     wire: "LAUNCH",
-    line: (ft) =>
+    line: (ft, orbital) =>
       ft
-        ? "Starship Flight 13 lifts off from Starbase as Super Heavy lights the Raptor field."
+        ? orbital
+          ? "Starship Flight 14 lifts off from Starbase as Super Heavy lights the Raptor field."
+          : "Starship Flight 13 lifts off from Starbase as Super Heavy lights the Raptor field."
         : "Stack clears the tower at Starbase — Super Heavy and Starship are climbing for the Moon.",
   },
   "max-q": {
@@ -115,16 +127,20 @@ const COPY_BY_ID: Record<string, CopySpec> = {
   },
   "landing-burn": {
     wire: "BOOSTER",
-    line: (ft) =>
+    line: (ft, orbital) =>
       ft
-        ? "Landing burn — 10 of 13 inner Raptors relight from ~3.5 km above the Gulf."
+        ? orbital
+          ? "Landing burn — full inner-13 Raptors relight for a Gulf splashdown."
+          : "Landing burn — 10 of 13 inner Raptors relight from ~3.5 km above the Gulf."
         : "Landing burn — Super Heavy is hoverslamming toward the chopsticks at ~5 km AGL.",
   },
   "booster-catch": {
     wire: "BOOSTER",
-    line: (ft) =>
+    line: (ft, orbital) =>
       ft
-        ? "Hard splashdown — Super Heavy is in the water in the Gulf of America."
+        ? orbital
+          ? "Gulf splashdown — Super Heavy is in the water after a full inner-13 landing burn."
+          : "Hard splashdown — Super Heavy is in the water in the Gulf of America."
         : "Chopsticks catch window — Super Heavy is in the final landing burn at Starbase.",
   },
   seco: {
@@ -137,7 +153,18 @@ const COPY_BY_ID: Record<string, CopySpec> = {
   },
   "payload-complete": {
     wire: "PAYLOAD",
-    line: "Payload complete — all 20 Starlink V3 sats deployed; bay door closing.",
+    line: (_ft, orbital) =>
+      orbital
+        ? "Payload complete — all 26 Starlink V3 sats deployed; bay door closing."
+        : "Payload complete — all 20 Starlink V3 sats deployed; bay door closing.",
+  },
+  insertion: {
+    wire: "ORBIT",
+    line: "Orbital insertion — single Raptor circularizing near 275 km.",
+  },
+  deorbit: {
+    wire: "DEORBIT",
+    line: "Deorbit burn — single Raptor retrograde for a Pacific entry.",
   },
   relight: {
     wire: "DEMO",
@@ -161,13 +188,17 @@ const COPY_BY_ID: Record<string, CopySpec> = {
   },
   splashdown: {
     wire: "SPLASH",
-    line:
-      "Splashdown — Starship is in the water in the Indian Ocean. Recovery drone is inbound.",
+    line: (_ft, orbital) =>
+      orbital
+        ? "Splashdown — Starship is in the water in the Pacific. Recovery drone is inbound."
+        : "Splashdown — Starship is in the water in the Indian Ocean. Recovery drone is inbound.",
   },
   "splash-drone": {
     wire: "DRONE",
-    line:
-      "Recovery drone is on station — circling the intact ship at sea level in the Indian Ocean.",
+    line: (_ft, orbital) =>
+      orbital
+        ? "Recovery drone is on station — circling the intact ship at sea level in the Pacific."
+        : "Recovery drone is on station — circling the intact ship at sea level in the Indian Ocean.",
   },
   lowEarthOrbit: {
     wire: "ORBIT",
@@ -213,7 +244,7 @@ const COPY_BY_ID: Record<string, CopySpec> = {
 
 /** Ambient filler when a long phase has no discrete event yet. */
 export const PHASE_AMBIENT: Partial<
-  Record<PhaseId, (ft: boolean) => { wire: string; line: string }>
+  Record<PhaseId, (ft: boolean, orbital?: boolean) => { wire: string; line: string }>
 > = {
   launch: () => ({
     wire: "PAD",
@@ -225,9 +256,11 @@ export const PHASE_AMBIENT: Partial<
       ? "Ascent through the Gulf corridor — Super Heavy and Ship still stacked."
       : "Climbing to low Earth orbit — engines throttled for Max Q and staging.",
   }),
-  lowEarthOrbit: () => ({
+  lowEarthOrbit: (_ft, orbital) => ({
     wire: "ORBIT",
-    line: "Coast in low Earth orbit — phasing for translunar injection.",
+    line: orbital
+      ? "On-orbit coast — health check, 26 Starlink V3, then a single-Raptor deorbit."
+      : "Coast in low Earth orbit — phasing for translunar injection.",
   }),
   translunarInjection: () => ({
     wire: "TLI",
@@ -257,10 +290,11 @@ export const PHASE_AMBIENT: Partial<
     wire: "ENTRY",
     line: "Plasma corridor — belly-flop entry, energy bleeding in the upper atmosphere.",
   }),
-  splashdown: () => ({
+  splashdown: (_ft, orbital) => ({
     wire: "SPLASH",
-    line:
-      "Ship is floating on its side in the Indian Ocean — recovery drone holding a sea-level orbit.",
+    line: orbital
+      ? "Ship is floating on its side in the Pacific — recovery drone holding a sea-level orbit."
+      : "Ship is floating on its side in the Indian Ocean — recovery drone holding a sea-level orbit.",
   }),
   landed: () => ({
     wire: "LAND",
@@ -278,7 +312,8 @@ export type BeatPush = (t: number, id: string, wire: string, line: string) => vo
 export function phaseAmbientFor(
   phase: PhaseId,
   flightTest: boolean,
+  orbital = false,
 ): { wire: string; line: string } | null {
   const fn = PHASE_AMBIENT[phase];
-  return fn ? fn(flightTest) : null;
+  return fn ? fn(flightTest, orbital) : null;
 }

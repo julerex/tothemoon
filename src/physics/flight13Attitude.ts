@@ -10,6 +10,24 @@ import type { PhaseId } from "./missionTypes";
 
 export { F13_ATT } from "./flight13Timeline";
 
+/** Landing / entry knots shared by Flight 13 and Flight 14 attitude helpers. */
+export type AttitudeKnots = {
+  LAND_BURN: number;
+  LAND_FLIP: number;
+  LAND_3TO2: number;
+  LAND_2TO1: number;
+  SPLASH: number;
+  ENTRY: number;
+  TRANSONIC: number;
+};
+
+let ATT: AttitudeKnots = F13_ATT;
+
+/** Swap landing/entry knots (Flight 14 theater boot). Default remains Flight 13. */
+export function setAttitudeKnots(knots: AttitudeKnots): void {
+  ATT = knots;
+}
+
 /**
  * Visual / narrative attitude for the free-flying ship.
  * - prograde: nose along air-relative velocity (ascent / coast)
@@ -32,8 +50,8 @@ export type ShipAttitudeMode =
  * splash → lie horizontal in the water.
  */
 function landingAttitude(t: number): ShipAttitudeMode | null {
-  if (t < F13_ATT.LAND_BURN || t >= F13_ATT.SPLASH) return null;
-  return t < F13_ATT.LAND_FLIP ? "belly" : "engines_first";
+  if (t < ATT.LAND_BURN || t >= ATT.SPLASH) return null;
+  return t < ATT.LAND_FLIP ? "belly" : "engines_first";
 }
 
 /** Starship barrel radius (km). Engine origin sits this far from the belly. */
@@ -52,8 +70,8 @@ export const SPLASH_LIE_S = 2.5;
  * 0 at splash contact (still engines-down), 1 once the hull is lying in the water.
  */
 export function splashLieBlend(t: number): number {
-  if (t < F13_ATT.SPLASH) return 0;
-  const u = (t - F13_ATT.SPLASH) / SPLASH_LIE_S;
+  if (t < ATT.SPLASH) return 0;
+  const u = (t - ATT.SPLASH) / SPLASH_LIE_S;
   if (u >= 1) return 1;
   return u * u * (3 - 2 * u);
 }
@@ -105,8 +123,8 @@ export function shipAttitudeMode(
   const land = landingAttitude(t);
   if (land) return land;
   if (phase === "descent") return burning ? "engines_first" : "belly";
-  if (phase === "entry") return altKm < 120 || t >= F13_ATT.ENTRY ? "belly" : "prograde";
-  if (phase === "coast" && t >= F13_ATT.ENTRY - 120 && altKm < 160) return "belly";
+  if (phase === "entry") return altKm < 120 || t >= ATT.ENTRY ? "belly" : "prograde";
+  if (phase === "coast" && t >= ATT.ENTRY - 120 && altKm < 160) return "belly";
   return "prograde";
 }
 
@@ -115,9 +133,9 @@ export function shipAttitudeMode(
  * 0 = pure belly, 1 = pure engines-first. Outside the flip window returns 0 or 1.
  */
 export function landingFlipBlend(t: number): number {
-  const t0 = F13_ATT.LAND_FLIP;
-  const t1 = F13_ATT.LAND_FLIP + 2.5;
-  if (t < F13_ATT.LAND_BURN) return 0;
+  const t0 = ATT.LAND_FLIP;
+  const t1 = ATT.LAND_FLIP + 2.5;
+  if (t < ATT.LAND_BURN) return 0;
   if (t < t0) return 0;
   if (t >= t1) return 1;
   const u = (t - t0) / (t1 - t0);
@@ -129,9 +147,9 @@ export function landingFlipBlend(t: number): number {
  * 0 when not in the landing-burn window.
  */
 export function landingEngineCount(t: number): number {
-  if (t < F13_ATT.LAND_BURN || t >= F13_ATT.SPLASH) return 0;
-  if (t < F13_ATT.LAND_3TO2) return 3;
-  if (t < F13_ATT.LAND_2TO1) return 2;
+  if (t < ATT.LAND_BURN || t >= ATT.SPLASH) return 0;
+  if (t < ATT.LAND_3TO2) return 3;
+  if (t < ATT.LAND_2TO1) return 2;
   return 1;
 }
 
@@ -150,14 +168,14 @@ function plasmaAltU(altKm: number): number {
 }
 
 function plasmaLate(t: number): number {
-  return t > F13_ATT.TRANSONIC ? Math.max(0, 1 - (t - F13_ATT.TRANSONIC) / 40) : 1;
+  return t > ATT.TRANSONIC ? Math.max(0, 1 - (t - ATT.TRANSONIC) / 40) : 1;
 }
 
 export function entryPlasmaStrength(
   t: number, phase: PhaseId, altKm: number, speedKmS: number,
 ): number {
   if (phase !== "entry" && phase !== "descent" && phase !== "coast") return 0;
-  if (speedKmS < 1.5 || altKm > 110 || altKm < 5 || t < F13_ATT.ENTRY - 60) return 0;
+  if (speedKmS < 1.5 || altKm > 110 || altKm < 5 || t < ATT.ENTRY - 60) return 0;
   const speedU = Math.max(0, Math.min(1, (speedKmS - 1.8) / 3.5));
   return Math.max(0, Math.min(1, speedU * plasmaAltU(altKm) * plasmaLate(t) * 1.15));
 }
@@ -184,7 +202,7 @@ export function entryFlapsActive(t: number, phase: PhaseId | string): boolean {
   if (phase !== "entry" && phase !== "descent" && phase !== "splashdown" && phase !== "coast") {
     return false;
   }
-  return t >= F13_ATT.ENTRY - 180 && t <= F13_ATT.SPLASH + 30;
+  return t >= ATT.ENTRY - 180 && t <= ATT.SPLASH + 30;
 }
 
 /**
@@ -211,8 +229,8 @@ export function entryFlapDeflectionRad(
     return { fwd: FWD_FLAP_REST_RAD, aft: 0 };
   }
   let u = mode === "engines_first" ? 1 - landingFlipBlend(t) : 1;
-  if (t >= F13_ATT.TRANSONIC) {
-    u *= Math.max(0, 1 - (t - F13_ATT.TRANSONIC) / 50);
+  if (t >= ATT.TRANSONIC) {
+    u *= Math.max(0, 1 - (t - ATT.TRANSONIC) / 50);
   }
   if (altKm < 10) u *= Math.max(0, (altKm - 0.2) / 9.8);
   u = Math.max(0, Math.min(1, u));

@@ -37,6 +37,8 @@ describe("parseRoute", () => {
     assert.equal(r.missionPath, "to-the-moon");
     const r2 = parseRoute("#/mission/flight-13");
     assert.equal(r2.missionPath, "flight-13");
+    const r3 = parseRoute("#/mission/flight-14");
+    assert.equal(r3.missionPath, "flight-14");
   });
 
   it("reads t= from the hash query", () => {
@@ -75,11 +77,14 @@ describe("missionCatalog", () => {
   it("lists lunar and flight-13", () => {
     assert.ok(MISSIONS.some((m) => m.id === "to-the-moon"));
     assert.ok(MISSIONS.some((m) => m.id === "flight-13"));
+    assert.ok(MISSIONS.some((m) => m.id === "flight-14"));
   });
 
   it("resolves by path", () => {
     assert.equal(missionByPath("to-the-moon")?.id, "to-the-moon");
     assert.equal(missionByPath("flight-13")?.status, "ready");
+    assert.equal(missionByPath("flight-14")?.status, "ready");
+    assert.equal(missionByPath("flight-14")?.id, "flight-14");
   });
 
   it("resolves by id and rejects unknown", () => {
