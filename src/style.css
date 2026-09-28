@@ -1852,8 +1852,10 @@ kbd {
   z-index: 25;
 }
 
-/* Graphs pause the picture, so the transport bar has to stay up to move the playhead. */
-#hud.flight-graphs-open {
+/* Graphs pause the picture, so the transport bar has to stay up to move the playhead.
+   This beats the Auto-cam dial clearance on #hud.broadcast-mode. */
+#hud.flight-graphs-open,
+#hud.flight-graphs-open.broadcast-mode {
   --bottom-chrome: 6.55rem;
 }
 
@@ -2149,7 +2151,7 @@ body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .bottom-bar {
   flex: 0 0 auto;
 }
 
-body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .bottom-bar > :not(.footer-row) {
+body:not(.menus-active) #hud.broadcast-mode:not(.menu-open):not(.flight-graphs-open) .bottom-bar > :not(.footer-row) {
   display: none;
 }
 
@@ -2199,6 +2201,10 @@ body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .broadcast-hud {
 
 #hud.broadcast-mode .broadcast-hud {
   display: flex;
+}
+
+#hud.flight-graphs-open.broadcast-mode .broadcast-hud {
+  display: none;
 }
 
 #hud.menu-open.broadcast-mode .telemetry,
