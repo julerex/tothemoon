@@ -96,7 +96,7 @@ Flight 13 Auto-cam walks one cut per webcast camera: drone wide → Ground Camer
 
 `setCamera("drone")` is the Flight 13 sea-level recovery drone (post-splash orbit of the floating ship). Auto-cam also cuts to it at T+1:05:26.
 
-`setCamera("engines")` is the Super Heavy engine-bay looking at the Raptor bells (hot-stage left pane). `setCamera("enginesDown")` looks down through the bells at Earth (Max Q T+58, boostback T+3:00). The Max Q still shows three bells across the top; the theater mount is still dominated by one bell — a remaining visual gap, not a cut-table error.
+`setCamera("engines")` is the Super Heavy engine-bay looking at the Raptor bells (hot-stage left pane). `setCamera("enginesDown")` looks down through the bells at Earth (Max Q T+58, boostback T+3:00). The Max Q still shows three bells across the top; the theater mount is still dominated by one bell — a remaining visual gap, not a cut-table error (queued as **V39** in [VISUAL_REALISM.md](./VISUAL_REALISM.md)). The lattice `gridfin` mount fills the frame; webcast grid-fin stills use `boosterHull` (queued raceway / framing: **V40**).
 
 `craft.speed` is inertial (heliocentric). HUD speed is Earth-relative — they
 will not match. Prefer `hud.phase` / `clock` / `phaseId` for “are we at splash?”.

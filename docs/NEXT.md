@@ -2,7 +2,7 @@
 
 Living plan for **tothemoon** after the core mission theater, mission UX, engineering hygiene, and pad/staging/landing polish. Prefer small, focused diffs; scene unit remains **1 km**.
 
-Visual realism backlog (V0–V27 shipped incl. V27 denser Mechazilla / chopsticks; no next visual slice queued): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
+Visual realism backlog (V0–V28 shipped; **V29–V47 queued** — splash sea, Starship, Super Heavy, Mechazilla): **[VISUAL_REALISM.md](./VISUAL_REALISM.md)**.
 Starship / Starbase hardware (public vs theater): **[STARSHIP.md](./STARSHIP.md)**.
 
 **Live:** https://julerex.github.io/tothemoon/
@@ -204,15 +204,16 @@ Shipped order (historical; all **done**):
 
 Core arc is modular and watchable. **Both missions** ship full theaters (`to-the-moon` | `flight-13`).
 
-Locked P0–P2, P3.12, P3.14, and visual V0–V21 are **done**. Physics A–F2 / H1 / D1 / D3 are **done** ([PLAN.md](../PLAN.md)).
+Locked P0–P2, P3.12, P3.14, and visual V0–V27 are **done**. Physics A–F2 / H1 / D1 / D3 are **done** ([PLAN.md](../PLAN.md)).
 
 **Still open (not locked as next):**
-1. **P3.16 File size ceiling** — split large modules (craft, earthTheater, modes, …) under 400 LOC with facades
-2. **P3.15 Bundle size** — low urgency (dynamic-import Three addons; tighter trajectory packing only with invariants)
-3. **P4 stretch** — Return to Earth, audio, mobile layout, WebGPU/post, i18n; more mission packs as needed
-4. **Physics reassess** — no next A–F slice is queued; **D2** remains a per-slice golden / invariant habit
+1. **Visual V29–V47** — V28 (sun-path splash sea) is shipped. Remaining order in [VISUAL_REALISM.md](./VISUAL_REALISM.md): sea state (V29–V33), Starship (V34–V38), Super Heavy (V39–V43), Mechazilla (V44–V47). One slice per change.
+2. **P3.16 File size ceiling** — split large modules (craft, earthTheater, modes, …) under 400 LOC with facades
+3. **P3.15 Bundle size** — low urgency (dynamic-import Three addons; tighter trajectory packing only with invariants)
+4. **P4 stretch** — Return to Earth, audio, mobile layout, WebGPU/post, i18n; more mission packs as needed
+5. **Physics reassess** — no next A–F slice is queued; **D2** remains a per-slice golden / invariant habit
 
-P3.13 is a standing FX rule, not a task. Further visual photorealism is out of scope unless requested ([VISUAL_REALISM.md](./VISUAL_REALISM.md)).
+P3.13 is a standing FX rule, not a task. Visual work beyond V47 stays out of scope unless requested.
 
 ---
 
@@ -288,3 +289,5 @@ Runtime RK4 (slow): `?recompute=1` on the site.
 | 2026-09-12 | Visual V27: 2-bay box-section Mechazilla, dusk work lights, 3D chopsticks + wrap-around ship QD |
 | 2026-08-25 | STARSHIP.md: public Super Heavy / ship / Raptor / Starbase pad+production reference |
 | 2026-09-22 | Flight 13 Auto-cam matched still-by-still to the webcast cuts; Launchpad Drone flight path, panning tower-down cam, payload-bay mount. Classification follow-up: Ground Camera One holds through liftoff; T+3:00 left is engines-down; T+4:53 left is engine bay; landing from T+1:02:19 is hull. Remaining visual gaps (not cut-table): `enginesDown` one-bell dominance vs three-bell stills; lattice `gridfin` mount unusable (use `boosterHull`). |
+| 2026-09-28 | Visual V28–V47 queued (sea at splash, Starship, Super Heavy, Mechazilla). The engines-down gap is V39; the grid-fin vs hull-cam gap is V40. |
+| 2026-09-28 | Visual V28 shipped: sun-path glitter on the Indian Ocean and Gulf seas; Gulf locator hidden inside 30 km. |

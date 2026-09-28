@@ -8,6 +8,7 @@
  * V17: white volumetric contact steam + warm core + ocean glitter (not cyan discs).
  * Sunlit sea plate: globe PBR ocean goes black at the winter-morning splash.
  * V21: swell + water texture on the sea plate; puffy cumulus at ~2 km AGL.
+ * V28: glitter follows the ephemeris sun; the plate rim feathers into the globe.
  *
  * @see terminalFx.ts — pure strength / pose helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
@@ -16,6 +17,7 @@
 
 import type * as THREE from "three";
 import { deriveSplashSpray } from "./terminalFx";
+import type { Vec3Like } from "./sunLight";
 import {
   createEarthTerminalSite,
   type EarthTerminalSiteSpec,
@@ -51,7 +53,7 @@ export type SplashFx = Readonly<{
   update: (
     missionT: number,
     craftPos: THREE.Vector3,
-    opts: { phase: string; altEarth: number },
+    opts: { phase: string; altEarth: number; sunDir?: Vec3Like },
   ) => void;
 }>;
 
@@ -87,7 +89,7 @@ export function createSplashFx(lat: number, lon: number): SplashFx {
       site.seatSea(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
-      site.setOceanPlate(derived.ocean, missionT);
+      site.setOceanPlate(derived.ocean, missionT, opts.sunDir);
       site.setWeatherClouds(derived.clouds);
     },
   });

@@ -260,7 +260,7 @@ Integration **and** catch tower. Roles:
 - **Ship QD** arm ~mid-ship; **booster QD** is on the mount
 - Catch returning Super Heavy (and, later, ships) on the same arms
 - Elevator / carriage on the vehicle face; peak sheave + lightning rod
-- Square lattice (2-bay faces), work lights, ship-QD wrap; see V27 in [VISUAL_REALISM.md](./VISUAL_REALISM.md)
+- Square lattice (2-bay faces), work lights, ship-QD wrap; see V27 in [VISUAL_REALISM.md](./VISUAL_REALISM.md). Carriage cables, mount BQDs, mast, and liftoff lighting are queued as V44–V47.
 
 Chopsticks ride a **carriage** on vertical rails. Launch-park in Flight 13
 stills is at the **ship nose / rail top**, not the grid-fin band. Catch drops

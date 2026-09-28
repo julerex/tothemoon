@@ -9,6 +9,7 @@ import {
 } from "../../physics/flight13Attitude";
 import type { sampleAtProgress } from "../../physics/trajectoryCache";
 import { sunElevAtPad } from "../../mission/frameDerive";
+import { unitToward } from "../../scene/sunLight";
 import { updateCraftVisuals } from "../../scene/craft";
 import { updateMechazillaRecovery, updateStarbaseLaunchFx } from "../../scene/earthTheater";
 import { deriveChopstickPose } from "../../scene/padRecoveryFx";
@@ -91,15 +92,20 @@ export function updateStageSplash(
   ctx: F13Ctx,
   physicsT: number,
   d: ReturnType<typeof displayFields>,
+  b: BodyState,
 ): void {
   const t = Math.max(0, physicsT);
+  const sunDir = unitToward(b.earth, b.sun);
   ctx.stagingFx.update(t, ctx.craftPos, ctx.craft.quaternion, ctx.camera);
   ctx.splashFx.update(t, ctx.craftPos, {
     phase: d.displayPhase,
     altEarth: d.displayAltEarth,
+    sunDir,
   });
   ctx.gulfLandFx.update(t, ctx.craftPos, {
     recoveryPhase: ctx.stageT == null ? "sep" : boosterPhaseAt(t - ctx.stageT, "gulf"),
+    sunDir,
+    cameraPos: ctx.camera.position,
   });
 }
 
@@ -144,6 +150,6 @@ export function updateFxStack(
   const air = speedAir(ctx, b);
   updateCraftFx(ctx, physicsT, frame, d, air);
   updatePadFx(ctx, physicsT, b, d);
-  updateStageSplash(ctx, physicsT, d);
+  updateStageSplash(ctx, physicsT, d, b);
   updateEntry(ctx, physicsT, prelaunch, d, air);
 }

@@ -5,10 +5,12 @@
  * brief local hard-splash puff (not the Indian Ocean ship-splash bloom).
  * Theater-grade — not a barge or CFD splash.
  * V17: ocean glitter + warmer white steam on the Gulf plate.
+ * V28: same sunlit sea as the ship splash. Beacon, ring, and label are a far
+ * locator only — off inside 30 km so a low camera is not an 8 km pillar.
  *
  * @see padRecoveryFx.ts — visibility / AGL helpers
  * @see terminalSiteFx.ts — shared site + layer applicators
- * @see docs/VISUAL_REALISM.md — V8 recovery catch / V17 splash steam
+ * @see docs/VISUAL_REALISM.md — V8 recovery catch / V17 splash steam / V28 sea
  */
 
 import type * as THREE from "three";
@@ -19,10 +21,12 @@ import {
   type BoosterRecoveryPhase,
 } from "../physics/boosterRecovery";
 import { deriveGulfSpray } from "./padRecoveryFx";
+import type { Vec3Like } from "./sunLight";
 import {
   createEarthTerminalSite,
   type EarthTerminalSiteSpec,
 } from "./terminalSiteFx";
+import { gulfLocatorOpacity } from "./terminalFx";
 
 export const GULF_SITE_LABEL = "Gulf of America";
 export const GULF_SITE_DETAIL = "Hard splash · offshore";
@@ -46,6 +50,7 @@ const GULF_SITE: EarthTerminalSiteSpec = {
     outerColor: 0xe8f4f0, contactColor: 0x0a1814, sheetColor: 0xffffff,
   },
   oceanGlitter: true,
+  sunlitOcean: true,
 };
 
 /** Gulf booster landing beacon + spray, parented under the Earth mesh. */
@@ -59,7 +64,12 @@ export type GulfLandFx = Readonly<{
   update: (
     missionT: number,
     craftPos: THREE.Vector3,
-    opts: { recoveryPhase: BoosterRecoveryPhase | string },
+    opts: {
+      recoveryPhase: BoosterRecoveryPhase | string;
+      sunDir?: Vec3Like;
+      /** World camera position. Near the site, markers drop out. */
+      cameraPos?: THREE.Vector3;
+    },
   ) => void;
 }>;
 
@@ -90,11 +100,17 @@ export function createGulfLandFx(): GulfLandFx {
       site.setVisible(derived.siteVisible);
       if (!derived.siteVisible) {
         site.setGlitter(0);
+        site.setOceanPlate(0);
         return;
       }
+      const fade = opts.cameraPos
+        ? gulfLocatorOpacity(site.distanceFrom(opts.cameraPos))
+        : 1;
+      site.setMarkerFade(fade);
       site.pulseBeacon(craftPos);
       site.layers.apply(derived);
       site.setGlitter(derived.glitter);
+      site.setOceanPlate(derived.ocean, missionT, opts.sunDir);
     },
   });
 }

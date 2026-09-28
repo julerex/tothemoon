@@ -25,8 +25,13 @@ import {
   landingWashStrength,
   nearMoonPhase,
   nearSplash,
+  GULF_LOCATOR_FAR_KM,
+  GULF_LOCATOR_NEAR_KM,
+  gulfLocatorOpacity,
   oceanChopHeightKm,
+  oceanDayFactor,
   oceanGlitterOpacity,
+  oceanPlateEdgeFade,
   oceanSwellHeightKm,
   OCEAN_CHOP_AMP_KM,
   OCEAN_SWELL_AMP_KM,
@@ -195,6 +200,36 @@ describe("oceanGlitterOpacity / hullWetStrength", () => {
     assert.equal(splashOceanPlateOpacity(-1), 0);
     const mid = splashOceanPlateOpacity(40);
     assert.ok(mid > 0.3 && mid < 0.8, `mid ${mid}`);
+  });
+
+  it("feathers the plate rim and keeps the interior opaque", () => {
+    assert.equal(oceanPlateEdgeFade(0, 80), 1);
+    assert.equal(oceanPlateEdgeFade(80 * 0.42, 80), 1);
+    assert.equal(oceanPlateEdgeFade(80, 80), 0);
+    assert.equal(oceanPlateEdgeFade(120, 80), 0);
+    assert.equal(oceanPlateEdgeFade(Number.NaN, 80), 0);
+    assert.equal(oceanPlateEdgeFade(10, 0), 0);
+    const mid = oceanPlateEdgeFade(80 * 0.71, 80);
+    assert.ok(mid > 0.2 && mid < 0.8, `mid ${mid}`);
+  });
+
+  it("matches the ground-sky day shoulder", () => {
+    assert.equal(oceanDayFactor(-0.12), 0);
+    assert.equal(oceanDayFactor(0.28), 1);
+    assert.equal(oceanDayFactor(0.08), 0.5);
+    assert.equal(oceanDayFactor(Number.NaN), 0);
+    assert.ok(oceanDayFactor(1) === 1);
+  });
+
+  it("hides the gulf locator inside 30 km and shows it far away", () => {
+    assert.equal(GULF_LOCATOR_NEAR_KM, 30);
+    assert.equal(gulfLocatorOpacity(0), 0);
+    assert.equal(gulfLocatorOpacity(GULF_LOCATOR_NEAR_KM), 0);
+    assert.equal(gulfLocatorOpacity(GULF_LOCATOR_FAR_KM), 1);
+    assert.equal(gulfLocatorOpacity(200), 1);
+    assert.equal(gulfLocatorOpacity(Number.NaN), 0);
+    const mid = gulfLocatorOpacity((GULF_LOCATOR_NEAR_KM + GULF_LOCATOR_FAR_KM) / 2);
+    assert.equal(mid, 0.5);
   });
 
   it("is scrub-deterministic", () => {

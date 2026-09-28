@@ -28,6 +28,7 @@ import {
   discLayerPose,
   oceanGlitterOpacity,
   sheetLayerPose,
+  splashOceanPlateOpacity,
   type SplashSprayDerived,
 } from "./terminalFx";
 
@@ -210,7 +211,7 @@ export function deriveGulfSpray(
     },
     contact: contactPose(altEarth, active),
     glitter: siteVisible ? oceanGlitterOpacity(altEarth, state.missionT) : 0,
-    ocean: 0,
+    ocean: siteVisible ? splashOceanPlateOpacity(altEarth) : 0,
     clouds: 0,
   };
 }

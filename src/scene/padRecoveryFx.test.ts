@@ -119,6 +119,13 @@ describe("gulf hard-splash steam", () => {
     assert.equal(gone.active, false);
     assert.equal(gone.outer.visible, false);
     assert.equal(gone.siteVisible, false);
+    assert.equal(gone.ocean, 0);
+  });
+
+  it("opens the sunlit sea while the site is up and the booster is low", () => {
+    assert.equal(spray("caught", landAge).ocean, 1);
+    assert.equal(spray("landing", GULF_SCHEDULE.landingStartS).ocean, 1);
+    assert.equal(spray("coast", 0).ocean, 0);
   });
 
   it("is scrub-stable", () => {

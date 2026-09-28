@@ -20,6 +20,8 @@ import {
 } from "./terminalSiteParts";
 import { createSplashOcean, createWeatherClouds } from "./splashWeather";
 import { beaconPulseOpacity } from "./terminalFx";
+import { clamp01 } from "./terminalFxMath";
+import type { Vec3Like } from "./sunLight";
 
 const MESH_UP = new THREE.Vector3(0, 1, 0);
 const _seaLocal = new THREE.Vector3();
@@ -93,10 +95,17 @@ export type EarthTerminalSite = Readonly<{
   /** Set ocean glitter opacity [0, 1] (no-op when glitter was not requested). */
   setGlitter: (opacity: number) => void;
   /**
-   * Set sunlit sea-plate opacity [0, 1] and scrub-safe swell time
-   * (no-op when the plate was not requested).
+   * Set sunlit sea-plate opacity [0, 1], scrub-safe swell time, and the
+   * Earth→Sun direction used for the glitter path (no-op without a plate).
    */
-  setOceanPlate: (opacity: number, missionT?: number) => void;
+  setOceanPlate: (opacity: number, missionT?: number, sunDir?: Vec3Like) => void;
+  /**
+   * Fade ring / beacon / disc / label. 0 hides them. Spray and the sea plate
+   * stay. No-op when the site has no markers.
+   */
+  setMarkerFade: (opacity: number) => void;
+  /** World-space distance (km) from `worldPoint` to the placed site. */
+  distanceFrom: (worldPoint: THREE.Vector3) => number;
   /** Set weather-deck opacity [0, 1] (no-op when clouds were not requested). */
   setWeatherClouds: (opacity: number) => void;
   /**
@@ -154,6 +163,26 @@ function createOceanGlitterSprites(): {
   return { group, mats };
 }
 
+type FadeMat = { mat: THREE.Material & { opacity: number }; base: number };
+
+/** Materials whose opacity scales with the far-locator fade. */
+function fadeMaterials(root: THREE.Object3D): FadeMat[] {
+  const out: FadeMat[] = [];
+  root.traverse((obj) => {
+    if (!("material" in obj)) return;
+    const material = (obj as THREE.Mesh).material;
+    if (!material) return;
+    const list = Array.isArray(material) ? material : [material];
+    for (const m of list) {
+      if (m && "opacity" in m) {
+        const mat = m as THREE.Material & { opacity: number };
+        out.push({ mat, base: mat.opacity });
+      }
+    }
+  });
+  return out;
+}
+
 /**
  * Build an Earth-fixed site plate (ring, beacon, disc, label) with its spray
  * stack already parented in draw order.
@@ -176,10 +205,14 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
     placeSiteOnEarth(sea, spec.lat, spec.lon);
     group.add(sea);
   }
-  if (spec.ring) site.add(createSiteRing(spec.ring));
-  if (beacon) site.add(beacon);
-  if (spec.disc) site.add(createSiteDisc(spec.disc));
-  if (spec.label) site.add(createSiteLabel(spec.label));
+  const markers = new THREE.Group();
+  markers.name = `${spec.name}-markers`;
+  if (spec.ring) markers.add(createSiteRing(spec.ring));
+  if (beacon) markers.add(beacon);
+  if (spec.disc) markers.add(createSiteDisc(spec.disc));
+  if (spec.label) markers.add(createSiteLabel(spec.label));
+  const markerMats = fadeMaterials(markers);
+  if (markers.children.length > 0) site.add(markers);
   site.add(...layers.objects);
   if (glitter) site.add(glitter.group);
   placeSiteOnEarth(site, spec.lat, spec.lon);
@@ -187,6 +220,7 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
   site.visible = false;
 
   const world = new THREE.Vector3();
+  let markerFade = 1;
   return Object.freeze({
     group,
     layers,
@@ -201,7 +235,18 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
         craftPos.distanceTo(world),
         spec.beacon.nearKm,
         spec.beacon.idleOpacity,
-      );
+      ) * markerFade;
+    },
+    setMarkerFade(opacity) {
+      markerFade = clamp01(opacity);
+      if (markers.children.length === 0) return;
+      markers.visible = markerFade > 0.02;
+      if (!markers.visible) return;
+      for (const entry of markerMats) entry.mat.opacity = entry.base * markerFade;
+    },
+    distanceFrom(worldPoint) {
+      site.updateWorldMatrix(true, false);
+      return site.getWorldPosition(world).distanceTo(worldPoint);
     },
     setGlitter(opacity) {
       if (!glitter) return;
@@ -210,9 +255,9 @@ export function createEarthTerminalSite(spec: EarthTerminalSiteSpec): EarthTermi
       if (!on) return;
       for (const mat of glitter.mats) mat.opacity = opacity;
     },
-    setOceanPlate(opacity, missionT = 0) {
+    setOceanPlate(opacity, missionT = 0, sunDir) {
       if (!ocean) return;
-      ocean.setFrame(opacity, missionT);
+      ocean.setFrame(opacity, missionT, sunDir);
     },
     setWeatherClouds(opacity) {
       if (!clouds) return;
