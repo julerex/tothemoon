@@ -23,7 +23,7 @@ import type { PhaseId } from "../physics/missionTypes";
 export type { CameraWorldPose, CameraWorldPoseInput } from "../camera/worldPose";
 
 /** Mission id written into snapshots (matches catalog / hash path). */
-export type TheaterBridgeMission = "flight-13" | "to-the-moon";
+export type TheaterBridgeMission = "flight-13" | "flight-14" | "to-the-moon";
 
 const CAMERA_MODES: readonly CameraMode[] = [
   "free",

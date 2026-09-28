@@ -82,7 +82,7 @@ export const EVAL_TOGGLE = "() => window.__theater?.toggle() ?? { ready: false }
  * cannot reuse a live theater from a different mission.
  */
 export function theaterUrl(
-  mission: "flight-13" | "to-the-moon",
+  mission: "flight-13" | "flight-14" | "to-the-moon",
   seek?: string,
   origin = THEATER_ORIGIN,
 ): string {

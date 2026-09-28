@@ -23,7 +23,7 @@ import { createNameLabel } from "../zoomLabels";
 import { addEngineBay } from "../engineBay";
 import { makePlumeGroup } from "./plumes";
 import { finishCanvasTexture, makeSizedCanvas } from "./materials";
-import { BOOSTER_HULL_MARK, paintHullMarkDecal } from "../craftHullMaps";
+import { BOOSTER_HULL_MARK, paintHullMarkDecal, type HullMarkSpec } from "../craftHullMaps";
 import {
   addNamedCam,
   makeBarrelRing,
@@ -239,12 +239,12 @@ function addBoostFrost(booster: THREE.Group): void {
   booster.add(g);
 }
 
-function addBoostUpper(booster: THREE.Group, mats: CraftMats): void {
+function addBoostUpper(booster: THREE.Group, mats: CraftMats, mark: HullMarkSpec): void {
   addBoostBody(booster, mats);
   addBoostChines(booster, mats);
   addBoostWeldRings(booster, mats);
   addBoostFrost(booster);
-  addBoosterHullMark(booster);
+  addBoosterHullMark(booster, mark);
   addHotStageRing(booster, {
     strut: mats.steelBright,
     ring: mats.steelDark,
@@ -252,9 +252,8 @@ function addBoostUpper(booster: THREE.Group, mats: CraftMats): void {
   });
 }
 
-/** Flight 13 B20 stencil on the stainless leeward (booster-hull-cam). */
-function addBoosterHullMark(booster: THREE.Group): void {
-  const spec = BOOSTER_HULL_MARK;
+/** Super Heavy hull stencil on the stainless leeward (booster-hull-cam). */
+function addBoosterHullMark(booster: THREE.Group, spec: HullMarkSpec): void {
   const canvas = makeSizedCanvas(256, 96);
   paintHullMarkDecal(canvas.getContext("2d")!, 256, 96, spec.text);
   const mat = new THREE.MeshStandardMaterial({
@@ -268,7 +267,7 @@ function addBoosterHullMark(booster: THREE.Group): void {
     polygonOffsetUnits: -2,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(spec.width, spec.height), mat);
-  mesh.name = "hull-mark-b20";
+  mesh.name = `hull-mark-${spec.text.toLowerCase()}`;
   const r = R * 1.014;
   const z = spec.zFrac * BOOST_H;
   mesh.position.set(Math.sin(spec.ang) * r, Math.cos(spec.ang) * r, z);
@@ -344,10 +343,13 @@ function addBoosterNameLabel(booster: THREE.Group): void {
   booster.add(label);
 }
 
-export function buildBooster(mats: CraftMats): THREE.Group {
+export function buildBooster(
+  mats: CraftMats,
+  mark: HullMarkSpec = BOOSTER_HULL_MARK,
+): THREE.Group {
   const booster = new THREE.Group();
   booster.name = "booster";
-  addBoostUpper(booster, mats);
+  addBoostUpper(booster, mats, mark);
   addBoostLower(booster, mats);
   addBoosterNameLabel(booster);
   return booster;

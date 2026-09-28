@@ -41,7 +41,7 @@ export {
 
 export { applyPlumeLayers } from "./craft/plumes";
 
-export { createCraft } from "./craft/mesh";
+export { createCraft, type CraftHullMarks } from "./craft/mesh";
 
 export {
   type CraftVisualState,

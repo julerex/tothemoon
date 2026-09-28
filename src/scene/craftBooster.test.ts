@@ -29,7 +29,7 @@ import {
 import { addHotStageRing, hotStageAFrame } from "./craft/hotStageRing.ts";
 import { makeGridFin, setGridFinLaunchPose } from "./craft/gridFin.ts";
 import { BOOSTER_STEEL } from "./craft/materials.ts";
-import { BOOSTER_HULL_MARK } from "./craftHullMaps.ts";
+import { BOOSTER_HULL_MARK, FLIGHT14_BOOSTER_HULL_MARK } from "./craftHullMaps.ts";
 
 describe("V3 grid fins", () => {
   it("uses a 90/90/180 azimuth set, not equal 120° thirds", () => {
@@ -191,6 +191,12 @@ describe("B20 hull identity", () => {
     assert.ok(BOOSTER_HULL_MARK.zFrac > 0.4 && BOOSTER_HULL_MARK.zFrac < 0.75);
     assert.ok(BOOSTER_HULL_MARK.width > 0.04);
     assert.ok(Math.abs(BOOSTER_HULL_MARK.ang) > Math.PI * 0.35);
+  });
+
+  it("stencils Flight 14 B21 at the same leeward pose", () => {
+    assert.equal(FLIGHT14_BOOSTER_HULL_MARK.text, "B21");
+    assert.equal(FLIGHT14_BOOSTER_HULL_MARK.ang, BOOSTER_HULL_MARK.ang);
+    assert.equal(FLIGHT14_BOOSTER_HULL_MARK.zFrac, BOOSTER_HULL_MARK.zFrac);
   });
 });
 

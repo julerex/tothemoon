@@ -1,7 +1,9 @@
 /**
  * Narrative callout events for the HUD scrubber.
  */
-import { GULF_SCHEDULE } from "../physics/boosterRecovery";
+import { F13 } from "../physics/flight13Mission";
+import { F14 } from "../physics/flight14Mission";
+import { F14_GULF_SCHEDULE, GULF_SCHEDULE } from "../physics/boosterRecovery";
 import type { PhaseId } from "../physics/mission";
 import type { ReadonlySample } from "../physics/missionTypes";
 import type { EventAdder, MissionEvent, PhaseSegment } from "./timeline";
@@ -75,7 +77,7 @@ const PHASE_ENTRY: Partial<
   splashdown: {
     id: "splashdown",
     title: "Splashdown",
-    detail: "Soft landing · Indian Ocean",
+    detail: "Soft landing · ocean",
   },
 };
 
@@ -89,6 +91,18 @@ function addPhaseEntryEvents(
       continue;
     }
     const spec = PHASE_ENTRY[seg.phase];
+    if (!spec) continue;
+    if (seg.phase === "splashdown") {
+      add(
+        spec.id,
+        seg.t0,
+        spec.title,
+        segments.some((s) => s.phase === "lowEarthOrbit")
+          ? "Soft landing · Pacific"
+          : "Soft landing · Indian Ocean",
+      );
+      continue;
+    }
     if (spec) add(spec.id, seg.t0, spec.title, spec.detail);
   }
 }
@@ -102,30 +116,40 @@ function addAscentIfNoLaunch(
   add("ascent", seg.t0, "Ascent", "Powered climb to low Earth orbit");
 }
 
-function addStagingEvents(add: EventAdder, samples: readonly ReadonlySample[]): void {
-  const stageIdx = samples.findIndex((s) => s.staged);
-  if (stageIdx <= 0) return;
-  pushStagingTrio(add, samples[stageIdx]!.t);
-}
-
-function pushStagingTrio(add: EventAdder, t: number): void {
+function pushStagingTrio(add: EventAdder, t: number, orbital = false): void {
+  const sched = orbital ? F14_GULF_SCHEDULE : GULF_SCHEDULE;
   add("staging", t, "Staging", "Booster separation");
   add("boostback", t + 4, "Boostback", "Super Heavy flip · boostback burn");
   add(
     "landing-burn",
-    t + GULF_SCHEDULE.landingStartS,
+    t + sched.landingStartS,
     "Landing burn",
     "Super Heavy landing burn · public mark",
   );
   add(
     "booster-catch",
-    t + GULF_SCHEDULE.landingEndS,
+    t + sched.landingEndS,
     "Booster landing",
-    "Chopsticks catch or Gulf hard splash",
+    orbital ? "Gulf soft splash · full inner-13" : "Chopsticks catch or Gulf hard splash",
   );
 }
 
+function addStagingEvents(add: EventAdder, samples: readonly ReadonlySample[]): void {
+  const stageIdx = samples.findIndex((s) => s.staged);
+  if (stageIdx <= 0) return;
+  pushStagingTrio(add, samples[stageIdx]!.t, isOrbitalFlightTest(samples));
+}
+
+function hasFlightTestPhases(samples: readonly ReadonlySample[]): boolean {
+  return samples.some((s) => s.phase === "entry" || s.phase === "splashdown");
+}
+
+function isOrbitalFlightTest(samples: readonly ReadonlySample[]): boolean {
+  return hasFlightTestPhases(samples) && samples.some((s) => s.phase === "lowEarthOrbit");
+}
+
 function addDoglegEvent(add: EventAdder, samples: readonly ReadonlySample[]): void {
+  if (hasFlightTestPhases(samples)) return;
   const dogleg = findDoglegSample(samples);
   if (!dogleg) return;
   add("dogleg", dogleg.t, "Dogleg", "Plane change into lunar plane · paid ship Δv");
@@ -137,10 +161,6 @@ function findDoglegSample(samples: readonly ReadonlySample[]): ReadonlySample | 
   );
 }
 
-function hasFlightTestPhases(samples: readonly ReadonlySample[]): boolean {
-  return samples.some((s) => s.phase === "entry" || s.phase === "splashdown");
-}
-
 function addFlightTestBeats(
   add: EventAdder,
   samples: readonly ReadonlySample[],
@@ -149,24 +169,43 @@ function addFlightTestBeats(
   if (!hasFlightTestPhases(samples)) return;
   add("max-q", 58, "Max Q", "Peak aerodynamic stress");
   addSecoEvent(add, samples);
-  addPayloadEvents(add);
-  addRelightEvent(add, samples);
+  addPayloadEvents(add, samples);
+  if (isOrbitalFlightTest(samples)) addOrbitBurns(add, samples);
+  else addRelightEvent(add, samples);
   addLandingStepEvents(add, segments);
 }
 
-function addPayloadEvents(add: EventAdder): void {
-  // Public T+ table (F13.PAYLOAD_START / END) — theater has no baked payload samples.
-  add(
-    "payload-start",
-    1000,
-    "Payload deploy",
-    "Pez door open · Starlink V3 deploy start",
+function addPayloadEvents(add: EventAdder, samples: readonly ReadonlySample[]): void {
+  const orbital = isOrbitalFlightTest(samples);
+  const start = orbital ? F14.PAYLOAD_START : F13.PAYLOAD_START;
+  const end = orbital ? F14.PAYLOAD_END : F13.PAYLOAD_END;
+  const n = orbital ? 26 : 20;
+  const path = orbital ? "on-orbit path" : "suborbital path";
+  add("payload-start", start, "Payload deploy", "Pez door open · Starlink V3 deploy start");
+  add("payload-complete", end, "Payload complete", `${n} Starlink V3 on the ${path}`);
+}
+
+function addOrbitBurns(add: EventAdder, samples: readonly ReadonlySample[]): void {
+  const insert = samples.find(
+    (s) => s.phase === "coast" && s.burning && s.staged && s.t >= F14.INSERT - 20,
   );
   add(
-    "payload-complete",
-    1659,
-    "Payload complete",
-    "20 Starlink V3 on the suborbital path",
+    "insertion",
+    insert?.t ?? F14.INSERT,
+    "Orbital insertion",
+    "Single-Raptor circularization near 275 km",
+  );
+  const deorbit = samples.find(
+    (s) =>
+      (s.phase === "lowEarthOrbit" || s.phase === "coast") &&
+      s.burning &&
+      s.t >= F14.DEORBIT - 30,
+  );
+  add(
+    "deorbit",
+    deorbit?.t ?? F14.DEORBIT,
+    "Deorbit burn",
+    "Single-Raptor retrograde · Pacific entry",
   );
 }
 

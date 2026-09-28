@@ -9,6 +9,7 @@ import {
 } from "./glossary";
 import { MISSIONS, type MissionDef } from "./missionCatalog";
 import { getShellView, navigate } from "./shell";
+import { ensureFlight14BriefingBound, setFlight14BriefingOpen } from "./flight14Briefing";
 
 /**
  * Map a keyboard digit (`"1"`…`"9"`) to a mission path, or null if unbound.
@@ -87,6 +88,7 @@ export function bindMenus(): void {
   fillMissionMenu(roots.missions);
   fillGlossaryMenu(roots.glossary);
   wireMenuClicks(roots);
+  ensureFlight14BriefingBound();
 }
 
 function requireMenuRoots(): {
@@ -127,6 +129,7 @@ function missionMenuHtml(): string {
       <p class="menu-foot">More missions can land here as packs are baked.</p>
       <nav class="menu-foot-links" aria-label="Also">
         <button type="button" class="menu-back" data-nav="glossary">Glossary</button>
+        <button type="button" class="menu-back" data-briefing="flight-14">Flight 14 briefing</button>
         <a class="menu-back" href="https://github.com/julerex/tothemoon" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
       </nav>
     </div>
@@ -212,6 +215,10 @@ function handleMissionClick(e: Event): void {
   if (!t) return;
   if (t.dataset.nav === "main") { navigate("/"); return; }
   if (t.dataset.nav === "glossary") { navigate("/glossary"); return; }
+  if (t.dataset.briefing === "flight-14") {
+    setFlight14BriefingOpen(true);
+    return;
+  }
   const path = t.dataset.mission;
   if (path) navigate(`/mission/${path}`);
 }
@@ -229,6 +236,6 @@ function navFromEvent(e: Event): string | undefined {
 
 function closestNavOrMission(e: Event): HTMLElement | null {
   return (e.target as HTMLElement).closest<HTMLElement>(
-    "[data-nav], [data-mission]",
+    "[data-nav], [data-mission], [data-briefing]",
   );
 }

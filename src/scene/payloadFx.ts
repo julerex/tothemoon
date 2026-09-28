@@ -8,10 +8,11 @@
 
 import * as THREE from "three";
 import {
-  PAYLOAD_SAT_COUNT,
+  FLIGHT13_PAYLOAD,
   payloadDeployStrength,
   payloadHatchOpen,
   payloadSatPose,
+  type PayloadProfile,
 } from "./payloadDeploy";
 
 const HATCH_PIVOT = "pez-hatch";
@@ -60,11 +61,11 @@ function addPezHatch(ship: THREE.Object3D): THREE.Group | null {
   return pivot;
 }
 
-function addSatSilhouettes(group: THREE.Group): THREE.Mesh[] {
+function addSatSilhouettes(group: THREE.Group, satCount: number): THREE.Mesh[] {
   const sats: THREE.Mesh[] = [];
   const geom = new THREE.BoxGeometry(0.028, 0.006, 0.04);
   const mat = makeSatMat();
-  for (let i = 0; i < PAYLOAD_SAT_COUNT; i++) {
+  for (let i = 0; i < satCount; i++) {
     const mesh = new THREE.Mesh(geom, mat.clone());
     mesh.name = `starlink-v3-${i}`;
     mesh.visible = false;
@@ -83,7 +84,10 @@ export type PayloadFx = Readonly<{
  * Build Pez hatch on the ship + sat silhouettes under `craft`.
  * Safe no-op (empty group) if the ship mesh is missing.
  */
-export function createPayloadFx(craft: THREE.Object3D): PayloadFx {
+export function createPayloadFx(
+  craft: THREE.Object3D,
+  profile: PayloadProfile = FLIGHT13_PAYLOAD,
+): PayloadFx {
   const group = new THREE.Group();
   group.name = "payload-fx";
   const ship = craft.getObjectByName("ship");
@@ -94,14 +98,14 @@ export function createPayloadFx(craft: THREE.Object3D): PayloadFx {
   satGroup.position.set(0, -0.12, 0.58);
   if (ship) ship.add(satGroup);
   else group.add(satGroup);
-  const sats = addSatSilhouettes(satGroup);
+  const sats = addSatSilhouettes(satGroup, profile.satCount);
   craft.add(group);
 
   return Object.freeze({
     group,
     update(missionT: number) {
-      const strength = payloadDeployStrength(missionT);
-      const open = payloadHatchOpen(missionT);
+      const strength = payloadDeployStrength(missionT, profile);
+      const open = payloadHatchOpen(missionT, profile);
       if (hatch) {
         hatch.visible = strength > 0.02 || open > 0.02;
         // Hinge open about +X (door swings leeward / out).
@@ -109,7 +113,7 @@ export function createPayloadFx(craft: THREE.Object3D): PayloadFx {
       }
       satGroup.visible = strength > 0.02;
       for (let i = 0; i < sats.length; i++) {
-        const pose = payloadSatPose(i, missionT);
+        const pose = payloadSatPose(i, missionT, profile);
         const mesh = sats[i]!;
         mesh.visible = pose.visible;
         if (!pose.visible) continue;

@@ -1,22 +1,44 @@
 /**
- * Flight 13 Pez / Starlink V3 payload deploy (pure).
+ * Pez / Starlink V3 payload deploy (pure).
  *
- * Theater-grade only: hatch open + ~20 sat silhouettes peeling on a delayed
+ * Theater-grade only: hatch open + sat silhouettes peeling on a delayed
  * trail along the ship path — no extra integrator. Scrub-deterministic from
- * mission `t` and the public T+ window in {@link F13}.
+ * mission `t` and a public T+ window ({@link FLIGHT13_PAYLOAD} by default).
  *
  * @see payloadFx.ts — THREE meshes / sprites
  * @see docs/VISUAL_REALISM.md — V16
  */
 
 import { F13 } from "../physics/flight13Mission";
+import { F14 } from "../physics/flight14Mission";
 
-/** Public deploy window start (s). */
-export const PAYLOAD_START_S = F13.PAYLOAD_START;
-/** Public deploy window end (s). */
-export const PAYLOAD_END_S = F13.PAYLOAD_END;
+/** Public Pez window + Starlink V3 count. */
+export type PayloadProfile = {
+  startS: number;
+  endS: number;
+  satCount: number;
+};
+
+/** Flight 13: 20 sats on the suborbital path. */
+export const FLIGHT13_PAYLOAD: PayloadProfile = {
+  startS: F13.PAYLOAD_START,
+  endS: F13.PAYLOAD_END,
+  satCount: 20,
+};
+
+/** Flight 14: 26 sats during the on-orbit window. */
+export const FLIGHT14_PAYLOAD: PayloadProfile = {
+  startS: F14.PAYLOAD_START,
+  endS: F14.PAYLOAD_END,
+  satCount: 26,
+};
+
+/** Public deploy window start (s) — Flight 13 default. */
+export const PAYLOAD_START_S = FLIGHT13_PAYLOAD.startS;
+/** Public deploy window end (s) — Flight 13 default. */
+export const PAYLOAD_END_S = FLIGHT13_PAYLOAD.endS;
 /** Starlink V3 count on Flight 13. */
-export const PAYLOAD_SAT_COUNT = 20;
+export const PAYLOAD_SAT_COUNT = FLIGHT13_PAYLOAD.satCount;
 
 /** Seconds for the Pez door to swing open after PAYLOAD_START. */
 const HATCH_OPEN_S = 35;
@@ -37,15 +59,20 @@ export type PayloadSatPose = Readonly<{
   scale: number;
 }>;
 
+function profileOrDefault(p?: PayloadProfile): PayloadProfile {
+  return p ?? FLIGHT13_PAYLOAD;
+}
+
 /**
  * Overall deploy activity in [0, 1]: hatch / sats visible when > ~0.02.
  * Outside the public window (plus brief close fade) returns 0.
  */
-export function payloadDeployStrength(t: number): number {
+export function payloadDeployStrength(t: number, profile?: PayloadProfile): number {
+  const p = profileOrDefault(profile);
   if (!Number.isFinite(t)) return 0;
-  if (t < PAYLOAD_START_S) return 0;
-  if (t <= PAYLOAD_END_S) return 1;
-  const close = (t - PAYLOAD_END_S) / HATCH_CLOSE_S;
+  if (t < p.startS) return 0;
+  if (t <= p.endS) return 1;
+  const close = (t - p.endS) / HATCH_CLOSE_S;
   if (close >= 1) return 0;
   return Math.max(0, 1 - close);
 }
@@ -54,45 +81,49 @@ export function payloadDeployStrength(t: number): number {
  * Pez door open fraction in [0, 1].
  * Opens after PAYLOAD_START; stays open through the window; closes after END.
  */
-export function payloadHatchOpen(t: number): number {
-  if (!Number.isFinite(t) || t < PAYLOAD_START_S) return 0;
-  if (t < PAYLOAD_START_S + HATCH_OPEN_S) {
-    const u = (t - PAYLOAD_START_S) / HATCH_OPEN_S;
+export function payloadHatchOpen(t: number, profile?: PayloadProfile): number {
+  const p = profileOrDefault(profile);
+  if (!Number.isFinite(t) || t < p.startS) return 0;
+  if (t < p.startS + HATCH_OPEN_S) {
+    const u = (t - p.startS) / HATCH_OPEN_S;
     return u * u;
   }
-  if (t <= PAYLOAD_END_S) return 1;
-  const close = (t - PAYLOAD_END_S) / HATCH_CLOSE_S;
+  if (t <= p.endS) return 1;
+  const close = (t - p.endS) / HATCH_CLOSE_S;
   if (close >= 1) return 0;
   return Math.max(0, 1 - close);
 }
 
-/** Release epoch for sat index `i` in [0, PAYLOAD_SAT_COUNT). */
-export function payloadSatReleaseT(i: number): number {
-  const n = Math.max(1, PAYLOAD_SAT_COUNT);
+/** Release epoch for sat index `i` in [0, satCount). */
+export function payloadSatReleaseT(i: number, profile?: PayloadProfile): number {
+  const p = profileOrDefault(profile);
+  const n = Math.max(1, p.satCount);
   const u = (i + 0.5) / n;
-  return PAYLOAD_START_S + HATCH_OPEN_S * 0.6 + u * (PAYLOAD_END_S - PAYLOAD_START_S - HATCH_OPEN_S);
+  return p.startS + HATCH_OPEN_S * 0.6 + u * (p.endS - p.startS - HATCH_OPEN_S);
 }
 
 /**
  * One sat silhouette pose in craft mesh units.
  * Peels aft/outboard from the bay, holds through the window, fades after END.
  */
-export function payloadSatPose(i: number, t: number): PayloadSatPose {
+export function payloadSatPose(
+  i: number,
+  t: number,
+  profile?: PayloadProfile,
+): PayloadSatPose {
+  const p = profileOrDefault(profile);
   const hidden: PayloadSatPose = Object.freeze({
     visible: false, opacity: 0, x: 0, y: 0, z: 0, scale: 0,
   });
-  if (!Number.isFinite(t) || i < 0 || i >= PAYLOAD_SAT_COUNT) return hidden;
-  const release = payloadSatReleaseT(i);
+  if (!Number.isFinite(t) || i < 0 || i >= p.satCount) return hidden;
+  const release = payloadSatReleaseT(i, p);
   if (t < release) return hidden;
   const age = t - release;
   const peel = Math.min(1, age / SAT_PEEL_S);
   const fade =
-    t <= PAYLOAD_END_S
-      ? 1
-      : Math.max(0, 1 - (t - PAYLOAD_END_S) / SAT_FADE_S);
+    t <= p.endS ? 1 : Math.max(0, 1 - (t - p.endS) / SAT_FADE_S);
   if (fade <= 0.02) return hidden;
-  // Stagger direction so sats fan out instead of stacking.
-  const ang = (i / PAYLOAD_SAT_COUNT) * Math.PI * 1.4 - 0.35;
+  const ang = (i / p.satCount) * Math.PI * 1.4 - 0.35;
   const out = 0.08 + peel * (0.55 + 0.12 * (i % 5));
   const aft = peel * (0.35 + 0.08 * ((i * 3) % 7));
   return Object.freeze({

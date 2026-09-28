@@ -94,6 +94,12 @@ describe("autoCamForStaging", () => {
     assert.equal(s.mount, "engines");
     assert.equal(s.frame, true);
   });
+
+  it("uses the same staging cut on Flight 14", () => {
+    const s = autoCamForStaging("flight14");
+    assert.equal(s.mode, "engines");
+    assert.equal(s.mount, "engines");
+  });
 });
 
 describe("nextAutoCamCut", () => {
@@ -232,7 +238,20 @@ describe("nextAutoCamCut", () => {
     );
     assert.ok(r.suggestion);
     assert.equal(r.suggestion!.mode, "engines");
-    assert.equal(r.suggestion!.mount, "engines");
+  });
+
+  it("follows Flight 14 payload-bay shot at the public deploy window", () => {
+    const r = nextAutoCamCut(
+      true,
+      "lowEarthOrbit",
+      true,
+      { phase: "lowEarthOrbit", staged: true, shotKey: "orbit-hull" },
+      "flight14",
+      2058,
+    );
+    assert.ok(r.suggestion);
+    assert.equal(r.shotKey, "payload-bay");
+    assert.equal(r.suggestion!.mode, "payload");
   });
 
   it("does not re-fire staging while already staged", () => {
