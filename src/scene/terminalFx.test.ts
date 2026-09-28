@@ -48,6 +48,7 @@ import {
   type LunarDustState,
   type SplashSprayState,
 } from "./terminalFx.ts";
+import { oceanCrestFoam, oceanShaderGaps } from "./oceanWaves.ts";
 
 const lunar: LunarDustState = {
   missionT: 100,
@@ -374,6 +375,7 @@ describe("splashWeatherCloudOpacity", () => {
 describe("ocean swell / chop", () => {
   it("is scrub-deterministic and bounded", () => {
     const a = oceanSwellHeightKm(3, -2, 100);
+    assert.equal(a, 0.0002471223438045187);
     assert.equal(a, oceanSwellHeightKm(3, -2, 100));
     assert.notEqual(a, oceanSwellHeightKm(3, -2, 101));
     const cap = OCEAN_SWELL_AMP_KM * (1 + 0.55 + 0.28);
@@ -383,11 +385,61 @@ describe("ocean swell / chop", () => {
 
   it("keeps chop smaller than swell and time-varying", () => {
     const c = oceanChopHeightKm(1.2, 0.4, 50);
+    assert.equal(c, 0.0007913179867032909);
     assert.equal(c, oceanChopHeightKm(1.2, 0.4, 50));
     assert.notEqual(c, oceanChopHeightKm(1.2, 0.4, 51));
     const cap = OCEAN_CHOP_AMP_KM * (1 + 0.64);
     assert.ok(Math.abs(c) <= cap + 1e-12);
     assert.ok(OCEAN_CHOP_AMP_KM < OCEAN_SWELL_AMP_KM);
+  });
+});
+
+describe("ocean crest foam", () => {
+  it("covers the crest and stays dark on the face and the outer plate", () => {
+    const crest = oceanCrestFoam(0, 0.13, 0, 1);
+    const face = oceanCrestFoam(0.2, 0.13, 0, 1);
+    const outer = oceanCrestFoam(0, 0.13, 0, 0);
+    assert.equal(crest.cover, 1);
+    assert.equal(face.cover, 0);
+    assert.equal(outer.cover, 0);
+    assert.equal(outer.mix, 0);
+    assert.equal(crest.streak, outer.streak);
+    assert.ok(Math.abs(crest.mix - 0.7166049005316949) < 1e-12);
+  });
+
+  it("foams the crest where the slope is shallower", () => {
+    const slopeMag = (x: number, z: number) => {
+      const e = 1e-4;
+      const h = (xx: number, zz: number) =>
+        oceanSwellHeightKm(xx, zz, 0) + oceanChopHeightKm(xx, zz, 0);
+      const dx = (h(x + e, z) - h(x - e, z)) / (2 * e);
+      const dz = (h(x, z + e) - h(x, z - e)) / (2 * e);
+      return Math.hypot(dx, dz);
+    };
+    assert.ok(slopeMag(0.2, 0.13) > slopeMag(0, 0.13));
+    assert.equal(oceanCrestFoam(0, 0.13, 0, 1).cover, 1);
+    assert.equal(oceanCrestFoam(0.2, 0.13, 0, 1).cover, 0);
+  });
+
+  it("slides streaks downwind with the lead swell", () => {
+    const windX = -0.8436614877321074;
+    const windZ = -0.5368754921931593;
+    const moved = oceanCrestFoam(-0.42 + windX * 0.012 * 3, 0.2 + windZ * 0.012 * 3, 3, 1);
+    const stayed = oceanCrestFoam(-0.42, 0.2, 0, 1);
+    assert.ok(stayed.streak > 0.3);
+    assert.ok(Math.abs(moved.streak - stayed.streak) < 1e-9);
+  });
+
+  it("returns zeros for a non-finite sample", () => {
+    assert.deepEqual(oceanCrestFoam(Number.NaN, 0, 0, 1), {
+      cover: 0,
+      streak: 0,
+      mix: 0,
+    });
+  });
+
+  it("prints wave literals in both stages and foam literals in the fragment only", () => {
+    assert.deepEqual(oceanShaderGaps(), []);
   });
 });
 
