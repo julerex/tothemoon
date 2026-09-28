@@ -33,6 +33,7 @@ import {
   type CraftState,
   type ThrustFn,
 } from "./integrator";
+import { rvToKepler } from "./kepler";
 import { radialHeightAboveEllipsoid } from "./wgs84";
 import {
   burnForce,
@@ -117,6 +118,8 @@ const _target = v3();
 const _aBoost = v3();
 const _aShip = v3();
 const _aSum = v3();
+const _periP = v3();
+const _periV = v3();
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -183,7 +186,10 @@ function fillSteerGeo(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): Steer
 
 function closedLoopTgtRad(geo: SteerGeo, speedFrac: number): number {
   let tgtRad = -0.5 * geo.vRad;
-  if (geo.alt < 140) {
+  // Once east speed is orbital, drop the climb bias and kill radial rate.
+  // Holding the loft after circular speed parks an ellipse whose perigee is
+  // inside Earth; heliocentric solar gravity does not lift that perigee.
+  if (speedFrac <= 0.97 && geo.alt < 140) {
     tgtRad += 1.6 * (140 - geo.alt) / 140;
     if (speedFrac < 0.9) tgtRad += 0.2 * (1 - speedFrac);
   } else if (geo.alt > 250) tgtRad -= 0.08;
@@ -206,10 +212,18 @@ function setClosedLoopTarget(tgtRad: number, eastW: number, vCirc: number): void
 }
 
 /** Closed-loop circular LEO target direction into `out`. */
-function steerClosedLoop(geo: SteerGeo, out: V3): void {
+function steerClosedLoop(geo: SteerGeo, out: V3, t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): void {
   const speedFrac = Math.min(1, Math.max(0, geo.vEast / Math.max(geo.vCirc, 1)));
-  const eastW = geo.alt < 100 ? 1 : 1.0 + 1.0 * (1 - speedFrac);
-  setClosedLoopTarget(closedLoopTgtRad(geo, speedFrac), eastW, geo.vCirc);
+  let eastW = geo.alt < 100 ? 1 : 1.0 + 1.0 * (1 - speedFrac);
+  let tgtRad = closedLoopTgtRad(geo, speedFrac);
+  // Perigee still in the atmosphere: stay slightly hot and climbing. Kill
+  // radial rate only after perigee is clear — circular speed near 100 km is
+  // otherwise an ellipse that meets Earth under heliocentric solar gravity.
+  if (speedFrac > 0.97 && geo.alt < 180 && perigeeAltKm(t, pos, vel, epoch) < 100) {
+    eastW = Math.max(eastW, 1.004);
+    tgtRad = Math.max(tgtRad, 0.05);
+  }
+  setClosedLoopTarget(tgtRad, eastW, geo.vCirc);
   set(out, _target.x - _relV.x, _target.y - _relV.y, _target.z - _relV.z);
   if (geo.alt >= 90) boostEastErr(geo, out);
 }
@@ -262,7 +276,7 @@ function steerDirection(
 ): SteerGeo {
   const geo = fillSteerGeo(t, pos, vel, epoch);
   const closedLoop = mode !== "boost" || geo.alt > 85;
-  if (closedLoop) steerClosedLoop(geo, out);
+  if (closedLoop) steerClosedLoop(geo, out, t, pos, vel, epoch);
   else steerGravityTurn(geo, out);
   normalizeSteer(out);
   return geo;
@@ -401,23 +415,34 @@ function insertionGeom(
   return { alt: radialHeightAboveEllipsoid(_relP, _pole), vRad: Math.abs(dot(_relV, _up)), v: len(_relV), vCirc: Math.sqrt(MU_EARTH / r) };
 }
 
+/** Osculating perigee altitude (km) about a spherical Earth. Negative intersects. */
+function perigeeAltKm(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): number {
+  const b = getBodies(t, epoch);
+  sub(_periP, pos, b.earth);
+  sub(_periV, vel, b.earthVel);
+  const orb = rvToKepler(_periP, _periV, MU_EARTH, t);
+  if (!(orb.a > 0) || !(orb.e < 1) || !Number.isFinite(orb.a)) return Number.NEGATIVE_INFINITY;
+  return orb.a * (1 - orb.e) - R_EARTH;
+}
+
 /**
- * Stable circular-ish parking above the sensible atmosphere.
- * Target LOW_EARTH_ORBIT_ALTITUDE is preferred but any ~100–250 km circular orbit is
- * accepted so the upper stage does not waste ship prop climbing after
- * already reaching orbital speed (saves fuel for dogleg + translunar injection).
+ * Circular parking whose perigee stays above the atmosphere.
+ * Matching speed at ~100 km is not enough: leftover radial rate puts perigee
+ * inside Earth, and heliocentric solar gravity does not lift it.
  */
 function insertionOk(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): boolean {
   const g = insertionGeom(t, pos, vel, epoch);
-  if (!g || g.alt < 90 || g.alt > LOW_EARTH_ORBIT_ALTITUDE + 50) return false;
-  return g.vRad < 0.12 && Math.abs(g.v - g.vCirc) < 0.25;
+  if (!g || g.alt < 90 || g.alt > LOW_EARTH_ORBIT_ALTITUDE + 80) return false;
+  if (g.vRad >= 0.02 || Math.abs(g.v - g.vCirc) >= 0.04) return false;
+  return perigeeAltKm(t, pos, vel, epoch) > 105;
 }
 
-/** Near-circular enough to accept as theater low Earth orbit (slightly looser). */
+/** Slightly looser parking gate for the upper-burn timeout path. */
 function insertionNear(t: number, pos: V3, vel: V3, epoch: EphemerisEpoch): boolean {
   const g = insertionGeom(t, pos, vel, epoch);
-  if (!g || g.alt < 85 || g.alt > LOW_EARTH_ORBIT_ALTITUDE + 60) return false;
-  return g.vRad < 0.2 && Math.abs(g.v - g.vCirc) < 0.4;
+  if (!g || g.alt < 85 || g.alt > LOW_EARTH_ORBIT_ALTITUDE + 100) return false;
+  if (g.vRad >= 0.03 || Math.abs(g.v - g.vCirc) >= 0.06) return false;
+  return perigeeAltKm(t, pos, vel, epoch) > 100;
 }
 
 function shouldArmHotStage(
@@ -507,10 +532,6 @@ function finishUpperOrbit(loop: AscentLoop): AscentResult {
     return successResult(state, samples, prop, "low Earth orbit", epoch);
   }
   const alt = altitudeEarth(state.t, state.pos, epoch);
-  if (alt > 80) {
-    pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
-    return successResult(state, samples, prop, "low Earth orbit (upper burn)", epoch);
-  }
   return failResult(state, samples, prop, "Upper burn did not circularize", alt);
 }
 
@@ -589,7 +610,7 @@ function ascentTimeout(loop: AscentLoop): AscentResult {
   const { state, samples, prop, epoch } = loop;
   const alt = altitudeEarth(state.t, state.pos, epoch);
   if (!prop.staged && alt > STAGE_ALT_MIN_KM * 0.8) stageBooster(prop, state.t);
-  if (prop.staged && (insertionNear(state.t, state.pos, state.vel, epoch) || alt > 80)) {
+  if (prop.staged && insertionNear(state.t, state.pos, state.vel, epoch)) {
     pushAscentSample(samples, state, "lowEarthOrbit", false, prop, 0);
     return successResult(state, samples, prop, "low Earth orbit (upper burn)", epoch);
   }

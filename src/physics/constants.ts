@@ -262,10 +262,10 @@ export const SHIP_PROP_KG = 5_000_000;
 
 /**
  * Max integrated upper-stage burn after hot-stage (s).
- * Long enough for a mass-coupled circularize; leftover ship prop still funds
- * dogleg + translunar injection.
+ * Long enough to raise perigee clear of the atmosphere after east speed is
+ * already orbital. Leftover ship prop still funds dogleg + translunar injection.
  */
-export const UPPER_BURN_MAX_S = 180;
+export const UPPER_BURN_MAX_S = 600;
 
 /** Specific impulse (s) — rocket-equation mass flow */
 export const SPECIFIC_IMPULSE_BOOSTER = 330;

@@ -10,7 +10,7 @@ import {
 } from "./ascent.ts";
 import { HOT_STAGE_S, STAGE_PROP_ARM } from "./constants.ts";
 import { DEFAULT_EPHEMERIS } from "./ephemerisEpoch.ts";
-import { altitudeEarth } from "./integrator.ts";
+import { altitudeEarth, cloneCraftState, rk4Step } from "./integrator.ts";
 import { fuelShipFrac } from "./propellant.ts";
 
 describe("boosterThrottle schedule", () => {
@@ -143,6 +143,20 @@ describe("flyAscent staged profile", () => {
     // Honest circularize spends real ship Δv; leave a reserve for dogleg + TLI.
     assert.ok(fs > 0.05, `ship fuel ${fs} too low after circularize`);
     assert.ok(fs < 0.99, `ship fuel ${fs} — expected some upper-stage use`);
+  });
+
+  it("keeps perigee above the atmosphere after insertion", () => {
+    const r = flyAscent(DEFAULT_EPHEMERIS);
+    assert.ok(r.ok, r.message);
+    const state = cloneCraftState(r.state);
+    const end = state.t + 6_000;
+    let min = Infinity;
+    while (state.t < end) {
+      rk4Step(state, 2, undefined, { epoch: DEFAULT_EPHEMERIS });
+      const alt = altitudeEarth(state.t, state.pos);
+      if (alt < min) min = alt;
+    }
+    assert.ok(min > 80, `coast min altitude ${min.toFixed(1)} km`);
   });
 
   it("records booster throttle below peak during maximum dynamic pressure band", () => {
