@@ -5,6 +5,9 @@ import {
   CAMERA_CYCLE,
   CAMERA_LABELS,
   cameraKindLabel,
+  cameraModeFromSelect,
+  cameraOptions,
+  cameraSelectState,
   cycleCameraMode,
   FIXED_CAM_LOCK_NOTE,
 } from "./hudCameraLabels.ts";
@@ -81,5 +84,38 @@ describe("cycleCameraMode", () => {
   it("starts at the first/last mode from an unknown focus", () => {
     assert.equal(cycleCameraMode("free", 1), "sun");
     assert.equal(cycleCameraMode("free", -1), "drone");
+  });
+});
+
+describe("cameraSelectState", () => {
+  it("puts a free camera on the free select", () => {
+    assert.deepEqual(cameraSelectState("sun"), { free: "sun", mounted: "" });
+  });
+
+  it("puts a mounted camera on the mounted select", () => {
+    assert.deepEqual(cameraSelectState("payload"), { free: "", mounted: "payload" });
+  });
+
+  it("clears both selects for the internal free mode", () => {
+    assert.deepEqual(cameraSelectState("free"), { free: "", mounted: "" });
+  });
+});
+
+describe("cameraModeFromSelect", () => {
+  it("accepts a mode only in the family that lists it", () => {
+    assert.equal(cameraModeFromSelect("payload", "mounted"), "payload");
+    assert.equal(cameraModeFromSelect("payload", "free"), null);
+    assert.equal(cameraModeFromSelect("", "free"), null);
+  });
+});
+
+describe("cameraOptions", () => {
+  it("starts with a disabled blank option and includes payload", () => {
+    const options = cameraOptions(FIXED_CAMERAS, "—");
+    assert.deepEqual(options[0], { value: "", label: "—", disabled: true });
+    assert.deepEqual(
+      options.filter((option) => option.value === "payload"),
+      [{ value: "payload", label: "Payload bay", disabled: false }],
+    );
   });
 });

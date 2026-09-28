@@ -43,7 +43,15 @@
 
       <div id="hud" class="broadcast-mode" aria-label="Mission controls">
         <header class="hud-header hud-chrome">
-          <a class="hud-menu-link" href="#/missions" title="Back to Mission Menu">← Missions</a>
+          <button
+            type="button"
+            id="btn-metrics"
+            class="hud-menu-button"
+            aria-pressed="false"
+            title="Menu (M)"
+          >
+            Menu
+          </button>
           <h1>Starbase → Moon</h1>
           <p class="subtitle">July 2027 · Boca Chica · true scale</p>
         </header>
@@ -168,6 +176,8 @@
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>-</kbd> slower · <kbd>+</kbd> faster</span>
               <span class="footer-sep" aria-hidden="true">·</span>
+              <span><kbd>←</kbd> back 1 s · <kbd>→</kbd> forward 1 s</span>
+              <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>P</kbd> play/pause</span>
               <span class="footer-sep" aria-hidden="true">·</span>
               <span><kbd>\</kbd> auto-cam</span>
@@ -189,192 +199,6 @@
             </div>
           </div>
         </div>
-
-        <section
-          class="panel telemetry hud-chrome"
-          aria-label="Flight physics"
-          aria-live="polite"
-        >
-          <div
-            id="mission-clock"
-            class="mission-clock"
-            role="timer"
-            aria-live="off"
-            aria-label="Mission elapsed time"
-          >
-            <span id="mission-clock-value">T+00:00:00</span>
-            <span id="mission-clock-rate" class="mission-clock-rate">1×</span>
-          </div>
-          <div><span class="label">Phase</span> <span id="phase">—</span></div>
-          <div><span class="label">Next</span> <span id="tel-next">—</span></div>
-          <div><span class="label">In phase</span> <span id="tel-phase-left">—</span></div>
-          <div>
-            <span class="label">Date</span>
-            <span id="date-texas">—</span>
-            <span id="date">—</span>
-            <span id="date-australia">—</span>
-          </div>
-          <div><span class="label">Range</span> <span id="distance">—</span></div>
-          <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
-          <div><span class="label">Speed</span> <span id="tel-speed">—</span></div>
-          <div class="fuel-row">
-            <span class="label">Booster</span>
-            <div class="fuel-meter">
-              <div class="fuel-bar" id="bar-booster"></div>
-            </div>
-            <span id="tel-booster">—</span>
-          </div>
-          <div class="fuel-row">
-            <span class="label">Ship fuel</span>
-            <div class="fuel-meter">
-              <div class="fuel-bar ship" id="bar-ship"></div>
-            </div>
-            <span id="tel-ship">—</span>
-          </div>
-          <div><span class="label">Thrust</span> <span id="tel-thrust">—</span></div>
-          <div><span class="label">Progress</span> <span id="progress">0%</span></div>
-          <div class="tel-sky">
-            <span class="label">Sky</span> <span id="tel-sky">—</span>
-          </div>
-          <div class="tel-actions">
-            <button
-              type="button"
-              id="btn-metrics"
-              aria-pressed="false"
-              title="Menu (M)"
-            >
-              Menu
-            </button>
-          </div>
-        </section>
-
-        <section
-          id="camera-rail"
-          class="panel camera-rail hud-chrome"
-          aria-label="Camera"
-        >
-          <div
-            class="cam-compass"
-            id="cam-compass"
-            aria-label="Camera heading relative to north"
-          >
-            <svg
-              id="cam-compass-svg"
-              class="cam-compass-svg"
-              viewBox="0 0 100 100"
-              aria-hidden="true"
-            >
-              <circle class="cam-compass-ring" cx="50" cy="50" r="47" />
-              <g class="cam-compass-ticks">
-                <line x1="50" y1="5" x2="50" y2="13" />
-                <line x1="95" y1="50" x2="87" y2="50" />
-                <line x1="50" y1="95" x2="50" y2="87" />
-                <line x1="5" y1="50" x2="13" y2="50" />
-                <line x1="82.5" y1="17.5" x2="77.5" y2="22.5" />
-                <line x1="82.5" y1="82.5" x2="77.5" y2="77.5" />
-                <line x1="17.5" y1="82.5" x2="22.5" y2="77.5" />
-                <line x1="17.5" y1="17.5" x2="22.5" y2="22.5" />
-              </g>
-              <text class="cam-compass-cardinal cam-compass-n" x="50" y="24">N</text>
-              <text class="cam-compass-cardinal" x="78" y="54">E</text>
-              <text class="cam-compass-cardinal" x="50" y="86">S</text>
-              <text class="cam-compass-cardinal" x="22" y="54">W</text>
-              <g id="cam-compass-needle">
-                <polygon
-                  class="cam-compass-needle-n"
-                  points="50,14 55,50 50,46 45,50"
-                />
-                <polygon
-                  class="cam-compass-needle-s"
-                  points="50,86 55,50 50,54 45,50"
-                />
-              </g>
-              <circle class="cam-compass-hub-outer" cx="50" cy="50" r="4" />
-              <circle class="cam-compass-hub-inner" cx="50" cy="50" r="1.8" />
-            </svg>
-            <span id="cam-compass-deg" class="cam-compass-deg">—</span>
-          </div>
-          <div>
-            <span class="label">Camera</span>
-            <span id="tel-cam-mode">—</span>
-            <span id="tel-cam-kind" class="cam-kind">—</span>
-          </div>
-          <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
-          <div>
-            <span class="label">Cam target</span>
-            <span id="tel-cam-target" class="cam-pose-vec">—</span>
-          </div>
-          <div id="tel-cam-alt-row" hidden>
-            <span class="label">Cam altitude</span>
-            <span id="tel-cam-alt">—</span>
-          </div>
-          <div>
-            <span class="label">Position</span>
-            <span id="tel-cam-pos" class="cam-pose-vec">—</span>
-          </div>
-          <div>
-            <span class="label">Direction</span>
-            <span id="tel-cam-dir" class="cam-pose-vec">—</span>
-          </div>
-          <div><span class="label">Auto-cam</span> <span id="tel-auto-cam">On</span></div>
-          <div class="cam-rail-groups" id="cam-grids">
-            <div class="cam-rail-group">
-              <span class="label">Free</span>
-              <div class="cam-grid" id="cam-grid-free" role="group" aria-label="Free cameras">
-                <button type="button" data-cam="sun" title="Free — Sun — look at the Sun" aria-label="Free — Sun — look at the Sun">☀️</button>
-                <button type="button" data-cam="earth" title="Free — Earth — wide view of the globe" aria-label="Free — Earth — wide view of the globe">🌍</button>
-                <button type="button" data-cam="moon" title="Free — Moon — look at the Moon" aria-label="Free — Moon — look at the Moon">🌙</button>
-                <button type="button" data-cam="booster" title="Free — Booster — Super Heavy from outside" aria-label="Free — Booster — Super Heavy from outside">🚀</button>
-                <button type="button" data-cam="tower" title="Free — Launch Tower — Mechazilla, pan along the ground" aria-label="Free — Launch Tower — Mechazilla, pan along the ground">🏗️</button>
-                <button type="button" data-cam="chase" title="Free — Starship — upper stage from outside" aria-label="Free — Starship — upper stage from outside">🚢</button>
-              </div>
-            </div>
-            <div class="cam-rail-group">
-              <span class="label">Mounted</span>
-              <div class="cam-grid" id="cam-grid-fixed" role="group" aria-label="Mounted cameras">
-                <button type="button" data-cam="aerial" title="Fixed — 1 — Launchpad Drone — wide hold of the stack" aria-label="Fixed — 1 — Launchpad Drone — wide hold of the stack">1️⃣</button>
-                <button type="button" data-cam="starbase" title="Fixed — 2 — Starbase pad — launch mount and Mechazilla" aria-label="Fixed — 2 — Starbase pad — launch mount and Mechazilla">2️⃣</button>
-                <button type="button" data-cam="trench" title="Fixed — 3 — Flame trench — looking up at the engine bells" aria-label="Fixed — 3 — Flame trench — looking up at the engine bells">3️⃣</button>
-                <button type="button" data-cam="ground1" title="Fixed — 4 — Ground Camera One — T−2 full stack and tower" aria-label="Fixed — 4 — Ground Camera One — T−2 full stack and tower">4️⃣</button>
-                <button type="button" data-cam="tower1cam" title="Fixed — Tower One Cam — OLP-1 peak looking at the stack" aria-label="Fixed — Tower One Cam — OLP-1 peak looking at the stack">T1</button>
-                <button type="button" data-cam="tower2cam" title="Fixed — Tower Two Cam — OLP-2 peak looking at the stack" aria-label="Fixed — Tower Two Cam — OLP-2 peak looking at the stack">T2</button>
-                <button type="button" data-cam="enginesDown" title="Fixed — 5 — Engines down — looking down through the plume" aria-label="Fixed — 5 — Engines down — looking down through the plume">5️⃣</button>
-                <button type="button" data-cam="hull" title="Fixed — 6 — Ship hull-cam — barrel and heat-shield tiles" aria-label="Fixed — 6 — Ship hull-cam — barrel and heat-shield tiles">6️⃣</button>
-                <button type="button" data-cam="engines" title="Fixed — 7 — Engine bay — looking at the Raptor bells" aria-label="Fixed — 7 — Engine bay — looking at the Raptor bells">7️⃣</button>
-                <button type="button" data-cam="gridfin" title="Fixed — 8 — Super Heavy — grid-fin and booster hull cam" aria-label="Fixed — 8 — Super Heavy — grid-fin and booster hull cam">8️⃣</button>
-                <button type="button" data-cam="fin" title="Fixed — 9 — Ship fin-cam — flaps and aft engines" aria-label="Fixed — 9 — Ship fin-cam — flaps and aft engines">9️⃣</button>
-                <button type="button" data-cam="drone" title="Fixed — 10 — Recovery drone — sea-level orbit of the floating ship" aria-label="Fixed — 10 — Recovery drone — sea-level orbit of the floating ship">🔟</button>
-              </div>
-            </div>
-            <p id="cam-lock-note" class="cam-lock-note" hidden role="status" aria-live="polite"></p>
-          </div>
-          <div class="cam-toggles" role="group" aria-label="View toggles">
-            <button
-              type="button"
-              id="btn-auto-cam"
-              aria-pressed="true"
-              title="Auto-cam (\)"
-            >
-              Autocam is on
-            </button>
-            <button
-              type="button"
-              id="btn-labels"
-              aria-pressed="false"
-              title="Scene labels (L)"
-            >
-              Labels is off
-            </button>
-            <button
-              type="button"
-              id="btn-orbits"
-              aria-pressed="false"
-              title="Orbit overlays (O)"
-            >
-              Orbits is off
-            </button>
-          </div>
-        </section>
 
         <div
           id="cam-ident"
@@ -456,6 +280,7 @@
                   <dl>
                     <div><dt><kbd>P</kbd> <kbd>Space</kbd></dt><dd>Play / pause</dd></div>
                     <div><dt><kbd>−</kbd> <kbd>+</kbd></dt><dd>Slower / faster — 1×, 10×, 60×, 3600×, 86400×</dd></div>
+                    <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back 1 s / Forward 1 s</dd></div>
                     <div><dt><kbd>0</kbd>–<kbd>9</kbd></dt><dd>Timeline bookmarks (0 is T−5:00)</dd></div>
                   </dl>
                 </section>
@@ -464,7 +289,7 @@
                   <dl>
                     <div><dt><kbd>H</kbd></dt><dd>This help</dd></div>
                     <div><dt><kbd>K</kbd></dt><dd>KeyMap</dd></div>
-                    <div><dt><kbd>M</kbd></dt><dd>Menu — telemetry, cameras, and the scrubber</dd></div>
+                    <div><dt><kbd>M</kbd></dt><dd>Menu — flight readouts, camera menus, and the scrubber</dd></div>
                     <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, flight graphs, cross-section, Earth great circle, polar map</dd></div>
                     <div><dt><kbd>Esc</kbd></dt><dd>Close the open screen</dd></div>
                   </dl>
@@ -502,7 +327,7 @@
                   </p>
                   <p>
                     While Auto-camera is on, the bottom of the screen is the webcast bar. It shows the engine lights, attitude, a short milestone line, the T+ or T− clock, and dials for speed and altitude.
-                    The telemetry rail, the camera buttons, and the scrubber stay hidden until you open the Menu.
+                    The flight readouts, the camera menus, and the scrubber stay hidden until you open the Menu. Left and right arrows step the clock one second without pausing.
                   </p>
                   <p>
                     Press <kbd>\</kbd> to turn Auto-camera off, and press it again to turn it back on.
@@ -526,7 +351,7 @@
                   <h3>Screens and dashboards</h3>
                   <p>
                     <kbd>H</kbd> opens this help. <kbd>K</kbd> opens the KeyMap, a keyboard with the action written on each key.
-                    <kbd>M</kbd> opens the Menu: telemetry, the camera buttons, and the scrubber.
+                    <kbd>M</kbd> opens the Menu: the flight readouts, the free and mounted camera dropdowns, and the scrubber.
                     The mission clock pauses while Help, the KeyMap, the Menu, or the flight graphs are open. Closing the last of them resumes playback if the theater was already playing.
                     <kbd>Esc</kbd> closes whichever of those screens is up.
                   </p>
@@ -548,7 +373,7 @@
                     They keep their frame. Movement keys do not steer them.
                   </p>
                   <p>
-                    <kbd>[</kbd> and <kbd>]</kbd> step through the camera list. Picking a camera turns Auto-camera off.
+                    The Menu lists free cameras and mounted cameras in two dropdowns. <kbd>[</kbd> and <kbd>]</kbd> step through that same list. Picking a camera turns Auto-camera off.
                   </p>
                 </section>
                 <section>
@@ -606,6 +431,35 @@
           aria-label="Menu"
         >
           <div class="keymap-card panel metrics-card">
+            <div class="metrics-controls">
+              <select id="cam-select-free" aria-label="Free cameras"></select>
+              <select id="cam-select-mounted" aria-label="Mounted cameras"></select>
+              <button
+                type="button"
+                id="btn-auto-cam"
+                aria-pressed="true"
+                title="Auto-cam (\)"
+              >
+                Autocam is on
+              </button>
+              <button
+                type="button"
+                id="btn-labels"
+                aria-pressed="false"
+                title="Scene labels (L)"
+              >
+                Labels is off
+              </button>
+              <button
+                type="button"
+                id="btn-orbits"
+                aria-pressed="false"
+                title="Orbit overlays (O)"
+              >
+                Orbits is off
+              </button>
+              <p id="cam-lock-note" class="cam-lock-note" hidden role="status" aria-live="polite"></p>
+            </div>
             <div class="menu-top">
               <a class="menu-go-missions" href="#/missions">Go to Mission Menu</a>
             </div>
@@ -615,66 +469,177 @@
                 ×
               </button>
             </header>
-            <div class="keymap-body metrics-body">
-              <section class="keymap-section">
-                <h3>Epoch</h3>
-                <dl>
-                  <div><dt>Phase</dt><dd id="mx-phase">—</dd></div>
-                  <div><dt>Mission t</dt><dd id="mx-time">—</dd></div>
-                  <div><dt>Texas</dt><dd id="mx-date-texas">—</dd></div>
-                  <div><dt>UTC</dt><dd id="mx-date">—</dd></div>
-                  <div><dt>Australia</dt><dd id="mx-date-australia">—</dd></div>
-                  <div><dt>Sky</dt><dd id="mx-sky">—</dd></div>
-                  <div><dt>Progress</dt><dd id="mx-progress">—</dd></div>
-                  <div><dt>Playback</dt><dd id="mx-playback">—</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Distances</h3>
-                <dl>
-                  <div><dt>Alt Earth</dt><dd id="mx-alt-earth">—</dd></div>
-                  <div><dt>r Earth</dt><dd id="mx-r-earth">—</dd></div>
-                  <div><dt>Alt Moon</dt><dd id="mx-alt-moon">—</dd></div>
-                  <div><dt>To Moon sfc</dt><dd id="mx-dist-moon">—</dd></div>
-                  <div><dt>r Moon</dt><dd id="mx-r-moon">—</dd></div>
-                  <div><dt>Cam range</dt><dd id="mx-cam">—</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Speed</h3>
-                <dl>
-                  <div><dt>Inertial |v|</dt><dd id="mx-speed">—</dd></div>
-                  <div><dt>vs Earth</dt><dd id="mx-speed-earth">—</dd></div>
-                  <div><dt>vs Moon</dt><dd id="mx-speed-moon">—</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Propulsion</h3>
-                <dl>
-                  <div><dt>Booster prop</dt><dd id="mx-booster">—</dd></div>
-                  <div><dt>Ship prop</dt><dd id="mx-ship">—</dd></div>
-                  <div><dt>Wet mass</dt><dd id="mx-mass">—</dd></div>
-                  <div><dt>Thrust</dt><dd id="mx-thrust">—</dd></div>
-                  <div><dt>Accel</dt><dd id="mx-accel">—</dd></div>
-                  <div><dt>Engines</dt><dd id="mx-engines">—</dd></div>
-                  <div><dt>Staged</dt><dd id="mx-staged">—</dd></div>
-                </dl>
-              </section>
-              <section class="keymap-section">
-                <h3>Mission (baked)</h3>
-                <dl>
-                  <div><dt>Duration</dt><dd id="mx-duration">—</dd></div>
-                  <div><dt>Translunar injection Δv</dt><dd id="mx-translunar-injection-delta-v">—</dd></div>
-                  <div><dt>Min lunar alt</dt><dd id="mx-minalt">—</dd></div>
-                  <div><dt>Peak |v|</dt><dd id="mx-peak-speed">—</dd></div>
-                  <div><dt>Stage-out</dt><dd id="mx-stage-t">—</dd></div>
-                  <div><dt>Kepler max |Δr|</dt><dd id="mx-kepler-dev">—</dd></div>
-                  <div id="mx-force-row" hidden>
-                    <dt>Force check</dt>
-                    <dd id="mx-force-check">—</dd>
+            <div class="metrics-scroll">
+              <div class="metrics-flight" aria-label="Flight physics">
+                <div
+                  id="mission-clock"
+                  class="mission-clock"
+                  role="timer"
+                  aria-live="off"
+                  aria-label="Mission elapsed time"
+                >
+                  <span id="mission-clock-value">T+00:00:00</span>
+                  <span id="mission-clock-rate" class="mission-clock-rate">1×</span>
+                </div>
+                <div><span class="label">Phase</span> <span id="phase">—</span></div>
+                <div><span class="label">Next</span> <span id="tel-next">—</span></div>
+                <div><span class="label">In phase</span> <span id="tel-phase-left">—</span></div>
+                <div>
+                  <span class="label">Date</span>
+                  <span id="date-texas">—</span>
+                  <span id="date">—</span>
+                  <span id="date-australia">—</span>
+                </div>
+                <div><span class="label">Range</span> <span id="distance">—</span></div>
+                <div><span class="label">Altitude</span> <span id="tel-altitude">—</span></div>
+                <div><span class="label">Speed</span> <span id="tel-speed">—</span></div>
+                <div class="fuel-row">
+                  <span class="label">Booster</span>
+                  <div class="fuel-meter">
+                    <div class="fuel-bar" id="bar-booster"></div>
                   </div>
-                </dl>
-              </section>
+                  <span id="tel-booster">—</span>
+                </div>
+                <div class="fuel-row">
+                  <span class="label">Ship fuel</span>
+                  <div class="fuel-meter">
+                    <div class="fuel-bar ship" id="bar-ship"></div>
+                  </div>
+                  <span id="tel-ship">—</span>
+                </div>
+                <div><span class="label">Thrust</span> <span id="tel-thrust">—</span></div>
+                <div><span class="label">Progress</span> <span id="progress">0%</span></div>
+                <div class="tel-sky">
+                  <span class="label">Sky</span> <span id="tel-sky">—</span>
+                </div>
+              </div>
+              <div class="metrics-camera" aria-label="Camera">
+                <div
+                  class="cam-compass"
+                  id="cam-compass"
+                  aria-label="Camera heading relative to north"
+                >
+                  <svg
+                    id="cam-compass-svg"
+                    class="cam-compass-svg"
+                    viewBox="0 0 100 100"
+                    aria-hidden="true"
+                  >
+                    <circle class="cam-compass-ring" cx="50" cy="50" r="47" />
+                    <g class="cam-compass-ticks">
+                      <line x1="50" y1="5" x2="50" y2="13" />
+                      <line x1="95" y1="50" x2="87" y2="50" />
+                      <line x1="50" y1="95" x2="50" y2="87" />
+                      <line x1="5" y1="50" x2="13" y2="50" />
+                      <line x1="82.5" y1="17.5" x2="77.5" y2="22.5" />
+                      <line x1="82.5" y1="82.5" x2="77.5" y2="77.5" />
+                      <line x1="17.5" y1="82.5" x2="22.5" y2="77.5" />
+                      <line x1="17.5" y1="17.5" x2="22.5" y2="22.5" />
+                    </g>
+                    <text class="cam-compass-cardinal cam-compass-n" x="50" y="24">N</text>
+                    <text class="cam-compass-cardinal" x="78" y="54">E</text>
+                    <text class="cam-compass-cardinal" x="50" y="86">S</text>
+                    <text class="cam-compass-cardinal" x="22" y="54">W</text>
+                    <g id="cam-compass-needle">
+                      <polygon
+                        class="cam-compass-needle-n"
+                        points="50,14 55,50 50,46 45,50"
+                      />
+                      <polygon
+                        class="cam-compass-needle-s"
+                        points="50,86 55,50 50,54 45,50"
+                      />
+                    </g>
+                    <circle class="cam-compass-hub-outer" cx="50" cy="50" r="4" />
+                    <circle class="cam-compass-hub-inner" cx="50" cy="50" r="1.8" />
+                  </svg>
+                  <span id="cam-compass-deg" class="cam-compass-deg">—</span>
+                </div>
+                <div>
+                  <span class="label">Camera</span>
+                  <span id="tel-cam-mode">—</span>
+                  <span id="tel-cam-kind" class="cam-kind">—</span>
+                </div>
+                <div><span class="label">Cam range</span> <span id="tel-cam">—</span></div>
+                <div>
+                  <span class="label">Cam target</span>
+                  <span id="tel-cam-target" class="cam-pose-vec">—</span>
+                </div>
+                <div id="tel-cam-alt-row" hidden>
+                  <span class="label">Cam altitude</span>
+                  <span id="tel-cam-alt">—</span>
+                </div>
+                <div>
+                  <span class="label">Position</span>
+                  <span id="tel-cam-pos" class="cam-pose-vec">—</span>
+                </div>
+                <div>
+                  <span class="label">Direction</span>
+                  <span id="tel-cam-dir" class="cam-pose-vec">—</span>
+                </div>
+                <div><span class="label">Auto-cam</span> <span id="tel-auto-cam">On</span></div>
+              </div>
+              <div class="keymap-body metrics-body">
+                <section class="keymap-section">
+                  <h3>Epoch</h3>
+                  <dl>
+                    <div><dt>Phase</dt><dd id="mx-phase">—</dd></div>
+                    <div><dt>Mission t</dt><dd id="mx-time">—</dd></div>
+                    <div><dt>Texas</dt><dd id="mx-date-texas">—</dd></div>
+                    <div><dt>UTC</dt><dd id="mx-date">—</dd></div>
+                    <div><dt>Australia</dt><dd id="mx-date-australia">—</dd></div>
+                    <div><dt>Sky</dt><dd id="mx-sky">—</dd></div>
+                    <div><dt>Progress</dt><dd id="mx-progress">—</dd></div>
+                    <div><dt>Playback</dt><dd id="mx-playback">—</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Distances</h3>
+                  <dl>
+                    <div><dt>Alt Earth</dt><dd id="mx-alt-earth">—</dd></div>
+                    <div><dt>r Earth</dt><dd id="mx-r-earth">—</dd></div>
+                    <div><dt>Alt Moon</dt><dd id="mx-alt-moon">—</dd></div>
+                    <div><dt>To Moon sfc</dt><dd id="mx-dist-moon">—</dd></div>
+                    <div><dt>r Moon</dt><dd id="mx-r-moon">—</dd></div>
+                    <div><dt>Cam range</dt><dd id="mx-cam">—</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Speed</h3>
+                  <dl>
+                    <div><dt>Inertial |v|</dt><dd id="mx-speed">—</dd></div>
+                    <div><dt>vs Earth</dt><dd id="mx-speed-earth">—</dd></div>
+                    <div><dt>vs Moon</dt><dd id="mx-speed-moon">—</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Propulsion</h3>
+                  <dl>
+                    <div><dt>Booster prop</dt><dd id="mx-booster">—</dd></div>
+                    <div><dt>Ship prop</dt><dd id="mx-ship">—</dd></div>
+                    <div><dt>Wet mass</dt><dd id="mx-mass">—</dd></div>
+                    <div><dt>Thrust</dt><dd id="mx-thrust">—</dd></div>
+                    <div><dt>Accel</dt><dd id="mx-accel">—</dd></div>
+                    <div><dt>Engines</dt><dd id="mx-engines">—</dd></div>
+                    <div><dt>Staged</dt><dd id="mx-staged">—</dd></div>
+                  </dl>
+                </section>
+                <section class="keymap-section">
+                  <h3>Mission (baked)</h3>
+                  <dl>
+                    <div><dt>Duration</dt><dd id="mx-duration">—</dd></div>
+                    <div><dt>Translunar injection Δv</dt><dd id="mx-translunar-injection-delta-v">—</dd></div>
+                    <div><dt>Min lunar alt</dt><dd id="mx-minalt">—</dd></div>
+                    <div><dt>Peak |v|</dt><dd id="mx-peak-speed">—</dd></div>
+                    <div><dt>Stage-out</dt><dd id="mx-stage-t">—</dd></div>
+                    <div><dt>Kepler max |Δr|</dt><dd id="mx-kepler-dev">—</dd></div>
+                    <div id="mx-force-row" hidden>
+                      <dt>Force check</dt>
+                      <dd id="mx-force-check">—</dd>
+                    </div>
+                  </dl>
+                </section>
+            </div>
             </div>
             <p class="metrics-foot">Paused while open · <kbd>M</kbd> / <kbd>Esc</kbd> close</p>
           </div>

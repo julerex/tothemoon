@@ -58,8 +58,8 @@ function mockCtx() {
 }
 
 describe("visualKeymap layout", () => {
-  it("has five rows of keys", () => {
-    assert.equal(KEYMAP_ROWS.length, 5);
+  it("has six rows of keys", () => {
+    assert.equal(KEYMAP_ROWS.length, 6);
   });
 
   it("includes core bound actions", () => {
@@ -101,6 +101,8 @@ describe("visualKeymap layout", () => {
     assert.equal(actions.get("K"), "KeyMap");
     assert.equal(actions.get("M"), "Menu");
     assert.equal(actions.get("Esc"), "Close");
+    assert.equal(actions.get("←"), "Back 1 s");
+    assert.equal(actions.get("→"), "Forward 1 s");
   });
 
   it("replaces Bookmark captions with the mission stage names", () => {
@@ -181,9 +183,14 @@ describe("visualKeymap layout", () => {
       const last = slots[slots.length - 1]!;
       assert.ok(Math.abs(last.x + last.w - w) < 1e-6);
     }
-    const bottom = KEYMAP_ROWS[4]!;
+    const bottom = KEYMAP_ROWS.find((row) => row.some((key) => key.label === "Space"))!;
     const space = bottom.findIndex((key) => key.label === "Space");
     assert.ok(rowKeySlots(bottom, w)[space]!.w > (bottom[space]!.w ?? 1));
+    const arrows = KEYMAP_ROWS[5]!;
+    assert.equal(arrows[0]!.label, "←");
+    assert.equal(arrows[0]!.action, "Back 1 s");
+    assert.equal(arrows[1]!.label, "→");
+    assert.equal(arrows[1]!.action, "Forward 1 s");
   });
 
   it("boardSizeUnits is finite and positive", () => {

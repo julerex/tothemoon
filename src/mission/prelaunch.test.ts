@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  physicsDurationForTimeline,
+  physicsStepTransportU,
   PRELAUNCH_COUNTDOWN_S,
   physicsTToSampleU,
   physicsTToTransportU,
@@ -50,5 +52,36 @@ describe("prelaunch countdown", () => {
     assert.ok(
       Math.abs(remapped.events[0]!.u - PRELAUNCH_COUNTDOWN_S / total) < 1e-9,
     );
+  });
+});
+
+describe("physicsStepTransportU", () => {
+  it("steps one physics second forward from liftoff", () => {
+    assert.equal(physicsStepTransportU(0, 1, 1000), physicsTToTransportU(1, 1000));
+  });
+
+  it("stays at the countdown start when stepping backward", () => {
+    assert.equal(
+      physicsStepTransportU(-300, -1, 1000),
+      physicsTToTransportU(-300, 1000),
+    );
+  });
+
+  it("stays at the physics duration when stepping forward", () => {
+    assert.equal(
+      physicsStepTransportU(1000, 1, 1000),
+      physicsTToTransportU(1000, 1000),
+    );
+  });
+});
+
+describe("physicsDurationForTimeline", () => {
+  it("accepts a span whose transport length matches the timeline", () => {
+    assert.equal(physicsDurationForTimeline(1000, transportDurationS(1000)), 1000);
+  });
+
+  it("throws when given the transport length itself", () => {
+    const transport = transportDurationS(1000);
+    assert.throws(() => physicsDurationForTimeline(transport, transport));
   });
 });

@@ -94,6 +94,10 @@ export const KEYMAP_ROWS: readonly KeyRow[] = [
     { label: "Alt", w: 1.25 },
     { label: "Ctrl", w: 1.5 },
   ],
+  [
+    { label: "←", action: "Back 1 s" },
+    { label: "→", action: "Forward 1 s" },
+  ],
 ];
 
 /**

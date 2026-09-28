@@ -3,6 +3,7 @@
  */
 
 import type { CinematicBookmark } from "../mission/bookmarks";
+import { physicsStepTransportU, transportUToPhysicsT } from "../mission/prelaunch";
 import type { MissionEvent } from "../mission/timeline";
 import {
   formatTickerCrawl,
@@ -167,6 +168,12 @@ function onReplayClick(rt: HudRuntime): void {
 
 export function wireReplay(rt: HudRuntime): void {
   rt.dom.mcReplay?.addEventListener("click", () => onReplayClick(rt));
+}
+
+export function seekOnePhysicsSecond(rt: HudRuntime, dir: -1 | 1): void {
+  const dur = rt.data.physicsDurationS;
+  const physicsT = transportUToPhysicsT(rt.data.clock.t, dur);
+  rt.data.handlers.onScrub(physicsStepTransportU(physicsT, dir, dur));
 }
 
 export function wireScrubChrome(rt: HudRuntime): void {

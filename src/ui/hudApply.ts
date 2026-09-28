@@ -99,18 +99,6 @@ function applyMainStripCore(dom: HudDom, m: MainTelemetryLabels): void {
   dom.altEl.textContent = m.altitude;
 }
 
-/** Highlight the active camera-focus button on the right rail. */
-export function applyCameraGridPressed(
-  grid: HTMLElement | null,
-  mode: string,
-): void {
-  if (!grid) return;
-  for (const btn of grid.querySelectorAll<HTMLButtonElement>("[data-cam]")) {
-    btn.setAttribute("aria-pressed", btn.dataset.cam === mode ? "true" : "false");
-  }
-}
-
-/** Visible on/off copy for a rail toggle (`Autocam is on`). */
 export function toggleIsOnLabel(name: string, enabled: boolean): string {
   return `${name} is ${enabled ? "on" : "off"}`;
 }

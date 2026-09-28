@@ -4,6 +4,8 @@
  */
 
 import type { MissionClock } from "../mission/clock";
+import { physicsDurationForTimeline } from "../mission/prelaunch";
+import type { PhysicsDurationS } from "../mission/prelaunch";
 import type { CameraMode } from "../camera/modes";
 import { buildBookmarks } from "../mission/bookmarks";
 import { buildScrubEventTicks } from "../mission/scrubEvents";
@@ -94,8 +96,6 @@ function createHudFlagsB(): Pick<
   | "autoCamEnabled"
   | "labelsEnabled"
   | "orbitsEnabled"
-  | "lastCamKey"
-  | "lastCamKeyT"
 > {
   return {
     hudVisible: true,
@@ -103,8 +103,6 @@ function createHudFlagsB(): Pick<
     autoCamEnabled: true,
     labelsEnabled: false,
     orbitsEnabled: false,
-    lastCamKey: null,
-    lastCamKeyT: 0,
   };
 }
 
@@ -133,23 +131,27 @@ function stageDerived(
 }
 
 function buildHudData(
+  clock: MissionClock,
   timeline: MissionTimeline,
   handlers: HudHandlers,
+  physicsDurationS: PhysicsDurationS,
   samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
   epoch: EphemerisEpoch,
 ): HudData {
   const derived = stageDerived(samples, recoveryProfile, epoch);
   return {
-    timeline, handlers, samples, recoveryProfile,
+    clock, physicsDurationS, timeline, handlers, samples, recoveryProfile,
     bookmarks: buildBookmarks(timeline), scrubEventTicks: buildScrubEventTicks(timeline.events),
     newsBeats: buildNewsBeats(timeline), ...derived, epoch,
   };
 }
 
 function createHudRuntime(
+  clock: MissionClock,
   timeline: MissionTimeline,
   handlers: HudHandlers,
+  physicsDurationS: PhysicsDurationS,
   samples: readonly ReadonlySample[],
   recoveryProfile: RecoveryProfile,
   epoch: EphemerisEpoch,
@@ -158,7 +160,9 @@ function createHudRuntime(
   ensurePolarOverlayBound();
   ensureFlightGraphsBound();
   setPolarOverlaySamples(samples);
-  const data = buildHudData(timeline, handlers, samples, recoveryProfile, epoch);
+  const data = buildHudData(
+    clock, timeline, handlers, physicsDurationS, samples, recoveryProfile, epoch,
+  );
   setFlightGraphsSeries(buildFlightGraphSeries({
     samples,
     stage: data.stageState,
@@ -242,9 +246,10 @@ function wireHud(rt: HudRuntime): void {
  * Bind the mission theater HUD. Returns per-frame update + Auto-cam sync.
  */
 export function bindHud(
-  _clock: MissionClock,
+  clock: MissionClock,
   timeline: MissionTimeline,
   handlers: HudHandlers,
+  physicsDurationS: number,
   samples: readonly ReadonlySample[] = [],
   recoveryProfile: RecoveryProfile = "chopsticks",
   epoch: EphemerisEpoch = DEFAULT_EPHEMERIS,
@@ -254,7 +259,8 @@ export function bindHud(
   notifyAutoCamera: (mode: CameraMode) => void;
   notifyFixedCamMove: () => void;
 } {
-  const rt = createHudRuntime(timeline, handlers, samples, recoveryProfile, epoch);
+  const span = physicsDurationForTimeline(physicsDurationS, timeline.durationS);
+  const rt = createHudRuntime(clock, timeline, handlers, span, samples, recoveryProfile, epoch);
   wireHud(rt);
   return {
     update: (tel) => update(rt, tel),

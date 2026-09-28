@@ -59,7 +59,7 @@ export function bindHudPack(
     setOrbits(next);
     return next;
   }, setOrbits);
-  const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), cache.samples, "chopsticks", cache.epoch);
+  const hud = bindHud(clockPack.clock, clockPack.timeline, makeTheaterHudHandlers(wire), clockPack.physicsDurationS, cache.samples, "chopsticks", cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   world.director.setOnUserControl(() => disableAutoCam());
   world.director.setOnFixedMoveAttempt(() => hud.notifyFixedCamMove());
