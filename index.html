@@ -465,7 +465,7 @@
                     <div><dt><kbd>H</kbd></dt><dd>This help</dd></div>
                     <div><dt><kbd>K</kbd></dt><dd>KeyMap</dd></div>
                     <div><dt><kbd>M</kbd></dt><dd>Menu — telemetry, cameras, and the scrubber</dd></div>
-                    <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, cross-section, Earth great circle, polar map</dd></div>
+                    <div><dt><kbd>Tab</kbd></dt><dd>Cycle dashboards: main, flight graphs, cross-section, Earth great circle, polar map</dd></div>
                     <div><dt><kbd>Esc</kbd></dt><dd>Close the open screen</dd></div>
                   </dl>
                 </section>
@@ -527,12 +527,12 @@
                   <p>
                     <kbd>H</kbd> opens this help. <kbd>K</kbd> opens the KeyMap, a keyboard with the action written on each key.
                     <kbd>M</kbd> opens the Menu: telemetry, the camera buttons, and the scrubber.
-                    The mission clock pauses while Help, the KeyMap, or the Menu is open. Closing the last of them resumes playback if the theater was already playing.
+                    The mission clock pauses while Help, the KeyMap, the Menu, or the flight graphs are open. Closing the last of them resumes playback if the theater was already playing.
                     <kbd>Esc</kbd> closes whichever of those screens is up.
                   </p>
                   <p>
-                    <kbd>Tab</kbd> does not open the KeyMap. It cycles the theater pictures: the main view, the ascent cross-section, the Earth great-circle slice, and the polar map.
-                    The clock keeps running through that cycle.
+                    <kbd>Tab</kbd> does not open the KeyMap. It cycles the theater pictures: the main view, the flight graphs, the ascent cross-section, the Earth great-circle slice, and the polar map.
+                    The flight graphs pause the clock. The other pictures leave it running.
                   </p>
                 </section>
                 <section>
@@ -714,8 +714,46 @@
               ></canvas>
             </div>
             <p class="metrics-foot">
-              Live at scrubber time · <kbd>Tab</kbd> cycle main · cross-section · Earth GC · Polar ·
+              Live at scrubber time · <kbd>Tab</kbd> cycle main · graphs · cross-section · Earth GC · Polar ·
               <kbd>Esc</kbd> close · play continues
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="flight-graphs"
+          class="keymap cross-section flight-graphs"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="flight-graphs-title"
+        >
+          <div class="keymap-card panel cross-section-card">
+            <header class="keymap-header cross-section-header">
+              <h2 id="flight-graphs-title">Flight graphs</h2>
+              <button
+                type="button"
+                id="flight-graphs-close"
+                class="keymap-close"
+                title="Close (Tab or Esc)"
+                aria-label="Close flight graphs"
+              >
+                ×
+              </button>
+            </header>
+            <p class="cross-section-sub">
+              Altitude, ground speed, and non-gravitational acceleration · Starship solid · Super Heavy dashed
+            </p>
+            <div class="cross-section-canvas-wrap">
+              <canvas
+                id="flight-graphs-canvas"
+                width="960"
+                height="540"
+                aria-label="Altitude, speed, and acceleration graphs for Starship and Super Heavy"
+              ></canvas>
+            </div>
+            <p class="metrics-foot">
+              Paused while open · playhead is the theater clock · <kbd>Tab</kbd> cycle · <kbd>Esc</kbd> close
             </p>
           </div>
         </div>
@@ -826,7 +864,7 @@
             ></canvas>
           </div>
           <p class="metrics-foot">
-            <kbd>Tab</kbd> cycle main · cross-section · Earth GC · Polar ·
+            <kbd>Tab</kbd> cycle main · graphs · cross-section · Earth GC · Polar ·
             <kbd>Esc</kbd> close
           </p>
         </div>
@@ -865,7 +903,8 @@
             ></canvas>
           </div>
           <p class="metrics-foot">
-            Live at scrubber time · <kbd>Tab</kbd> cycle · <kbd>Esc</kbd> close · play continues
+            Live at scrubber time · <kbd>Tab</kbd> cycle main · graphs · cross-section · Earth GC · Polar ·
+            <kbd>Esc</kbd> close · play continues
           </p>
         </div>
       </div>

@@ -23,6 +23,13 @@ import {
 } from "./crossSection";
 import { ensureEarthGcOverlayBound, isEarthGcOverlayOpen, redrawEarthGcOverlay } from "./earthGcOverlay";
 import { parseSpeedMode } from "./hudFormat";
+import { buildFlightGraphSeries } from "./flightGraphsSeries";
+import {
+  ensureFlightGraphsBound,
+  redrawFlightGraphs,
+  setFlightGraphsMissionT,
+  setFlightGraphsSeries,
+} from "./flightGraphsOverlay";
 import {
   ensurePolarOverlayBound,
   isPolarOverlayOpen,
@@ -70,11 +77,13 @@ function createHudFlagsA(): Pick<
   | "keymapOpen"
   | "helpOpen"
   | "metricsOpen"
+  | "graphsOpen"
   | "crossSectionOpen"
 > {
   return {
     scrubbing: false, lastPhase: null, lastPlaying: false, overlayResumePlay: false,
-    completeShown: false, keymapOpen: false, helpOpen: false, metricsOpen: false, crossSectionOpen: false,
+    completeShown: false, keymapOpen: false, helpOpen: false, metricsOpen: false,
+    graphsOpen: false, crossSectionOpen: false,
   };
 }
 
@@ -147,10 +156,18 @@ function createHudRuntime(
 ): HudRuntime {
   ensureEarthGcOverlayBound();
   ensurePolarOverlayBound();
+  ensureFlightGraphsBound();
   setPolarOverlaySamples(samples);
+  const data = buildHudData(timeline, handlers, samples, recoveryProfile, epoch);
+  setFlightGraphsSeries(buildFlightGraphSeries({
+    samples,
+    stage: data.stageState,
+    keyframes: data.boosterKeyframes,
+    epoch,
+    durationS: timeline.durationS,
+  }));
   return {
-    dom: collectHudDom(), mx: collectMetricsDom(), flags: createHudFlags(),
-    data: buildHudData(timeline, handlers, samples, recoveryProfile, epoch),
+    dom: collectHudDom(), mx: collectMetricsDom(), flags: createHudFlags(), data,
   };
 }
 
@@ -170,6 +187,8 @@ function updateOverlays(rt: HudRuntime, tel: Telemetry, view: ReturnType<typeof 
   if (isEarthGcOverlayOpen()) redrawEarthGcOverlay();
   setPolarOverlayMissionT(tel.t);
   if (isPolarOverlayOpen()) redrawPolarOverlay();
+  setFlightGraphsMissionT(tel.t);
+  if (rt.flags.graphsOpen) redrawFlightGraphs();
   if (rt.flags.keymapOpen) redrawKeymap(rt);
 }
 

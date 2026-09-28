@@ -104,6 +104,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       "Livestream-style mounts on the Fixed rail (launch drone, Ground Camera One, Tower One / Tower Two peak cams, Starbase, trench, engine bay, hull, grid-fin, ship fin, recovery drone). Pan, orbit, and zoom are locked; a notice appears if you try. Pick a Free camera to look around.",
   },
   {
+    id: "flight-graphs",
+    term: "Flight graphs",
+    category: "views",
+    definition:
+      "Dashboard of altitude, ground speed, and non-gravitational acceleration for Starship and Super Heavy across the flight. A vertical line marks the theater clock. Open with Tab. The mission pauses while it is open and resumes on close if it was playing.",
+  },
+  {
     id: "flame-trench",
     term: "Flame trench",
     category: "vehicle",

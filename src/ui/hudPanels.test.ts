@@ -1,13 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextOverlayPlayback, nextTheaterDashboard } from "./hudPanels.ts";
+import { clockHeldByOverlay, nextOverlayPlayback, nextTheaterDashboard } from "./hudPanels.ts";
 
 describe("nextTheaterDashboard", () => {
   it("cycles the dashboards and skips the KeyMap", () => {
-    assert.equal(nextTheaterDashboard("main"), "cross");
+    assert.equal(nextTheaterDashboard("main"), "graphs");
+    assert.equal(nextTheaterDashboard("graphs"), "cross");
     assert.equal(nextTheaterDashboard("cross"), "earthGc");
     assert.equal(nextTheaterDashboard("earthGc"), "polar");
     assert.equal(nextTheaterDashboard("polar"), "main");
+  });
+});
+
+describe("clockHeldByOverlay", () => {
+  const closed = { metricsOpen: false, keymapOpen: false, helpOpen: false, graphsOpen: false };
+
+  it("pauses on the flight graphs and leaves the other pictures running", () => {
+    assert.equal(clockHeldByOverlay({ ...closed, graphsOpen: true }), true);
+    assert.equal(clockHeldByOverlay({ ...closed, metricsOpen: true }), true);
+    assert.equal(clockHeldByOverlay(closed), false);
   });
 });
 
