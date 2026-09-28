@@ -72,6 +72,8 @@ export type HudFlags = {
   keymapOpen: boolean;
   helpOpen: boolean;
   metricsOpen: boolean;
+  /** Flight graphs dashboard. Holds the mission clock while open. */
+  graphsOpen: boolean;
   crossSectionOpen: boolean;
   hudVisible: boolean;
   lastCamMode: CameraMode;

@@ -1,5 +1,5 @@
 /**
- * Exclusive HUD panels: keymap, metrics, cross-section, Earth GC, polar map.
+ * Exclusive HUD panels: keymap, metrics, flight graphs, cross-section, Earth GC, polar map.
  */
 
 import {
@@ -10,6 +10,7 @@ import {
   isEarthGcOverlayOpen,
   setEarthGcOverlayOpen,
 } from "./earthGcOverlay";
+import { setFlightGraphsVisible } from "./flightGraphsOverlay";
 import { applyPressed } from "./hudApply";
 import type { HudRuntime } from "./hudTypes";
 import {
@@ -31,14 +32,28 @@ function closeOtherPanels(rt: HudRuntime, keep: string): void {
   if (keep !== "keymap") setKeymapOpen(rt, false);
   if (keep !== "help") setHelpOpen(rt, false);
   if (keep !== "metrics") setMetricsOpen(rt, false);
+  if (keep !== "graphs") setGraphsOpen(rt, false);
   if (keep !== "cross") setCrossSectionOpen(rt, false);
   if (keep !== "earthGc") setEarthGcOpen(rt, false);
   if (keep !== "polar") setPolarMapOpen(rt, false);
 }
 
-/** Menu, KeyMap, or Help is up, so the mission clock stays paused. */
+/** Flags that hold the mission clock (Menu, KeyMap, Help, flight graphs). */
+export type PauseOverlayFlags = {
+  metricsOpen: boolean;
+  keymapOpen: boolean;
+  helpOpen: boolean;
+  graphsOpen: boolean;
+};
+
+/** True while a pause overlay is up. Flight graphs pause; the other pictures do not. */
+export function clockHeldByOverlay(flags: PauseOverlayFlags): boolean {
+  return flags.metricsOpen || flags.keymapOpen || flags.helpOpen || flags.graphsOpen;
+}
+
+/** Menu, KeyMap, Help, or flight graphs is up, so the mission clock stays paused. */
 export function playbackOverlayOpen(rt: HudRuntime): boolean {
-  return rt.flags.metricsOpen || rt.flags.keymapOpen || rt.flags.helpOpen;
+  return clockHeldByOverlay(rt.flags);
 }
 
 export function setHelpOpen(rt: HudRuntime, open: boolean): void {
@@ -64,8 +79,8 @@ export function setKeymapOpen(rt: HudRuntime, open: boolean): void {
 }
 
 /**
- * Opening the Menu, KeyMap, or Help pauses. Closing the last of them resumes only
- * when the theater was playing. `playing: null` leaves the clock alone.
+ * Opening the Menu, KeyMap, Help, or flight graphs pauses. Closing the last of
+ * them resumes only when the theater was playing. `playing: null` leaves the clock alone.
  */
 export function nextOverlayPlayback(
   holding: boolean,
@@ -94,6 +109,15 @@ export function setMetricsOpen(rt: HudRuntime, open: boolean): void {
   syncOverlayPlayback(rt, wasHolding);
 }
 
+export function setGraphsOpen(rt: HudRuntime, open: boolean): void {
+  const wasHolding = playbackOverlayOpen(rt);
+  rt.flags.graphsOpen = open;
+  setFlightGraphsVisible(open);
+  rt.dom.hudRoot?.classList.toggle("flight-graphs-open", open);
+  if (open) closeOtherPanels(rt, "graphs");
+  syncOverlayPlayback(rt, wasHolding);
+}
+
 export function setCrossSectionOpen(rt: HudRuntime, open: boolean): void {
   rt.flags.crossSectionOpen = open;
   if (rt.dom.crossSectionEl) rt.dom.crossSectionEl.hidden = !open;
@@ -117,20 +141,22 @@ export function setPolarMapOpen(rt: HudRuntime, open: boolean): void {
 }
 
 /** Tab dashboards. The KeyMap is not one of them. */
-export type TheaterDashboard = "main" | "cross" | "earthGc" | "polar";
+export type TheaterDashboard = "main" | "graphs" | "cross" | "earthGc" | "polar";
 
 /**
- * Tab cycle: main → ascent cross-section → Earth GC → Polar → main.
- * Menu (M) and KeyMap (K) stay off this cycle.
+ * Tab cycle: main → flight graphs → ascent cross-section → Earth GC → Polar → main.
+ * Menu (M) and KeyMap (K) stay off this cycle. Flight graphs pause the clock.
  */
 export function nextTheaterDashboard(current: TheaterDashboard): TheaterDashboard {
-  if (current === "main") return "cross";
+  if (current === "main") return "graphs";
+  if (current === "graphs") return "cross";
   if (current === "cross") return "earthGc";
   if (current === "earthGc") return "polar";
   return "main";
 }
 
 function currentDashboard(rt: HudRuntime): TheaterDashboard {
+  if (rt.flags.graphsOpen) return "graphs";
   if (rt.flags.crossSectionOpen) return "cross";
   if (isEarthGcOverlayOpen()) return "earthGc";
   if (isPolarOverlayOpen()) return "polar";
@@ -138,10 +164,12 @@ function currentDashboard(rt: HudRuntime): TheaterDashboard {
 }
 
 function showDashboard(rt: HudRuntime, id: TheaterDashboard): void {
-  if (id === "cross") setCrossSectionOpen(rt, true);
+  if (id === "graphs") setGraphsOpen(rt, true);
+  else if (id === "cross") setCrossSectionOpen(rt, true);
   else if (id === "earthGc") setEarthGcOpen(rt, true);
   else if (id === "polar") setPolarMapOpen(rt, true);
   else {
+    setGraphsOpen(rt, false);
     setCrossSectionOpen(rt, false);
     setEarthGcOpen(rt, false);
     setPolarMapOpen(rt, false);
@@ -205,6 +233,7 @@ export function anyPanelOpen(rt: HudRuntime): boolean {
     rt.flags.keymapOpen ||
     rt.flags.helpOpen ||
     rt.flags.metricsOpen ||
+    rt.flags.graphsOpen ||
     rt.flags.crossSectionOpen ||
     isEarthGcOverlayOpen() ||
     isPolarOverlayOpen()
@@ -212,7 +241,8 @@ export function anyPanelOpen(rt: HudRuntime): boolean {
 }
 
 export function handleEscapePanels(rt: HudRuntime): void {
-  if (rt.flags.crossSectionOpen) setCrossSectionOpen(rt, false);
+  if (rt.flags.graphsOpen) setGraphsOpen(rt, false);
+  else if (rt.flags.crossSectionOpen) setCrossSectionOpen(rt, false);
   else if (isEarthGcOverlayOpen()) setEarthGcOpen(rt, false);
   else if (isPolarOverlayOpen()) setPolarMapOpen(rt, false);
   else if (rt.flags.metricsOpen) setMetricsOpen(rt, false);
@@ -250,6 +280,8 @@ function wirePanelCloses(rt: HudRuntime): void {
     setCrossSectionOpen(rt, false),
   );
   wireBackdropClose(dom.crossSectionEl, () => setCrossSectionOpen(rt, false));
+  dom.flightGraphsClose?.addEventListener("click", () => setGraphsOpen(rt, false));
+  wireBackdropClose(dom.flightGraphsEl, () => setGraphsOpen(rt, false));
 }
 
 function wireMapToggles(rt: HudRuntime): void {

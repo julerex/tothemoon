@@ -92,6 +92,8 @@ export type HudOverlays = {
   crossSectionClose: HTMLButtonElement | null;
   crossSectionCanvas: HTMLCanvasElement | null;
   crossSectionCtx: CanvasRenderingContext2D | null;
+  flightGraphsEl: HTMLElement | null;
+  flightGraphsClose: HTMLButtonElement | null;
 };
 
 export type MetricsDom = {
@@ -294,6 +296,8 @@ function collectPanelOverlay(): Omit<
     crossSectionClose: q("#cross-section-close"),
     crossSectionCanvas,
     crossSectionCtx: crossSectionCanvas?.getContext("2d") ?? null,
+    flightGraphsEl: q("#flight-graphs"),
+    flightGraphsClose: q("#flight-graphs-close"),
   };
 }
 
