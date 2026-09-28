@@ -921,12 +921,12 @@ Standing constraints for every slice below:
 
 ## V28 — Sun path on the splash sea — **done 2026-09-28**
 
-`splashOcean.ts` already has swell, a ripple tile, and a Fresnel mix. The
-specular is view-locked (`dot(reflect(-viewDir), viewDir)`), and the sky color
-is a constant. Indian Ocean splash is a southern-winter **morning** (liftoff
+`splashOcean.ts` has swell, a ripple tile, and a Fresnel mix. The old
+specular was view-locked (`dot(reflect(-viewDir), viewDir)`) with a constant
+sky color. Indian Ocean splash is a southern-winter **morning** (liftoff
 2026-07-24 22:51 UTC; splash ~23:56 UTC, sun a few degrees up). Starbase and
-the Gulf are afternoon. The globe PBR ocean goes dark at that dawn, so the
-80 km plate reads as a sticker.
+the Gulf are afternoon. The globe PBR ocean goes dark at that dawn, so an
+unfeathered 80 km plate reads as a sticker.
 
 - Replace the view-locked spec with a glitter path along the **same sun
   direction** as `applySunLight`, brighter at grazing drone angles, dimmer
@@ -944,8 +944,16 @@ with no disc edge and no pillar. Gulf chase near T+6:40 is the same sea in
 afternoon light. Earth-cam stays cloudless Blue Marble. Tests cover the
 opacity gate. No bake.
 
+**Shipped wiring (do not regress):** Flight 13 passes
+`unitToward(earth, sun)` and `camera.position` from `updateStageSplash`.
+That call runs before `applySunLight`, so `skySun` is stale. Flight 14’s
+`updateStageSplash` does not pass either argument yet. Gulf marker fade is
+camera distance. The sea group is not hidden by `setVisible`. Outer plate
+feathers; chop does not. Agent notes: [AGENTS.md](../AGENTS.md).
+
 **Files:** `splashOcean.ts`, `splashOceanPaint.ts`, `terminalSplashFx.ts`,
-`terminalFx.test.ts`, `gulfLandFx.ts`, `terminalSiteFx.ts`.
+`terminalFx.test.ts`, `gulfLandFx.ts`, `terminalSiteFx.ts`,
+`missions/flight13/flight13ApplyFx.ts`.
 
 ---
 
@@ -1446,7 +1454,7 @@ V28–V47 are in scope. They do not lift the bans below.
 | 2026-08-31 | Removed leftover km-scale scrub / landmark rings (dark-green + grey circles under the satellite plates). |
 | 2026-09-01 | Five landward Sentinel-2 80 km plates (N / NW / W / SW / S) adjacent to the Starbase surrounds square. Gulf tiles stay Blue Marble. |
 | 2026-09-28 | Queued V28–V47: splash sea (sun path, foam, crown, wet shield, wake, light), Starship hull/plumes/flip, Super Heavy engines-down/raceway/hot-stage/soot, Mechazilla carriage/QDs/mast and liftoff bounce. |
-| 2026-09-28 | V28 shipped: sun-path glitter on the splash and Gulf seas; plate rim feathers into the globe; Gulf beacon/ring/label off inside 30 km. |
+| 2026-09-28 | V28 shipped: sun-path glitter on the splash and Gulf seas; plate rim feathers into the globe; Gulf beacon/ring/label off inside 30 km. Sun vector is ephemeris `unitToward` in the FX update (not `skySun`). Flight 14 still omits it. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 
