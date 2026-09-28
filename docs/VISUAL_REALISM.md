@@ -16,11 +16,13 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-09-12):** V0–V27 are **shipped** (including **V27** denser
-Mechazilla cage + 3D chopsticks / ship-QD wrap vs a sunset OLIT still). No
-next visual slice is queued. Further photorealism is **out of scope** unless
-explicitly requested. Flight 13 highlight clips in
-[STARSHIP_13.md](./STARSHIP_13.md) remain a look-reference.
+**Status (2026-09-28):** V0–V27 are **shipped** (including **V27** denser
+Mechazilla cage + 3D chopsticks / ship-QD wrap vs a sunset OLIT still).
+**V28–V47 are queued** — twenty theater-grade slices for the splash sea,
+Starship, Super Heavy, and Mechazilla. Flight 13 highlight clips in
+[STARSHIP_13.md](./STARSHIP_13.md) and the webcast stills remain the look
+reference. Implement one slice at a time; do not treat the queue as a single
+change.
 
 ---
 
@@ -89,6 +91,12 @@ Flight 13 is OLP-2); tower-base GSE house; Mach-diamond discs on the launch stre
 warm work lights (floodBase), 3D chopstick truss with catch rail + walkway,
 lattice ship QD with wrap-around clamp. Published dims / node names unchanged.
 
+**Queued (V28–V47):** splash sea that reads as water from the recovery drone
+(sun glitter, crest foam, crown/sheet, wet heat shield, wake), Starship
+hull-cam hardware and per-bell landing plumes, Super Heavy engines-down /
+raceway / hot-stage / frost, Mechazilla carriage and QDs. Specs below. V0–V27
+stay shipped; these slices build on them.
+
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
 
 ---
@@ -130,6 +138,26 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V19** | LEO Earth from hull-cam | **Done** — gated cloud shell + ocean glitter (does not undo #14) |
 | **V20** | Moon photo albedo | **Done** — LRO WAC JPEG, V11 analogue |
 | **V21** | Splash sea + weather deck | **Done** — swell/texture + ~2 km cumulus the ship falls through |
+| **V28** | Sun path on the splash sea | **Queued** — real sun glitter; gulf shares the water; no near-field pillar |
+| **V29** | Crest foam | **Queued** — whitecaps on the existing swell/chop, same seat height |
+| **V30** | Crown, sheet, hanging mist | **Queued** — soft ship splash vs short hard gulf splash |
+| **V31** | Waterline and wet heat shield | **Queued** — heel into the sea; hex below the line goes wet |
+| **V32** | Wake and foam raft | **Queued** — short ship wake; gulf does not float intact |
+| **V33** | Splash light | **Queued** — cumulus cookies on the water; steam hides the hull briefly |
+| **V34** | Ship planform hardware | **Queued** — hinges, raceway, header rings at hull-cam |
+| **V35** | TPS close-up | **Queued** — grout, char gradient, white imaging tiles |
+| **V36** | Ship plumes per bell | **Queued** — six on ascent; 3→2→1 sea-level on landing |
+| **V37** | Landing-flip readability | **Queued** — flap sweep, chill vent, engines-down silhouette |
+| **V38** | Leeward stainless identity | **Queued** — stringers, welds, S40, residual heat tint |
+| **V39** | Engines-down three bells | **Queued** — Max Q / boostback frame shows three bells |
+| **V40** | Booster raceway | **Queued** — barrel is the subject; lattice stays in the corner |
+| **V41** | Per-bell landing plumes | **Queued** — 10→8→5 cores, not one scaled blob |
+| **V42** | Hot-stage see-through | **Queued** — open A-frame; plumes stay color-separated |
+| **V43** | Frost sheets and skirt soot | **Queued** — pad frost sheds; gulf booster stays sooted |
+| **V44** | Chopstick carriage and cables | **Queued** — rails, sheaves, catenary; Flight 13 stays parked |
+| **V45** | Ship QD and mount BQDs | **Queued** — two Pad-2 disconnects + chill vent |
+| **V46** | Tower close-up | **Queued** — mast, elevator car, stair, open gratings |
+| **V47** | Launch cloud lights the tower | **Queued** — diverter, lip sheets, warm leg bounce at T+0 |
 
 ---
 
@@ -237,7 +265,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 ## Suggested sequencing (concrete)
 
-Shipped order (historical; all **done**, V0–V27). No next visual slice is queued.
+Shipped order (historical; all **done**, V0–V27). **V28–V47** are the next queue.
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
@@ -273,6 +301,31 @@ Shipped order (historical; all **done**, V0–V27). No next visual slice is queu
 26. ~~**V25** — axial launch exhaust stream + denser Mechazilla lattice~~ **done**
 27. ~~**V26** — OLP-1 second tower + Mach-diamond stream cells~~ **done**
 28. ~~**V27** — denser Mechazilla + 3D chopsticks / ship-QD wrap~~ **done**
+
+**Next (queued 2026-09-28).** Sea before the hull sits in it; ship hull-cam
+before booster cams; tower massing before the launch cloud lights it. A later
+slice may start early when it does not depend on the one above.
+
+29. **V28** — sun glitter path; gulf uses the same water (drop the near-field pillar)
+30. **V29** — crest foam on the existing swell/chop
+31. **V30** — crown / sheet / hanging mist (soft ship, hard gulf)
+32. **V31** — waterline, wet heat shield, heel
+33. **V32** — wake and foam raft
+34. **V33** — cloud shadows on the sea and steam occlusion
+35. **V34** — ship hinges, raceway, header rings
+36. **V35** — TPS grout, char, white imaging tiles
+37. **V38** — leeward stringers, welds, S40, residual tint
+38. **V36** — per-bell ship plumes (ascent six, landing 3→2→1)
+39. **V37** — flip readability
+40. **V39** — engines-down three-bell frame
+41. **V40** — booster raceway; `boosterHull` framing
+42. **V41** — per-bell gulf landing plumes (after V30)
+43. **V42** — hot-stage see-through
+44. **V43** — frost sheets and skirt soot
+45. **V44** — carriage, rails, cables
+46. **V45** — ship QD + two mount BQDs
+47. **V46** — mast, elevator, gratings
+48. **V47** — deluge / diverter / tower bounce at liftoff
 
 ---
 
@@ -395,7 +448,7 @@ later FX sit on a hull that already reads as S40.
 | T+16:46–27:39 payload | Pez door + Starlink V3 receding, then empty bay | No payload event, hatch, or sat meshes | V16 |
 | T+39:03 relight, T+47:25–48:53 entry | Magenta/violet plasma on **flap leading edges**, grain, bloom | Orange sprites (`0xffcc88` / `0xff6622` / `0xff4400`) + orange tile emissive | V15 |
 | T+1:02:19 transonic, T+1:04:55–1:05:12 landing | Heat-tint steel, tile-gap glow, white experiment tiles, pink landing plume | **V13** heat-tint / hex / white experiment tiles; **V14** pink landing plume | V13 / V14 / V15 |
-| T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | **V17** steam + glitter; **V21** swell/texture + ~2 km cumulus | V17 / V21 |
+| T+1:05:20–24 splash + post-splash TPS | Volumetric steam/spray, intact hexagonal heatshield in the water | **V17** steam + glitter; **V21** swell/texture + ~2 km cumulus. Drone still wants a sun path, a crown, and a wet shield — **V28–V33** | V17 / V21, then V28–V33 |
 
 ### Working agreements (photorealism)
 
@@ -823,7 +876,508 @@ heavy T at the nose and a wrap-around QD; catch still yaws the same arms.
 
 ---
 
+## Queued photorealism (V28–V47)
+
+Requested 2026-09-28. Twenty slices on top of V0–V27. Each one is a small
+diff: procedural or canvas materials, scrub-safe from mission time, scene
+unit 1 km, no trajectory bake. Look targets are the Flight 13 stills in
+`assets/flight13-webcast/` and the landing/splash highlight clips linked from
+[STARSHIP_13.md](./STARSHIP_13.md). Stills stay out of `public/` and `src/`.
+
+Standing constraints for every slice below:
+
+- Ship splash stays **sea and spray only** — no beacon, ring, or label. Do not
+  reintroduce a 19°S 107°E buoy or a Christmas Island tow. Seat the hull with
+  `splashSeatRadiusAlong`; keep `SPLASH_WATERLINE_ALT_KM` (0.0014 km) equal to
+  the chop mesh local Y. HUD altitude stays the trajectory sample.
+- Gulf hard splash is not a soft seat and not a catch. Lat/lon stays the
+  theater sample (~25.55°N 96.15°W), not a surveyed buoy.
+- Do not restore a globe cloud deck (#14 / V19). Splash weather stays local.
+- Do not retune `webcastShots.ts` cut times to hide a mesh problem. When a
+  still and the cut table disagree, the still wins — fix the mesh or the
+  mount pose, not the timetable.
+- Keep `GRID_FIN_AZIMUTHS[0] === π/2` and `GRID_FIN_CHORD_M` ~0.9 m. Do not
+  copy Sketchfab ring radii onto `dimensions.ts`.
+- Published Mechazilla heights, chopstick node names (`pad-chopstick-L/R`,
+  `pad-qd-arm`, `pad-chopstick-carriage`), and catch kinematics stay put.
+- No draped stills, no plume CFD, no WebGPU-only path, no full-scene shadows.
+
+### Look targets still open
+
+| Where to look | Gap after V0–V27 | Slice |
+|---|---|---|
+| `?t=1:08:00`, `setCamera("drone")`, HUD off | Water is a lit disc with a view-locked spec; dawn globe ocean goes dark at the plate edge | V28, V29, V33 |
+| Highlight clips + `tplus-010520`–`010524`, post-splash heat-shield still | Crown and hanging mist are discs; hex shield does not read wet at the waterline; no short wake | V30, V31, V32 |
+| T+6:25–6:40 booster over the Gulf | Glitter sprites on a plate that still has an 8 km beacon (`gulfLandFx.ts`) | V28, V30, V41 |
+| T+1:02:19 hull-cam, T+39:03 / T+47:25 flap | Barrel is smooth; hinges and grout do not read at this distance | V34, V35, V38 |
+| Landing burn 3→2→1, coast relight | `shipEngineCount` exists; the plume is still one skirt group | V36, V37 |
+| T+0:58 and T+3:00 `enginesDown` | One bell fills the frame; the still shows three across the top | V39 |
+| T+4:10 / T+5:11 `boosterHull` | Lattice `gridfin` mount is unusable for the still; barrel has no raceway | V40 |
+| T+2:21 hot-stage, T+4:28–5:50 bay | A-frame is there; you cannot see through it, and landing burn is one plume | V41, V42 |
+| T− hold frost vs gulf fall | Frost does not shed as sheets; skirt soot does not stick after the burn | V43 |
+| T−5 aerial, `ground1`, `tower2cam`, trench at T+0 | Carriage has no cables; one QD boom; no mast/elevator; steam does not light the legs | V44–V47 |
+
+---
+
+## V28 — Sun path on the splash sea — **queued**
+
+`splashOcean.ts` already has swell, a ripple tile, and a Fresnel mix. The
+specular is view-locked (`dot(reflect(-viewDir), viewDir)`), and the sky color
+is a constant. Indian Ocean splash is a southern-winter **morning** (liftoff
+2026-07-24 22:51 UTC; splash ~23:56 UTC, sun a few degrees up). Starbase and
+the Gulf are afternoon. The globe PBR ocean goes dark at that dawn, so the
+80 km plate reads as a sticker.
+
+- Replace the view-locked spec with a glitter path along the **same sun
+  direction** as `applySunLight`, brighter at grazing drone angles, dimmer
+  looking straight down.
+- Fresnel mixes toward the existing ground-sky / atmosphere color, not only
+  `vec3(0.78, 0.88, 0.98)`.
+- Feather the plate into the globe. Keep `splashOceanPlateOpacity` so Earth-cam
+  does not grow a bright disc (fade by ~75 km).
+- Parent the same shader on the Gulf site. Retire the 8 km gulf beacon and
+  ring from the near field (`GULF_SITE` in `gulfLandFx.ts`); a far locator, if
+  kept, is off inside ~30 km. Ship splash stays beacon-free.
+
+**Done when:** HUD-off drone at `?t=1:08:00` shows a sun path on blue water
+with no disc edge and no pillar. Gulf chase near T+6:40 is the same sea in
+afternoon light. Earth-cam stays cloudless Blue Marble. Tests cover the
+opacity gate. No bake.
+
+**Files:** `splashOcean.ts`, `splashOceanPaint.ts`, `terminalSplashFx.ts`,
+`terminalFx.test.ts`, `gulfLandFx.ts`, `terminalSiteFx.ts`.
+
+---
+
+## V29 — Crest foam on the existing sea — **queued**
+
+Whitecaps today are ripple sparkle in the fragment shader, not foam on the
+crests. Swell ~4.5 m and chop ~2.2 m already feed the seat
+(`oceanSwellHeightKm`, `oceanChopHeightKm`).
+
+- Crest foam where the analytic slope exceeds a threshold, plus short
+  wind-aligned streaks that advect with the shader `uTime` (one deterministic
+  wind, not a random field).
+- Foam is a shader or sprite **on** that height field. Do not add a wave
+  octave the hull ignores. If the sampled height changes,
+  `splashSeatRadiusAlong` must call the same function.
+- Leave `SPLASH_WATERLINE_ALT_KM` and the current amplitudes alone unless a
+  test updates both the visual mesh and the seat together.
+
+**Done when:** drone at splash shows foam on crests that moves with the
+swell; the hull bottom still meets the water (no hover, no bury). Tests on
+the height helpers if they change. No bake.
+
+**Files:** `splashOcean.ts`, `terminalSplashFx.ts`, `terminalFx.test.ts`,
+`flight13Attitude.ts` (only if the seat height changes).
+
+---
+
+## V30 — Crown, sheet, and hanging mist — **queued**
+
+V6 / V17 are expanding discs plus a white steam puff. The highlight clips are
+a crown, a radial sheet, then a cloud that hangs and thins until the heat
+shield shows through.
+
+- Three scrub-safe layers keyed to `missionT − splashT`: a sub-second crown,
+  a radial sheet, then the existing steam with a longer hang and a
+  deterministic drift.
+- **Ship** (soft splash, then float through T+1:10): mist lingers and opens
+  so the intact shield reads. **Gulf** (partial landing burn, hard impact):
+  taller, dirtier, gone sooner. The booster does not settle into a float.
+- No new site beacon. Ship site stays unlabeled.
+
+**Done when:** drone across T+1:05:20–1:08 shows crown → sheet → thinning
+mist with the hull emerging. Gulf at T+6:40 is a short violent puff on the
+V28 water, not a cyan ring. Tests on the layer curves. No bake.
+
+**Files:** `terminalSplashFx.ts`, `terminalFx.test.ts`, `splashFx.ts`,
+`gulfLandFx.ts`, `padRecoveryFx.ts`.
+
+---
+
+## V31 — Waterline and wet heat shield — **queued**
+
+`splashLieBlend` already lays the ship onto the shield. `hullWetStrength` is
+a uniform roughness punch, so the whole vehicle goes “wet” instead of a
+waterline.
+
+- A world-up mask: tiles below the local sea height darken and roughen;
+  stainless above the line stays bright. Drive it from lie blend and the
+  same swell the seat uses.
+- A thin foam ring parented to the hull at the intersection. It tracks the
+  heel; it is not a site disc.
+- Float hold stays Earth-fixed through T+1:10. No tow.
+
+**Done when:** HUD-off drone at `?t=1:08:00` shows the shield in the water,
+wet hex below the line, dry steel above, hull bottom on the sea. Tests on
+the wet-mask helper. No bake.
+
+**Files:** `terminalSplashFx.ts`, `terminalFx.test.ts`, `craftHullMaps.ts`,
+`flight13Attitude.ts`, Flight 13 `applyState`.
+
+---
+
+## V32 — Wake and foam raft — **queued**
+
+After the sheet, the highlight shows a short raft of foam and a wake along
+the last horizontal motion, then quiet water around a hull that is no longer
+moving across the sea.
+
+- A foam raft and a wake segment spawned from velocity at contact, faded on
+  a scrub curve. Not a particle system that diverges on replay.
+- Ship only. The gulf booster gets the V30 crown and then open water — it
+  does not leave an intact-ship wake.
+
+**Done when:** scrubbing T+1:05:21 → T+1:08 shows the raft appear and die;
+reversing the scrub removes it. Gulf has no ship-style wake. Tests on the
+fade curve. No bake.
+
+**Files:** `terminalSplashFx.ts`, `terminalFx.test.ts`, `splashFx.ts`.
+
+---
+
+## V33 — Splash light — **queued**
+
+V21 cumulus sit at ~2 km and do not shadow the plate. Steam does not hide
+the hull, so the contact reads as a sprite in front of a fully lit vehicle.
+
+- Shadow cookies on the splash plate from the **same** cumulus seed. Local
+  to the plate; not a second sun and not a globe cloud shadow.
+- Layered steam cards that cover the hull for the first seconds of contact,
+  then thin (pairs with V30). Morning fill at the Indian Ocean site and
+  afternoon fill at the Gulf both come from the existing sun.
+- No volumetric march. Exposure stays in `cinema.ts`.
+
+**Done when:** drone descent shows cloud shadows on the water, and the hull
+is buried in white at contact then readable by T+1:08. Earth-cam unchanged.
+Tests on the cookie/opacity gate. No bake.
+
+**Files:** `splashOcean.ts`, `splashWeather.ts`, `splashClouds.ts`,
+`terminalSplashFx.ts`, `terminalFx.test.ts`. Touch `cinema.ts` only if
+exposure needs a hook.
+
+---
+
+## V34 — Ship planform hardware — **queued**
+
+The ogive, weld bands, and Block 2 flaps are already in the mesh. Hull-cam
+at T+1:02:19 still shows a smooth barrel with a flap in frame; the barrel is
+the subject. Hinges and a raceway are what that frame is missing.
+
+- Hinge barrels and actuator fairings on the forward flaps and aft elevons.
+  They ride the existing flap angle; they do not add a new controller.
+- A leeward conduit run with brackets, sized to read at hull-cam and
+  disappear into the steel at chase distance.
+- Circumferential header rings at the tank domes.
+- Keep the 9 m barrel and the aft-flap span test (~17 m in
+  `craftGeometry.test.ts`). No length change.
+
+**Done when:** HUD-off hull-cam at T+1:02:19 shows barrel hardware and a
+hinged flap, not a lathe with decals. Chase at ascent is not a bracket
+forest. Geometry tests stay green. No bake.
+
+**Files:** `craft/meshShip.ts`, `craft/dimensions.ts`, `craftGeometry.test.ts`.
+
+---
+
+## V35 — TPS close-up — **queued**
+
+V13 shipped a hex field, grout lines, white experiment tiles, and **no
+missing-tile holes**. Flight 13’s own copy says the white tiles stand in for
+missing ones. Hull-cam and the post-splash still still want gap depth, felt
+in the grout, and char that follows the belly.
+
+- Darken the expansion gaps and paint a felt-like grout band (crunch wrap)
+  in the existing tile canvas. Do not add a second tile mesh, and do not
+  cut holes.
+- Char and gap glow stronger on the belly centerline and flap roots, fading
+  toward the leeward edge. The gradient **stays** into the float — do not
+  zero entry char at splash.
+- Keep the white imaging tiles as a small fixed set. Aft-flap metallic-side
+  patches in `craftHullMaps.test.ts` stay.
+
+**Done when:** hull-cam in entry and drone after splash show hex, dark gaps,
+and white targets; the belly is darker than the flank. No holes. Map tests
+updated for the grout/char helpers. No bake.
+
+**Files:** `craftHullMaps.ts` (+ tests), `hexTileLayout.ts`, `entryFx.ts`.
+
+---
+
+## V36 — Ship plumes per bell — **queued**
+
+The ship mesh already has three sea-level bells and three larger vacuum
+bells. `shipEngineCount` is the 3→2→1 step-down, but one plume group hangs
+on the skirt, so a single-engine landing still reads as a skirt-wide glow.
+Flight 13’s in-space relight is **one sea-level** Raptor. Landing is the
+three sea-level engines, then two, then one. Vacuum bells light on ascent
+only.
+
+- Three sea-level plume cores that drop out with `shipEngineCount`. Vacuum
+  cores light only when all six are commanded.
+- Unlit bells stay visible and dark (same idea as `stagingBells.ts`, on the
+  ship). Palette stays the V14 pink–white.
+- Coast relight: one sea-level core, wider and paler in vacuum (V1 regime),
+  not six.
+
+**Done when:** landing chase shows 3, then 2, then 1 pink core on the
+sea-level bells; relight is one core; ascent lights six with the vacuum
+bells obvious. Tests on the per-bell mask. No bake. No physics change.
+
+**Files:** `craft/plumes.ts`, `craft/meshShip.ts`, `plumeRegime.ts`
+(+ tests), Flight 13 `applyState`.
+
+---
+
+## V37 — Landing-flip readability — **queued**
+
+The attitude flip is already in the force playback. The highlight is the
+motion: flaps work, a chill vent, then engines swing down against the sea.
+
+- A scrub curve adds flap sweep through the flip window, on top of the
+  existing AoA drive. It does not replace the aero model.
+- A short white chill vent at the skirt before the landing burn, same
+  vocabulary as the pad vent sprites, gone once the cores light (V36).
+- Chase / drone: engines-down silhouette against the V28 sea, one pink shaft
+  at the end of 3→2→1.
+
+**Done when:** scrubbing the flip shows the flaps move and the skirt chill
+before the plume; the last seconds are one engine over water. Tests on the
+sweep/vent curves. No bake. No trajectory edit.
+
+**Files:** `flight13Attitude.ts` (+ tests), a small `shipChillVent.ts` beside
+`padVentClouds.ts`, Flight 13 `applyState`.
+
+---
+
+## V38 — Leeward stainless identity — **queued**
+
+Oil-canning, weld rings, and an **S40** stencil shipped in V13. At hull-cam
+the leeward side is still a tinted cylinder, and heat tint dies when plasma
+does, so the floating ship looks factory-fresh.
+
+- Low-frequency vertical stringers and a circumferential weld at the barrel
+  joints, visible at hull-cam, quiet at chase.
+- Place **S40** on the leeward barrel to match the coast hull still, not on
+  the TPS.
+- Residual skirt heat tint holds through splash and the float (mission time,
+  not a reset on contact).
+
+**Done when:** hull-cam on coast shows S40 and stringers; drone after splash
+still shows a warm skirt above the wet line (V31). Tests if the stencil
+anchor moves. No bake.
+
+**Files:** `craftHullMaps.ts` (+ tests), `craft/meshShip.ts`.
+
+---
+
+## V39 — Engines-down three-bell frame — **queued**
+
+Known gap, not a cut-table error: Max Q (T+0:58) and boostback (T+3:00) left
+pane show three sea-level bells across the top of the frame. The
+`enginesDown` mount is dominated by one bell. Auto-cam already selects this
+mount at those times (`webcastShots.ts`).
+
+- Move the mount pose and lens so three inner bells span the upper frame and
+  Earth fills the lower frame at both timestamps.
+- Do not change cut times. `enterLockedMount` keeps Auto-cam `guidedFovDeg` —
+  put the lens on the shot definition, and do not let the parked-rail FOV
+  overwrite it.
+- When the gap closes, update the engines-down note in
+  [AGENT_BROWSER.md](./AGENT_BROWSER.md).
+
+**Done when:** HUD-off `setCamera("enginesDown")` at T+0:58 and at T+3:00
+shows three bells across the top. `webcastShots` timestamps are unchanged.
+Camera tests cover the pose. No bake.
+
+**Files:** `camera/modes.ts`, `camera/onboardFov.ts` (+ tests),
+`camera/webcastShots.ts` (lens only if the shot already carries one),
+`docs/AGENT_BROWSER.md`.
+
+---
+
+## V40 — Booster raceway and hull framing — **queued**
+
+`setCamera("gridfin")` fills the frame with lattice, so Auto-cam uses
+`boosterHull` for the webcast grid-fin stills. T+5:11 is hull and raceway
+brackets; the fin is in the corner. The barrel has no conduit run, so that
+mount has nothing to look at but steel and a fin.
+
+- A leeward raceway with brackets on the Super Heavy barrel (the T+5:11
+  subject). Separate from the ship raceway in V34.
+- `boosterHull` pose: barrel dominates, one fin in the corner, Earth behind.
+  Leave the lattice-fill `gridfin` mount as the “inside the fin” camera.
+- Do not shrink the fin, move `GRID_FIN_AZIMUTHS[0]`, or shorten the chord
+  to make `gridfin` match the still.
+
+**Done when:** HUD-off `boosterHull` at T+4:10 and T+5:11 reads as barrel
+plus brackets, with lattice only at the edge. Grid-fin cam still fills with
+the fin if you select it on purpose. Azimuth test stays. No bake.
+
+**Files:** `craft/meshBooster.ts`, `craft/gridFin.ts`, `camera/modes.ts`
+(+ tests).
+
+---
+
+## V41 — Per-bell gulf landing plumes — **queued**
+
+`gulfLandingEngineCount` and `boosterLandingBellLit` already step **10 → 8 →
+5**, and `stagingBells.ts` dims the dark bells. The plume is still one
+booster group scaled by `lit / 13`, so the bay reads as a single glow with
+some transparent cones.
+
+- One short pink core per **lit** inner/mid bell. Dark bells have no core.
+  Outer ring stays dark for the landing burn (already the rule).
+- The 10-engine step staggers on over the first second, index-seeded, so a
+  scrub lands on the same pattern.
+- Contact uses the V30 gulf crown on the V28 water. The booster does not
+  heel onto a shield or float.
+
+**Done when:** engines-cam across T+6:24–6:53 shows 10, then 8, then 5
+distinct cores; T+6:40 is a hard splash, not a ship float. Tests already
+cover the count — extend them only if the stagger helper is new. No bake.
+No recovery-schedule change.
+
+**Files:** `stagingBells.ts`, `craft/plumes.ts` or `stagingFx.ts`,
+`plumeRegime.ts` (+ tests), `gulfLandFx.ts`.
+
+---
+
+## V42 — Hot-stage see-through — **queued**
+
+The Block 3 join is an open triangular A-frame and it stays on the booster
+(not a jettisoned ring). At the T+2:21 split the bays should show sky or
+Earth, and the two plumes should not merge into one color.
+
+- Keep the lattice open at pad and chase distance. Bead-rolled covers, if
+  added, are a normal-map hint on the tubes — not a cylinder.
+- Ship plume stays pink–white; booster plume stays the boostback / hot-stage
+  look, separated in the frame.
+- The truss remains parented on the booster through fallaway.
+
+**Done when:** hot-stage cam shows daylight through the V-bays and two plume
+colors. Pad hold still reads as an open truss, not a vent can. No bake.
+
+**Files:** `craft/meshBooster.ts` (hot-stage truss), `stagingFx.ts`,
+`plumeRegime.ts`.
+
+---
+
+## V43 — Frost sheets and skirt soot — **queued**
+
+V14 frosts the booster and sheds ice as small bits. The pad-hold still is a
+white LOX barrel; the gulf booster should arrive sooted, not freshly frosted.
+
+- Heavier frost on the LOX barrel at T− hold. In the first minute it sheds
+  as a few large sheet sprites (scrub-safe), gone by SECO.
+- Soot darkens the skirt and bell interiors with burn time and **stays** on
+  the free-flyer through the gulf fall. The stacked vehicle at T− is frosted,
+  not sooted.
+- Mission time drives both. Scrubbing backward clears the soot and restores
+  the frost.
+
+**Done when:** T− hold booster-cam is a pale LOX barrel; T+6 gulf chase is a
+dark skirt with sooted bells. Tests on the frost/soot curves. No bake.
+
+**Files:** `craftFrost.ts` (+ tests), `craft/raptorBell.ts`, `stagingFx.ts`.
+
+---
+
+## V44 — Chopstick carriage and cables — **queued**
+
+V27 has a 3D arm, catch rail, walkway, and a peak house. The carriage does
+not yet read as a car on rails with cables over a sheave. Flight 13 parks
+the arms at the **ship nose** for the whole flight. The lunar profile is the
+one that drops them to the catch pins.
+
+- Continuous vertical rails on the vehicle face, a sheave cluster on the
+  peak, and two cable runs whose catenary shortens when the carriage is up.
+- Lunar `caught` moves the existing carriage between nose-park and catch-pin
+  height. Node names and published heights in `mechazillaDims.ts` stay.
+- Flight 13 never leaves nose-park. OLP-1 (`pad1-…`) gets the same dressing
+  and still has no vehicle.
+
+**Done when:** T− hold tower-cam shows cables from the peak to the carriage
+at the nose. Lunar catch still closes the same arms and the cables pay out.
+`mechazilla.test.ts` heights stay. No bake.
+
+**Files:** `earthTheater/mechazillaRail.ts`, `mechazillaChopsticks.ts`,
+`mechazillaPeak.ts`, `padRecoveryFx.ts`, `mechazillaDims.ts`.
+
+---
+
+## V45 — Ship QD and mount BQDs — **queued**
+
+The ship QD is a lattice boom and a U-clamp. Pad 2 also has **two booster
+quick disconnects** on the mount (LOX and CH₄), on the opposite side from
+Pad 1. The theater has the ship arm and not the pair on the OLM.
+
+- Two BQD masts on the hex OLM with sagging hoses and interface plates.
+  They must not intersect the deflector the trench cam looks through.
+- T− chill: small white vents at the ship QD and both BQDs, distinct from
+  the deluge sheets (V3 / V47).
+- Catch node names unchanged. OLP-1 can show the same hardware on an empty
+  mount; it does not load a vehicle.
+
+**Done when:** HUD-off `ground1` and `tower2cam` at T− hold read a wrap-around
+ship QD plus two mount disconnects with a local chill puff. Trench cam still
+sees the inner bowl (V24). No bake.
+
+**Files:** `earthTheater/mechazillaQd.ts`, `padOlm.ts`, `padVentClouds.ts`
+(+ tests), `padLaunchFxApply.ts`.
+
+---
+
+## V46 — Tower close-up — **queued**
+
+Aerial massing (V25–V27) is ahead of the tower cameras. Close in, the cage
+is girders, a peak box, and lamps. The stills also show a lightning mast,
+an elevator on the vehicle face, and decks you can see through.
+
+- A lightning mast above the peak house (height cue only — do not change
+  the published tower height used by cameras).
+- An elevator car parked on the vehicle-face rails. It does not need a crew
+  animation.
+- One corner stair and open grating on the existing deck frames.
+- Afternoon sun plus the V27 work lights catch the mast and the chopstick
+  tips. Daytime lamps stay restrained (`worklightEmissive`).
+
+**Done when:** `tower` / `tower2cam` at T− hold reads mast, car, stair, and
+see-through decks without hiding the stack. Dim tests stay in
+`mechazilla.test.ts`. No bake.
+
+**Files:** `earthTheater/mechazillaPeak.ts`, `mechazillaTruss.ts`,
+`mechazillaTower.ts`, `mechazillaWorklights.ts`, `mechazilla.test.ts`.
+
+---
+
+## V47 — Launch cloud lights the tower — **queued**
+
+Deluge sheets, the hex OLM, and the axial exhaust stream are three separate
+looks. At T+0 the webcast is one picture: water on the mount, a hot punch,
+and the tower legs lit from below.
+
+- Trench cam: the diverter reads as a water-cooled **W**, not only the V24
+  wedges. Keep the `pad-olm-deflector` name.
+- Deluge sheets break over the hex lip at ignition, lit from below by the
+  V25 flame punch (warm core, white outer — V14 steam, aimed at the lip).
+- Tower legs and the chopstick undersides pick up a warm bounce only while
+  the plume is on the pad. It is gone once the stack clears. No wider shadow
+  frustum.
+
+**Done when:** HUD-off trench and `tower2cam` at T+0 show lip sheets and a
+warm tower; T− hold and T+1:00 do not. Scrubbing back restores the hold.
+Tests on the bounce/sheet gate. No bake.
+
+**Files:** `padOlm.ts`, `padLaunchMeshes.ts`, `padLaunchFxPoses.ts`,
+`padLaunchFxApply.ts`, `mechazillaMats.ts`, `plumeRegime.ts`.
+
+---
+
 ## Out of scope (unless explicitly requested)
+
+V28–V47 are in scope. They do not lift the bans below.
 
 - Full PBR / DEM / tile-server Earth or Moon (committed theater-grade JPEGs
   are the exception: Blue Marble + Starbase plate + LRO WAC Moon albedo)
@@ -891,6 +1445,7 @@ heavy T at the nose and a wrap-around QD; catch still yaws the same arms.
 | 2026-08-31 | Pad origin is the OLP-2 OLM (survey / physics pin); satellite plates stay on the committed JPEG pin (~209 m east). Dropped the 10° / 50 m whole-group nudge that had moved the plates with the GSE. |
 | 2026-08-31 | Removed leftover km-scale scrub / landmark rings (dark-green + grey circles under the satellite plates). |
 | 2026-09-01 | Five landward Sentinel-2 80 km plates (N / NW / W / SW / S) adjacent to the Starbase surrounds square. Gulf tiles stay Blue Marble. |
+| 2026-09-28 | Queued V28–V47: splash sea (sun path, foam, crown, wet shield, wake, light), Starship hull/plumes/flip, Super Heavy engines-down/raceway/hot-stage/soot, Mechazilla carriage/QDs/mast and liftoff bounce. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 
