@@ -56,11 +56,6 @@ export const GULF_LOCATOR_NEAR_KM = 30;
 /** Gulf far locator is fully on at and beyond this camera distance (km). */
 export const GULF_LOCATOR_FAR_KM = 90;
 
-/** Long-period theater swell amplitude (km) — about 4.5 m. */
-export const OCEAN_SWELL_AMP_KM = 0.0045;
-/** Near-field chop amplitude on the inner splash plate (km) — about 2.2 m. */
-export const OCEAN_CHOP_AMP_KM = 0.0022;
-
 /**
  * Local sunlit sea plate at the splash zone [0, 1].
  * Full hull-down (the globe PBR ocean goes black at dawn); fade out by ~75 km
@@ -122,44 +117,6 @@ export function splashWeatherCloudOpacity(altKm: number): number {
   return clamp01(
     (WEATHER_CLOUD_FADE_KM - altKm) / (WEATHER_CLOUD_FADE_KM - WEATHER_CLOUD_FULL_KM),
   );
-}
-
-/**
- * Long-period draped swell height (km). Scrub-deterministic. Keep in sync
- * with the splash ocean vertex shader.
- */
-export function oceanSwellHeightKm(
-  xKm: number,
-  zKm: number,
-  missionT: number,
-): number {
-  if (!Number.isFinite(xKm) || !Number.isFinite(zKm) || !Number.isFinite(missionT)) {
-    return 0;
-  }
-  const a = Math.sin(xKm * 0.22 + zKm * 0.14 + missionT * 0.65) * OCEAN_SWELL_AMP_KM;
-  const b =
-    Math.sin(xKm * -0.16 + zKm * 0.25 + missionT * 0.88) * OCEAN_SWELL_AMP_KM * 0.55;
-  const c =
-    Math.sin(xKm * 0.41 + zKm * -0.11 + missionT * 1.15) * OCEAN_SWELL_AMP_KM * 0.28;
-  return a + b + c;
-}
-
-/**
- * Short chop on the inner splash plate (km). Aliases on the 80 km plate —
- * inner mesh only. Keep in sync with the splash ocean vertex shader.
- */
-export function oceanChopHeightKm(
-  xKm: number,
-  zKm: number,
-  missionT: number,
-): number {
-  if (!Number.isFinite(xKm) || !Number.isFinite(zKm) || !Number.isFinite(missionT)) {
-    return 0;
-  }
-  const a = Math.sin(xKm * 10.4 + zKm * 7.1 + missionT * 1.45) * OCEAN_CHOP_AMP_KM;
-  const b =
-    Math.sin(xKm * -8.2 + zKm * 12.6 + missionT * 1.9) * OCEAN_CHOP_AMP_KM * 0.64;
-  return a + b;
 }
 
 /**

@@ -16,10 +16,9 @@ Related:
 
 **Live:** https://julerex.github.io/tothemoon/
 
-**Status (2026-09-28):** V0–V28 are **shipped** (including **V28** sun-path
-glitter on the splash sea, shared with the Gulf, and a far-only gulf locator).
-**V29–V47 are queued** — the rest of the splash-sea, Starship, Super Heavy,
-and Mechazilla pass. Flight 13 highlight clips in
+**Status (2026-09-28):** V0–V29 are **shipped** (including **V29** crest foam
+on the existing swell and chop). **V30–V47 are queued** — crown and mist,
+the wet shield, then Starship, Super Heavy, and Mechazilla. Flight 13 highlight clips in
 [STARSHIP_13.md](./STARSHIP_13.md) and the webcast stills remain the look
 reference. Implement one slice at a time.
 
@@ -94,7 +93,11 @@ lattice ship QD with wrap-around clamp. Published dims / node names unchanged.
 sun, grazing-bright) and a feathered plate rim. The Gulf beacon, ring, and
 label are off inside 30 km.
 
-**Queued (V29–V47):** crest foam, crown/sheet, wet heat shield, wake, splash
+**Shipped (V29):** crest foam on the chop crests of the existing sea. The
+gate is negative laplacian of the same five sines, not slope. Static albedo
+flecks are gone. Seat height is unchanged.
+
+**Queued (V30–V47):** crown/sheet, wet heat shield, wake, splash
 light, then Starship, Super Heavy, and Mechazilla. Specs below.
 
 Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,earthAtmosphere,cinema,textures,sunLight,groundSky,stagingFx,entryFx,landingFx,splashFx,splashWeather,terminalFx,gulfLandFx,padRecoveryFx,padLaunchFx,plumeRegime,coastCorridor,engineBay,onboardPost,leoClouds}.ts`.
@@ -139,7 +142,7 @@ Key modules: `src/scene/{bodies,craft,craftFrost,earthTheater,starbasePlate,eart
 | **V20** | Moon photo albedo | **Done** — LRO WAC JPEG, V11 analogue |
 | **V21** | Splash sea + weather deck | **Done** — swell/texture + ~2 km cumulus the ship falls through |
 | **V28** | Sun path on the splash sea | **Done** — ephemeris glitter; gulf shares the water; locator off inside 30 km |
-| **V29** | Crest foam | **Queued** — whitecaps on the existing swell/chop, same seat height |
+| **V29** | Crest foam | **Done** — chop-crest dashes on the existing harmonics; seat height unchanged |
 | **V30** | Crown, sheet, hanging mist | **Queued** — soft ship splash vs short hard gulf splash |
 | **V31** | Waterline and wet heat shield | **Queued** — heel into the sea; hex below the line goes wet |
 | **V32** | Wake and foam raft | **Queued** — short ship wake; gulf does not float intact |
@@ -265,7 +268,7 @@ Directional sun shadows for **pad + craft only** (tight ortho frustum re-centere
 
 ## Suggested sequencing (concrete)
 
-Shipped order (historical; all **done**, V0–V28). **V29–V47** are the next queue.
+Shipped order (historical; all **done**, V0–V29). **V30–V47** are the next queue.
 
 1. ~~**V0.1 + V0.2** — lighting fill/limb + Earth night lights~~ **done**  
 2. ~~**V1** — plume atmosphere vs vacuum + LOI/landing variants~~ **done**  
@@ -307,7 +310,7 @@ before booster cams; tower massing before the launch cloud lights it. A later
 slice may start early when it does not depend on the one above.
 
 29. ~~**V28** — sun glitter path; gulf uses the same water (drop the near-field pillar)~~ **done**
-30. **V29** — crest foam on the existing swell/chop
+30. ~~**V29** — crest foam on the existing swell/chop~~ **done**
 31. **V30** — crown / sheet / hanging mist (soft ship, hard gulf)
 32. **V31** — waterline, wet heat shield, heel
 33. **V32** — wake and foam raft
@@ -906,7 +909,7 @@ Standing constraints for every slice below:
 
 | Where to look | Gap after V0–V27 | Slice |
 |---|---|---|
-| `?t=1:08:00`, `setCamera("drone")`, HUD off | **V28** sun path and feathered rim. Crest foam and cloud shadows are still open | V29, V33 |
+| `?t=1:08:00`, `setCamera("drone")`, HUD off | **V28** sun path and **V29** crest dashes. Cloud shadows are still open | V33 |
 | Highlight clips + `tplus-010520`–`010524`, post-splash heat-shield still | Crown and hanging mist are discs; hex shield does not read wet at the waterline; no short wake | V30, V31, V32 |
 | T+6:25–6:40 booster over the Gulf | **V28** shared sea; beacon/ring/label off inside 30 km. Crown and per-bell plumes are still open | V30, V41 |
 | T+1:02:19 hull-cam, T+39:03 / T+47:25 flap | Barrel is smooth; hinges and grout do not read at this distance | V34, V35, V38 |
@@ -957,27 +960,34 @@ feathers; chop does not. Agent notes: [AGENTS.md](../AGENTS.md).
 
 ---
 
-## V29 — Crest foam on the existing sea — **queued**
+## V29 — Crest foam on the existing sea — **done 2026-09-28**
 
-Whitecaps today are ripple sparkle in the fragment shader, not foam on the
-crests. Swell ~4.5 m and chop ~2.2 m already feed the seat
-(`oceanSwellHeightKm`, `oceanChopHeightKm`).
+Whitecaps were a ripple sparkle plus 90 flecks baked into the albedo. The
+height field is still the five sines in `oceanSwellHeightKm` and
+`oceanChopHeightKm`.
 
-- Crest foam where the analytic slope exceeds a threshold, plus short
-  wind-aligned streaks that advect with the shader `uTime` (one deterministic
-  wind, not a random field).
-- Foam is a shader or sprite **on** that height field. Do not add a wave
-  octave the hull ignores. If the sampled height changes,
-  `splashSeatRadiusAlong` must call the same function.
-- Leave `SPLASH_WATERLINE_ALT_KM` and the current amplitudes alone unless a
-  test updates both the visual mesh and the seat together.
+Slope is the wrong gate on this field. `|∇h|` is zero on a sine's peak and
+largest on the face, and chop slope is about twenty times the swell slope.
+A slope cutoff either paints the faces or whites out long swell shoulders.
+Foam gates on `−∇²h` of those same sines, which peaks on the chop crests.
+Short dashes drift downwind of the lead swell at 0.012 km/s. The outer plate
+stays dark: swell curvature never reaches the chop gate.
 
-**Done when:** drone at splash shows foam on crests that moves with the
-swell; the hull bottom still meets the water (no hover, no bury). Tests on
-the height helpers if they change. No bake.
+The seat still adds the two height helpers at the plate origin.
+`SPLASH_WATERLINE_ALT_KM` and both amplitudes are unchanged. The flecks and
+the `chop * 0.05` sparkle add are gone so they are not a second foam.
 
-**Files:** `splashOcean.ts`, `terminalSplashFx.ts`, `terminalFx.test.ts`,
-`flight13Attitude.ts` (only if the seat height changes).
+**Done when:** drone at splash shows foam on chop crests that move with the
+harmonics. The hull bottom still meets the water. Height pins in
+`terminalFx.test.ts`. No bake.
+
+**Shipped wiring:** `oceanWaves.ts` owns the term table, the fold, and the
+printed shader. `splashOcean.ts` passes `SPLASH_OCEAN_RADIUS_KM` into that
+printer. `setFrame` is unchanged. Do not add a sixth sine. `oceanCrestFoam`
+stays off the `terminalFx` barrel.
+
+**Files:** `oceanWaves.ts`, `splashOcean.ts`, `splashOceanPaint.ts`,
+`terminalSplashFx.ts`, `terminalFx.ts`, `terminalFx.test.ts`.
 
 ---
 
@@ -1455,6 +1465,7 @@ V28–V47 are in scope. They do not lift the bans below.
 | 2026-09-01 | Five landward Sentinel-2 80 km plates (N / NW / W / SW / S) adjacent to the Starbase surrounds square. Gulf tiles stay Blue Marble. |
 | 2026-09-28 | Queued V28–V47: splash sea (sun path, foam, crown, wet shield, wake, light), Starship hull/plumes/flip, Super Heavy engines-down/raceway/hot-stage/soot, Mechazilla carriage/QDs/mast and liftoff bounce. |
 | 2026-09-28 | V28 shipped: sun-path glitter on the splash and Gulf seas; plate rim feathers into the globe; Gulf beacon/ring/label off inside 30 km. Sun vector is ephemeris `unitToward` in the FX update (not `skySun`). Flight 14 still omits it. |
+| 2026-09-28 | V29 shipped: crest foam from the negative laplacian of the existing five sines, with downwind dashes. Slope was the wave face, so it is not the gate. Seat height unchanged. Static flecks removed. |
 
 ![Sentinel-2 2024 plate (~20 m/px at the pad) versus USDA NAIP 2022 nested plate (~1 m/px)](starbase-sentinel-vs-naip.jpg)
 

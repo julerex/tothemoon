@@ -87,35 +87,6 @@ function paintSeaSwell(
   }
 }
 
-function paintFoamFleck(
-  ctx: CanvasRenderingContext2D,
-  size: number,
-  rng: () => number,
-): void {
-  const x = rng() * size;
-  const y = rng() * size;
-  const len = (0.018 + rng() * 0.05) * size;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate((rng() - 0.5) * 0.8);
-  ctx.strokeStyle = `rgba(236, 248, 255, ${0.12 + rng() * 0.18})`;
-  ctx.lineWidth = 1 + rng() * 1.4;
-  ctx.beginPath();
-  ctx.moveTo(-len * 0.5, 0);
-  ctx.quadraticCurveTo(0, (rng() - 0.5) * 3, len * 0.5, 0);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function paintSeaFoam(
-  ctx: CanvasRenderingContext2D,
-  size: number,
-  rng: () => number,
-): void {
-  ctx.globalCompositeOperation = "lighter";
-  for (let i = 0; i < 90; i++) paintFoamFleck(ctx, size, rng);
-}
-
 function paintSeaEdgeFade(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -134,7 +105,7 @@ function paintSeaEdgeFade(
   ctx.globalCompositeOperation = "source-over";
 }
 
-/** Sky-reflected morning sea with swell bands and foam flecks. */
+/** Sky-reflected morning sea with swell bands. */
 export function paintSunlitOcean(ctx: CanvasRenderingContext2D, size: number): void {
   const cx = size * 0.5;
   const cy = size * 0.5;
@@ -143,7 +114,6 @@ export function paintSunlitOcean(ctx: CanvasRenderingContext2D, size: number): v
   paintSeaBase(ctx, size, cx, cy, r);
   paintSeaMottle(ctx, size, rng);
   paintSeaSwell(ctx, size);
-  paintSeaFoam(ctx, size, rng);
   paintSeaEdgeFade(ctx, size, cx, cy, r);
 }
 
