@@ -10,7 +10,7 @@ import type {MissionClock} from "../../mission/clock";
 import type {timelineWithPrelaunch} from "../../mission/prelaunch";
 import type {assembleWorld,loadEpochBundle} from "./bootstrapMount";
 import {makeClockAndTimeline,makeOrient} from "./bootstrapMount";
-type RuntimeHudWire={clock:MissionClock;timeline:ReturnType<typeof timelineWithPrelaunch>;director:CameraDirector;autoCam:F14AutoCam;cache:Trajectory;orbitGroup:THREE.Group;orbitExtras:THREE.Object3D[];flags:F14Flags;};
+type RuntimeHudWire={clock:MissionClock;timeline:ReturnType<typeof timelineWithPrelaunch>;physicsDurationS:number;director:CameraDirector;autoCam:F14AutoCam;cache:Trajectory;orbitGroup:THREE.Group;orbitExtras:THREE.Object3D[];flags:F14Flags;};
 
 export function makeDisableAutoCam(autoCam: F14AutoCam, getSetUi: () => (e: boolean) => void) {
   return (): void => {
@@ -54,7 +54,7 @@ export function bindRuntimeHud(w: RuntimeHudWire): {
   const setOrbitsVisible = makeSetOrbitsVisible(w);
   setOrbitsVisible(false);
   const wire = makeHudWire(w, disableAutoCam, setOrbitsVisible);
-  const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.cache.samples, "gulf14", w.cache.epoch);
+  const hud = bindHud(w.clock, w.timeline, makeTheaterHudHandlers(wire), w.physicsDurationS, w.cache.samples, "gulf14", w.cache.epoch);
   setAutoCamUi = hud.setAutoCamEnabled;
   w.director.setOnUserControl(() => disableAutoCam());
   w.director.setOnFixedMoveAttempt(() => hud.notifyFixedCamMove());
@@ -205,7 +205,7 @@ export function wireBootstrapHud(
   flags: F14Flags,
 ) {
   return bindRuntimeHud({
-    clock: clockPack.clock, timeline: clockPack.timeline, director: world.director,
+    clock: clockPack.clock, timeline: clockPack.timeline, physicsDurationS: clockPack.physicsDurationS, director: world.director,
     autoCam, cache, orbitGroup: world.sceneParts.orbitGroup,
     orbitExtras: world.orbits.orbitExtras, flags,
   });

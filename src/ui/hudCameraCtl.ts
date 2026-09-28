@@ -1,26 +1,26 @@
 /**
- * Camera rail, double-tap frame, and scene chrome (auto-cam / labels / orbits).
+ * Camera menus and scene chrome (auto-cam / labels / orbits).
  */
 
+import { FIXED_CAMERAS, FREE_LOOK_CAMERAS } from "../camera/cameraMode";
 import type { CameraMode } from "../camera/modes";
-import {
-  applyAutoCamChrome,
-  applyCameraGridPressed,
-  applyPressed,
-} from "./hudApply";
+import { applyAutoCamChrome, applyPressed } from "./hudApply";
 import { flashCameraViewName } from "./hudCameraFlash";
 import {
-  CAM_DOUBLE_TAP_MS,
   CAM_LOCK_NOTE_MS,
   CAMERA_LABELS,
+  cameraModeFromSelect,
+  cameraOptions,
+  cameraSelectState,
   cycleCameraMode,
   FIXED_CAM_LOCK_NOTE,
 } from "./hudCameraLabels";
+import type { CameraFamily } from "./hudCameraLabels";
 import type { HudRuntime } from "./hudTypes";
 
 let camLockHideTimer = 0;
 
-/** Flash the rail note when the user tries to move a fixed camera. */
+/** Flash the lock note when the user tries to move a mounted camera. */
 export function showCamLockNote(rt: HudRuntime): void {
   const el = rt.dom.camLockNoteEl;
   if (!el) return;
@@ -32,10 +32,21 @@ export function showCamLockNote(rt: HudRuntime): void {
   }, CAM_LOCK_NOTE_MS);
 }
 
+/** Write the active mode into the two selects. Assigning `.value` does not fire `change`. */
+export function syncCameraSelects(
+  free: HTMLSelectElement | null,
+  mounted: HTMLSelectElement | null,
+  mode: CameraMode,
+): void {
+  const state = cameraSelectState(mode);
+  if (free) free.value = state.free;
+  if (mounted) mounted.value = state.mounted;
+}
+
 export function rememberCameraMode(rt: HudRuntime, mode: CameraMode): void {
   const switched = mode !== rt.flags.lastCamMode;
   rt.flags.lastCamMode = mode;
-  applyCameraGridPressed(rt.dom.camGridEl, mode);
+  syncCameraSelects(rt.dom.camSelectFree, rt.dom.camSelectMounted, mode);
   if (!switched) return;
   flashCameraViewName(
     rt.dom.camModeEl,
@@ -54,30 +65,13 @@ export function switchCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }
 
-export function frameCamera(rt: HudRuntime, mode: CameraMode): void {
-  if (rt.data.handlers.onCameraFrame) rt.data.handlers.onCameraFrame(mode);
-  else rt.data.handlers.onCamera(mode);
-  rememberCameraMode(rt, mode);
-}
-
-/** Auto-cam cut: update the rail highlight and flash the camera name. */
+/** Auto-cam cut: update the menus and flash the camera name. */
 export function notifyAutoCamera(rt: HudRuntime, mode: CameraMode): void {
   rememberCameraMode(rt, mode);
 }
 
 export function cycleCamera(rt: HudRuntime, dir: -1 | 1 = 1): void {
   switchCamera(rt, cycleCameraMode(rt.flags.lastCamMode, dir));
-}
-
-/** Single tap: switch focus. Double-tap same key: frame object. */
-export function handleCameraKey(rt: HudRuntime, mode: CameraMode, key: string): void {
-  const now = performance.now();
-  const isDouble =
-    rt.flags.lastCamKey === key && now - rt.flags.lastCamKeyT <= CAM_DOUBLE_TAP_MS;
-  rt.flags.lastCamKey = key;
-  rt.flags.lastCamKeyT = now;
-  if (isDouble) frameCamera(rt, mode);
-  else switchCamera(rt, mode);
 }
 
 function syncBroadcastMode(rt: HudRuntime): void {
@@ -134,23 +128,52 @@ export function wireSceneToggleButtons(rt: HudRuntime): void {
   applyPressed(rt.dom.btnOrbits, rt.flags.orbitsEnabled, "Orbits");
 }
 
-function onCamGridClick(rt: HudRuntime, btn: HTMLButtonElement): void {
-  const mode = btn.dataset.cam as CameraMode | undefined;
-  if (!mode) return;
-  handleCameraKey(rt, mode, `cam:${mode}`);
+function fillCameraSelect(
+  select: HTMLSelectElement,
+  family: CameraFamily,
+  modes: readonly CameraMode[],
+): void {
+  select.replaceChildren();
+  for (const option of cameraOptions(modes, "—")) {
+    const node = document.createElement("option");
+    node.value = option.value;
+    node.textContent = option.label;
+    node.disabled = option.disabled;
+    const mode = cameraModeFromSelect(option.value, family);
+    if (mode) node.title = CAMERA_LABELS[mode].detail;
+    select.append(node);
+  }
 }
 
-export function wireCameraRail(rt: HudRuntime): void {
-  rt.dom.camGridEl?.addEventListener("click", (ev) => {
-    const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-cam]");
-    if (btn) onCamGridClick(rt, btn);
+function bindCameraSelect(
+  rt: HudRuntime,
+  select: HTMLSelectElement,
+  family: CameraFamily,
+): void {
+  select.addEventListener("change", () => {
+    const mode = cameraModeFromSelect(select.value, family);
+    if (mode) switchCamera(rt, mode);
   });
-  applyCameraGridPressed(rt.dom.camGridEl, rt.flags.lastCamMode);
 }
 
-/** Auto-cam, labels/orbits, and camera rail. */
+/** Fill both selects once and sync them to the current mode. */
+export function wireCameraMenus(rt: HudRuntime): void {
+  const free = rt.dom.camSelectFree;
+  const mounted = rt.dom.camSelectMounted;
+  if (free) {
+    fillCameraSelect(free, "free", FREE_LOOK_CAMERAS);
+    bindCameraSelect(rt, free, "free");
+  }
+  if (mounted) {
+    fillCameraSelect(mounted, "mounted", FIXED_CAMERAS);
+    bindCameraSelect(rt, mounted, "mounted");
+  }
+  syncCameraSelects(free, mounted, rt.flags.lastCamMode);
+}
+
+/** Auto-cam, labels/orbits, and camera menus. */
 export function wireCameraChrome(rt: HudRuntime): void {
   wireAutoCamButton(rt);
   wireSceneToggleButtons(rt);
-  wireCameraRail(rt);
+  wireCameraMenus(rt);
 }

@@ -58,9 +58,8 @@ export type HudTelStrip = {
   skyEl: HTMLElement | null;
   barBooster: HTMLElement | null;
   barShip: HTMLElement | null;
-  telemetryEl: HTMLElement | null;
-  cameraRailEl: HTMLElement | null;
-  camGridEl: HTMLElement | null;
+  camSelectFree: HTMLSelectElement | null;
+  camSelectMounted: HTMLSelectElement | null;
   camLockNoteEl: HTMLElement | null;
   camIdentEl: HTMLElement | null;
 };
@@ -226,9 +225,8 @@ function collectTelStripB(): Omit<
     spdEl: el("#tel-speed"),
     boosterEl: el("#tel-booster"), shipEl: el("#tel-ship"), thrustEl: el("#tel-thrust"),
     skyEl: q("#tel-sky"), barBooster: q("#bar-booster"), barShip: q("#bar-ship"),
-    telemetryEl: q(".telemetry"),
-    cameraRailEl: q("#camera-rail"),
-    camGridEl: q("#cam-grids"),
+    camSelectFree: q<HTMLSelectElement>("#cam-select-free"),
+    camSelectMounted: q<HTMLSelectElement>("#cam-select-mounted"),
     camLockNoteEl: q("#cam-lock-note"),
     camIdentEl: q("#cam-ident"),
   };

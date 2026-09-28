@@ -4,6 +4,7 @@
 
 import { bookmarkForDigit } from "../mission/bookmarks";
 import { cycleCamera, noteCameraMode, toggleAutoCam, toggleLabels, toggleOrbits } from "./hudCameraCtl";
+import { seekOnePhysicsSecond } from "./hudTransport";
 import {
   anyPanelOpen,
   cycleTheaterViews,
@@ -23,10 +24,18 @@ function preventAnd(e: KeyboardEvent, action: () => void): true {
 }
 
 function isFormTypingTarget(t: EventTarget | null): boolean {
-  if (t instanceof HTMLInputElement && t.type !== "range") return true;
+  if (t instanceof HTMLInputElement) return t.type !== "range";
   if (t instanceof HTMLSelectElement) return true;
   if (t instanceof HTMLTextAreaElement) return true;
+  if (t instanceof HTMLElement && t.isContentEditable) return true;
   return false;
+}
+
+/** `ArrowLeft` → −1, `ArrowRight` → +1, anything else → null. */
+export function arrowSeekDir(code: string): -1 | 1 | null {
+  if (code === "ArrowLeft") return -1;
+  if (code === "ArrowRight") return 1;
+  return null;
 }
 
 function handlePanelToggleKey(rt: HudRuntime, e: KeyboardEvent): boolean {
@@ -146,7 +155,14 @@ function handleToggleSceneKey(rt: HudRuntime, e: KeyboardEvent): boolean {
 }
 
 function onKeyDown(rt: HudRuntime, e: KeyboardEvent): void {
-  if (e.repeat || isFormTypingTarget(e.target)) return;
+  if (isFormTypingTarget(e.target)) return;
+  const dir = arrowSeekDir(e.code);
+  if (dir) {
+    e.preventDefault();
+    seekOnePhysicsSecond(rt, dir);
+    return;
+  }
+  if (e.repeat) return;
   if (handleUiKey(rt, e)) return;
   if (handleTransportKey(rt, e)) return;
   if (handleHoldKeyDown(rt, e)) return;

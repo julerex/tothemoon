@@ -17,9 +17,9 @@ export const CAMERA_LABELS: Record<
     title: "Free camera",
     detail: "No subject track · WASD + T/B pan · drag to look",
   },
-  sun: { title: "Sun", detail: "Free · double-tap rail to frame" },
-  moon: { title: "Moon", detail: "Free · double-tap rail to frame" },
-  earth: { title: "Earth", detail: "Free · double-tap rail to frame" },
+  sun: { title: "Sun", detail: "Free · look at the Sun" },
+  moon: { title: "Moon", detail: "Free · look at the Moon" },
+  earth: { title: "Earth", detail: "Free · wide view of the globe" },
   starbase: {
     title: "Starbase",
     detail: "Fixed · pad track of the stack",
@@ -111,5 +111,68 @@ export function cycleCameraMode(current: CameraMode, dir: -1 | 1): CameraMode {
   return CAMERA_CYCLE[(from + dir + n) % n]!;
 }
 
-/** Double-tap window for rail-button frame zoom (ms). */
-export const CAM_DOUBLE_TAP_MS = 380;
+/** Which dropdown a mode belongs in. */
+export type CameraFamily = "free" | "mounted";
+
+/**
+ * The two selects show at most one real mode.
+ * `""` is the disabled placeholder. Internal `"free"` is both empty.
+ */
+export type CameraSelectState =
+  | { readonly free: CameraMode; readonly mounted: "" }
+  | { readonly free: ""; readonly mounted: CameraMode }
+  | { readonly free: ""; readonly mounted: "" };
+
+/** One `<option>`. `value: ""` is the placeholder. */
+export type CameraOption = Readonly<{
+  value: string;
+  label: string;
+  disabled: boolean;
+}>;
+
+/** Placeholder first, then `modes` in array order. */
+export function cameraOptions(
+  modes: readonly CameraMode[],
+  emptyLabel: string,
+): readonly CameraOption[] {
+  return [
+    { value: "", label: emptyLabel, disabled: true },
+    ...modes.map((mode) => ({
+      value: mode,
+      label: CAMERA_LABELS[mode].title,
+      disabled: false,
+    })),
+  ];
+}
+
+/** Project the active mode onto the two selects. The lists are disjoint. */
+export function cameraSelectState(mode: CameraMode): CameraSelectState {
+  if (FREE_LOOK_CAMERAS.includes(mode)) return { free: mode, mounted: "" };
+  if (FIXED_CAMERAS.includes(mode)) return { free: "", mounted: mode };
+  return { free: "", mounted: "" };
+}
+
+function camerasInFamily(family: CameraFamily): readonly CameraMode[] {
+  switch (family) {
+    case "free":
+      return FREE_LOOK_CAMERAS;
+    case "mounted":
+      return FIXED_CAMERAS;
+    default: {
+      const unexpected: never = family;
+      return unexpected;
+    }
+  }
+}
+
+/**
+ * Parse a select value at the DOM boundary.
+ * A value outside that family's list, including `""`, is null.
+ */
+export function cameraModeFromSelect(
+  value: string,
+  family: CameraFamily,
+): CameraMode | null {
+  const mode = camerasInFamily(family).find((candidate) => candidate === value);
+  return mode ?? null;
+}

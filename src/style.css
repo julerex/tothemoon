@@ -16,9 +16,7 @@
   --radius: 2px;
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-  /* Side-rail width; title clears both */
-  --rail-width: 18rem;
-  /* Ticker + event info + scrubber + footer (rails and overlays sit on this) */
+  /* Ticker + event info + scrubber + footer (overlays sit on this) */
   --bottom-chrome: 6.55rem;
 }
 
@@ -87,7 +85,7 @@ body.menus-active {
   background: var(--bg);
 }
 
-/* Mission HUD (rails, ticker, transport) is theater-only. */
+/* Mission HUD is theater-only. */
 body.menus-active #hud .hud-chrome {
   display: none;
 }
@@ -538,14 +536,14 @@ body.menus-active #hud .hud-chrome {
   gap: 0.75rem;
 }
 
-/* H key: hide chrome (slider, telemetry, title) — K/M overlays still work */
+/* H key: hide chrome (slider, menu button, title) — K/M overlays still work */
 #hud.hud-hidden .hud-chrome {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
-/* Mission clock + playback rate sit above metrics in the top-left rail */
+/* Mission clock and playback rate, above the flight rows in the menu */
 .mission-clock {
   display: flex;
   flex-direction: column;
@@ -583,28 +581,12 @@ body.menus-active #hud .hud-chrome {
 .hud-header {
   pointer-events: none;
   max-width: 22rem;
-  /* Clear both side rails */
   margin-top: 0.85rem;
-  margin-left: var(--rail-width);
-  margin-right: var(--rail-width);
 }
 
-.hud-menu-link {
+.hud-menu-button {
   pointer-events: auto;
-  display: inline-block;
   margin: 0 0 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-decoration: none;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
-}
-
-.hud-menu-link:hover {
-  color: var(--text);
-  text-decoration: none;
 }
 
 .hud-header h1 {
@@ -869,62 +851,21 @@ body.menus-active #hud .hud-chrome {
   user-select: none;
 }
 
-/* Side rails (full height down to the news ticker) */
-.telemetry,
-.camera-rail {
-  position: absolute;
-  top: 0;
-  bottom: var(--bottom-chrome);
-  padding: 0.85rem 0.75rem 0.75rem;
-  box-sizing: border-box;
+.metrics-flight,
+.metrics-camera {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  justify-content: flex-start;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: 0.85rem 0.95rem 0.75rem;
   font-family: var(--mono);
   font-size: 0.78rem;
   line-height: 1.35;
-  width: var(--rail-width);
-  max-width: min(var(--rail-width), 38vw);
-  border-radius: 0;
-  border-top: none;
-  border-bottom: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: opacity 0.35s ease;
-  z-index: 5;
+  min-width: 0;
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.telemetry {
-  left: 0;
-  border-left: none;
-  border-right: 1px solid var(--panel-border);
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.78) 60%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-  pointer-events: none; /* read-only strip; don't block orbit drag */
-}
-
-.camera-rail {
-  right: 0;
-  border-right: none;
-  border-left: 1px solid var(--panel-border);
-  background: linear-gradient(
-    270deg,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.78) 60%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-  pointer-events: auto;
-}
-
-.telemetry > div,
-.camera-rail > div:not(.cam-grid):not(.cam-toggles):not(.cam-rail-groups) {
+.metrics-flight > div,
+.metrics-camera > div {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -932,8 +873,8 @@ body.menus-active #hud .hud-chrome {
   min-width: 0;
 }
 
-.telemetry .label,
-.camera-rail .label {
+.metrics-flight .label,
+.metrics-camera .label {
   color: var(--muted);
   display: block;
   min-width: 0;
@@ -943,14 +884,14 @@ body.menus-active #hud .hud-chrome {
   text-transform: uppercase;
 }
 
-.telemetry > div > span:not(.label),
-.camera-rail > div > span:not(.label) {
+.metrics-flight > div > span:not(.label),
+.metrics-camera > div > span:not(.label) {
   color: var(--text);
   font-size: 0.82rem;
   word-break: break-word;
 }
 
-.camera-rail .cam-pose-vec {
+.metrics-camera .cam-pose-vec {
   font-size: 0.68rem;
   line-height: 1.25;
   white-space: pre-line;
@@ -958,7 +899,7 @@ body.menus-active #hud .hud-chrome {
   word-break: break-word;
 }
 
-.camera-rail > div > span.cam-kind {
+.metrics-camera > div > span.cam-kind {
   color: var(--muted);
   font-size: 0.62rem;
   font-weight: 600;
@@ -998,10 +939,10 @@ body.menus-active #hud .hud-chrome {
 
 .cam-ident {
   position: absolute;
-  right: calc(var(--rail-width) + 1.1rem);
+  right: 1.1rem;
   bottom: calc(var(--bottom-chrome) + 1.15rem);
   z-index: 6;
-  max-width: min(28rem, calc(100% - 2 * var(--rail-width) - 2.2rem));
+  max-width: min(28rem, calc(100% - 2.2rem));
   margin: 0;
   padding: 0.22rem 0.55rem;
   pointer-events: none;
@@ -1076,7 +1017,7 @@ body.menus-active #hud .hud-chrome {
   }
 }
 
-.camera-rail > .cam-compass {
+.metrics-camera > .cam-compass {
   align-items: center;
   gap: 0.18rem;
   margin: 0.1rem 0 0.15rem;
@@ -1153,46 +1094,6 @@ body.menus-active #hud .hud-chrome {
   letter-spacing: 0.06em;
 }
 
-.telemetry .tel-actions {
-  pointer-events: auto;
-  margin-top: auto;
-}
-
-.telemetry .tel-actions button,
-.cam-toggles button {
-  width: 100%;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.32rem 0.4rem;
-}
-
-.cam-rail-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.2rem;
-  min-width: 0;
-}
-
-.cam-rail-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  min-width: 0;
-}
-
-.cam-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.22rem;
-  margin-top: 0.15rem;
-}
-
-.cam-rail-group .cam-grid {
-  margin-top: 0;
-}
-
 .cam-lock-note {
   margin: 0;
   padding: 0.32rem 0.4rem;
@@ -1207,32 +1108,15 @@ body.menus-active #hud .hud-chrome {
   display: none;
 }
 
-.cam-grid button {
-  font-size: 1.05rem;
-  letter-spacing: 0;
-  line-height: 1.1;
-  text-transform: none;
-  padding: 0.28rem 0.08rem;
-  min-width: 0;
-  font-family: inherit, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
-}
-
-.cam-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 0.28rem;
-  margin-top: auto;
-}
-
-.telemetry #date,
-.telemetry #date-texas,
-.telemetry #date-australia {
+.metrics-flight #date,
+.metrics-flight #date-texas,
+.metrics-flight #date-australia {
   font-size: 0.72rem;
   letter-spacing: 0.01em;
 }
 
-.telemetry #date,
-.telemetry #date-australia {
+.metrics-flight #date,
+.metrics-flight #date-australia {
   color: var(--muted);
   font-size: 0.68rem;
 }
@@ -1351,7 +1235,7 @@ body.menus-active #hud .hud-chrome {
   line-height: 1.35;
 }
 
-.telemetry .tel-sky > span:not(.label) {
+.metrics-flight .tel-sky > span:not(.label) {
   font-size: 0.68rem;
   color: var(--muted);
   line-height: 1.3;
@@ -1705,6 +1589,44 @@ kbd {
   width: min(40rem, 100%);
 }
 
+.metrics-controls {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem 0.45rem;
+}
+
+.metrics-controls select {
+  flex: 1 1 11rem;
+  min-width: 8rem;
+  max-width: 100%;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text);
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius);
+  padding: 0.32rem 0.45rem;
+}
+
+.metrics-controls .cam-lock-note {
+  flex: 1 1 100%;
+}
+
+.metrics-card > .menu-top,
+.metrics-card > .keymap-header,
+.metrics-card > .metrics-foot {
+  flex-shrink: 0;
+}
+
+.metrics-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* Help (H) fills the viewport. The key lists stay at the top; the essay scrolls. */
 .help {
   padding: 0;
@@ -1817,7 +1739,7 @@ kbd {
 
 /*
  * Full-bleed above the bottom bar (ticker / event info / scrubber / footer).
- * Bottom clearance matches .telemetry so the time slider stays free.
+ * Bottom clearance keeps the time slider free.
  * KeyMap overrides bottom to 0 below.
  */
 .cross-section,
@@ -2058,15 +1980,11 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   outline: none;
 }
 
-/* Control chrome (left rail, right rail, bottom bar) is part of the Menu. */
-#hud .telemetry,
-#hud .camera-rail,
+/* The scrubber is part of the Menu. Broadcast mode shows only the footer strip. */
 #hud .bottom-bar {
   display: none;
 }
 
-#hud.menu-open .telemetry,
-#hud.menu-open .camera-rail,
 #hud.menu-open .bottom-bar {
   display: flex;
   z-index: 25;
@@ -2076,23 +1994,24 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   position: relative;
 }
 
-#hud:not(.menu-open) .hud-header {
-  margin-left: 0;
-  margin-right: 0;
-}
-
 #hud:not(.menu-open) .cam-ident {
-  right: 1.1rem;
   bottom: 1.15rem;
 }
 
-/* Menu card sits between the rails and above the bottom bar. */
+/* Menu card sits above the bottom bar. A centered card uses 90vh and
+   runs off this shorter box, which hides the camera dropdowns. */
 #hud.menu-open .metrics {
-  top: 0;
-  left: var(--rail-width);
-  right: var(--rail-width);
   bottom: var(--bottom-chrome);
   z-index: 20;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.6rem 0.75rem 0.35rem;
+  box-sizing: border-box;
+}
+
+#hud.menu-open .metrics .metrics-card {
+  max-height: 100%;
+  margin: 0 auto;
 }
 
 .menu-top {
@@ -2128,8 +2047,6 @@ body.earth-gc-standalone .earth-gc:not([hidden]) {
   --bottom-chrome: calc(var(--dial) + 6.5vh);
 }
 
-#hud.broadcast-mode .telemetry,
-#hud.broadcast-mode .camera-rail,
 #hud.broadcast-mode .cam-ident,
 #hud.broadcast-mode .hud-header h1,
 #hud.broadcast-mode .hud-header .subtitle {
@@ -2169,11 +2086,6 @@ body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .broadcast-hud {
   flex: 0 0 auto;
 }
 
-#hud.broadcast-mode .hud-header {
-  margin-left: 0;
-  margin-right: 0;
-}
-
 .broadcast-hud {
   display: none;
   position: absolute;
@@ -2207,8 +2119,6 @@ body:not(.menus-active) #hud.broadcast-mode:not(.menu-open) .broadcast-hud {
   display: none;
 }
 
-#hud.menu-open.broadcast-mode .telemetry,
-#hud.menu-open.broadcast-mode .camera-rail,
 #hud.menu-open.broadcast-mode .bottom-bar {
   display: flex;
 }
@@ -2509,7 +2419,6 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
 
 @media (max-width: 640px) {
   :root {
-    --rail-width: 14rem;
     --bottom-chrome: 7.85rem;
   }
 
@@ -2525,51 +2434,34 @@ body.menus-active #hud.broadcast-mode .broadcast-hud {
     margin-top: 0.65rem;
   }
 
-  .telemetry,
-  .camera-rail {
-    max-width: 34vw;
-    padding: 0.55rem 0.5rem 0.55rem;
+  .metrics-flight,
+  .metrics-camera {
+    padding: 0.55rem 0.7rem 0.55rem;
     font-size: 0.7rem;
     gap: 0.4rem;
   }
 
-  .telemetry .label,
-  .camera-rail .label {
+  .metrics-flight .label,
+  .metrics-camera .label {
     font-size: 0.58rem;
   }
 
-  .telemetry > div > span:not(.label),
-  .camera-rail > div > span:not(.label) {
+  .metrics-flight > div > span:not(.label),
+  .metrics-camera > div > span:not(.label) {
     font-size: 0.72rem;
   }
 
   .cam-ident {
-    right: calc(var(--rail-width) + 0.65rem);
+    right: 0.65rem;
     bottom: calc(var(--bottom-chrome) + 0.7rem);
     font-size: clamp(0.95rem, 3.4vw, 1.35rem);
     letter-spacing: 0.1em;
-    max-width: min(18rem, calc(100% - 2 * var(--rail-width) - 1.2rem));
+    max-width: min(18rem, calc(100% - 1.2rem));
   }
 
   .cam-compass-svg {
     width: 4.4rem;
     height: 4.4rem;
-  }
-
-  .cam-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.16rem;
-  }
-
-  .cam-grid button {
-    font-size: 0.95rem;
-    padding: 0.22rem 0.04rem;
-  }
-
-  .telemetry .tel-actions button,
-  .cam-toggles button {
-    font-size: 0.56rem;
-    padding: 0.26rem 0.12rem;
   }
 
   .news-ticker {

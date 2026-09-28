@@ -4,7 +4,9 @@
 
 import type { CameraMode } from "../camera/modes";
 import type { CinematicBookmark } from "../mission/bookmarks";
+import type { MissionClock } from "../mission/clock";
 import type { NewsBeat } from "../mission/newsTicker";
+import type { PhysicsDurationS } from "../mission/prelaunch";
 import type { ScrubEventTick } from "../mission/scrubEvents";
 import type { MissionTimeline } from "../mission/timeline";
 import type {
@@ -28,10 +30,7 @@ export type HudHandlers = {
   onSpeedNudge: (dir: -1 | 1) => number;
   onScrub: (t: number) => void;
   onCamera: (mode: CameraMode) => void;
-  /**
-   * Focus + size-relative zoom (double-tap number keys).
-   * Falls back to onCamera when omitted.
-   */
+  /** Focus + size-relative zoom. The menu does not call this. */
   onCameraFrame?: (mode: CameraMode) => void;
   /** Q/E yaw about the mode axis, R/F pitch, C/V view-axis roll (hold) */
   onOrbitKey: (
@@ -80,13 +79,13 @@ export type HudFlags = {
   autoCamEnabled: boolean;
   labelsEnabled: boolean;
   orbitsEnabled: boolean;
-  lastCamKey: string | null;
-  lastCamKeyT: number;
   lastNewsId: string | null;
   lastNewsRate: number;
 };
 
 export type HudData = {
+  clock: MissionClock;
+  physicsDurationS: PhysicsDurationS;
   timeline: MissionTimeline;
   handlers: HudHandlers;
   samples: readonly ReadonlySample[];

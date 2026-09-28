@@ -79,3 +79,45 @@ export function timelineWithPrelaunch(
     events: timeline.events.map((ev) => remapEventU(ev, physicsDurationS)),
   };
 }
+
+declare const physicsDurationBrand: unique symbol;
+
+/**
+ * Physics sample span in seconds (liftoff = 0).
+ * The transport clock is longer by {@link PRELAUNCH_COUNTDOWN_S}.
+ */
+export type PhysicsDurationS = number & {
+  readonly [physicsDurationBrand]: "physics-seconds";
+};
+
+/**
+ * Accept a physics span only when `transportDurationS` of it matches the
+ * timeline length. Passing the transport length itself fails the check.
+ */
+export function physicsDurationForTimeline(
+  physicsDurationS: number,
+  timelineDurationS: number,
+): PhysicsDurationS {
+  const expected = transportDurationS(physicsDurationS);
+  if (Math.abs(expected - timelineDurationS) > 1e-6) {
+    throw new Error(
+      `physics duration ${physicsDurationS} is not the span for timeline length ${timelineDurationS}`,
+    );
+  }
+  return physicsDurationS as PhysicsDurationS;
+}
+
+/**
+ * Transport u after stepping one physics second.
+ * Clamps to [−PRELAUNCH_COUNTDOWN_S, physicsDurationS]. An endpoint step
+ * returns the same u.
+ */
+export function physicsStepTransportU(
+  physicsT: number,
+  dir: -1 | 1,
+  physicsDurationS: number,
+): number {
+  const hi = Math.max(physicsDurationS, 0);
+  const next = Math.min(hi, Math.max(-PRELAUNCH_COUNTDOWN_S, physicsT + dir));
+  return physicsTToTransportU(next, physicsDurationS);
+}
